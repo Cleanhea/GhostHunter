@@ -1,0 +1,21 @@
+{
+    "name": "GhostHunter.Runtime",
+    "rootNamespace": "GhostHunter",
+    "references": [
+        "Unity.Netcode.Runtime",
+        "Unity.InputSystem",
+        "Facepunch Transport for Netcode for GameObjects"
+    ],
+    "includePlatforms": [
+        "Editor",
+        "WindowsStandalone64"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

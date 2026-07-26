@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f44522bf6d7de644ab7b60467154022a, type: 3}
+  m_Name: FurnitureThrowSettings_Default
+  m_EditorClassIdentifier: GhostHunter.Runtime::GhostHunter.Furniture.FurnitureThrowSettings
+  _maxTargetDistance: 12
+  _maxHoldDistance: 15
+  _hoverDistance: 3
+  _springStiffness: 60
+  _springDamping: 8
+  _angularDamping: 0.9
+  _maxHoverForce: 500
+  _chargeTime: 1
+  _minChargeRatio: 0.4
+  _oneHolderForce: 30
+  _twoHolderForce: 50
+  _upwardBias: 0.45
+  _heavySoloMultiplier: 0.5
+  _torqueScale: 2
+  _relaunchLockDuration: 2
+  _settledSpeed: 0.5
+  _launchOnFirstRelease: 0
