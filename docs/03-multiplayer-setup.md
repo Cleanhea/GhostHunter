@@ -103,6 +103,60 @@ NetworkRig
 - 빌드 배포 시 exe 옆에도 같은 파일이 있어야 한다.
 - 자체 App ID가 생기면 이 파일과 `SteamLobbyManager`의 `_appId` 인스펙터 값을 함께 바꾼다.
 
+## macOS(맥북)에서 참여시키기
+
+Windows 호스트 ↔ macOS 클라이언트는 Steam P2P로 문제없이 붙는다. 다만 이 저장소에는
+맥을 막는 지점이 두 개 있었다.
+
+### 1. asmdef 플랫폼 (해결됨)
+
+`GhostHunter.Runtime.asmdef`의 `includePlatforms`에 `macOSStandalone`이 없으면
+**Mac 빌드에서 우리 게임플레이·네트워킹 코드가 전부 제외**된다. 에디터 플레이는 되는데
+빌드만 아무 반응이 없다면 이걸 의심한다. 현재는 추가되어 있다.
+
+### 2. Apple Silicon — 네이티브 Steam 바이너리 arm64 (해결됨)
+
+번들 원본 `redistributable_bin/osx/libsteam_api.bundle`은 슬라이스가 **i386 + x86_64뿐이라
+arm64가 없었다.** M시리즈 맥에서 arm64로 실행하면 `DllNotFoundException: libsteam_api` →
+`SteamClient.Init` 실패(HUD: `Steam: 미초기화`)가 났다.
+
+Steamworks SDK 1.52+ 의 **x86_64 + arm64 유니버설** 바이너리로 교체했다.
+경위와 호환성 검증은 [PATCHES.md 패치 4](../Packages/com.community.netcode.transport.facepunch/PATCHES.md).
+확인:
+
+```bash
+lipo -archs Packages/com.community.netcode.transport.facepunch/Runtime/Facepunch/redistributable_bin/osx/libsteam_api.bundle
+# → x86_64 arm64
+```
+
+이제 Apple silicon 에디터/빌드에서 그대로 네이티브로 돌아간다. Rosetta나 Intel 에디터
+설치는 필요 없다.
+
+> **주의:** 매니지드 DLL은 구버전 그대로라 Valve가 폐기한 API 49개가 맥에서만 없다.
+> 안 부르면 무해하지만, 특히 핑 표시를 `QuickStatus().Ping`으로 구현하면
+> **맥에서 `EntryPointNotFoundException`이 난다.** PATCHES.md 패치 4의 경고를 볼 것.
+
+### 3. Mac 빌드의 steam_appid.txt 위치
+
+Finder에서 .app을 실행하면 **작업 디렉터리가 `/`** 라서 .app 옆에 둔 `steam_appid.txt`를
+Steam이 찾지 못한다. `GhostHunter.app/Contents/MacOS/steam_appid.txt`에 넣는다.
+(터미널에서 `cd` 후 실행할 때는 그 디렉터리에 있으면 된다.)
+
+### 4. 계정
+
+같은 Steam 계정으로 두 기기에 동시 로그인할 수 없다. **계정 2개**가 필요하고,
+로비가 `친구 전용(_friendsOnly = true)`이므로 두 계정은 **서로 친구**여야 한다.
+
+### Steam 없이 먼저 크로스 머신 확인하기 (LAN)
+
+가구 던지기 로직만 두 기기에서 확인하고 싶으면 Steam을 건너뛸 수 있다.
+`NetworkRig > UnityTransport` 인스펙터에서:
+
+- 호스트(Windows): `Server Listen Address` = `0.0.0.0`
+- 클라이언트(Mac): `Address` = 호스트의 LAN IP (예: `192.168.0.12`), Port `7777`
+
+양쪽 HUD에서 모드를 `Local`로 두고 Host / Join (로컬). 방화벽에서 UDP 7777 허용 필요.
+
 ## 테스트 전략 — 중요
 
 **같은 Steam 계정으로는 두 인스턴스를 P2P 연결할 수 없다.** SteamId가 같아서 자기 자신에게
@@ -141,6 +195,9 @@ NetworkRig
 | `Steam 초기화 실패` 로그 | Steam 클라이언트 실행 중인가 / `steam_appid.txt` 있는가 |
 | 로비 콜백이 아예 안 옴 | `SteamLobbyManager`가 씬에 있는가 (`RunCallbacks`를 이 컴포넌트가 편다) |
 | HUD에 `Steam: 미초기화` | 위와 동일. Local 모드로는 계속 개발 가능 |
+| Mac에서 `DllNotFoundException: libsteam_api` | `lipo -archs`로 osx 바이너리에 arm64가 있는가 (위 macOS 절) |
+| Mac에서만 `EntryPointNotFoundException` | Valve가 폐기한 API를 쓰고 있다. PATCHES.md 패치 4 참조 |
+| Mac 빌드에 HUD·플레이어가 아예 없음 | `GhostHunter.Runtime.asmdef`에 `macOSStandalone`이 있는가 |
 | 스폰이 조용히 실패 | `NetworkManager`의 Network Prefabs List에 프리팹을 등록했는가 |
 | 씬 전환이 동기화 안 됨 | `NetworkManager.SceneManager.LoadScene`을 썼는가 (`SceneManager.LoadScene` 아님) |
 | 접속은 되는데 아무것도 안 보임 | Player Prefab이 지정되어 있는가 |

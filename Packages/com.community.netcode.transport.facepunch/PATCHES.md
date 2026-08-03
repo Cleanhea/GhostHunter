@@ -75,6 +75,44 @@ NGO 의존성은 최소 버전 표기라 원본 값으로도 해석은 됐지만
 
 ---
 
+## 패치 4 — macOS 네이티브 `steam_api`를 arm64 포함 유니버설로 교체
+
+**파일:** `Runtime/Facepunch/redistributable_bin/osx/libsteam_api.bundle` (바이너리 교체, `.meta` 유지)
+
+원본에 번들된 바이너리는 fat이지만 슬라이스가 **i386 + x86_64뿐이라 arm64가 없었다.**
+Apple Silicon 맥에서 arm64 프로세스(=기본 Unity 에디터/빌드)로 실행하면
+`DllNotFoundException: libsteam_api`가 나고 `SteamClient.Init`이 실패한다.
+
+Valve는 **Steamworks SDK 1.52부터 `libsteam_api`를 x86_64 + arm64 유니버설로 배포**한다.
+그 버전의 바이너리로 교체했다.
+
+```
+교체 전: i386, x86_64            (446,352 bytes, md5 fb32124b2e07ed2aae54fe8823d069b3)
+교체 후: x86_64, arm64           (414,656 bytes, md5 957bd26d782858fc09e7d3730298ad79)
+```
+
+파일명(`libsteam_api.bundle`)과 `.meta`(guid `7d6647fb9d80f5b4f9b2ff1378756bee`,
+Editor + OSXUniversal 활성)는 **그대로 유지했다.** Facepunch의 P/Invoke 이름이
+`libsteam_api`라 파일명이 바뀌면 안 되고, guid가 바뀌면 참조가 끊긴다.
+
+### 호환성 검증 (매니지드 DLL은 구버전 그대로임)
+
+번들된 `Facepunch.Steamworks.MacOS.dll`은 그대로 두고 네이티브만 올렸다. 심볼 대조 결과:
+
+- 매니지드가 P/Invoke 선언한 심볼 924개 중 **49개가 신규 바이너리에 없다.**
+  Valve가 폐기한 인터페이스들이다 — `ISteamAppList`, `ISteamTV`,
+  `ISteamGameServer` heartbeat 계열, `ISteamInput` 햅틱/글리프,
+  `ISteamNetworkingSockets_GetQuickConnectionStatus` 등.
+- P/Invoke는 **호출 시점에 lazy 바인딩**되므로 부르지 않으면 문제가 없다.
+  `SteamClient.Init`이 초기화하는 인터페이스 집합에는 `SteamAppList`/`SteamTV`가 없고,
+  `FacepunchTransport.GetCurrentRtt()`는 `return 0`이라 `QuickStatus`를 부르지 않는다.
+  우리 코드(`SteamLobbyManager` / `ConnectionManager`)도 해당 API를 쓰지 않는다.
+
+> **따라서 위 49개 중 하나라도 쓰게 되면 맥에서 `EntryPointNotFoundException`이 난다.**
+> 특히 핑 표시를 `connection.QuickStatus().Ping`으로 구현하려던 계획(아래 "알려진 한계")은
+> 이 교체 이후 **맥에서 깨진다.** 그때는 매니지드 DLL까지 최신 Facepunch
+> (`Facepunch.Steamworks.Posix.dll`, Linux/macOS 통합본)로 함께 올려야 한다.
+
 ## 패치하지 않은 알려진 한계
 
 - **`GetCurrentRtt()`가 항상 0을 반환한다.** 핑 표시가 필요해지면

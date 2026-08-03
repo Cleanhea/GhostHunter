@@ -51,9 +51,14 @@ Assets/
 
 - 폴더명이 `Debug`가 아니라 **`DebugTools`**인 이유: `GhostHunter.Debug` 네임스페이스는
   `UnityEngine.Debug`를 가려 그 안의 모든 `Debug.Log` 호출을 깨뜨린다.
-- `GhostHunter.Runtime` asmdef는 `includePlatforms`가 **Editor + WindowsStandalone64**로
-  제한되어 있다. Steam DLL이 그 플랫폼에만 존재하기 때문이다. 다른 플랫폼을 타겟하면
-  게임플레이 코드가 통째로 사라진 것처럼 보이므로, 그때는 Steam 코드를 별도 어셈블리로 분리한다.
+- `GhostHunter.Runtime` asmdef는 `includePlatforms`가 **Editor + WindowsStandalone64 +
+  macOSStandalone**로 제한되어 있다. Facepunch 패키지가 매니지드 DLL을 제공하는 플랫폼만
+  넣은 것이다. 목록에 없는 플랫폼을 타겟하면 게임플레이 코드가 통째로 사라진 것처럼 보인다.
+  Steam DLL이 없는 플랫폼(모바일/WebGL 등)이 필요해지면 Steam 코드를 별도 어셈블리로 분리한다.
+- **macOS:** 네이티브 `redistributable_bin/osx/libsteam_api.bundle`을 arm64 포함 유니버설로
+  교체해서 Apple Silicon에서도 네이티브로 돈다(PATCHES.md 패치 4). 대신 매니지드 DLL은
+  구버전이라 Valve가 폐기한 API 49개가 맥에서만 없다 — `QuickStatus().Ping` 같은 걸 쓰면
+  맥에서만 `EntryPointNotFoundException`이 난다.
 - `Assets/Scripts/Temp.cs` 템플릿 잔재는 Prototype 생성 도구가 삭제했다.
 
 ## 멀티플레이 빠른 시작
