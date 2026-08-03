@@ -1,8 +1,10 @@
 using System;
+using System.Collections;
 using Netcode.Transports.Facepunch;
 using Steamworks;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace GhostHunter.Networking
 {
@@ -41,6 +43,11 @@ namespace GhostHunter.Networking
 
         [Tooltip("커맨드라인 -transport=local / -transport=steam 으로 위 설정을 덮어쓴다.")]
         [SerializeField] private bool _allowCommandLineOverride = true;
+
+        [Tooltip("로비 이벤트(HostLobbyReady/JoinTargetResolved)를 받으면 즉시 세션을 시작한다. " +
+                 "Prototype 씬 단독 플레이(HUD) 흐름용. 메인메뉴→로비 흐름에서는 부트스트랩이 꺼서 " +
+                 "로비 UI가 시작 시점을 직접 정한다.")]
+        [SerializeField] private bool _autoStartFromLobbyEvents = true;
 
         public static ConnectionManager Instance { get; private set; }
 
@@ -134,6 +141,12 @@ namespace GhostHunter.Networking
             SetStatus($"트랜스포트: {mode}");
         }
 
+        /// <summary>씬 부트스트랩이 흐름(단독 플레이 vs 메뉴→로비)에 맞게 설정한다.</summary>
+        public void SetAutoStartFromLobbyEvents(bool value)
+        {
+            _autoStartFromLobbyEvents = value;
+        }
+
         /// <summary>
         /// 호스트로 시작한다. Steam 모드에서는 로비를 먼저 만들고,
         /// <see cref="SteamLobbyManager.HostLobbyReady"/> 를 받은 뒤에 실제 StartHost 가 일어난다.
@@ -155,6 +168,13 @@ namespace GhostHunter.Networking
                 return;
             }
 
+            // 메뉴 흐름에서 이미 로비를 만들어 둔 호스트는 로비 재생성 없이 바로 시작한다.
+            if (_lobby.IsInLobby && _lobby.IsLobbyOwner)
+            {
+                StartHostInternal();
+                return;
+            }
+
             try
             {
                 await _lobby.CreateLobbyAsync();
@@ -165,6 +185,80 @@ namespace GhostHunter.Networking
                 Debug.LogError($"[ConnectionManager] 로비 생성 중 예외: {e}");
                 SetStatus($"로비 생성 실패: {e.Message}");
             }
+        }
+
+        /// <summary>
+        /// 게임 씬을 로드한 뒤 그 씬에서 호스트를 시작한다(메뉴→로비 흐름 전용).
+        /// 로비 씬에서 바로 StartHost 하면 플레이어가 스폰 지점 없는 씬에 스폰되므로,
+        /// 반드시 게임 씬이 활성화된 다음 세션을 연다. 성공하면 Steam 로비에
+        /// 게임 시작을 알려 게스트들이 접속하게 한다.
+        /// </summary>
+        public void StartHostInGameScene(string sceneName)
+        {
+            if (!EnsureReadyToStart())
+                return;
+
+            StartCoroutine(StartHostInGameSceneRoutine(sceneName));
+        }
+
+        private IEnumerator StartHostInGameSceneRoutine(string sceneName)
+        {
+            SetStatus($"게임 씬 로드 중... ({sceneName})");
+
+            AsyncOperation loadOperation = SceneManager.LoadSceneAsync(sceneName);
+            if (loadOperation == null)
+            {
+                SetStatus($"씬 '{sceneName}' 을 로드하지 못했습니다. Build Settings 를 확인하세요.");
+                yield break;
+            }
+
+            while (!loadOperation.isDone)
+                yield return null;
+
+            // 씬 오브젝트(스폰 레지스트리 등)의 Awake 가 끝난 다음 프레임에 시작한다.
+            yield return null;
+
+            StartHostInternal();
+
+            if (IsRunning && _transportMode == TransportMode.Steam)
+                _lobby?.MarkGameStarted();
+        }
+
+        /// <summary>
+        /// 알고 있는 호스트 SteamId 로 클라이언트 접속한다. 메뉴→로비 흐름에서는
+        /// 로비 UI가 "게임 시작" 신호를 받은 뒤 직접 부른다.
+        /// </summary>
+        public void ConnectToSteamHost(SteamId hostSteamId)
+        {
+            if (IsRunning)
+            {
+                SetStatus("이미 세션이 실행 중이라 접속 요청을 무시합니다.");
+                return;
+            }
+
+            if (_steamTransport == null)
+            {
+                SetStatus("FacepunchTransport 가 연결되어 있지 않습니다.");
+                return;
+            }
+
+            if (hostSteamId.Value == 0)
+            {
+                SetStatus("호스트 SteamId 가 유효하지 않습니다.");
+                return;
+            }
+
+            _transportMode = TransportMode.Steam;
+
+            if (!ApplyTransport())
+                return;
+
+            _steamTransport.targetSteamId = hostSteamId;
+
+            if (Net.StartClient())
+                SetStatus($"호스트 {hostSteamId} 에 접속 시도 중...");
+            else
+                SetStatus("StartClient 실패.");
         }
 
         /// <summary>
@@ -254,6 +348,10 @@ namespace GhostHunter.Networking
 
         private void HandleHostLobbyReady()
         {
+            // 메뉴 흐름에서는 로비 생성 = 대기실 입장일 뿐이므로 자동 시작하지 않는다.
+            if (!_autoStartFromLobbyEvents)
+                return;
+
             // 로비가 준비된 뒤에야 호스트를 띄운다. 순서가 반대면 참가자가
             // 접속할 대상 SteamId를 알 방법이 없다.
             StartHostInternal();
@@ -261,29 +359,12 @@ namespace GhostHunter.Networking
 
         private void HandleJoinTargetResolved(SteamId hostSteamId)
         {
-            if (IsRunning)
-            {
-                SetStatus("이미 세션이 실행 중이라 접속 요청을 무시합니다.");
-                return;
-            }
-
-            if (_steamTransport == null)
-            {
-                SetStatus("FacepunchTransport 가 연결되어 있지 않습니다.");
-                return;
-            }
-
-            _transportMode = TransportMode.Steam;
-
-            if (!ApplyTransport())
+            // 메뉴 흐름에서는 로비 입장만으로 접속하지 않는다. 호스트 세션이 아직 없을 수
+            // 있으므로 로비 UI가 "게임 시작" 신호를 확인하고 ConnectToSteamHost 를 부른다.
+            if (!_autoStartFromLobbyEvents)
                 return;
 
-            _steamTransport.targetSteamId = hostSteamId;
-
-            if (Net.StartClient())
-                SetStatus($"호스트 {hostSteamId} 에 접속 시도 중...");
-            else
-                SetStatus("StartClient 실패.");
+            ConnectToSteamHost(hostSteamId);
         }
 
         private void HandleClientConnected(ulong clientId)

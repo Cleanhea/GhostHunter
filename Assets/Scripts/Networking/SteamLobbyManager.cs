@@ -26,13 +26,27 @@ namespace GhostHunter.Networking
         /// <summary>로비 데이터에 호스트 SteamId를 담는 키.</summary>
         public const string HostSteamIdKey = "gh_host_steam_id";
 
+        /// <summary>로비 데이터에 방 코드를 담는 키. LobbyList 검색 필터로도 쓴다.</summary>
+        public const string RoomCodeKey = "gh_room_code";
+
+        /// <summary>호스트가 게임을 시작했음을 알리는 로비 데이터 키. 값 "1"이면 시작됨.</summary>
+        public const string GameStartedKey = "gh_game_started";
+
+        /// <summary>멤버별 준비 상태를 담는 멤버 데이터 키. 값 "1"이면 준비 완료.</summary>
+        public const string ReadyMemberKey = "gh_ready";
+
+        /// <summary>0/O, 1/I 처럼 눈으로 헷갈리는 글자를 뺀 방 코드 문자셋.</summary>
+        private const string RoomCodeAlphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+        public const int RoomCodeLength = 6;
+
         [Header("Steam")]
         [SerializeField] private uint _appId = SpacewarAppId;
 
         [Header("Lobby")]
         [SerializeField] private int _maxLobbyMembers = 2;
-        [Tooltip("켜면 친구 목록에 노출되는 공개 로비, 끄면 초대로만 참가 가능.")]
-        [SerializeField] private bool _friendsOnly = true;
+        [Tooltip("켜면 초대/친구 목록으로만 참가 가능. 방 코드 참가는 LobbyList 검색을 쓰므로 " +
+                 "공개 로비(꺼짐)에서만 동작한다.")]
+        [SerializeField] private bool _friendsOnly;
 
         public static SteamLobbyManager Instance { get; private set; }
 
@@ -42,8 +56,27 @@ namespace GhostHunter.Networking
         public Lobby? CurrentLobby { get; private set; }
         public bool IsInLobby => CurrentLobby.HasValue;
 
+        /// <summary>참가자에게 공유하는 사람이 읽는 방 코드. 로비에 없으면 빈 문자열.</summary>
+        public string CurrentRoomCode { get; private set; } = string.Empty;
+
+        public bool IsLobbyOwner =>
+            CurrentLobby.HasValue
+            && SteamClient.IsValid
+            && CurrentLobby.Value.Owner.Id.Value == SteamClient.SteamId.Value;
+
+        /// <summary>호스트가 게임 씬으로 넘어가며 <see cref="MarkGameStarted"/>를 불렀는가.</summary>
+        public bool IsGameStarted =>
+            CurrentLobby.HasValue && CurrentLobby.Value.GetData(GameStartedKey) == "1";
+
+        /// <summary>접속 대상 호스트 SteamId. 로비에 없으면 0.</summary>
+        public SteamId CurrentHostSteamId =>
+            CurrentLobby.HasValue ? ResolveHostSteamId(CurrentLobby.Value) : default;
+
         /// <summary>사람이 읽는 진행 상황. 개발용 HUD가 그대로 표시한다.</summary>
         public event Action<string> StatusChanged;
+
+        /// <summary>멤버 입퇴장·로비/멤버 데이터 변경 등 로비 UI를 다시 그려야 할 때.</summary>
+        public event Action LobbyUpdated;
 
         /// <summary>호스트로서 로비 준비 완료. 이제 StartHost 해도 된다.</summary>
         public event Action HostLobbyReady;
@@ -137,6 +170,8 @@ namespace GhostHunter.Networking
             SteamMatchmaking.OnLobbyEntered += HandleLobbyEntered;
             SteamMatchmaking.OnLobbyMemberJoined += HandleLobbyMemberJoined;
             SteamMatchmaking.OnLobbyMemberLeave += HandleLobbyMemberLeave;
+            SteamMatchmaking.OnLobbyDataChanged += HandleLobbyDataChanged;
+            SteamMatchmaking.OnLobbyMemberDataChanged += HandleLobbyMemberDataChanged;
             SteamFriends.OnGameLobbyJoinRequested += HandleGameLobbyJoinRequested;
 
             _callbacksSubscribed = true;
@@ -151,6 +186,8 @@ namespace GhostHunter.Networking
             SteamMatchmaking.OnLobbyEntered -= HandleLobbyEntered;
             SteamMatchmaking.OnLobbyMemberJoined -= HandleLobbyMemberJoined;
             SteamMatchmaking.OnLobbyMemberLeave -= HandleLobbyMemberLeave;
+            SteamMatchmaking.OnLobbyDataChanged -= HandleLobbyDataChanged;
+            SteamMatchmaking.OnLobbyMemberDataChanged -= HandleLobbyMemberDataChanged;
             SteamFriends.OnGameLobbyJoinRequested -= HandleGameLobbyJoinRequested;
 
             _callbacksSubscribed = false;
@@ -218,6 +255,103 @@ namespace GhostHunter.Networking
             // 성공 시 OnLobbyEntered 콜백이 이어서 처리한다.
         }
 
+        /// <summary>
+        /// 방 코드로 공개 로비를 검색해 참가한다. 코드는 로비 생성 시
+        /// <see cref="RoomCodeKey"/> 데이터로 심어둔 값이다.
+        /// </summary>
+        public async Task JoinLobbyByCodeAsync(string rawCode)
+        {
+            if (!RequireSteam())
+                return;
+
+            if (IsInLobby)
+            {
+                SetStatus("이미 로비에 있습니다. 먼저 나가세요.");
+                return;
+            }
+
+            string code = NormalizeRoomCode(rawCode);
+            if (code.Length != RoomCodeLength)
+            {
+                SetStatus($"방 코드는 {RoomCodeLength}자리입니다. (예: AB3CD9)");
+                return;
+            }
+
+            SetStatus($"방 코드 {code} 검색 중...");
+
+            Lobby[] lobbies = await SteamMatchmaking.LobbyList
+                .WithMaxResults(1)
+                .WithKeyValue(RoomCodeKey, code)
+                .WithSlotsAvailable(1)
+                .FilterDistanceWorldwide()
+                .RequestAsync();
+
+            if (lobbies == null || lobbies.Length == 0)
+            {
+                SetStatus($"코드 {code} 에 해당하는 방을 찾지 못했습니다.");
+                return;
+            }
+
+            await JoinLobbyAsync(lobbies[0].Id);
+        }
+
+        /// <summary>입력값에서 공백 제거·대문자화. 검증은 호출자가 길이로 한다.</summary>
+        public static string NormalizeRoomCode(string rawCode)
+        {
+            return string.IsNullOrEmpty(rawCode)
+                ? string.Empty
+                : rawCode.Trim().ToUpperInvariant();
+        }
+
+        /// <summary>내 준비 상태를 로비 멤버 데이터로 알린다. 모든 멤버에게 콜백이 간다.</summary>
+        public void SetLocalReady(bool ready)
+        {
+            if (!CurrentLobby.HasValue)
+                return;
+
+            CurrentLobby.Value.SetMemberData(ReadyMemberKey, ready ? "1" : "0");
+        }
+
+        public bool IsMemberReady(Friend member)
+        {
+            return CurrentLobby.HasValue
+                   && CurrentLobby.Value.GetMemberData(member, ReadyMemberKey) == "1";
+        }
+
+        /// <summary>호스트를 제외한 전원이 준비 완료인가. 게스트가 없으면 true(솔로 테스트).</summary>
+        public bool AllGuestsReady()
+        {
+            if (!CurrentLobby.HasValue)
+                return false;
+
+            Lobby lobby = CurrentLobby.Value;
+            ulong ownerId = lobby.Owner.Id.Value;
+
+            foreach (Friend member in lobby.Members)
+            {
+                if (member.Id.Value == ownerId)
+                    continue;
+
+                if (lobby.GetMemberData(member, ReadyMemberKey) != "1")
+                    return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// 호스트가 세션을 실제로 띄운 뒤에 부른다. 게스트는 이 신호(로비 데이터 변경)를 받고
+        /// StartClient 한다 — 세션이 없는 호스트에게 미리 접속하는 것을 막기 위한 순서다.
+        /// </summary>
+        public void MarkGameStarted()
+        {
+            if (!CurrentLobby.HasValue || !IsLobbyOwner)
+                return;
+
+            CurrentLobby.Value.SetData(GameStartedKey, "1");
+            SetStatus("게임 시작을 로비에 알렸습니다.");
+        }
+
         public void LeaveLobby()
         {
             if (!CurrentLobby.HasValue)
@@ -225,6 +359,7 @@ namespace GhostHunter.Networking
 
             CurrentLobby.Value.Leave();
             CurrentLobby = null;
+            CurrentRoomCode = string.Empty;
 
             SetStatus("로비에서 나갔습니다.");
             LobbyLeft?.Invoke();
@@ -253,15 +388,31 @@ namespace GhostHunter.Networking
             // 오너 정보가 아직 복제되지 않은 타이밍이 있어 명시적으로 심어둔다.
             lobby.SetData(HostSteamIdKey, SteamClient.SteamId.Value.ToString());
 
+            // 참가자가 검색으로 이 로비를 찾을 수 있게 방 코드를 심는다.
+            CurrentRoomCode = GenerateRoomCode();
+            lobby.SetData(RoomCodeKey, CurrentRoomCode);
+
             CurrentLobby = lobby;
 
-            SetStatus($"로비 생성 완료 ({lobby.Id}). 친구를 초대하세요.");
+            SetStatus($"로비 생성 완료. 방 코드: {CurrentRoomCode}");
             HostLobbyReady?.Invoke();
+            LobbyUpdated?.Invoke();
+        }
+
+        private static string GenerateRoomCode()
+        {
+            var buffer = new char[RoomCodeLength];
+            for (int i = 0; i < buffer.Length; i++)
+                buffer[i] = RoomCodeAlphabet[UnityEngine.Random.Range(0, RoomCodeAlphabet.Length)];
+
+            return new string(buffer);
         }
 
         private void HandleLobbyEntered(Lobby lobby)
         {
             CurrentLobby = lobby;
+            CurrentRoomCode = lobby.GetData(RoomCodeKey) ?? string.Empty;
+            LobbyUpdated?.Invoke();
 
             // 호스트 자신도 자기 로비에 들어오면서 이 콜백을 받는다. 그 경우는 무시한다.
             // (SteamId 끼리 == 비교는 ulong 암시적 변환에 의존하므로 Value 로 명시 비교한다.)
@@ -294,11 +445,29 @@ namespace GhostHunter.Networking
         private void HandleLobbyMemberJoined(Lobby lobby, Friend friend)
         {
             SetStatus($"{friend.Name} 님이 로비에 참가했습니다. ({lobby.MemberCount}/{_maxLobbyMembers})");
+            LobbyUpdated?.Invoke();
         }
 
         private void HandleLobbyMemberLeave(Lobby lobby, Friend friend)
         {
             SetStatus($"{friend.Name} 님이 로비를 떠났습니다. ({lobby.MemberCount}/{_maxLobbyMembers})");
+            LobbyUpdated?.Invoke();
+        }
+
+        private void HandleLobbyDataChanged(Lobby lobby)
+        {
+            if (!CurrentLobby.HasValue || CurrentLobby.Value.Id.Value != lobby.Id.Value)
+                return;
+
+            LobbyUpdated?.Invoke();
+        }
+
+        private void HandleLobbyMemberDataChanged(Lobby lobby, Friend friend)
+        {
+            if (!CurrentLobby.HasValue || CurrentLobby.Value.Id.Value != lobby.Id.Value)
+                return;
+
+            LobbyUpdated?.Invoke();
         }
 
         /// <summary>친구 목록/오버레이에서 "게임 참가"를 눌렀을 때.</summary>

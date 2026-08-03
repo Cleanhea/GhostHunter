@@ -56,6 +56,9 @@ namespace GhostHunter.DebugTools
 
         private void HandleStatus(string message) => _lastStatus = message;
 
+        /// <summary>메뉴 씬처럼 실제 UI가 있는 곳에서는 부트스트랩이 끈다. 토글 키는 계속 동작한다.</summary>
+        public void SetVisible(bool visible) => _visible = visible;
+
         private void OnGUI()
         {
             if (!_visible)

@@ -4,7 +4,8 @@
     "references": [
         "Unity.Netcode.Runtime",
         "Unity.InputSystem",
-        "Facepunch Transport for Netcode for GameObjects"
+        "Facepunch Transport for Netcode for GameObjects",
+        "UnityEngine.UI"
     ],
     "includePlatforms": [
         "Editor",

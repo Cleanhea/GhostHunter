@@ -1,114 +1,43 @@
-using GhostHunter.DebugTools;
 using GhostHunter.Networking;
-using Netcode.Transports.Facepunch;
 using Unity.Netcode;
-using Unity.Netcode.Transports.UTP;
 using UnityEditor;
-using UnityEditor.SceneManagement;
 using UnityEngine;
 
 namespace GhostHunter.EditorTools
 {
     /// <summary>
-    /// 네트워크 리그(NetworkManager + 트랜스포트 2종 + Steam 로비 + 접속 HUD)를 한 번에 만든다.
+    /// 네트워크 리그 프리팹으로 가는 진입점.
     ///
-    /// 손으로 배선하면 컴포넌트 5개와 직렬화 참조 3개를 빠짐없이 연결해야 하는데,
-    /// 하나만 빠져도 런타임에 조용히 실패한다(특히 ConnectionManager의 트랜스포트 참조).
-    /// 그 실수를 없애려고 도구로 만들었다.
+    /// 예전에는 이 도구가 리그를 씬에 직접 만들었지만, 지금 리그는
+    /// <c>Assets/Prefabs/NetworkRig.prefab</c> 하나뿐이고 각 씬은
+    /// <see cref="NetworkRigBootstrap"/>으로 "없을 때만" 생성한다. 씬에 리그를 또 만들면
+    /// 부트스트랩과 경쟁해 <see cref="NetworkManager"/>가 둘 생길 수 있어(NGO는 중복을
+    /// 정리해 주지 않는다) 생성 대신 프리팹을 열어 주기만 한다.
     /// </summary>
     public static class NetworkRigSetup
     {
-        private const string RigName = "NetworkRig";
-
-        [MenuItem("GhostHunter/네트워크 리그 생성", priority = 0)]
-        public static void CreateNetworkRig()
+        [MenuItem("GhostHunter/네트워크 리그 프리팹 열기", priority = 0)]
+        public static void SelectNetworkRigPrefab()
         {
-            var existing = Object.FindFirstObjectByType<NetworkManager>();
-            if (existing != null)
+            GameObject prefab = PrototypeSceneSetup.EnsureNetworkRigPrefab();
+
+            Selection.activeGameObject = prefab;
+            EditorGUIUtility.PingObject(prefab);
+
+            var sceneRig = Object.FindFirstObjectByType<NetworkManager>();
+            if (sceneRig != null)
             {
-                Selection.activeGameObject = existing.gameObject;
-                EditorGUIUtility.PingObject(existing.gameObject);
                 Debug.LogWarning(
-                    $"[NetworkRigSetup] 씬에 이미 NetworkManager 가 있습니다 ('{existing.name}'). " +
-                    "중복 생성하지 않고 선택만 했습니다.");
-                return;
+                    $"[NetworkRigSetup] 현재 씬에 NetworkManager 가 직접 배치되어 있습니다 ('{sceneRig.name}').\n" +
+                    "리그는 프리팹 + NetworkBootstrap 으로만 들어가야 합니다. 씬의 리그를 지우고 " +
+                    "'GhostHunter > 프로토타입 게임 생성' 으로 씬을 재생성하세요.");
             }
-
-            var go = new GameObject(RigName);
-            Undo.RegisterCreatedObjectUndo(go, "Create Network Rig");
-
-            // 순서 주의: NetworkManager 를 먼저 붙여야 트랜스포트들이 붙을 때
-            // NetworkManager 를 찾아 자기 자신을 등록할 수 있다.
-            var networkManager = Undo.AddComponent<NetworkManager>(go);
-            var steamTransport = Undo.AddComponent<FacepunchTransport>(go);
-            var localTransport = Undo.AddComponent<UnityTransport>(go);
-            Undo.AddComponent<SteamLobbyManager>(go);
-            var connection = Undo.AddComponent<ConnectionManager>(go);
-            Undo.AddComponent<ConnectionHud>(go);
-
-            ConfigureNetworkManager(networkManager, steamTransport);
-            WireConnectionManager(connection, networkManager, steamTransport, localTransport);
-
-            Selection.activeGameObject = go;
-            EditorSceneManager.MarkSceneDirty(go.scene);
 
             Debug.Log(
-                "[NetworkRigSetup] 네트워크 리그를 만들었습니다.\n" +
-                "다음 할 일:\n" +
-                "  1. NetworkManager 의 Player Prefab 을 지정 (플레이어 프리팹이 생긴 뒤)\n" +
-                "  2. 씬 저장\n" +
-                "  3. 플레이 → F1 HUD 에서 Host / Join 테스트");
-        }
-
-        private static void ConfigureNetworkManager(NetworkManager networkManager, NetworkTransport defaultTransport)
-        {
-            // NetworkConfig 는 초기화자 없는 public 필드라 상황에 따라 null 일 수 있다.
-            networkManager.NetworkConfig ??= new NetworkConfig();
-
-            // 기본은 Steam 경로. 로컬 테스트는 ConnectionManager 가 런타임에 갈아끼운다.
-            networkManager.NetworkConfig.NetworkTransport = defaultTransport;
-            networkManager.NetworkConfig.EnableSceneManagement = true;
-
-            // 트랜스포트가 Steam 연결 과정을 Developer 레벨로 로그한다.
-            // 초기 세팅 단계에서는 이 로그가 없으면 어디서 막혔는지 알 수 없다.
-            networkManager.LogLevel = LogLevel.Developer;
-
-            EditorUtility.SetDirty(networkManager);
-        }
-
-        private static void WireConnectionManager(
-            ConnectionManager connection,
-            NetworkManager networkManager,
-            FacepunchTransport steamTransport,
-            UnityTransport localTransport)
-        {
-            // private [SerializeField] 라 코드로 직접 못 넣는다. SerializedObject 로 우회한다.
-            // 필드명을 문자열로 쓰는 지점이라, 이름을 바꾸면 여기도 같이 고쳐야 한다.
-            var so = new SerializedObject(connection);
-
-            AssignReference(so, "_networkManager", networkManager);
-            AssignReference(so, "_steamTransport", steamTransport);
-            AssignReference(so, "_localTransport", localTransport);
-
-            so.ApplyModifiedPropertiesWithoutUndo();
-            EditorUtility.SetDirty(connection);
-        }
-
-        private static void AssignReference(SerializedObject so, string propertyPath, Object value)
-        {
-            SerializedProperty property = so.FindProperty(propertyPath);
-
-            if (property == null)
-            {
-                // 필드명이 바뀌었는데 이 도구를 안 고친 경우. 조용히 넘어가면
-                // "리그를 만들었는데 동작은 안 하는" 상태가 되므로 크게 알린다.
-                Debug.LogError(
-                    $"[NetworkRigSetup] ConnectionManager 에서 '{propertyPath}' 필드를 찾지 못했습니다. " +
-                    "필드명이 바뀌었다면 NetworkRigSetup.cs 도 함께 고쳐야 합니다.");
-                return;
-            }
-
-            property.objectReferenceValue = value;
+                "[NetworkRigSetup] 리그 프리팹을 선택했습니다.\n" +
+                "리그 구성을 바꾸려면 이 프리팹을 편집하거나 PrototypeSceneSetup." +
+                nameof(PrototypeSceneSetup.CreateOrUpdateNetworkRigPrefab) + " 를 고친다.\n" +
+                "씬에 리그를 추가하는 방법은 NetworkBootstrap 오브젝트뿐이다.");
         }
     }
 }

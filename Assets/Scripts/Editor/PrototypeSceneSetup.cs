@@ -29,6 +29,9 @@ namespace GhostHunter.EditorTools
     public static class PrototypeSceneSetup
     {
         private const string ScenePath = "Assets/Scenes/Prototype.unity";
+        internal const string MainMenuScenePath = "Assets/Scenes/MainMenu.unity";
+        internal const string LobbyScenePath = "Assets/Scenes/Lobby.unity";
+        internal const string NetworkRigPrefabPath = "Assets/Prefabs/NetworkRig.prefab";
         private const string PlayerPrefabPath = "Assets/Prefabs/Player.prefab";
         private const string LightFurniturePrefabPath = "Assets/Prefabs/Furniture_Light_Cube.prefab";
         private const string HeavyFurniturePrefabPath = "Assets/Prefabs/Furniture_Heavy_Cube.prefab";
@@ -134,11 +137,12 @@ namespace GhostHunter.EditorTools
                 lightFurniturePrefab,
                 heavyFurniturePrefab);
 
+            GameObject rigPrefab = CreateOrUpdateNetworkRigPrefab(playerPrefab, networkPrefabs);
+
             CreatePrototypeScene(
-                playerPrefab,
+                rigPrefab,
                 lightFurniturePrefab,
                 heavyFurniturePrefab,
-                networkPrefabs,
                 floorMaterial,
                 wallMaterial);
 
@@ -149,6 +153,7 @@ namespace GhostHunter.EditorTools
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
 
+            FlushNetworkPrefabIdentity();
             ValidateGeneratedAssets();
             Debug.Log(
                 "[PrototypeSceneSetup] Prototype 씬과 게임플레이 프리팹 생성 완료.\n" +
@@ -358,9 +363,25 @@ namespace GhostHunter.EditorTools
 
             SetObjectReference(spawn, "_motor", motor);
 
-            GameObject prefab = PrefabUtility.SaveAsPrefabAsset(root, PlayerPrefabPath);
+            return SavePrefab(root, PlayerPrefabPath);
+        }
+
+        /// <summary>
+        /// 임시 씬 오브젝트를 프리팹으로 저장하고, 저장된 에셋을 강제 재임포트한다.
+        ///
+        /// 재임포트가 필요한 이유: <see cref="NetworkObject"/>는 OnValidate 에서
+        /// GlobalObjectId 로 GlobalObjectIdHash 를 계산하는데, SaveAsPrefabAsset 시점에는
+        /// 원본이 아직 "씬 오브젝트"라 씬 기준 ID로 계산된다. 그 결과 프리팹마다 값이
+        /// 겹치고 m_InScenePlaced 가 true 로 박혀, NGO 가 프리팹을 구분하지 못한다.
+        /// ForceUpdate 임포트를 걸면 에셋 기준으로 OnValidate 가 다시 돌아 고유 해시가 잡힌다.
+        /// </summary>
+        private static GameObject SavePrefab(GameObject root, string path)
+        {
+            PrefabUtility.SaveAsPrefabAsset(root, path);
             Object.DestroyImmediate(root);
-            return prefab;
+
+            AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
+            return AssetDatabase.LoadAssetAtPath<GameObject>(path);
         }
 
         private static GameObject CreateFurniturePrefab(
@@ -412,9 +433,7 @@ namespace GhostHunter.EditorTools
             SetObjectReference(launcher, "_settings", throwSettings);
             SetObjectReference(outline, "_outlineRenderer", outlineRenderer);
 
-            GameObject prefab = PrefabUtility.SaveAsPrefabAsset(root, path);
-            Object.DestroyImmediate(root);
-            return prefab;
+            return SavePrefab(root, path);
         }
 
         private static NetworkPrefabsList ConfigureNetworkPrefabs(params GameObject[] prefabs)
@@ -443,10 +462,9 @@ namespace GhostHunter.EditorTools
         }
 
         private static void CreatePrototypeScene(
-            GameObject playerPrefab,
+            GameObject rigPrefab,
             GameObject lightFurniturePrefab,
             GameObject heavyFurniturePrefab,
-            NetworkPrefabsList networkPrefabs,
             Material floorMaterial,
             Material wallMaterial)
         {
@@ -457,17 +475,37 @@ namespace GhostHunter.EditorTools
             CreateOverviewCamera();
             CreatePlayerSpawns();
             CreateFurnitureSpawner(lightFurniturePrefab, heavyFurniturePrefab);
-            CreateNetworkRig(playerPrefab, networkPrefabs);
+
+            // 단독 플레이 진입점: 리그가 없으면 프리팹에서 만들고, HUD 로 즉시 Host/Join 한다.
+            // 메뉴 흐름으로 들어온 경우에는 앞선 씬의 영속 리그가 있어 아무것도 하지 않는다.
+            CreateNetworkBootstrap(
+                rigPrefab,
+                autoStartFromLobbyEvents: true,
+                connectionHudVisible: true);
 
             var ui = new GameObject("PrototypeUI");
             ui.AddComponent<CrosshairUI>();
             ui.AddComponent<ChargeGaugeUI>();
 
             EditorSceneManager.SaveScene(scene, ScenePath);
-            EditorBuildSettings.scenes = new[]
+            SyncBuildScenes();
+        }
+
+        /// <summary>
+        /// Build Settings 씬 목록을 실제 존재하는 씬으로 맞춘다. MainMenu 가 있으면
+        /// 빌드의 시작 씬이 되도록 항상 맨 앞에 둔다.
+        /// </summary>
+        internal static void SyncBuildScenes()
+        {
+            var scenes = new List<EditorBuildSettingsScene>();
+
+            foreach (string path in new[] { MainMenuScenePath, LobbyScenePath, ScenePath })
             {
-                new EditorBuildSettingsScene(ScenePath, true),
-            };
+                if (AssetDatabase.LoadAssetAtPath<SceneAsset>(path) != null)
+                    scenes.Add(new EditorBuildSettingsScene(path, true));
+            }
+
+            EditorBuildSettings.scenes = scenes.ToArray();
         }
 
         private static void CreateLighting()
@@ -627,7 +665,14 @@ namespace GhostHunter.EditorTools
             return point.transform;
         }
 
-        private static void CreateNetworkRig(GameObject playerPrefab, NetworkPrefabsList networkPrefabs)
+        /// <summary>
+        /// 영속 네트워크 리그를 프리팹으로 만든다. 씬에 직접 배치하지 않고
+        /// <see cref="NetworkRigBootstrap"/> 이 "없을 때만" 생성한다 — 메뉴 흐름과
+        /// 단독 플레이가 같은 리그를 공유하면서 NetworkManager 중복을 막기 위해서다.
+        /// </summary>
+        internal static GameObject CreateOrUpdateNetworkRigPrefab(
+            GameObject playerPrefab,
+            NetworkPrefabsList networkPrefabs)
         {
             var rig = new GameObject("NetworkRig");
             NetworkManager networkManager = rig.AddComponent<NetworkManager>();
@@ -651,11 +696,40 @@ namespace GhostHunter.EditorTools
             SetObjectReference(connection, "_localTransport", localTransport);
             SetEnum(connection, "_transportMode", (int)TransportMode.Local);
 
-            EditorUtility.SetDirty(networkManager);
-            EditorUtility.SetDirty(connection);
+            return SavePrefab(rig, NetworkRigPrefabPath);
         }
 
-        private static void SetObjectReference(Object target, string propertyName, Object value)
+        /// <summary>메뉴 씬 생성 도구가 리그 프리팹을 요구할 때. 없으면 프로토타입 생성을 먼저 돌린다.</summary>
+        internal static GameObject EnsureNetworkRigPrefab()
+        {
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(NetworkRigPrefabPath);
+            if (prefab != null)
+                return prefab;
+
+            SetupPrototype();
+
+            prefab = AssetDatabase.LoadAssetAtPath<GameObject>(NetworkRigPrefabPath);
+            if (prefab == null)
+                throw new MissingReferenceException($"리그 프리팹 생성 실패: {NetworkRigPrefabPath}");
+
+            return prefab;
+        }
+
+        /// <summary>현재 열린 씬에 리그 부트스트랩 오브젝트를 만든다.</summary>
+        internal static void CreateNetworkBootstrap(
+            GameObject rigPrefab,
+            bool autoStartFromLobbyEvents,
+            bool connectionHudVisible)
+        {
+            var bootstrapObject = new GameObject("NetworkBootstrap");
+            NetworkRigBootstrap bootstrap = bootstrapObject.AddComponent<NetworkRigBootstrap>();
+
+            SetObjectReference(bootstrap, "_rigPrefab", rigPrefab);
+            SetBoolean(bootstrap, "_autoStartFromLobbyEvents", autoStartFromLobbyEvents);
+            SetBoolean(bootstrap, "_connectionHudVisible", connectionHudVisible);
+        }
+
+        internal static void SetObjectReference(Object target, string propertyName, Object value)
         {
             var serialized = new SerializedObject(target);
             SerializedProperty property = serialized.FindProperty(propertyName);
@@ -667,7 +741,7 @@ namespace GhostHunter.EditorTools
             EditorUtility.SetDirty(target);
         }
 
-        private static void SetObjectArray(Object target, string propertyName, Object[] values)
+        internal static void SetObjectArray(Object target, string propertyName, Object[] values)
         {
             var serialized = new SerializedObject(target);
             SerializedProperty property = serialized.FindProperty(propertyName);
@@ -694,7 +768,7 @@ namespace GhostHunter.EditorTools
             EditorUtility.SetDirty(target);
         }
 
-        private static void SetBoolean(Object target, string propertyName, bool value)
+        internal static void SetBoolean(Object target, string propertyName, bool value)
         {
             var serialized = new SerializedObject(target);
             SerializedProperty property = serialized.FindProperty(propertyName);
@@ -711,6 +785,7 @@ namespace GhostHunter.EditorTools
             RequireAsset<GameObject>(PlayerPrefabPath);
             RequireAsset<GameObject>(LightFurniturePrefabPath);
             RequireAsset<GameObject>(HeavyFurniturePrefabPath);
+            RequireAsset<GameObject>(NetworkRigPrefabPath);
             RequireAsset<SceneAsset>(ScenePath);
 
             GameObject player = AssetDatabase.LoadAssetAtPath<GameObject>(PlayerPrefabPath);
@@ -727,6 +802,80 @@ namespace GhostHunter.EditorTools
                 || furniture.GetComponent<FurnitureLauncher>() == null)
             {
                 throw new MissingComponentException("Furniture 프리팹의 필수 컴포넌트가 빠졌습니다.");
+            }
+
+            ValidateNetworkPrefabIdentity();
+        }
+
+        private static readonly string[] NetworkPrefabPaths =
+        {
+            PlayerPrefabPath,
+            LightFurniturePrefabPath,
+            HeavyFurniturePrefabPath,
+        };
+
+        /// <summary>
+        /// 재임포트로 고쳐진 GlobalObjectIdHash 를 디스크까지 내려보낸다.
+        ///
+        /// <see cref="SavePrefab"/> 의 ForceUpdate 임포트가 OnValidate 를 다시 돌려 값을
+        /// 바로잡지만, 그 SetDirty 는 앞선 SaveAssets 보다 늦게 일어나서 메모리만 맞고
+        /// 파일은 잘못된 값(세 프리팹이 같은 해시)이 남는다. 여기서 명시적으로 한 번 더
+        /// 저장해야 커밋되는 .prefab 이 실제로 올바른 상태가 된다.
+        /// </summary>
+        private static void FlushNetworkPrefabIdentity()
+        {
+            foreach (string path in NetworkPrefabPaths)
+            {
+                GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+                if (prefab == null)
+                    continue;
+
+                EditorUtility.SetDirty(prefab.GetComponent<NetworkObject>());
+                EditorUtility.SetDirty(prefab);
+            }
+
+            AssetDatabase.SaveAssets();
+        }
+
+        /// <summary>
+        /// 네트워크 프리팹마다 GlobalObjectIdHash 가 0이 아니고 서로 겹치지 않는지 본다.
+        /// 겹치면 NGO 가 스폰 시 프리팹을 구분하지 못하는데, 에러 없이 엉뚱한 것이
+        /// 스폰되는 식으로 조용히 깨져서 여기서 잡지 않으면 알아채기 어렵다.
+        /// </summary>
+        private static void ValidateNetworkPrefabIdentity()
+        {
+            var seen = new Dictionary<uint, string>();
+
+            foreach (string path in NetworkPrefabPaths)
+            {
+                GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+                var networkObject = prefab.GetComponent<NetworkObject>();
+
+                // GlobalObjectIdHash 는 internal 이라 SerializedObject 로 읽는다.
+                var serialized = new SerializedObject(networkObject);
+                uint hash = (uint)serialized.FindProperty("GlobalObjectIdHash").longValue;
+                bool inScenePlaced = serialized.FindProperty("m_InScenePlaced").boolValue;
+
+                if (hash == 0)
+                {
+                    throw new InvalidOperationException(
+                        $"{path} 의 GlobalObjectIdHash 가 0입니다. 프리팹을 재임포트해야 합니다.");
+                }
+
+                if (inScenePlaced)
+                {
+                    throw new InvalidOperationException(
+                        $"{path} 이 in-scene placed 로 표시돼 있습니다. 프리팹 에셋은 false 여야 합니다.");
+                }
+
+                if (seen.TryGetValue(hash, out string other))
+                {
+                    throw new InvalidOperationException(
+                        $"{path} 와 {other} 의 GlobalObjectIdHash 가 {hash} 로 같습니다. " +
+                        "NGO 가 두 프리팹을 구분할 수 없습니다.");
+                }
+
+                seen.Add(hash, path);
             }
         }
 

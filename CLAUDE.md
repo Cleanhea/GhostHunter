@@ -35,17 +35,17 @@ GhostHunter — 1인칭 멀티플레이 "가구 던지기" 프로토타입.
 
 ```
 Assets/
-├─ Scenes/           Prototype (현재 플레이 가능한 통합 프로토타입), SampleScene(템플릿)
+├─ Scenes/           MainMenu → Lobby → Prototype (빌드 순서), SampleScene(템플릿)
 ├─ Scripts/          asmdef: GhostHunter.Runtime
-│  ├─ Core/          GameLayers 등 상수·공통
-│  ├─ Networking/    SteamLobbyManager, ConnectionManager        ← 구현됨
+│  ├─ Core/          GameLayers, GameScenes 등 상수·공통
+│  ├─ Networking/    SteamLobbyManager, ConnectionManager, NetworkRigBootstrap ← 구현됨
 │  ├─ Player/        이동, 시점, 플레이어 네트워크 표현            ← 구현됨
 │  ├─ Interaction/   조준 타겟팅, 그랩 컨트롤러                   ← 구현됨
 │  ├─ Furniture/     가구 오브젝트, 부양 모터, 발사, 아웃라인       ← 구현됨
-│  ├─ UI/            크로스헤어, 차지 게이지                      ← 구현됨
+│  ├─ UI/            크로스헤어, 차지 게이지, 메인메뉴/로비 화면    ← 구현됨
 │  ├─ DebugTools/    ConnectionHud, 런타임 스모크 테스트           ← 구현됨
-│  └─ Editor/        NetworkRigSetup, PrototypeSceneSetup        ← 구현됨
-├─ Prefabs/          Player, Furniture_Light_Cube, Furniture_Heavy_Cube
+│  └─ Editor/        NetworkRigSetup, PrototypeSceneSetup, MenuScenesSetup ← 구현됨
+├─ Prefabs/          NetworkRig, Player, Furniture_Light_Cube, Furniture_Heavy_Cube
 └─ Settings/         URP 에셋 (건드리지 말 것)
 ```
 
@@ -61,13 +61,48 @@ Assets/
   맥에서만 `EntryPointNotFoundException`이 난다.
 - `Assets/Scripts/Temp.cs` 템플릿 잔재는 Prototype 생성 도구가 삭제했다.
 
+## 네트워크 리그는 씬에 배치하지 않는다
+
+`NetworkManager` + 트랜스포트 + `SteamLobbyManager` + `ConnectionManager`는
+`Assets/Prefabs/NetworkRig.prefab` **하나**에 들어 있고, 각 씬에는 `NetworkBootstrap`
+오브젝트만 있다. 부트스트랩은 `ConnectionManager.Instance`가 없을 때만 리그를 생성한다 —
+리그는 `NetworkManager`가 스스로 `DontDestroyOnLoad` 하므로 씬을 넘어 살아남고, 씬마다
+리그를 배치하면 NGO가 정리하지 않는 중복 `NetworkManager`가 생긴다.
+
+씬별 부트스트랩 설정(`_autoStartFromLobbyEvents`)이 흐름을 가른다.
+- **Prototype 단독 플레이**: 켬 — 로비가 준비되면 즉시 세션을 시작한다(HUD 흐름).
+- **MainMenu / Lobby**: 끔 — 로비 입장은 대기실일 뿐이고, 세션 시작 시점은 로비 UI가 정한다.
+
+### 네트워크 프리팹의 GlobalObjectIdHash 함정
+
+`PrefabUtility.SaveAsPrefabAsset`을 임시 **씬 오브젝트**에 대해 부르면, `NetworkObject.OnValidate`가
+에셋이 아니라 씬 기준으로 해시를 계산해서 **모든 프리팹이 같은 해시**를 갖고 `m_InScenePlaced`가
+true로 박힌다. NGO가 프리팹을 구분하지 못하는데 에러 없이 엉뚱한 게 스폰되는 식으로 조용히 깨진다.
+
+`PrototypeSceneSetup`은 저장 후 `ImportAsset(ForceUpdate)`로 재계산시키고,
+`FlushNetworkPrefabIdentity()`로 디스크까지 내려보낸 뒤 `ValidateNetworkPrefabIdentity()`로
+해시가 0이 아니고 서로 겹치지 않는지 검사한다. 네트워크 프리팹을 새로 추가하면
+`NetworkPrefabPaths`에도 넣어야 이 검사에 걸린다.
+
 ## 멀티플레이 빠른 시작
 
-1. `Assets/Scenes/Prototype.unity`을 연다. 네트워크 리그와 게임플레이 배선이 이미 들어 있다.
-2. 플레이 → 접속 HUD에서 `Local` / **Host**를 누른다. **F1**로 HUD를 토글한다.
-3. Steam 테스트는 세션 정지 중 HUD 모드를 `Steam`으로 바꾼다.
+**메뉴 흐름 (Steam 필요):** `Assets/Scenes/MainMenu.unity`을 열고 플레이한다.
 
-씬/프리팹을 다시 생성해야 하면 메뉴 **`GhostHunter > 프로토타입 게임 생성`**을 사용한다.
+1. **방 생성** → Steam 로비 생성 + 6자리 방 코드 발급 → 로비 씬으로 이동.
+2. 상대는 **방 참가**에 방 코드를 입력하거나, 호스트의 **초대** 오버레이로 들어온다.
+3. 게스트가 **준비**를 누르면 호스트의 **게임 시작**이 활성화된다.
+4. 호스트가 시작하면 Prototype 씬을 로드한 뒤 `StartHost` → 로비에 시작 신호 → 게스트 접속.
+
+세션 시작 순서(씬 로드 → StartHost → 로비 신호)는 지켜야 한다. 로비 씬에서 바로
+`StartHost` 하면 플레이어가 스폰 지점 없는 씬에 스폰되고, 신호를 먼저 보내면 게스트가
+세션 없는 호스트에 접속한다.
+
+**단독 플레이 (Steam 없이 로직만):** `Prototype.unity`을 열고 플레이 → 접속 HUD에서
+`Local` / **Host**. **F1**로 HUD를 토글한다.
+
+씬/프리팹 재생성은 메뉴 **`GhostHunter > 프로토타입 게임 생성`**(리그·플레이어·가구·Prototype)과
+**`GhostHunter > 메인메뉴·로비 씬 생성`**(MainMenu·Lobby)을 쓴다. 후자가 Build Settings의
+씬 목록도 MainMenu 우선으로 맞춘다.
 
 세부 사항은 [docs/03-multiplayer-setup.md](docs/03-multiplayer-setup.md).
 
