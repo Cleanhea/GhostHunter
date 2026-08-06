@@ -6,7 +6,7 @@
 - 원본 출처: `https://github.com/Unity-Technologies/multiplayer-community-contributions` (`main` 브랜치)
 - 가져온 날짜: 2026-07-26
 - 원본 버전: `2.0.0`
-- 로컬 버전: `2.0.0-ghosthunter.2`
+- 로컬 버전: `2.0.0-ghosthunter.3`
 
 ## 왜 git URL로 설치하지 않고 임베드했는가
 
@@ -66,7 +66,7 @@ if (m_OwnsSteamClient) { SteamClient.Shutdown(); m_OwnsSteamClient = false; m_St
 
 ## 패치 3 — `package.json` 메타데이터
 
-- `version`: `2.0.0` → `2.0.0-ghosthunter.2` (벤더링 사본임을 명시)
+- `version`: `2.0.0` → `2.0.0-ghosthunter.3` (벤더링 사본임을 명시)
 - `dependencies`의 NGO: `1.0.0-pre.4` → `2.13.1` (실제 사용 버전과 일치)
 
 NGO 의존성은 최소 버전 표기라 원본 값으로도 해석은 됐지만, 실제로 이 코드가 NGO 2.x API
@@ -95,7 +95,7 @@ EntryPointNotFoundException: SteamAPI_Init
 네이티브 라이브러리 모두 함께** 가져왔다.
 
 - Linux/macOS 관리 DLL: `Facepunch.Steamworks.Posix.dll`
-- macOS 네이티브: `redistributable_bin/osx/libsteam_api.dylib`
+- macOS 네이티브: `redistributable_bin/osx/libsteam_api.bundle`
 - Windows 관리/네이티브 파일도 같은 2.5.2 릴리스로 동기화
 - 기존과 같은 asset GUID는 유지되어 Unity 참조가 끊기지 않음
 
@@ -103,10 +103,15 @@ EntryPointNotFoundException: SteamAPI_Init
 macOS 네이티브 파일은 x86_64 + arm64 유니버설이며 SHA-256은
 `b2260d2b2ff6ac8d2d10770047967ceb18022fc5c27f94e3246bd7d2a1da82c0`이다.
 
+공식 릴리스의 파일명은 `.dylib`이지만, 이 프로젝트의 embedded package에서 Mac Unity
+에디터의 Mono P/Invoke가 `libsteam_api`를 해당 파일에 연결하지 못하고 프로젝트 루트만
+검색해 `DllNotFoundException`을 냈다. 동일한 바이너리를 기존 `.bundle` 이름과 검증된
+PluginImporter 메타로 유지하면 Unity가 플러그인 이름을 정상적으로 매핑한다.
+
 확인:
 
 ```bash
-lipo -archs Runtime/Facepunch/redistributable_bin/osx/libsteam_api.dylib
+lipo -archs Runtime/Facepunch/redistributable_bin/osx/libsteam_api.bundle
 # -> x86_64 arm64
 ```
 

@@ -9,7 +9,7 @@
 |---|---|---|---|
 | 네트워크 프레임워크 | `com.unity.netcode.gameobjects` | 2.13.1 | registry |
 | 로컬 테스트 트랜스포트 | `com.unity.transport` (UTP) | 2.7.3 | NGO 의존성으로 자동 설치 |
-| Steam 트랜스포트 | `com.community.netcode.transport.facepunch` | 2.0.0-ghosthunter.2 | **embedded** (`Packages/`) |
+| Steam 트랜스포트 | `com.community.netcode.transport.facepunch` | 2.0.0-ghosthunter.3 | **embedded** (`Packages/`) |
 | Steam 래퍼 | Facepunch.Steamworks | 2.5.2 | 트랜스포트 패키지에 번들 |
 
 **Facepunch.Steamworks DLL을 따로 받을 필요가 없다.** 커뮤니티 트랜스포트 패키지가
@@ -22,7 +22,7 @@ Packages/com.community.netcode.transport.facepunch/Runtime/Facepunch/
 └─ redistributable_bin/
    ├─ win64/steam_api64.dll
    ├─ linux32|linux64/libsteam_api.so
-   └─ osx/libsteam_api.dylib
+   └─ osx/libsteam_api.bundle
 ```
 
 ## 왜 git URL이 아니라 임베드인가
@@ -124,10 +124,14 @@ Facepunch.Steamworks 2.5.2의 **x86_64 + arm64 유니버설** 네이티브 파�
 Posix 관리 DLL을 함께 적용했다. 네이티브 파일만 먼저 올려 생겼던 `SteamAPI_Init`
 엔트리포인트 불일치도 함께 해결했다. 경위는
 [PATCHES.md 패치 4](../Packages/com.community.netcode.transport.facepunch/PATCHES.md).
+
+네이티브 바이너리는 공식 2.5.2와 동일하지만, 파일명은 Mac Unity 에디터의 Mono P/Invoke가
+`libsteam_api`를 확실히 매핑하도록 기존 `.bundle`을 유지한다. `.dylib` 이름으로 두면 이
+embedded package 구성에서는 프로젝트 루트만 검색하다 `DllNotFoundException`이 발생했다.
 확인:
 
 ```bash
-lipo -archs Packages/com.community.netcode.transport.facepunch/Runtime/Facepunch/redistributable_bin/osx/libsteam_api.dylib
+lipo -archs Packages/com.community.netcode.transport.facepunch/Runtime/Facepunch/redistributable_bin/osx/libsteam_api.bundle
 # → x86_64 arm64
 ```
 
@@ -193,7 +197,7 @@ Steam이 찾지 못한다. `GhostHunter.app/Contents/MacOS/steam_appid.txt`에 �
 | `Steam 초기화 실패` 로그 | Steam 클라이언트 실행 중인가 / `steam_appid.txt` 있는가 |
 | 로비 콜백이 아예 안 옴 | `SteamLobbyManager`가 씬에 있는가 (`RunCallbacks`를 이 컴포넌트가 편다) |
 | HUD에 `Steam: 미초기화` | 위와 동일. Local 모드로는 계속 개발 가능 |
-| Mac에서 `DllNotFoundException: libsteam_api` | `lipo -archs`로 osx 바이너리에 arm64가 있는가 (위 macOS 절) |
+| Mac에서 `DllNotFoundException: libsteam_api` | 네이티브 파일이 `libsteam_api.bundle` 이름인지와 Mac Editor import가 켜졌는지 확인 |
 | Mac에서 `EntryPointNotFoundException: SteamAPI_Init` | 구형 관리 DLL과 신형 네이티브 파일이 섞였다. Facepunch 2.5.2 세트인지 확인 |
 | Mac 빌드에 HUD·플레이어가 아예 없음 | `GhostHunter.Runtime.asmdef`에 `macOSStandalone`이 있는가 |
 | 스폰이 조용히 실패 | `NetworkManager`의 Network Prefabs List에 프리팹을 등록했는가 |

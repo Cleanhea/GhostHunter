@@ -1,6 +1,11 @@
 # Changelog
 All notable changes to this package will be documented in this file. The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 
+## 2.0.0-ghosthunter.3
+
+### Fixed
+- Restored the macOS native plug-in's `.bundle` filename and importer metadata so Unity's Mono P/Invoke resolver can locate `libsteam_api` in the Editor.
+
 ## 2.0.0-ghosthunter.2
 
 ### Changed
