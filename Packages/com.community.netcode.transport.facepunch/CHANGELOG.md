@@ -1,6 +1,13 @@
 # Changelog
 All notable changes to this package will be documented in this file. The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 
+## 2.0.0-ghosthunter.2
+
+### Changed
+- Updated the bundled Facepunch.Steamworks managed and native Unity files together to 2.5.2.
+- Replaced the separate Linux/macOS managed assemblies with the matched Posix assembly.
+- Restored native Apple Silicon initialization by using the current `SteamInternal_SteamAPI_Init` binding.
+
 ## 2.0.0
 
 ### Changed

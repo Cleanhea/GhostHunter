@@ -9,20 +9,20 @@
 |---|---|---|---|
 | 네트워크 프레임워크 | `com.unity.netcode.gameobjects` | 2.13.1 | registry |
 | 로컬 테스트 트랜스포트 | `com.unity.transport` (UTP) | 2.7.3 | NGO 의존성으로 자동 설치 |
-| Steam 트랜스포트 | `com.community.netcode.transport.facepunch` | 2.0.0-ghosthunter.1 | **embedded** (`Packages/`) |
-| Steam 래퍼 | Facepunch.Steamworks | 트랜스포트 패키지에 번들 | — |
+| Steam 트랜스포트 | `com.community.netcode.transport.facepunch` | 2.0.0-ghosthunter.2 | **embedded** (`Packages/`) |
+| Steam 래퍼 | Facepunch.Steamworks | 2.5.2 | 트랜스포트 패키지에 번들 |
 
 **Facepunch.Steamworks DLL을 따로 받을 필요가 없다.** 커뮤니티 트랜스포트 패키지가
-매니지드 DLL(Win32/Win64/Linux/macOS)과 네이티브 `steam_api` 재배포 바이너리를
+매니지드 DLL(Win32/Win64/Posix)과 네이티브 `steam_api` 재배포 바이너리를
 플랫폼 import 설정(`.meta`)까지 갖춘 채로 포함하고 있다.
 
 ```
 Packages/com.community.netcode.transport.facepunch/Runtime/Facepunch/
-├─ Facepunch.Steamworks.Win64.dll        (+ Win32 / Linux / MacOS)
+├─ Facepunch.Steamworks.Win64.dll        (+ Win32 / Posix)
 └─ redistributable_bin/
    ├─ win64/steam_api64.dll
    ├─ linux32|linux64/libsteam_api.so
-   └─ osx/libsteam_api.bundle
+   └─ osx/libsteam_api.dylib
 ```
 
 ## 왜 git URL이 아니라 임베드인가
@@ -106,7 +106,7 @@ NetworkRig
 ## macOS(맥북)에서 참여시키기
 
 Windows 호스트 ↔ macOS 클라이언트는 Steam P2P로 문제없이 붙는다. 다만 이 저장소에는
-맥을 막는 지점이 두 개 있었다.
+맥을 막는 지점이 있었다.
 
 ### 1. asmdef 플랫폼 (해결됨)
 
@@ -120,21 +120,19 @@ Windows 호스트 ↔ macOS 클라이언트는 Steam P2P로 문제없이 붙는�
 arm64가 없었다.** M시리즈 맥에서 arm64로 실행하면 `DllNotFoundException: libsteam_api` →
 `SteamClient.Init` 실패(HUD: `Steam: 미초기화`)가 났다.
 
-Steamworks SDK 1.52+ 의 **x86_64 + arm64 유니버설** 바이너리로 교체했다.
-경위와 호환성 검증은 [PATCHES.md 패치 4](../Packages/com.community.netcode.transport.facepunch/PATCHES.md).
+Facepunch.Steamworks 2.5.2의 **x86_64 + arm64 유니버설** 네이티브 파일과 그에 맞는
+Posix 관리 DLL을 함께 적용했다. 네이티브 파일만 먼저 올려 생겼던 `SteamAPI_Init`
+엔트리포인트 불일치도 함께 해결했다. 경위는
+[PATCHES.md 패치 4](../Packages/com.community.netcode.transport.facepunch/PATCHES.md).
 확인:
 
 ```bash
-lipo -archs Packages/com.community.netcode.transport.facepunch/Runtime/Facepunch/redistributable_bin/osx/libsteam_api.bundle
+lipo -archs Packages/com.community.netcode.transport.facepunch/Runtime/Facepunch/redistributable_bin/osx/libsteam_api.dylib
 # → x86_64 arm64
 ```
 
 이제 Apple silicon 에디터/빌드에서 그대로 네이티브로 돌아간다. Rosetta나 Intel 에디터
 설치는 필요 없다.
-
-> **주의:** 매니지드 DLL은 구버전 그대로라 Valve가 폐기한 API 49개가 맥에서만 없다.
-> 안 부르면 무해하지만, 특히 핑 표시를 `QuickStatus().Ping`으로 구현하면
-> **맥에서 `EntryPointNotFoundException`이 난다.** PATCHES.md 패치 4의 경고를 볼 것.
 
 ### 3. Mac 빌드의 steam_appid.txt 위치
 
@@ -196,7 +194,7 @@ Steam이 찾지 못한다. `GhostHunter.app/Contents/MacOS/steam_appid.txt`에 �
 | 로비 콜백이 아예 안 옴 | `SteamLobbyManager`가 씬에 있는가 (`RunCallbacks`를 이 컴포넌트가 편다) |
 | HUD에 `Steam: 미초기화` | 위와 동일. Local 모드로는 계속 개발 가능 |
 | Mac에서 `DllNotFoundException: libsteam_api` | `lipo -archs`로 osx 바이너리에 arm64가 있는가 (위 macOS 절) |
-| Mac에서만 `EntryPointNotFoundException` | Valve가 폐기한 API를 쓰고 있다. PATCHES.md 패치 4 참조 |
+| Mac에서 `EntryPointNotFoundException: SteamAPI_Init` | 구형 관리 DLL과 신형 네이티브 파일이 섞였다. Facepunch 2.5.2 세트인지 확인 |
 | Mac 빌드에 HUD·플레이어가 아예 없음 | `GhostHunter.Runtime.asmdef`에 `macOSStandalone`이 있는가 |
 | 스폰이 조용히 실패 | `NetworkManager`의 Network Prefabs List에 프리팹을 등록했는가 |
 | 씬 전환이 동기화 안 됨 | `NetworkManager.SceneManager.LoadScene`을 썼는가 (`SceneManager.LoadScene` 아님) |

@@ -148,7 +148,7 @@ namespace GhostHunter.Networking
             {
                 // 거의 항상 원인은 셋 중 하나다. 추측하게 두지 말고 다 적어준다.
                 Debug.LogError(
-                    $"[SteamLobbyManager] Steam 초기화 실패 (AppId {_appId}): {e.Message}\n" +
+                    $"[SteamLobbyManager] Steam 초기화 실패 (AppId {_appId}, {e.GetType().Name}): {e.Message}\n" +
                     "확인할 것:\n" +
                     "  1. Steam 클라이언트가 실행 중이고 로그인되어 있는가\n" +
                     "  2. 프로젝트 루트(빌드에서는 exe 옆)에 steam_appid.txt 가 있는가\n" +
