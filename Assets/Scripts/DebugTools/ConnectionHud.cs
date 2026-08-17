@@ -22,6 +22,7 @@ namespace GhostHunter.DebugTools
         private ConnectionManager _connection;
         private SteamLobbyManager _lobby;
         private GUIStyle _boxStyle;
+        private GUIStyle _richLabelStyle;
 
         private void Start()
         {
@@ -64,17 +65,11 @@ namespace GhostHunter.DebugTools
             if (!_visible)
                 return;
 
-            _boxStyle ??= new GUIStyle(GUI.skin.box)
-            {
-                alignment = TextAnchor.UpperLeft,
-                padding = new RectOffset(10, 10, 10, 10),
-                wordWrap = true,
-            };
+            EnsureStyles();
 
             GUILayout.BeginArea(new Rect(10, 10, 340, 400), GUIContent.none, _boxStyle);
 
-            GUILayout.Label($"<b>GhostHunter 접속 HUD</b>  ({_toggleKey} 로 토글)",
-                new GUIStyle(GUI.skin.label) { richText = true });
+            GUILayout.Label($"<b>GhostHunter 접속 HUD</b>  ({_toggleKey} 로 토글)", _richLabelStyle);
             GUILayout.Space(6);
 
             DrawSteamSection();
@@ -90,6 +85,28 @@ namespace GhostHunter.DebugTools
             GUILayout.EndArea();
         }
 
+        /// <summary>
+        /// OnGUI 는 프레임마다 여러 번(Layout/Repaint) 불린다. 여기서 GUIStyle 을 새로 만들면
+        /// 매 프레임 힙 할당이 쌓여 주기적인 GC 스파이크 = 체감 프레임 드랍이 된다. 한 번만 만든다.
+        /// </summary>
+        private void EnsureStyles()
+        {
+            if (_boxStyle != null)
+                return;
+
+            _boxStyle = new GUIStyle(GUI.skin.box)
+            {
+                alignment = TextAnchor.UpperLeft,
+                padding = new RectOffset(10, 10, 10, 10),
+                wordWrap = true,
+            };
+
+            _richLabelStyle = new GUIStyle(GUI.skin.label)
+            {
+                richText = true,
+            };
+        }
+
         private void DrawSteamSection()
         {
             if (_lobby == null)
@@ -101,7 +118,7 @@ namespace GhostHunter.DebugTools
             if (!_lobby.IsSteamReady)
             {
                 GUILayout.Label("Steam: <color=#ff6b6b>미초기화</color> (Steam 클라이언트 확인)",
-                    new GUIStyle(GUI.skin.label) { richText = true });
+                    _richLabelStyle);
                 return;
             }
 

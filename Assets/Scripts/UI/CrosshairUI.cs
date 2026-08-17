@@ -32,8 +32,22 @@ namespace GhostHunter.UI
             };
 
             DrawCrosshair();
+            DrawInteractPrompt();
             DrawTestHoldStatus();
             DrawInstructions();
+        }
+
+        private void DrawInteractPrompt()
+        {
+            PlayerInteractor interactor = PlayerInteractor.LocalInstance;
+            DoorInteractable door = interactor != null ? interactor.CurrentDoor : null;
+            if (door == null)
+                return;
+
+            GUI.Box(
+                new Rect(Screen.width * 0.5f - 80f, Screen.height * 0.5f + 30f, 160f, 36f),
+                door.IsOpen ? "<b>E</b> 문 닫기" : "<b>E</b> 문 열기",
+                _hintStyle);
         }
 
         private void DrawCrosshair()
@@ -81,9 +95,9 @@ namespace GhostHunter.UI
         {
             string message = FurnitureTargeter.LocalInstance == null
                 ? "<b>GhostHunter Prototype</b>\n왼쪽 HUD에서 Local 모드 → Host를 눌러 시작"
-                : "<b>WASD</b> 이동  ·  <b>Space</b> 점프  ·  <b>마우스</b> 시점\n" +
+                : "<b>WASD</b> 이동  ·  <b>Space</b> 점프  ·  <b>마우스</b> 시점  ·  <b>E</b> 문 여닫기\n" +
                   "<b>좌클릭 누름</b> 투척 준비  ·  <b>떼기</b> 밀기/던지기  ·  " +
-                  "<b>2인 동시 누름</b> 잡기  ·  <b>Esc</b> 커서";
+                  "<b>2인 동시 누름</b> 잡아당기기  ·  <b>R</b> 가구 리셋(호스트)  ·  <b>Esc</b> 커서";
 
             float width = Mathf.Min(620f, Screen.width - 20f);
             GUI.Box(

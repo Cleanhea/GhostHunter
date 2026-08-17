@@ -1,21 +1,51 @@
 # 06. 가구 오브젝트 · 물리 · 윤곽선
 
-## 가구 프리팹 (`Furniture_Cube`)
+## 가구 오브젝트 (맵에 배치된 실제 가구)
 
-프로토타입의 "가구"는 큐브 하나다. 모델링은 하지 않는다.
+던질 수 있는 가구는 **맵 가구 그 자체**다. 스폰되는 더미 큐브는 없다 —
+침대·옷장·식탁·의자·소파·선반을 그대로 잡고 던진다. 프리팹이 아니라 씬에 놓인
+`NetworkObject`이므로 스폰 코드가 필요 없고, 호스트가 시작될 때 한꺼번에 스폰된다.
+
+### 가구 라이브러리에서 복사해 배치한다
+
+생성 도구(`GhostHunter > 프로토타입 게임 생성`)는 **방을 비운 채로** 집을 만든다.
+가구는 집 북쪽(z ≈ 9.5) `Furniture_Library`에 **종류별로 한 개씩 일렬로** 놓여 있고,
+방 배치는 이것을 복사해 `House_01/PhysicsFurniture` 아래에 붙여 넣는 방식이다.
+
+- 복사본은 물리·네트워크 배선이 이미 끝나 있다. 붙여 넣고 위치만 잡으면 된다.
+- 줄에서의 자리와 간격은 실제 콜라이더 크기로 계산한다. 가구 치수를 바꿔도 줄이 알아서 맞는다.
+- 받침 `Library_Ground/Library_Floor`가 없으면 세션 시작과 동시에 전부 허공으로 떨어진다.
+- 새로 붙여 넣은 가구는 `FurnitureReset`(R) 목록에 없다. 필요하면 인스펙터에서 직접 넣는다.
+- 생성 검증이 "집 안에 물리 가구 0개"를 강제한다. 생성 도구에 방별 가구 좌표를 되살리면
+  손으로 한 배치와 겹쳐서 시작하자마자 물리가 폭발한다.
+- **침실 2칸은 손대지 않는다.** 세션이 시작되면 방 프리셋이 옮겨 오므로 손으로 놓은 가구와
+  겹친다. 침실 배치를 바꾸려면 `Room_Presets`의 프리셋을 고친다
+  ([09-map-generation.md](09-map-generation.md#구현-현황-20260816)).
 
 ```
-Furniture_Cube  [layer: Furniture]
-├─ MeshFilter / MeshRenderer   Cube, 1×1×1 스케일 기준
-├─ BoxCollider
-├─ Rigidbody
-├─ NetworkObject
+House_01/PhysicsFurniture/<가구>   [layer: Furniture]   ← 루트에만 물리·네트워크 컴포넌트
+├─ Rigidbody                   자식 파츠 콜라이더를 컴파운드로 묶는다
+├─ NetworkObject               씬 배치(in-scene placed)
 ├─ NetworkTransform            서버 권위, Interpolate 켬
 ├─ FurnitureGrabTarget         홀더 슬롯, 상태 NetworkVariable
 ├─ FurnitureHoverMotor         서버 전용
 ├─ FurnitureLauncher           서버 전용
-└─ FurnitureOutline            클라이언트 전용 표시
+├─ FurnitureOutline            클라이언트 전용 표시
+└─ 파츠 (Frame, Mattress, Leg_NW, …)
+   ├─ MeshFilter / MeshRenderer / BoxCollider
+   └─ <파츠>_Outline           윤곽선 셸 (평소 꺼둠)
 ```
+
+붙박이(주방 카운터·싱크·쿡탑, 욕실 변기·세면대·샤워)는 `Fixtures/` 아래에 정적 콜라이더로
+남는다. 던질 수 없고 정적 배칭 대상이다.
+
+> **정적 배칭 주의:** 물리 가구 파츠는 `StaticEditorFlags`를 반드시 0으로 둔다. 배칭된 메시는
+> 정점이 월드 좌표로 구워져서, 던지면 콜라이더만 날아가고 그림은 제자리에 남는다.
+> 생성 검증이 이걸 막는다.
+
+> **시작 상태:** 씬에 저장된 `Rigidbody`는 `isKinematic = true`다. 세션 시작 전(플레이 직후,
+> 접속 전)에도 물리가 돌면 클라이언트마다 가구가 다른 자리에 멈춘다.
+> `FurnitureNetworkPhysics`가 스폰 시 **서버에서만** 푼다.
 
 ### Rigidbody 설정
 
@@ -50,21 +80,54 @@ if (!IsServer) {
 주의할 점만:
 
 - 날아간 가구가 `Idle` 상태 가구를 치면, 맞은 쪽은 그냥 물리로 밀린다. **맞은 쪽을 `Launched`로 전환하지 않는다** (재흡착 금지 규칙이 엉뚱하게 걸린다).
-- 여러 가구가 한 프레임에 연쇄 충돌하면 `NetworkTransform` 대역폭이 튄다. 프로토타입 씬의 가구 수를 **10개 이하**로 유지한다.
-- 가구가 겹쳐 스폰되면 폭발한다. 스폰 포인트를 충분히 띄운다.
+- 여러 가구가 한 프레임에 연쇄 충돌하면 `NetworkTransform` 대역폭이 튄다. 라이브러리 21종 +
+  손으로 배치한 가구가 전부 스폰되는데, 가만히 있는 가구는 아무것도 보내지 않으므로
+  평상시 비용은 없다. 한 방에서 대량으로
+  연쇄 충돌시켰을 때 대역폭이 문제가 되면 그때 방 단위 관심 영역(관측자 필터)을 검토한다.
+- **가구가 겹친 채로 시작하면 폭발한다.** PhysX가 서로 밀어내면서 세션 시작과 동시에 가구가
+  튀어나가는데, 눈으로는 원인을 알기 어렵다. 그래서 생성 시점에 파츠 콜라이더 단위로 겹침을
+  검사하고(`ValidateFurnitureClearance`), 도면 좌표가 떠 있으면 지지면에 정확히 얹는다
+  (`RestOnSupport`).
 
 ## 씬 배치 (`Prototype`)
 
 | 오브젝트 | 사양 |
 |---|---|
-| `Floor` | 20×20 평면 또는 `Scale(20, 1, 20)` 큐브. layer `Default` |
-| `Wall` | `Scale(8, 4, 0.5)` 큐브. 던진 가구가 부딪히는 기준물. 정적 콜라이더 |
-| `FurnitureSpawnPoints` | 빈 오브젝트 5~8개. 서버가 여기에 가구 스폰 |
+| `House_01/Rooms_Fixed` | 방별 바닥. 정적 콜라이더 |
+| `House_01/Walls_Doors_Windows` | 외벽·내벽·창, 여닫이 문 5개 |
+| `House_01/Fixtures` | 붙박이(카운터·위생도기). 정적 콜라이더 |
+| `House_01/PhysicsFurniture` | 손으로 배치한 가구가 들어갈 자리. **생성 직후에는 비어 있다** |
+| `House_01/RoomSlots` | 침실 슬롯 2개. 방 중심(바닥면), 회전 없음 |
+| `Furniture_Library/Items` | **던질 수 있는 가구 21종**을 종류별 하나씩 일렬로. 복붙용 원본 |
+| `Furniture_Library/Ground` | 라이브러리 받침 바닥 |
+| `Room_Presets/BedroomPreset_A·B·C` | 침실 프리셋 3종(집 남쪽 바깥). 세션 시작 시 둘이 슬롯으로 간다 |
+| `RoomSlotAssigner` | 서버가 프리셋을 중복 없이 뽑아 슬롯에 배치 ([09](09-map-generation.md)) |
+| `House_01_OriginalScale_Right` | 도면 치수 그대로(배율 ×1) 지은 비교용 집. 집 동쪽 3m 옆 |
+| `House_01_OriginalScale_Right/PhysicsFurniture` | **여기는 생성 도구가 가구를 깔아 둔다** (28개) |
 | `PlayerSpawnPoints` | 빈 오브젝트 2개 |
+| `FurnitureReset` | 개발용. 호스트가 `R`을 누르면 가구를 초기 위치로 되돌린다 |
 
-벽과 바닥은 `Static` 체크. `Rigidbody` 없음.
+`FurnitureReset`은 라이브러리 21종 + 프리셋 40개 + 비교용 집 28개를 모두 들고 있다.
+프리셋이 슬롯으로 옮겨진 **뒤에** `CapturePoses()`가 다시 불려서, `R`은 전시 자리가 아니라
+배치된 방으로 되돌린다.
 
-`DevSpawner`(서버 전용)가 게임 시작 시 스폰 포인트마다 `Furniture_Cube`를 `NetworkObject.Spawn()` 한다. 개발 편의를 위해 키(예: `R`)로 전체 리스폰하는 디버그 기능을 넣는다 — 가구를 다 던져놓고 매번 재시작하는 건 시간 낭비다.
+### 도면 배율 비교용 집만 예외로 가구가 깔려 있다
+
+`House_01_OriginalScale_Right`는 "도면 치수(12.8 × 10.4m)에서 사람과 가구가 어떻게 느껴지는가"를
+보려고 세워 둔 집이라, 라이브러리에서 복사해 넣을 때까지 비워 둘 이유가 없다. 그래서
+생성 도구가 방마다 가구를 깔아 준다 — 침실 2칸(도면 Bedroom_A · Bedroom_C 구성), 주방 식탁,
+거실 소파·좌탁·TV장, 창고 선반·상자. **게임플레이용 `House_01`은 지금도 비어 있어야 한다.**
+
+`ValidateFurnishedHouse`가 이 집만 따로 검사한다: 가구 배선·겹침, 문짝이 도는 동안 가구를
+쓸지 않는지, 문 개구부와 방 한가운데를 가구가 막지 않는지. 통행 판정은 **가구 레이어만** 본다 —
+벽·붙박이는 도면 그대로라 여기서 걸리면 안 되기 때문이다.
+`GhostHunter > Place Original Scale House Right` 메뉴로 이 집만 다시 놓을 수도 있고,
+그때도 같은 검증과 `R` 목록 재배선이 함께 돈다.
+
+벽·바닥·붙박이는 `Static` 체크. `Rigidbody` 없음.
+
+`FurnitureResetter`는 씬 생성 도구가 가구 목록을 직접 꽂아준다(런타임 탐색 없음). 물리 권위가
+서버에 있으므로 호스트에서만 동작하고, 큰 이동이 보간되지 않도록 `NetworkTransform.Teleport`를 쓴다.
 
 ## 윤곽선 (아웃라인)
 
@@ -72,7 +135,7 @@ if (!IsServer) {
 
 | 방식 | 장점 | 단점 | 판정 |
 |---|---|---|---|
-| **A. 백페이스 확장 셰이더** | 구현 30분, 오브젝트 단위 On/Off 쉬움 | 굴곡진 메시에서 끊김 | **채택** — 대상이 큐브다 |
+| **A. 백페이스 확장 셰이더** | 구현 30분, 오브젝트 단위 On/Off 쉬움 | 굴곡진 메시에서 끊김 | **채택** — 대상이 전부 박스다 |
 | B. URP Renderer Feature + Stencil | 깔끔한 결과, 오클루전 처리 가능 | 렌더러 에셋 수정, 레이어 관리 필요 | 나중에 |
 | C. Full Screen Pass (URP 17) | 최고 품질 | 프로토타입에 과함 | 안 함 |
 
@@ -85,9 +148,13 @@ if (!IsServer) {
 - 버텍스를 노멀 방향으로 `_OutlineWidth`만큼 밀어냄
 - Unlit, `_OutlineColor` 방출
 
-가구 프리팹의 `OutlineShell` 자식 렌더러가 이 머티리얼을 공유한다.
-`FurnitureOutline`은 렌더러 On/Off와 `MaterialPropertyBlock` 색만 바꾸므로 공유 머티리얼과
-인스턴싱을 깨뜨리지 않는다.
+가구는 파츠가 여러 개이므로 **파츠마다 `<파츠>_Outline` 셸을 하나씩** 두고
+`FurnitureOutline._outlineRenderers`에 전부 꽂는다. 셸은 파츠의 자식이라 스케일·회전을
+그대로 물려받는다. `FurnitureOutline`은 렌더러 On/Off와 `MaterialPropertyBlock` 색만 바꾸므로
+공유 머티리얼과 인스턴싱을 깨뜨리지 않는다.
+
+> 셸이 파츠의 로컬 스케일을 따르므로, 얇은 파츠(테이블 상판 등)에서는 노멀 확장 폭이 축마다
+> 달라 윤곽선 두께가 균일하지 않다. 프로토타입에서는 "어느 가구를 조준했는지" 읽히면 충분해 넘어간다.
 
 ### 상태별 색
 
@@ -106,11 +173,11 @@ if (!IsServer) {
 
 ## 가구 정의 (`FurnitureDefinition`)
 
-프로토타입에서는 2종만:
+프로토타입에서는 2종만. 맵 가구가 생성 시점에 둘 중 하나를 물려받는다:
 
-| 이름 | 질량 | 등급 | 크기 |
+| 에셋 | 질량 | 등급 | 해당 가구 |
 |---|---|---|---|
-| `Furniture_Light_Cube` | 8 | light | 1×1×1 |
-| `Furniture_Heavy_Cube` | 25 | heavy | 1.5×1.5×1.5 |
+| `FurnitureDefinition_Light` | 8 | light | 의자·스툴·협탁·소형 테이블·TV·창고 상자 |
+| `FurnitureDefinition_Heavy` | 25 | heavy | 침대·옷장·서랍장·책상·식탁·소파·선반·콘솔 |
 
 heavy는 혼자 던지면 `heavySoloMultiplier`만큼 약해진다 ([05-throw-system.md](05-throw-system.md) 참조). 2인 흡착의 존재 이유를 만들어주는 유일한 장치이므로, 두 등급의 체감 차이가 확실히 나도록 튜닝한다.

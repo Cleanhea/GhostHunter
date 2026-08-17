@@ -73,9 +73,10 @@
 
 > 완료 기준: 가구를 바라보면 윤곽선이 켜지고, 두 클라이언트 모두 서버 물리를 따라 같은 가구를 본다.
 
-- [x] light/heavy 가구 프리팹 (Rigidbody, NetworkObject, NetworkTransform)
+- [x] light/heavy 물리 가구 (Rigidbody, NetworkObject, NetworkTransform)
+      — 더미 큐브 프리팹을 걷어내고 **House_01 맵 가구 25개**를 씬 배치 `NetworkObject`로 전환
 - [x] 클라이언트 kinematic 처리
-- [x] `DevFurnitureSpawner` — 서버 스폰 + `R` 리스폰
+- [x] `FurnitureResetter` — 호스트가 `R`로 가구를 초기 위치로 복구
 - [x] `Outline` 셰이더 + `FurnitureOutline` 컴포넌트
 - [x] `FurnitureTargeter` — 카메라 레이캐스트 타겟팅
 - [x] `CrosshairUI`

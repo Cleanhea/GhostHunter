@@ -1,10 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Reflection;
 using GhostHunter.Core;
 using GhostHunter.DebugTools;
 using GhostHunter.Furniture;
 using GhostHunter.Interaction;
+using GhostHunter.Map;
 using GhostHunter.Networking;
 using GhostHunter.Player;
 using GhostHunter.UI;
@@ -33,20 +35,34 @@ namespace GhostHunter.EditorTools
         internal const string LobbyScenePath = "Assets/Scenes/Lobby.unity";
         internal const string NetworkRigPrefabPath = "Assets/Prefabs/NetworkRig.prefab";
         private const string PlayerPrefabPath = "Assets/Prefabs/Player.prefab";
-        private const string LightFurniturePrefabPath = "Assets/Prefabs/Furniture_Light_Cube.prefab";
-        private const string HeavyFurniturePrefabPath = "Assets/Prefabs/Furniture_Heavy_Cube.prefab";
         private const string MoveSettingsPath = "Assets/Settings/Gameplay/PlayerMoveSettings_Default.asset";
         private const string ThrowSettingsPath = "Assets/Settings/Gameplay/FurnitureThrowSettings_Default.asset";
-        private const string LightDefinitionPath = "Assets/Settings/Gameplay/FurnitureDefinition_LightCube.asset";
-        private const string HeavyDefinitionPath = "Assets/Settings/Gameplay/FurnitureDefinition_HeavyCube.asset";
+        private const string LightDefinitionPath = "Assets/Settings/Gameplay/FurnitureDefinition_Light.asset";
+        private const string HeavyDefinitionPath = "Assets/Settings/Gameplay/FurnitureDefinition_Heavy.asset";
+
+        /// <summary>
+        /// 맵 가구가 그 역할을 대신하면서 사라진 개발용 더미들. 재생성할 때 같이 지운다.
+        /// </summary>
+        private static readonly string[] ObsoleteAssetPaths =
+        {
+            "Assets/Prefabs/Furniture_Light_Cube.prefab",
+            "Assets/Prefabs/Furniture_Heavy_Cube.prefab",
+            "Assets/Settings/Gameplay/FurnitureDefinition_LightCube.asset",
+            "Assets/Settings/Gameplay/FurnitureDefinition_HeavyCube.asset",
+            "Assets/Materials/Furniture_Light.mat",
+            "Assets/Materials/Furniture_Heavy.mat",
+        };
+        private const string OutlineMaterialPath = "Assets/Materials/Furniture_Outline.mat";
         private const string NetworkPrefabsPath = "Assets/DefaultNetworkPrefabs.asset";
         private const string InputActionsPath = "Assets/InputSystem_Actions.inputactions";
+        private const string MapWallMaterialPath = "Assets/Materials/Map_Wall.mat";
 
         [InitializeOnLoadMethod]
         private static void SetupOpenEditorWhenMissing()
         {
             if (Application.isBatchMode
-                || AssetDatabase.LoadAssetAtPath<SceneAsset>(ScenePath) != null)
+                || (AssetDatabase.LoadAssetAtPath<SceneAsset>(ScenePath) != null
+                    && AssetDatabase.LoadAssetAtPath<Material>(MapWallMaterialPath) != null))
             {
                 return;
             }
@@ -92,18 +108,36 @@ namespace GhostHunter.EditorTools
             Material playerMaterial = CreateLitMaterial(
                 "Assets/Materials/Player_Remote.mat",
                 new Color(0.1f, 0.55f, 1f));
-            Material lightFurnitureMaterial = CreateLitMaterial(
-                "Assets/Materials/Furniture_Light.mat",
-                new Color(0.12f, 0.72f, 0.78f));
-            Material heavyFurnitureMaterial = CreateLitMaterial(
-                "Assets/Materials/Furniture_Heavy.mat",
-                new Color(0.85f, 0.32f, 0.18f));
-            Material floorMaterial = CreateLitMaterial(
-                "Assets/Materials/Arena_Floor.mat",
-                new Color(0.12f, 0.14f, 0.18f));
-            Material wallMaterial = CreateLitMaterial(
-                "Assets/Materials/Arena_Wall.mat",
-                new Color(0.35f, 0.39f, 0.48f));
+            Material mapWoodFloorMaterial = CreateLitMaterial(
+                "Assets/Materials/Map_Floor_Wood.mat",
+                new Color(0.24f, 0.19f, 0.16f));
+            Material mapTileFloorMaterial = CreateLitMaterial(
+                "Assets/Materials/Map_Floor_Tile.mat",
+                new Color(0.3f, 0.37f, 0.4f));
+            Material mapWallMaterial = CreateLitMaterial(
+                MapWallMaterialPath,
+                new Color(0.58f, 0.6f, 0.62f));
+            Material mapTrimMaterial = CreateLitMaterial(
+                "Assets/Materials/Map_Trim.mat",
+                new Color(0.075f, 0.085f, 0.095f));
+            Material mapWoodMaterial = CreateLitMaterial(
+                "Assets/Materials/Map_Furniture_Wood.mat",
+                new Color(0.3f, 0.19f, 0.11f));
+            Material mapFabricMaterial = CreateLitMaterial(
+                "Assets/Materials/Map_Furniture_Fabric.mat",
+                new Color(0.16f, 0.32f, 0.34f));
+            Material mapBeddingMaterial = CreateLitMaterial(
+                "Assets/Materials/Map_Bedding.mat",
+                new Color(0.72f, 0.7f, 0.64f));
+            Material mapCeramicMaterial = CreateLitMaterial(
+                "Assets/Materials/Map_Ceramic.mat",
+                new Color(0.78f, 0.82f, 0.82f));
+            Material mapMetalMaterial = CreateLitMaterial(
+                "Assets/Materials/Map_Metal.mat",
+                new Color(0.16f, 0.18f, 0.2f));
+            Material mapWindowMaterial = CreateLitMaterial(
+                "Assets/Materials/Map_Window.mat",
+                new Color(0.22f, 0.5f, 0.62f));
             Material outlineMaterial = CreateOutlineMaterial();
 
             InputActionAsset inputActions = AssetDatabase.LoadAssetAtPath<InputActionAsset>(InputActionsPath);
@@ -115,39 +149,33 @@ namespace GhostHunter.EditorTools
                 throwSettings,
                 inputActions,
                 playerMaterial);
-            GameObject lightFurniturePrefab = CreateFurniturePrefab(
-                LightFurniturePrefabPath,
-                "Furniture_Light_Cube",
-                Vector3.one,
-                lightDefinition,
-                throwSettings,
-                lightFurnitureMaterial,
-                outlineMaterial);
-            GameObject heavyFurniturePrefab = CreateFurniturePrefab(
-                HeavyFurniturePrefabPath,
-                "Furniture_Heavy_Cube",
-                Vector3.one * 1.5f,
-                heavyDefinition,
-                throwSettings,
-                heavyFurnitureMaterial,
-                outlineMaterial);
 
-            NetworkPrefabsList networkPrefabs = ConfigureNetworkPrefabs(
-                playerPrefab,
-                lightFurniturePrefab,
-                heavyFurniturePrefab);
-
+            NetworkPrefabsList networkPrefabs = ConfigureNetworkPrefabs(playerPrefab);
             GameObject rigPrefab = CreateOrUpdateNetworkRigPrefab(playerPrefab, networkPrefabs);
 
-            CreatePrototypeScene(
-                rigPrefab,
-                lightFurniturePrefab,
-                heavyFurniturePrefab,
-                floorMaterial,
-                wallMaterial);
+            var palette = new HousePrototypeBuilder.Palette(
+                mapWoodFloorMaterial,
+                mapTileFloorMaterial,
+                mapWallMaterial,
+                mapTrimMaterial,
+                mapWoodMaterial,
+                mapFabricMaterial,
+                mapBeddingMaterial,
+                mapCeramicMaterial,
+                mapMetalMaterial,
+                mapWindowMaterial);
+            var housePhysics = new HousePrototypeBuilder.PhysicsAssets(
+                lightDefinition,
+                heavyDefinition,
+                throwSettings,
+                outlineMaterial);
+
+            CreatePrototypeScene(rigPrefab, palette, housePhysics);
 
             if (AssetDatabase.LoadAssetAtPath<MonoScript>("Assets/Scripts/Temp.cs") != null)
                 AssetDatabase.DeleteAsset("Assets/Scripts/Temp.cs");
+
+            DeleteObsoleteAssets();
 
             PlayerSettings.companyName = "GhostHunter";
             AssetDatabase.SaveAssets();
@@ -164,6 +192,135 @@ namespace GhostHunter.EditorTools
         public static void SetupBatch()
         {
             SetupPrototype();
+        }
+
+        [MenuItem("GhostHunter/Place Original Scale House Right", priority = 2)]
+        public static void PlaceOriginalScaleHouseRight()
+        {
+            Scene scene = SceneManager.GetActiveScene();
+            if (scene.path != ScenePath)
+            {
+                throw new InvalidOperationException(
+                    $"Open {ScenePath} before placing the comparison house. " +
+                    $"The active scene is '{scene.path}'.");
+            }
+
+            foreach (GameObject root in scene.GetRootGameObjects())
+            {
+                if (root.name == "House_01_OriginalScale_Right")
+                {
+                    Object.DestroyImmediate(root);
+                    break;
+                }
+            }
+
+            Material LoadMaterial(string path)
+            {
+                Material material = AssetDatabase.LoadAssetAtPath<Material>(path);
+                if (material == null)
+                    throw new MissingReferenceException($"Missing map material: {path}");
+                return material;
+            }
+
+            var palette = new HousePrototypeBuilder.Palette(
+                LoadMaterial("Assets/Materials/Map_Floor_Wood.mat"),
+                LoadMaterial("Assets/Materials/Map_Floor_Tile.mat"),
+                LoadMaterial(MapWallMaterialPath),
+                LoadMaterial("Assets/Materials/Map_Trim.mat"),
+                LoadMaterial("Assets/Materials/Map_Furniture_Wood.mat"),
+                LoadMaterial("Assets/Materials/Map_Furniture_Fabric.mat"),
+                LoadMaterial("Assets/Materials/Map_Bedding.mat"),
+                LoadMaterial("Assets/Materials/Map_Ceramic.mat"),
+                LoadMaterial("Assets/Materials/Map_Metal.mat"),
+                LoadMaterial("Assets/Materials/Map_Window.mat"));
+
+            Transform original = HousePrototypeBuilder.CreateOriginalScaleHouseRight(
+                palette,
+                LoadHousePhysicsAssets());
+            HousePrototypeBuilder.ValidateFurnishedHouse(
+                original,
+                HousePrototypeBuilder.OriginalMapScale);
+
+            // 새로 만든 가구는 R(리셋) 목록에도 넣어 준다. 지운 집의 가구는 참조가 끊겨 있다.
+            RebindFurnitureResetter(scene, original);
+
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene);
+
+            // 씬에 놓인 NetworkObject 는 저장·빌드목록 등록 뒤에야 해시가 정해진다.
+            RefreshScenePlacedNetworkObjects();
+
+            Debug.Log(
+                "[PrototypeSceneSetup] Kept House_01 at x2 scale and placed furnished " +
+                "House_01_OriginalScale_Right at x1 scale with a 3m gap.");
+        }
+
+        /// <summary>
+        /// 이미 만들어져 있는 가구 공용 에셋을 읽어 온다. 도면 배율 비교용 집만 다시 놓을 때는
+        /// 에셋을 새로 만들 이유가 없으므로, 없으면 전체 생성을 먼저 돌리라고 알려 준다.
+        /// </summary>
+        private static HousePrototypeBuilder.PhysicsAssets LoadHousePhysicsAssets()
+        {
+            T Require<T>(string path) where T : Object
+            {
+                T asset = AssetDatabase.LoadAssetAtPath<T>(path);
+                if (asset == null)
+                {
+                    throw new MissingReferenceException(
+                        $"{path} 이(가) 없습니다. 'GhostHunter > 프로토타입 게임 생성'을 먼저 실행하세요.");
+                }
+
+                return asset;
+            }
+
+            return new HousePrototypeBuilder.PhysicsAssets(
+                Require<FurnitureDefinition>(LightDefinitionPath),
+                Require<FurnitureDefinition>(HeavyDefinitionPath),
+                Require<FurnitureThrowSettings>(ThrowSettingsPath),
+                Require<Material>(OutlineMaterialPath));
+        }
+
+        /// <summary>
+        /// 씬에 있는 <see cref="FurnitureResetter"/>의 목록을 지금 씬 상태로 다시 채운다.
+        /// 라이브러리·방 프리셋·도면 배율 비교용 집의 가구가 모두 R 로 되돌아오게 한다.
+        /// </summary>
+        private static void RebindFurnitureResetter(Scene scene, Transform originalScaleHouse)
+        {
+            FurnitureResetter resetter = null;
+            var roots = new List<Transform> { originalScaleHouse };
+
+            foreach (GameObject root in scene.GetRootGameObjects())
+            {
+                if (resetter == null)
+                    resetter = root.GetComponentInChildren<FurnitureResetter>(true);
+
+                if (root.name == "Furniture_Library" || root.name == "Room_Presets")
+                    roots.Add(root.transform);
+            }
+
+            if (resetter == null)
+                return;
+
+            var bodies = new List<Object>();
+            foreach (Transform root in roots)
+            {
+                foreach (FurnitureNetworkPhysics furniture in
+                         root.GetComponentsInChildren<FurnitureNetworkPhysics>(true))
+                {
+                    bodies.Add(furniture.GetComponent<Rigidbody>());
+                }
+            }
+
+            SetObjectArray(resetter, "_furniture", bodies.ToArray());
+        }
+
+        private static void DeleteObsoleteAssets()
+        {
+            foreach (string path in ObsoleteAssetPaths)
+            {
+                if (AssetDatabase.LoadAssetAtPath<Object>(path) != null)
+                    AssetDatabase.DeleteAsset(path);
+            }
         }
 
         private static void EnsureFolders()
@@ -267,7 +424,7 @@ namespace GhostHunter.EditorTools
 
         private static Material CreateOutlineMaterial()
         {
-            const string path = "Assets/Materials/Furniture_Outline.mat";
+            const string path = OutlineMaterialPath;
             Shader shader = Shader.Find("GhostHunter/FurnitureOutline");
             if (shader == null)
                 throw new MissingReferenceException(
@@ -338,6 +495,7 @@ namespace GhostHunter.EditorTools
             PlayerVisuals visuals = root.AddComponent<PlayerVisuals>();
             FurnitureTargeter targeter = root.AddComponent<FurnitureTargeter>();
             GrabController grab = root.AddComponent<GrabController>();
+            PlayerInteractor interactor = root.AddComponent<PlayerInteractor>();
             PlayerNetworkSpawn spawn = root.AddComponent<PlayerNetworkSpawn>();
 
             SetObjectReference(input, "_inputActions", inputActions);
@@ -361,6 +519,9 @@ namespace GhostHunter.EditorTools
             SetObjectReference(grab, "_camera", playerCamera);
             SetObjectReference(grab, "_settings", throwSettings);
 
+            SetObjectReference(interactor, "_input", input);
+            SetObjectReference(interactor, "_camera", playerCamera);
+
             SetObjectReference(spawn, "_motor", motor);
 
             return SavePrefab(root, PlayerPrefabPath);
@@ -382,58 +543,6 @@ namespace GhostHunter.EditorTools
 
             AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
             return AssetDatabase.LoadAssetAtPath<GameObject>(path);
-        }
-
-        private static GameObject CreateFurniturePrefab(
-            string path,
-            string objectName,
-            Vector3 scale,
-            FurnitureDefinition definition,
-            FurnitureThrowSettings throwSettings,
-            Material bodyMaterial,
-            Material outlineMaterial)
-        {
-            GameObject root = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            root.name = objectName;
-            root.layer = LayerMask.NameToLayer(GameLayers.FurnitureName);
-            root.transform.localScale = scale;
-            root.GetComponent<Renderer>().sharedMaterial = bodyMaterial;
-
-            Rigidbody rigidbody = root.AddComponent<Rigidbody>();
-            rigidbody.mass = definition.Mass;
-            rigidbody.linearDamping = 0.05f;
-            rigidbody.angularDamping = 0.5f;
-            rigidbody.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
-            rigidbody.interpolation = RigidbodyInterpolation.Interpolate;
-
-            root.AddComponent<NetworkObject>();
-            NetworkTransform networkTransform = root.AddComponent<NetworkTransform>();
-            SetBoolean(networkTransform, "Interpolate", true);
-
-            FurnitureNetworkPhysics networkPhysics = root.AddComponent<FurnitureNetworkPhysics>();
-            FurnitureGrabTarget target = root.AddComponent<FurnitureGrabTarget>();
-            FurnitureHoverMotor hover = root.AddComponent<FurnitureHoverMotor>();
-            FurnitureLauncher launcher = root.AddComponent<FurnitureLauncher>();
-            FurnitureOutline outline = root.AddComponent<FurnitureOutline>();
-
-            var outlineObject = new GameObject("OutlineShell")
-            {
-                layer = root.layer,
-            };
-            outlineObject.transform.SetParent(root.transform, false);
-            MeshFilter outlineFilter = outlineObject.AddComponent<MeshFilter>();
-            outlineFilter.sharedMesh = root.GetComponent<MeshFilter>().sharedMesh;
-            MeshRenderer outlineRenderer = outlineObject.AddComponent<MeshRenderer>();
-            outlineRenderer.sharedMaterial = outlineMaterial;
-            outlineRenderer.enabled = false;
-
-            SetObjectReference(networkPhysics, "_definition", definition);
-            SetObjectReference(target, "_settings", throwSettings);
-            SetObjectReference(hover, "_settings", throwSettings);
-            SetObjectReference(launcher, "_settings", throwSettings);
-            SetObjectReference(outline, "_outlineRenderer", outlineRenderer);
-
-            return SavePrefab(root, path);
         }
 
         private static NetworkPrefabsList ConfigureNetworkPrefabs(params GameObject[] prefabs)
@@ -463,18 +572,34 @@ namespace GhostHunter.EditorTools
 
         private static void CreatePrototypeScene(
             GameObject rigPrefab,
-            GameObject lightFurniturePrefab,
-            GameObject heavyFurniturePrefab,
-            Material floorMaterial,
-            Material wallMaterial)
+            HousePrototypeBuilder.Palette palette,
+            HousePrototypeBuilder.PhysicsAssets housePhysics)
         {
             Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
             CreateLighting();
-            CreateArena(floorMaterial, wallMaterial);
+            Transform house = HousePrototypeBuilder.Create(palette);
+            Transform originalScaleHouse =
+                HousePrototypeBuilder.CreateOriginalScaleHouseRight(palette, housePhysics);
+            Transform[] bedroomSlots = HousePrototypeBuilder.CreateBedroomSlots(house);
+            Transform furnitureLibrary = HousePrototypeBuilder.CreateFurnitureLibrary(palette, housePhysics);
+            Transform roomPresets = HousePrototypeBuilder.CreateBedroomPresets(palette, housePhysics);
             CreateOverviewCamera();
-            CreatePlayerSpawns();
-            CreateFurnitureSpawner(lightFurniturePrefab, heavyFurniturePrefab);
+            Transform[] playerSpawns = CreatePlayerSpawns();
+            HousePrototypeBuilder.ValidateLayout(
+                house,
+                furnitureLibrary,
+                roomPresets,
+                bedroomSlots,
+                playerSpawns);
+            HousePrototypeBuilder.ValidateFurnishedHouse(
+                originalScaleHouse,
+                HousePrototypeBuilder.OriginalMapScale);
+            FurnitureResetter resetter = CreateFurnitureResetter(
+                furnitureLibrary,
+                roomPresets,
+                originalScaleHouse);
+            CreateRoomSlotAssigner(bedroomSlots, roomPresets, resetter);
 
             // 단독 플레이 진입점: 리그가 없으면 프리팹에서 만들고, HUD 로 즉시 Host/Join 한다.
             // 메뉴 흐름으로 들어온 경우에는 앞선 씬의 영속 리그가 있어 아무것도 하지 않는다.
@@ -489,6 +614,82 @@ namespace GhostHunter.EditorTools
 
             EditorSceneManager.SaveScene(scene, ScenePath);
             SyncBuildScenes();
+            RefreshScenePlacedNetworkObjects();
+        }
+
+        /// <summary>
+        /// 씬에 놓인 NetworkObject 의 GlobalObjectIdHash 를 확정한다.
+        ///
+        /// <see cref="NetworkObject"/>.OnValidate 는 (1) 씬이 저장되어 오브젝트에 영구 ID가 있고
+        /// (2) 그 씬이 Build Settings 목록에 들어 있어야만(buildIndex >= 0) 해시를 계산하고
+        /// in-scene placed 표시를 남긴다. 생성 중인 새 씬은 둘 다 아니라서 해시가 0으로 남는데,
+        /// 그러면 클라이언트가 씬 오브젝트를 해시로 찾지 못하고, 0이 여럿이면 서로 충돌한다.
+        /// 저장과 빌드 목록 등록이 끝난 다음 씬을 다시 열어 OnValidate 를 돌리고 한 번 더 저장한다.
+        /// </summary>
+        private static void RefreshScenePlacedNetworkObjects()
+        {
+            Scene scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+
+            MethodInfo onValidate = typeof(NetworkObject).GetMethod(
+                "OnValidate",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            if (onValidate == null)
+            {
+                throw new MissingMethodException(
+                    nameof(NetworkObject),
+                    "OnValidate — NGO 버전이 바뀌었습니다. 씬 NetworkObject 해시 갱신 방법을 다시 확인하세요.");
+            }
+
+            foreach (NetworkObject networkObject in FindSceneNetworkObjects(scene))
+            {
+                onValidate.Invoke(networkObject, null);
+                EditorUtility.SetDirty(networkObject);
+            }
+
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene);
+            ValidateScenePlacedNetworkObjects(scene);
+        }
+
+        private static List<NetworkObject> FindSceneNetworkObjects(Scene scene)
+        {
+            var found = new List<NetworkObject>();
+            foreach (GameObject root in scene.GetRootGameObjects())
+                found.AddRange(root.GetComponentsInChildren<NetworkObject>(true));
+            return found;
+        }
+
+        /// <summary>
+        /// 씬 오브젝트도 프리팹과 같은 이유로 검사한다: 해시가 0이거나 겹치면 NGO 는
+        /// 에러 없이 "클라이언트에만 오브젝트가 없는" 식으로 조용히 깨진다.
+        /// </summary>
+        private static void ValidateScenePlacedNetworkObjects(Scene scene)
+        {
+            var seen = new Dictionary<uint, string>();
+
+            foreach (NetworkObject networkObject in FindSceneNetworkObjects(scene))
+            {
+                var serialized = new SerializedObject(networkObject);
+                uint hash = (uint)serialized.FindProperty("GlobalObjectIdHash").longValue;
+                bool inScenePlaced = serialized.FindProperty("m_InScenePlaced").boolValue;
+                string name = networkObject.name;
+
+                if (hash == 0 || !inScenePlaced)
+                {
+                    throw new InvalidOperationException(
+                        $"씬 오브젝트 '{name}' 의 NetworkObject 식별자가 확정되지 않았습니다 " +
+                        $"(hash={hash}, inScenePlaced={inScenePlaced}). " +
+                        $"{ScenePath} 가 Build Settings 에 등록되어 있는지 확인하세요.");
+                }
+
+                if (seen.TryGetValue(hash, out string other))
+                {
+                    throw new InvalidOperationException(
+                        $"씬 오브젝트 '{name}' 와 '{other}' 의 GlobalObjectIdHash 가 {hash} 로 같습니다.");
+                }
+
+                seen.Add(hash, name);
+            }
         }
 
         /// <summary>
@@ -523,64 +724,15 @@ namespace GhostHunter.EditorTools
             RenderSettings.ambientGroundColor = new Color(0.04f, 0.05f, 0.07f);
         }
 
-        private static void CreateArena(Material floorMaterial, Material wallMaterial)
-        {
-            var arena = new GameObject("Arena");
-
-            GameObject floor = CreateStaticCube(
-                "Floor",
-                new Vector3(0f, -0.5f, 0f),
-                new Vector3(20f, 1f, 20f),
-                floorMaterial,
-                arena.transform);
-            GameObjectUtility.SetStaticEditorFlags(floor, StaticEditorFlags.BatchingStatic);
-
-            GameObject wall = CreateStaticCube(
-                "ImpactWall",
-                new Vector3(0f, 2f, 7.5f),
-                new Vector3(8f, 4f, 0.5f),
-                wallMaterial,
-                arena.transform);
-            GameObjectUtility.SetStaticEditorFlags(wall, StaticEditorFlags.BatchingStatic);
-
-            CreateStaticCube(
-                "LeftMarker",
-                new Vector3(-7.5f, 0.25f, 0f),
-                new Vector3(0.25f, 0.5f, 15f),
-                wallMaterial,
-                arena.transform);
-            CreateStaticCube(
-                "RightMarker",
-                new Vector3(7.5f, 0.25f, 0f),
-                new Vector3(0.25f, 0.5f, 15f),
-                wallMaterial,
-                arena.transform);
-        }
-
-        private static GameObject CreateStaticCube(
-            string name,
-            Vector3 position,
-            Vector3 scale,
-            Material material,
-            Transform parent)
-        {
-            GameObject cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            cube.name = name;
-            cube.transform.SetParent(parent);
-            cube.transform.SetPositionAndRotation(position, Quaternion.identity);
-            cube.transform.localScale = scale;
-            cube.GetComponent<Renderer>().sharedMaterial = material;
-            return cube;
-        }
-
         private static void CreateOverviewCamera()
         {
             var cameraObject = new GameObject("OverviewCamera")
             {
                 tag = "MainCamera",
             };
-            cameraObject.transform.position = new Vector3(0f, 12f, -14f);
-            cameraObject.transform.LookAt(new Vector3(0f, 1.2f, 1f));
+            (Vector3 position, Vector3 lookAt) = HousePrototypeBuilder.OverviewCameraPose();
+            cameraObject.transform.position = position;
+            cameraObject.transform.LookAt(lookAt);
 
             Camera overviewCamera = cameraObject.AddComponent<Camera>();
             overviewCamera.fieldOfView = 55f;
@@ -593,64 +745,69 @@ namespace GhostHunter.EditorTools
             SetObjectReference(context, "_overviewAudioListener", listener);
         }
 
-        private static void CreatePlayerSpawns()
+        /// <summary>거실 남쪽 스폰 지점. 자리는 집 외곽에서 역산한다.</summary>
+        private static Transform[] CreatePlayerSpawns()
         {
+            Vector3[] positions = HousePrototypeBuilder.PlayerSpawnPositions();
             var registryObject = new GameObject("PlayerSpawnPoints");
             PlayerSpawnRegistry registry = registryObject.AddComponent<PlayerSpawnRegistry>();
 
             Transform first = CreatePoint(
                 "PlayerSpawn_0",
-                new Vector3(-2f, 0.05f, -6f),
+                positions[0],
                 Quaternion.identity,
                 registryObject.transform);
             Transform second = CreatePoint(
                 "PlayerSpawn_1",
-                new Vector3(2f, 0.05f, -6f),
+                positions[1],
                 Quaternion.identity,
                 registryObject.transform);
 
             SetObjectArray(registry, "_spawnPoints", new Object[] { first, second });
+            return new[] { first, second };
         }
 
-        private static void CreateFurnitureSpawner(
-            GameObject lightFurniturePrefab,
-            GameObject heavyFurniturePrefab)
+        /// <summary>
+        /// 던져서 어질러진 가구를 R 로 되돌리는 개발용 도구. 참조는 여기서 직접 꽂아
+        /// 런타임 탐색(FindObjectsByType)을 피한다.
+        ///
+        /// 씬을 다시 만들지 않고 손으로 가구를 붙여 넣었다면, 그 가구는 이 배열에 없으므로
+        /// 인스펙터에서 직접 넣어야 R 로 되돌아온다.
+        /// </summary>
+        private static FurnitureResetter CreateFurnitureResetter(params Transform[] furnitureRoots)
         {
-            var spawnerObject = new GameObject("FurnitureSpawnPoints");
-            spawnerObject.AddComponent<NetworkObject>();
-            DevFurnitureSpawner spawner = spawnerObject.AddComponent<DevFurnitureSpawner>();
-
-            Vector3[] positions =
+            var bodies = new List<Object>();
+            foreach (Transform root in furnitureRoots)
             {
-                new(-5f, 0.7f, -1f),
-                new(-2.5f, 0.7f, 0f),
-                new(0f, 0.9f, 0f),
-                new(2.5f, 0.7f, 0f),
-                new(5f, 0.7f, -1f),
-                new(-3f, 0.9f, 3f),
-                new(0f, 0.7f, 3f),
-                new(3f, 0.7f, 3f),
-            };
-
-            var points = new Object[positions.Length];
-            for (int i = 0; i < positions.Length; i++)
-            {
-                points[i] = CreatePoint(
-                    $"FurnitureSpawn_{i}",
-                    positions[i],
-                    Quaternion.Euler(0f, i * 17f, 0f),
-                    spawnerObject.transform);
+                foreach (FurnitureNetworkPhysics furniture in
+                         root.GetComponentsInChildren<FurnitureNetworkPhysics>(true))
+                {
+                    bodies.Add(furniture.GetComponent<Rigidbody>());
+                }
             }
 
-            SetObjectReference(
-                spawner,
-                "_lightFurniturePrefab",
-                lightFurniturePrefab.GetComponent<NetworkObject>());
-            SetObjectReference(
-                spawner,
-                "_heavyFurniturePrefab",
-                heavyFurniturePrefab.GetComponent<NetworkObject>());
-            SetObjectArray(spawner, "_spawnPoints", points);
+            var resetterObject = new GameObject("FurnitureReset");
+            FurnitureResetter resetter = resetterObject.AddComponent<FurnitureResetter>();
+            SetObjectArray(resetter, "_furniture", bodies.ToArray());
+            return resetter;
+        }
+
+        /// <summary>
+        /// 세션이 시작될 때 침실 슬롯에 프리셋을 뽑아 넣는 오브젝트.
+        /// 서버에서만 뽑으므로 씬에 놓인 <see cref="NetworkObject"/> 하나면 된다.
+        /// </summary>
+        private static void CreateRoomSlotAssigner(
+            Transform[] slots,
+            Transform presetsRoot,
+            FurnitureResetter resetter)
+        {
+            var assignerObject = new GameObject("RoomSlotAssigner");
+            assignerObject.AddComponent<NetworkObject>();
+            RoomSlotAssigner assigner = assignerObject.AddComponent<RoomSlotAssigner>();
+
+            SetObjectArray(assigner, "_slots", slots);
+            SetObjectArray(assigner, "_pool", presetsRoot.GetComponentsInChildren<RoomPreset>(true));
+            SetObjectReference(assigner, "_resetter", resetter);
         }
 
         private static Transform CreatePoint(
@@ -768,6 +925,30 @@ namespace GhostHunter.EditorTools
             EditorUtility.SetDirty(target);
         }
 
+        internal static void SetString(Object target, string propertyName, string value)
+        {
+            var serialized = new SerializedObject(target);
+            SerializedProperty property = serialized.FindProperty(propertyName);
+            if (property == null)
+                throw new MissingFieldException(target.GetType().Name, propertyName);
+
+            property.stringValue = value;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+            EditorUtility.SetDirty(target);
+        }
+
+        internal static void SetFloat(Object target, string propertyName, float value)
+        {
+            var serialized = new SerializedObject(target);
+            SerializedProperty property = serialized.FindProperty(propertyName);
+            if (property == null)
+                throw new MissingFieldException(target.GetType().Name, propertyName);
+
+            property.floatValue = value;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+            EditorUtility.SetDirty(target);
+        }
+
         internal static void SetBoolean(Object target, string propertyName, bool value)
         {
             var serialized = new SerializedObject(target);
@@ -783,35 +964,28 @@ namespace GhostHunter.EditorTools
         private static void ValidateGeneratedAssets()
         {
             RequireAsset<GameObject>(PlayerPrefabPath);
-            RequireAsset<GameObject>(LightFurniturePrefabPath);
-            RequireAsset<GameObject>(HeavyFurniturePrefabPath);
             RequireAsset<GameObject>(NetworkRigPrefabPath);
             RequireAsset<SceneAsset>(ScenePath);
 
             GameObject player = AssetDatabase.LoadAssetAtPath<GameObject>(PlayerPrefabPath);
             if (player.GetComponent<NetworkObject>() == null
                 || player.GetComponent<PlayerMotor>() == null
-                || player.GetComponent<GrabController>() == null)
+                || player.GetComponent<GrabController>() == null
+                || player.GetComponent<PlayerInteractor>() == null)
             {
                 throw new MissingComponentException("Player 프리팹의 필수 컴포넌트가 빠졌습니다.");
-            }
-
-            GameObject furniture = AssetDatabase.LoadAssetAtPath<GameObject>(LightFurniturePrefabPath);
-            if (furniture.GetComponent<NetworkObject>() == null
-                || furniture.GetComponent<FurnitureGrabTarget>() == null
-                || furniture.GetComponent<FurnitureLauncher>() == null)
-            {
-                throw new MissingComponentException("Furniture 프리팹의 필수 컴포넌트가 빠졌습니다.");
             }
 
             ValidateNetworkPrefabIdentity();
         }
 
+        /// <summary>
+        /// 동적으로 스폰하는 네트워크 프리팹. 맵 가구는 씬에 놓이므로 여기 없고,
+        /// <see cref="ValidateScenePlacedNetworkObjects"/> 가 대신 검사한다.
+        /// </summary>
         private static readonly string[] NetworkPrefabPaths =
         {
             PlayerPrefabPath,
-            LightFurniturePrefabPath,
-            HeavyFurniturePrefabPath,
         };
 
         /// <summary>

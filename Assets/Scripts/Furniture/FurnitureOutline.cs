@@ -9,7 +9,9 @@ namespace GhostHunter.Furniture
     {
         private static readonly int OutlineColorId = Shader.PropertyToID("_OutlineColor");
 
-        [SerializeField] private Renderer _outlineRenderer;
+        [Tooltip("윤곽선 셸 렌더러들. 가구가 여러 파츠로 이뤄지므로 파츠마다 하나씩 둔다.")]
+        [SerializeField] private Renderer[] _outlineRenderers;
+
         [SerializeField] private Color _targetableColor = Color.white;
         [SerializeField] private Color _blockedColor = Color.gray;
         [SerializeField] private Color _mineColor = new(0.1f, 1f, 0.9f);
@@ -25,8 +27,7 @@ namespace GhostHunter.Furniture
             _target = GetComponent<FurnitureGrabTarget>();
             _propertyBlock = new MaterialPropertyBlock();
 
-            if (_outlineRenderer != null)
-                _outlineRenderer.enabled = false;
+            SetRenderersEnabled(false);
         }
 
         public override void OnNetworkSpawn()
@@ -60,7 +61,7 @@ namespace GhostHunter.Furniture
 
         private void Refresh()
         {
-            if (_outlineRenderer == null || !IsSpawned)
+            if (_outlineRenderers == null || _outlineRenderers.Length == 0 || !IsSpawned)
                 return;
 
             bool show = false;
@@ -90,13 +91,31 @@ namespace GhostHunter.Furniture
                     : _targetableColor;
             }
 
-            _outlineRenderer.enabled = show;
+            SetRenderersEnabled(show);
             if (!show)
                 return;
 
-            _outlineRenderer.GetPropertyBlock(_propertyBlock);
-            _propertyBlock.SetColor(OutlineColorId, color);
-            _outlineRenderer.SetPropertyBlock(_propertyBlock);
+            foreach (Renderer renderer in _outlineRenderers)
+            {
+                if (renderer == null)
+                    continue;
+
+                renderer.GetPropertyBlock(_propertyBlock);
+                _propertyBlock.SetColor(OutlineColorId, color);
+                renderer.SetPropertyBlock(_propertyBlock);
+            }
+        }
+
+        private void SetRenderersEnabled(bool enabled)
+        {
+            if (_outlineRenderers == null)
+                return;
+
+            foreach (Renderer renderer in _outlineRenderers)
+            {
+                if (renderer != null)
+                    renderer.enabled = enabled;
+            }
         }
     }
 }

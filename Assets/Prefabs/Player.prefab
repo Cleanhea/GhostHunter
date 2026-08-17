@@ -232,6 +232,7 @@ GameObject:
   - component: {fileID: 1877398699621688324}
   - component: {fileID: 5809761117319214751}
   - component: {fileID: 2281164775239638963}
+  - component: {fileID: 6650919084466105846}
   - component: {fileID: 3886323098072392360}
   m_Layer: 8
   m_Name: Player
@@ -450,6 +451,22 @@ MonoBehaviour:
   _settings: {fileID: 11400000, guid: b2f6c92bc99521440bce15945c031212, type: 2}
   _aimSendInterval: 0.05
   _testHoldToggleKey: 105
+--- !u!114 &6650919084466105846
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6853845278674404290}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a1f8346d2b20c1f43b4a440239f4b1fb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: GhostHunter.Runtime::GhostHunter.Interaction.PlayerInteractor
+  ShowTopMostFoldoutHeaderGroup: 1
+  _input: {fileID: 841358848952369473}
+  _camera: {fileID: 431433331754987499}
+  _maxDistance: 2.5
 --- !u!114 &3886323098072392360
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -12,6 +12,7 @@
 6. [06-furniture-physics.md](06-furniture-physics.md) — 던져지는 대상
 7. [07-conventions.md](07-conventions.md) — 코드/Git 규칙
 8. [08-roadmap.md](08-roadmap.md) — 진행 상황 체크리스트
+9. [09-map-generation.md](09-map-generation.md) — 맵 생성 시스템 기획서 (House / Room Preset / Spawn Point)
 
 ## 문서 관리 규칙
 

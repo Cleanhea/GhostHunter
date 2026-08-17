@@ -19,12 +19,14 @@ namespace GhostHunter.Player
         private InputAction _lookAction;
         private InputAction _jumpAction;
         private InputAction _attackAction;
+        private InputAction _interactAction;
         private bool _jumpQueued;
 
         public Vector2 Move { get; private set; }
         public Vector2 Look { get; private set; }
         public bool AttackPressedThisFrame { get; private set; }
         public bool AttackReleasedThisFrame { get; private set; }
+        public bool InteractPressedThisFrame { get; private set; }
 
         public override void OnNetworkSpawn()
         {
@@ -46,6 +48,7 @@ namespace GhostHunter.Player
             _lookAction = _runtimeActions.FindAction("Player/Look", true);
             _jumpAction = _runtimeActions.FindAction("Player/Jump", true);
             _attackAction = _runtimeActions.FindAction("Player/Attack", true);
+            _interactAction = _runtimeActions.FindAction("Player/Interact", true);
             _runtimeActions.Enable();
         }
 
@@ -68,6 +71,10 @@ namespace GhostHunter.Player
             Look = _lookAction.ReadValue<Vector2>();
             AttackPressedThisFrame = _attackAction.WasPressedThisFrame();
             AttackReleasedThisFrame = _attackAction.WasReleasedThisFrame();
+
+            // Interact 액션에는 Hold Interaction 이 붙어 있지만, WasPressedThisFrame 은
+            // Interaction 의 phase 가 아니라 컨트롤이 눌린 순간을 보므로 탭이 씹히지 않는다.
+            InteractPressedThisFrame = _interactAction.WasPressedThisFrame();
 
             if (_jumpAction.WasPressedThisFrame())
                 _jumpQueued = true;

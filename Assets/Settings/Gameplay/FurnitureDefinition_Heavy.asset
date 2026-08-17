@@ -10,7 +10,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 573c60439a00a7c489795f7d77c1d7e2, type: 3}
-  m_Name: FurnitureDefinition_HeavyCube
+  m_Name: FurnitureDefinition_Heavy
   m_EditorClassIdentifier: GhostHunter.Runtime::GhostHunter.Furniture.FurnitureDefinition
   _mass: 25
   _weightClass: 1

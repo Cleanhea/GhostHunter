@@ -28,6 +28,25 @@ GhostHunter — 1인칭 멀티플레이 "가구 던지기" 프로토타입.
 - **`.unity` / `.prefab` / `.asset` YAML을 손으로 편집하지 않는다.** 씬·프리팹 구성은 에디터에서 하거나, 필요하면 `Assets/Scripts/Editor/`에 에디터 스크립트를 만들어 처리한다.
 - **Unity 빌드/플레이는 Claude가 직접 실행할 수 없다.** 코드 변경 후에는 "에디터에서 컴파일 확인 후 알려달라"고 요청하고, 컴파일 성공을 임의로 단정하지 않는다.
 - **물리 상태의 권위는 서버(호스트)에만 있다.** 클라이언트는 입력/의도만 RPC로 보낸다. 클라이언트에서 `Rigidbody`에 직접 힘을 가하지 않는다.
+- **던질 수 있는 가구는 씬에 배치된 실제 가구다**(씬 배치 `NetworkObject`). 더미 큐브를 스폰하지 않는다.
+  생성 도구는 **`House_01`의 방을 비운 채로** 집을 만들고, 가구는 집 북쪽 `Furniture_Library`에
+  종류별로 한 개씩 일렬로 놓는다. 방 배치는 거기서 복사해 `House_01/PhysicsFurniture` 아래에
+  붙여 넣는다 — 생성 도구에 방별 가구 좌표를 다시 심지 않는다(손으로 한 배치와 겹친다).
+  붙박이(`Fixtures/`)는 정적 콜라이더로 남긴다.
+  **예외는 도면 배율 비교용 집**(`House_01_OriginalScale_Right`, 집 동쪽 3m 옆, 배율 ×1)뿐이다.
+  이 집은 "도면 치수에서 가구가 방을 얼마나 채우는가"를 보려고 세운 것이라 생성 도구가
+  방마다 가구를 깔아 주고, `ValidateFurnishedHouse`가 겹침·문짝 동선·통행로를 따로 검사한다.
+- **맵은 `HousePrototypeBuilder.MapScale`(현재 ×2)로 평면(X·Z)만 넓힌다.** 배율은 상수 정의부에서
+  **좌표에만** 곱한다 — 트랜스폼 스케일을 쓰면 개구부 폭과 벽 높이까지 같이 늘어난다.
+  **벽 높이·벽 두께·문 폭·창 크기·붙박이·계단·가구·플레이어·투척 수치는 배율을 받지 않는다.**
+  씬의 어떤 오브젝트도 스케일 1이 아니면 안 된다(생성 검증이 벽 높이와 문 크기를 확인한다).
+- **침실 2칸은 예외로 프리셋이 자동으로 채운다.** `Room_Presets`(집 남쪽 바깥) A·B·C 중 둘을
+  세션 시작 때 서버가 중복 없이 뽑아 `House_01/RoomSlots`로 옮긴다. 프리팹을 스폰하는 게 아니라
+  **이미 스폰된 가구를 옮기는** 방식이라 중첩 `NetworkObject`가 생기지 않는다.
+  침실에는 손으로 가구를 놓지 않는다 — 뽑힌 프리셋과 겹친다.
+  프리셋 가구는 방 남쪽 1.11m 띠를 비워야 한다(두 침실의 문 위치가 달라서, 그래야 어느 슬롯에
+  뽑혀도 문이 가구를 쓸지 않는다). 생성 검증이 전 조합을 확인한다.
+  Spawn Point 랜덤은 아직 없어서, 그 자리(바닥·책상 위)는 소품 큐브로 고정 배치해 두었다.
 - 레거시 `Input.GetKey` / `Input.GetAxis` 금지 — Input System만 사용한다.
 - `GameObject.Find`, `SendMessage`, `Camera.main`(매 프레임) 금지. 참조는 인스펙터 직렬화 또는 명시적 주입으로 해결한다.
 
@@ -40,12 +59,13 @@ Assets/
 │  ├─ Core/          GameLayers, GameScenes 등 상수·공통
 │  ├─ Networking/    SteamLobbyManager, ConnectionManager, NetworkRigBootstrap ← 구현됨
 │  ├─ Player/        이동, 시점, 플레이어 네트워크 표현            ← 구현됨
-│  ├─ Interaction/   조준 타겟팅, 그랩 컨트롤러                   ← 구현됨
+│  ├─ Interaction/   조준 타겟팅, 그랩 컨트롤러, 문 여닫기(E)      ← 구현됨
 │  ├─ Furniture/     가구 오브젝트, 부양 모터, 발사, 아웃라인       ← 구현됨
+│  ├─ Map/           방 프리셋, 슬롯 랜덤 배치                     ← 구현됨
 │  ├─ UI/            크로스헤어, 차지 게이지, 메인메뉴/로비 화면    ← 구현됨
-│  ├─ DebugTools/    ConnectionHud, 런타임 스모크 테스트           ← 구현됨
+│  ├─ DebugTools/    ConnectionHud, 가구 리셋(R), 런타임 스모크 테스트 ← 구현됨
 │  └─ Editor/        NetworkRigSetup, PrototypeSceneSetup, MenuScenesSetup ← 구현됨
-├─ Prefabs/          NetworkRig, Player, Furniture_Light_Cube, Furniture_Heavy_Cube
+├─ Prefabs/          NetworkRig, Player
 └─ Settings/         URP 에셋 (건드리지 말 것)
 ```
 
@@ -84,6 +104,13 @@ true로 박힌다. NGO가 프리팹을 구분하지 못하는데 에러 없이 �
 해시가 0이 아니고 서로 겹치지 않는지 검사한다. 네트워크 프리팹을 새로 추가하면
 `NetworkPrefabPaths`에도 넣어야 이 검사에 걸린다.
 
+**씬에 놓는 `NetworkObject`(문, 스포너)도 같은 함정이 있다.** `NetworkObject.OnValidate`는
+씬이 저장되어 영구 ID가 생기고 그 씬이 Build Settings에 들어 있어야만(`buildIndex >= 0`)
+해시를 계산한다. 생성 중인 새 씬은 둘 다 아니라 해시가 0으로 남고, 0이 여럿이면 클라이언트가
+씬 오브젝트를 찾지 못한다. `RefreshScenePlacedNetworkObjects()`가 저장·빌드목록 등록 뒤
+씬을 다시 열어 `OnValidate`를 돌리고 한 번 더 저장한 다음, 해시가 0/중복이 아니고
+`m_InScenePlaced`가 참인지 검사한다.
+
 ## 멀티플레이 빠른 시작
 
 **메뉴 흐름 (Steam 필요):** `Assets/Scenes/MainMenu.unity`을 열고 플레이한다.
@@ -113,6 +140,8 @@ true로 박힌다. NGO가 프리팹을 구분하지 못하는데 에러 없이 �
 - RPC 네이밍: `DoThingServerRpc` / `OnThingClientRpc`. 서버 RPC는 항상 파라미터 유효성을 검증한다.
 - 튜닝 수치는 코드 상수가 아니라 `ScriptableObject` 설정 에셋(`FurnitureThrowSettings` 등)에 둔다.
 - 물리 처리는 `FixedUpdate`, 입력 폴링/카메라는 `Update`/`LateUpdate`.
+  단 `CharacterController`(=`PlayerMotor`)는 예외로 `Update`에서 움직인다 — 스윕 이동이라
+  물리 스텝에 묶을 이유가 없고, 50Hz로 움직이면 자식인 카메라가 끊겨 보인다.
 
 전체 규칙: [docs/07-conventions.md](docs/07-conventions.md)
 
@@ -139,3 +168,4 @@ Get-Content "$env:LOCALAPPDATA\Unity\Editor\Editor.log" -Tail 80
 | [docs/06-furniture-physics.md](docs/06-furniture-physics.md) | 가구 오브젝트, 아웃라인, 물리 파라미터 |
 | [docs/07-conventions.md](docs/07-conventions.md) | 코딩/네이밍/Git 컨벤션 |
 | [docs/08-roadmap.md](docs/08-roadmap.md) | 작업 체크리스트와 마일스톤 |
+| [docs/09-map-generation.md](docs/09-map-generation.md) | 맵 생성 시스템 기획서 — House/Room Slot/Room Preset, Spawn Point, 콘텐츠 배치 |
