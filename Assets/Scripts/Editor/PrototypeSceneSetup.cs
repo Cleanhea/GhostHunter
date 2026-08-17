@@ -752,19 +752,18 @@ namespace GhostHunter.EditorTools
             var registryObject = new GameObject("PlayerSpawnPoints");
             PlayerSpawnRegistry registry = registryObject.AddComponent<PlayerSpawnRegistry>();
 
-            Transform first = CreatePoint(
-                "PlayerSpawn_0",
-                positions[0],
-                Quaternion.identity,
-                registryObject.transform);
-            Transform second = CreatePoint(
-                "PlayerSpawn_1",
-                positions[1],
-                Quaternion.identity,
-                registryObject.transform);
+            var points = new Transform[positions.Length];
+            for (int i = 0; i < positions.Length; i++)
+            {
+                points[i] = CreatePoint(
+                    $"PlayerSpawn_{i}",
+                    positions[i],
+                    Quaternion.identity,
+                    registryObject.transform);
+            }
 
-            SetObjectArray(registry, "_spawnPoints", new Object[] { first, second });
-            return new[] { first, second };
+            SetObjectArray(registry, "_spawnPoints", points);
+            return points;
         }
 
         /// <summary>

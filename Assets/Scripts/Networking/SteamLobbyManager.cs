@@ -2,6 +2,7 @@ using System;
 using System.Threading.Tasks;
 using Steamworks;
 using Steamworks.Data;
+using Unity.Netcode;
 using UnityEngine;
 
 namespace GhostHunter.Networking
@@ -35,6 +36,15 @@ namespace GhostHunter.Networking
         /// <summary>멤버별 준비 상태를 담는 멤버 데이터 키. 값 "1"이면 준비 완료.</summary>
         public const string ReadyMemberKey = "gh_ready";
 
+        /// <summary>호스트의 네트워크 호환성 지문을 담는 로비 데이터 키.</summary>
+        public const string NetFingerprintKey = "gh_net_fingerprint";
+
+        /// <summary>
+        /// 네트워크 직렬화에 영향을 주는 변경(NGO 업그레이드, 토폴로지 변경, 트랜스포트 패치 등)을
+        /// 할 때 수동으로 올린다. 호스트와 값이 다르면 로비 참가 단계에서 걸러진다.
+        /// </summary>
+        public const int NetProtocolVersion = 1;
+
         /// <summary>0/O, 1/I 처럼 눈으로 헷갈리는 글자를 뺀 방 코드 문자셋.</summary>
         private const string RoomCodeAlphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
         public const int RoomCodeLength = 6;
@@ -43,7 +53,7 @@ namespace GhostHunter.Networking
         [SerializeField] private uint _appId = SpacewarAppId;
 
         [Header("Lobby")]
-        [SerializeField] private int _maxLobbyMembers = 2;
+        [SerializeField] private int _maxLobbyMembers = 4;
         [Tooltip("켜면 초대/친구 목록으로만 참가 가능. 방 코드 참가는 LobbyList 검색을 쓰므로 " +
                  "공개 로비(꺼짐)에서만 동작한다.")]
         [SerializeField] private bool _friendsOnly;
@@ -88,6 +98,25 @@ namespace GhostHunter.Networking
 
         private bool _ownsSteamClient;
         private bool _callbacksSubscribed;
+        private NetworkManager _networkManager;
+
+        /// <summary>
+        /// 호스트·게스트가 서로 호환되는 빌드인지 로비 단계에서 판별하는 지문.
+        /// NGO의 접속 승인 검사(config 해시)에는 NetworkTopology가 포함되지 않아서,
+        /// 서로 다른 프로젝트 상태의 두 빌드가 그대로 연결되면 씬 동기화 페이로드 파싱이
+        /// 어긋나 클라이언트가 OutOfMemoryException 같은 형태로 조용히 죽는다.
+        /// 접속 전에 여기서 명확한 에러로 걸러낸다.
+        /// </summary>
+        public string LocalNetFingerprint
+        {
+            get
+            {
+                int topology = _networkManager != null
+                    ? (int)_networkManager.NetworkConfig.NetworkTopology
+                    : -1;
+                return $"{NetProtocolVersion}|{topology}|{Application.unityVersion}|{Application.version}";
+            }
+        }
 
         private void Awake()
         {
@@ -98,6 +127,11 @@ namespace GhostHunter.Networking
             }
 
             Instance = this;
+
+            // 리그 프리팹에서 NetworkManager 와 같은 오브젝트에 붙는다. Singleton 은
+            // 이 시점(부트스트랩 Instantiate 중)에 아직 준비되지 않았을 수 있어 직접 잡는다.
+            _networkManager = GetComponent<NetworkManager>();
+
             InitializeSteam();
         }
 
@@ -392,6 +426,9 @@ namespace GhostHunter.Networking
             CurrentRoomCode = GenerateRoomCode();
             lobby.SetData(RoomCodeKey, CurrentRoomCode);
 
+            // 참가자가 접속 전에 빌드 호환성을 검사할 수 있게 지문을 심는다.
+            lobby.SetData(NetFingerprintKey, LocalNetFingerprint);
+
             CurrentLobby = lobby;
 
             SetStatus($"로비 생성 완료. 방 코드: {CurrentRoomCode}");
@@ -418,6 +455,24 @@ namespace GhostHunter.Networking
             // (SteamId 끼리 == 비교는 ulong 암시적 변환에 의존하므로 Value 로 명시 비교한다.)
             if (lobby.Owner.Id.Value == SteamClient.SteamId.Value)
                 return;
+
+            // 호스트와 빌드가 다르면 접속해 봐야 씬 동기화 단계에서 알 수 없는 형태로 깨진다.
+            // 지문이 비어 있으면 지문 기능이 없는 옛 빌드의 로비이므로 경고만 남기고 진행한다.
+            string hostFingerprint = lobby.GetData(NetFingerprintKey);
+            if (string.IsNullOrEmpty(hostFingerprint))
+            {
+                Debug.LogWarning(
+                    "[SteamLobbyManager] 호스트 로비에 네트워크 지문이 없습니다. " +
+                    "호스트가 옛 빌드일 수 있습니다. 접속은 계속하지만 씬 동기화가 깨질 수 있습니다.");
+            }
+            else if (hostFingerprint != LocalNetFingerprint)
+            {
+                SetStatus(
+                    "호스트와 게임 빌드가 달라 참가할 수 없습니다. 두 쪽 모두 같은 커밋으로 맞춘 뒤 " +
+                    $"다시 시도하세요. (호스트: {hostFingerprint} / 나: {LocalNetFingerprint})");
+                LeaveLobby();
+                return;
+            }
 
             SteamId hostId = ResolveHostSteamId(lobby);
 

@@ -6,7 +6,7 @@
 - 원본 출처: `https://github.com/Unity-Technologies/multiplayer-community-contributions` (`main` 브랜치)
 - 가져온 날짜: 2026-07-26
 - 원본 버전: `2.0.0`
-- 로컬 버전: `2.0.0-ghosthunter.3`
+- 로컬 버전: `2.0.0-ghosthunter.4`
 
 ## 왜 git URL로 설치하지 않고 임베드했는가
 
@@ -114,6 +114,40 @@ PluginImporter 메타로 유지하면 Unity가 플러그인 이름을 정상적�
 lipo -archs Runtime/Facepunch/redistributable_bin/osx/libsteam_api.bundle
 # -> x86_64 arm64
 ```
+
+## 패치 5 — 전송 실패 감지 + 512KB 메시지 상한 등록
+
+**파일:** `Runtime/FacepunchTransport.cs` — `Initialize()`, `Send()`
+
+문제 (둘 다 "신뢰 메시지가 소리 없이 유실되는" 계열이다):
+
+1. 원본 `Send()`는 `Connection.SendMessage()`의 반환값(`Result`)을 버린다. Steam은 단일
+   메시지를 512KB(`k_cbMaxSteamNetworkingSocketsMessageSizeSend`)까지만 받아주고 초과분은
+   `InvalidParam`으로 거부하며, 송신 버퍼가 가득 차면 `LimitExceeded`를 돌려준다.
+   반환값을 버리면 **Reliable 메시지가 유실되어도 로그 한 줄 없다.**
+2. NGO는 `ReliableFragmentedSequenced` 메시지(씬 동기화가 대표)를 쪼개지 않고 **한 번의
+   `Send`로 통째로** 넘긴다. 상한(`FragmentedMessageMaxSize`) 기본값이 `int.MaxValue`라,
+   맵이 커져 씬 동기화 페이로드가 512KB를 넘는 순간 1번과 결합해 **클라이언트가 씬 동기화를
+   영영 못 받고 무한 대기**하는 형태로 조용히 깨진다.
+
+해결:
+
+```csharp
+// Initialize(): NGO에 Steam의 단일 메시지 상한을 알린다. 초과 메시지는 이제
+// 송신 시점에 NGO가 명확한 에러를 낸다.
+if (networkManager != null)
+    networkManager.MaximumFragmentedMessageSize = MaxSteamMessageSize; // 512 * 1024
+
+// Send(): SendMessage 의 Result 를 확인하고 실패를 LogError 로 드러낸다.
+```
+
+> upstream에도 없는 결함이다. 여유가 되면 MCC 저장소에 PR을 올릴 것.
+
+**한계:** 씬 동기화 페이로드가 실제로 512KB를 넘게 되면 에러만 나고 여전히 접속은 안 된다.
+그때는 트랜스포트에 청크 분할/재조립을 구현하거나 씬 배치 `NetworkObject` 수를 줄여야 한다.
+(현재 Prototype 씬 ~200개 기준 동기화 페이로드는 수십 KB 수준으로 여유가 크다.)
+
+---
 
 ## 패치하지 않은 알려진 한계
 

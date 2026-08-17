@@ -771,10 +771,13 @@ namespace GhostHunter.EditorTools
         /// </summary>
         internal static Vector3[] PlayerSpawnPositions()
         {
+            // 4인 로비에 맞춰 거실 남쪽 띠에 4자리. 서로 1m 이상 떨어뜨려 스폰 겹침을 피한다.
             return new[]
             {
                 new Vector3(-0.4f * MapScale, 0.05f, OuterSouth + 1f * MapScale),
                 new Vector3(1f * MapScale, 0.05f, OuterSouth + 1.8f * MapScale),
+                new Vector3(-1.8f * MapScale, 0.05f, OuterSouth + 1.4f * MapScale),
+                new Vector3(2.4f * MapScale, 0.05f, OuterSouth + 1.2f * MapScale),
             };
         }
 

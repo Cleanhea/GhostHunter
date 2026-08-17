@@ -139,7 +139,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: GhostHunter.Runtime::GhostHunter.Networking.SteamLobbyManager
   _appId: 480
-  _maxLobbyMembers: 2
+  _maxLobbyMembers: 4
   _friendsOnly: 0
 --- !u!114 &3352543702972501602
 MonoBehaviour:

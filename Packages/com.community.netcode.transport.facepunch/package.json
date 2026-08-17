@@ -1,7 +1,7 @@
 {
   "name": "com.community.netcode.transport.facepunch",
   "displayName": "Facepunch Transport for Netcode for GameObjects",
-  "version": "2.0.0-ghosthunter.3",
+  "version": "2.0.0-ghosthunter.4",
   "unity": "2019.4",
   "description": "Facepunch Transport for Netcode for GameObjects. GhostHunter 프로젝트용 벤더링 사본 - PATCHES.md 참조.",
   "author": "Nico Thomas (Transport Adapter), Floris van Onna (Transport Adapter), Garry Newman (Author of Facepunch.Steamworks)",

@@ -97,9 +97,21 @@ namespace Netcode.Transports.Facepunch
         // 그래서 "내가 초기화했을 때만 내가 종료한다"로 바꾼다.
         private bool m_OwnsSteamClient;
 
+        // [GhostHunter 패치 5] Steam Networking Sockets 는 단일 메시지를 512KB
+        // (k_cbMaxSteamNetworkingSocketsMessageSizeSend)까지만 보낼 수 있다.
+        private const int MaxSteamMessageSize = 512 * 1024;
+
         public override void Initialize(NetworkManager networkManager = null)
         {
             connectedClients = new Dictionary<ulong, Client>();
+
+            // [GhostHunter 패치 5] NGO는 ReliableFragmentedSequenced 메시지(씬 동기화 등)를
+            // 쪼개지 않고 한 번의 Send로 넘기며, 상한 기본값은 int.MaxValue다. Steam의 512KB
+            // 한계를 알려주지 않으면 초과분이 송신 측 에러 없이 통째로 버려져, 클라이언트가
+            // 씬 동기화를 영영 못 받는 식으로 조용히 깨진다. 상한을 등록해 NGO가 송신 시점에
+            // 명확한 에러를 내게 한다.
+            if (networkManager != null)
+                networkManager.MaximumFragmentedMessageSize = MaxSteamMessageSize;
 
             if (SteamClient.IsValid)
             {
@@ -161,12 +173,24 @@ namespace Netcode.Transports.Facepunch
         {
 	        var sendType = NetworkDeliveryToSendType(delivery);
 
+	        // [GhostHunter 패치 5] 전송 결과를 확인한다. 원본은 반환값을 버려서, 신뢰(Reliable)
+	        // 메시지가 실패해도(512KB 초과 InvalidParam, 송신 버퍼 가득참 LimitExceeded 등)
+	        // 아무 로그 없이 유실됐다. 신뢰 메시지 유실은 세션 전체를 미묘하게 망가뜨리므로
+	        // 반드시 에러로 드러낸다.
+	        Result result;
 	        if (clientId == ServerClientId)
-		        connectionManager.Connection.SendMessage(data.Array, data.Offset, data.Count, sendType);
+		        result = connectionManager.Connection.SendMessage(data.Array, data.Offset, data.Count, sendType);
 	        else if (connectedClients.TryGetValue(clientId, out Client user))
-		        user.connection.SendMessage(data.Array, data.Offset, data.Count, sendType);
-	        else if (LogLevel <= LogLevel.Normal)
-		        Debug.LogWarning($"[{nameof(FacepunchTransport)}] - Failed to send packet to remote client with ID {clientId}, client not connected.");
+		        result = user.connection.SendMessage(data.Array, data.Offset, data.Count, sendType);
+	        else
+	        {
+		        if (LogLevel <= LogLevel.Normal)
+			        Debug.LogWarning($"[{nameof(FacepunchTransport)}] - Failed to send packet to remote client with ID {clientId}, client not connected.");
+		        return;
+	        }
+
+	        if (result != Result.OK && LogLevel <= LogLevel.Error)
+		        Debug.LogError($"[{nameof(FacepunchTransport)}] - Failed to send {data.Count} bytes to client {clientId} (delivery {delivery}): {result}");
         }
 
         public override NetworkEvent PollEvent(out ulong clientId, out ArraySegment<byte> payload, out float receiveTime)
