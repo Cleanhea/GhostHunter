@@ -44,7 +44,7 @@
 | [0008](ADR-0008-owner-authoritative-player-movement.md) | 플레이어 이동만 소유자 권위로 둔다 | Accepted | 2026-08-19 |
 | [0009](ADR-0009-scene-placed-level-objects.md) | 가구·문·붙박이는 프리팹 인스턴스로 씬에 배치한다 (런타임 스폰하지 않는다) | Accepted | 2026-08-19 |
 | [0010](ADR-0010-server-authoritative-furniture-physics.md) | 가구 물리는 서버 권위로 시뮬레이션한다 | Accepted | 2026-08-19 |
-| [0011](ADR-0011-local-transport-path.md) | 로컬(UnityTransport) 개발 경로를 어떻게 둘 것인가 | **Proposed** | 2026-08-19 |
+| [0011](ADR-0011-local-transport-path.md) | 로컬 UTP 경로를 유지하고 빌드 가드로 릴리스를 보호한다 | Accepted | 2026-08-20 |
 | [0012](ADR-0012-room-code-and-lobby-visibility.md) | 방 코드 6자리 + 로비 가시성·난입 정책 | **Proposed** | 2026-08-19 |
 
 ## 5. 작성 대기
@@ -58,4 +58,4 @@
 
 ---
 
-최종 갱신: 2026-08-19
+최종 갱신: 2026-08-20

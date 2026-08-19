@@ -196,17 +196,30 @@ private readonly NetworkVariable<bool> _isOpen =
 
 ## 5. 로컬(UnityTransport) 경로
 
-> **미결정:** 이 절의 정책은 확정 전이다. 선택지와 이해득실은
-> [ADR-0011](decisions/ADR-0011-local-transport-path.md)에 정리되어 있다. 확정되면 이 절을 다시 쓴다.
+`ConnectionManager`가 `TransportMode.Local`(UTP, 127.0.0.1) / `TransportMode.Steam`(Facepunch)을
+런타임에 전환한다. **로컬 경로는 개발 전용이며 런타임에 그대로 남는다**
+→ [ADR-0011](decisions/ADR-0011-local-transport-path.md)
 
-현재 상태: `ConnectionManager`가 `TransportMode.Local`(UTP, 127.0.0.1) /
-`TransportMode.Steam`(Facepunch)을 런타임에 전환한다. 개발용 HUD(F1)와 `-transport=local`
-커맨드라인으로 고를 수 있다.
+존재 이유: 같은 Steam 계정으로는 두 인스턴스를 P2P 연결할 수 없다. SteamId 가 같아 자기 자신에게
+연결하는 꼴이 된다. 실제 2인 검증에는 PC 2대 + 계정 2개가 필요하므로, 일상 로직 검증은 UTP 로 한다.
 
-지켜야 할 것 — 어느 쪽으로 확정되든:
-- **게임 로직은 트랜스포트 구현을 직접 참조하지 않는다.** `FacepunchTransport`/`SteamClient` 타입이
-  `Gameplay`·`UI`에 등장하면 안 된다 → [steam.md](steam.md)
-- 로컬 경로는 **개발용 HUD 뒤에** 둔다. 제품 메뉴(Title/Lobby)에는 노출하지 않는다.
+**MUST**
+- **게임 로직은 트랜스포트 구현을 직접 참조하지 않는다.** `FacepunchTransport`/`UnityTransport`/`SteamClient`
+  타입이 `Gameplay`·`UI`에 등장하면 안 된다 → [steam.md](steam.md)
+- 로컬 경로는 **개발용 HUD(F1) 뒤에** 둔다. 제품 메뉴(`Title`/`Lobby`)에 노출하지 않는다.
+- 트랜스포트 전환은 **세션 정지 중에만** 허용한다.
+- **리그의 직렬화된 기본값은 항상 `Steam`이다.** 로컬 검증은 플레이 중 HUD 로 전환하고 저장하지 않는다.
+
+### 5.1 릴리스 빌드 가드
+
+`_transportMode`는 직렬화 값이라, 로컬 검증 중에 저장·커밋하면 아무 신호 없이 빌드에 실린다.
+증상이 크래시가 아니라 **"Steam 로비는 뜨는데 아무도 접속하지 못함"** 이라 원인을 찾기 어렵다.
+
+`Assets/Scripts/Editor/TransportModeBuildGuard.cs`가 릴리스 빌드에서 모든 프리팹과 빌드 씬의
+`ConnectionManager`를 검사하고, `Steam`이 아니면 `BuildFailedException`으로 빌드를 중단한다.
+개발 빌드는 면제된다.
+
+> 이 가드는 실제로 필요했다. 도입 시점에 `NetworkRig.prefab`이 이미 Local 로 커밋되어 있었다.
 
 ## 6. 테스트
 

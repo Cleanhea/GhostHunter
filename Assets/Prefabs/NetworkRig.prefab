@@ -156,7 +156,7 @@ MonoBehaviour:
   _networkManager: {fileID: 7615749265430535107}
   _steamTransport: {fileID: 5512925870782624366}
   _localTransport: {fileID: 346294069266429958}
-  _transportMode: 1
+  _transportMode: 0
   _allowCommandLineOverride: 1
   _autoStartFromLobbyEvents: 1
 --- !u!114 &5160963333429748672

@@ -41,8 +41,8 @@
                                └──▶ MIG-6 프리팹화                    └──▶ MIG-7 테스트
 ```
 
-> **MIG-2 는 D-1([ADR-0011](../architecture/decisions/ADR-0011-local-transport-path.md)) 결정이 선행되어야 한다.**
-> `Bootstrap` 씬에 `UnityTransport` 를 둘지가 거기서 갈린다.
+> **D-1 해결(2026-08-20).** `Bootstrap` 씬에는 Facepunch 와 UTP 를 **둘 다** 둔다.
+> 릴리스 보호는 `TransportModeBuildGuard` 가 맡는다 → [ADR-0011](../architecture/decisions/ADR-0011-local-transport-path.md)
 
 **MIG-4(UniTask)를 MIG-1보다 먼저 했다.** Core 인프라(`SceneFlowController`·`Services`)를 새로 쓸 때
 이미 UniTask가 있어야 두 번 쓰지 않는다.
@@ -56,7 +56,7 @@
 | MIG-10 | Unity MCP 연결 | `.mcp.json` | — | **완료 (2026-08-20)** — 버전 고정만 남음 |
 | MIG-4 | **UniTask 전환** — `async void` 6건, 코루틴 2건 | `manifest.json`, asmdef + 6파일 | — | **완료 (2026-08-20)** — 컴파일 검증됨 |
 | MIG-1 | Core 인프라 — `Services`, `SceneInstaller`, `ISceneFlow`, `SceneReference`/`SceneNameSO`, `SceneFlowController` | `Scripts/{Core,Data,Systems}`, `Settings/Scenes/SceneNameSO.asset` | MIG-4 ✅ | **완료 (2026-08-20)** — 컴파일 검증됨, 런타임 미검증 |
-| MIG-2 | **씬 재편** — `Bootstrap` 신규, `MainMenu`→`Title`, `Prototype`→`Game`, `Result` 신규, 호출부를 `ISceneFlow`로 이관 | `Assets/Scenes/**` | MIG-1 ✅ | **다음 작업 (D-1 선행)** |
+| MIG-2 | **씬 재편** — `Bootstrap` 신규, `MainMenu`→`Title`, `Prototype`→`Game`, `Result` 신규, 호출부를 `ISceneFlow`로 이관 | `Assets/Scenes/**` | MIG-1 ✅ | **다음 작업** |
 | MIG-3 | `NetworkRig` 프리팹 → `Bootstrap` 씬 흡수, `static Instance` 6건 제거 | `Bootstrap.unity`, `ConnectionManager` 외 | MIG-2 | 대기 |
 | MIG-5 | **asmdef 레이어 분리** + 폴더 이동 | asmdef 8개 | MIG-3 | 대기 |
 | MIG-6 | 가구·문 프리팹화 + 생성 도구 전환 | `Assets/Prefabs/Furniture/**`, `HousePrototypeBuilder` | MIG-2 | 대기 |
@@ -69,7 +69,6 @@
 
 | # | 항목 | 막히는 태스크 |
 | --- | --- | --- |
-| D-1 | 로컬(UTP) 경로 존치 방식 | [ADR-0011](../architecture/decisions/ADR-0011-local-transport-path.md) → MIG-3, MIG-7 |
 | D-2 | 로비 가시성 (Public vs FriendsOnly) | [ADR-0012](../architecture/decisions/ADR-0012-room-code-and-lobby-visibility.md) §3 → MIG-11 |
 | D-3 | 난입 허용 여부 | [ADR-0012](../architecture/decisions/ADR-0012-room-code-and-lobby-visibility.md) §4 → MIG-11 |
 | D-4 | 게임 루프·승패 조건 | [gdd.md §2](gdd.md) → M8 전체 |
@@ -214,6 +213,7 @@
 | 2026-08-20 | MIG-4 UniTask 전환 | `async void` 6건 · 코루틴 2건 제거, 취소 토큰 적용 |
 | 2026-08-20 | MIG-8 통합 RPC 속성 전환 | 레거시 5건 제거. **호출 권한 기본값 역전 함정** 발견·차단 |
 | 2026-08-20 | MIG-1 Core 인프라 | `Services`·`SceneInstaller`·`ISceneFlow`·`SceneFlowController`·`SceneReference`/`SceneNameSO` |
+| 2026-08-20 | D-1 결정 (ADR-0011 Accepted) | 로컬 UTP 존치 + 빌드 가드. **이미 Local 로 커밋돼 있던 프리팹 기본값 정정** |
 
 ---
 

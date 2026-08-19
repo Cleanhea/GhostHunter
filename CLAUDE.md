@@ -16,7 +16,7 @@ GhostHunter — 1인칭 멀티플레이 "가구 던지기" 게임.
 | 입력 | Input System 1.19 (**신규 전용**, `activeInputHandler: 1`) | 레거시 `Input.*`는 런타임 예외 |
 | 네트워킹 | Netcode for GameObjects **2.13.1** | 서버 권위 |
 | Steam 트랜스포트 | `com.community.netcode.transport.facepunch` | **임베드 + 5건 패치** — 아래 주의 |
-| 로컬 트랜스포트 | `com.unity.transport` 2.7.3 (UTP) | 존치 여부 [ADR-0011](docs/architecture/decisions/ADR-0011-local-transport-path.md) **결정 대기** |
+| 로컬 트랜스포트 | `com.unity.transport` 2.7.3 (UTP) | 개발 전용으로 존치 + 빌드 가드 → [ADR-0011](docs/architecture/decisions/ADR-0011-local-transport-path.md) |
 | Steam 래퍼 | Facepunch.Steamworks 2.5.2 | 트랜스포트 패키지에 번들 |
 | 비동기 | **UniTask 2.5.11** | [ADR-0005](docs/architecture/decisions/ADR-0005-unitask-async.md) — 전환 완료 |
 | 에디터 브리지 | Unity MCP (CoplayDev) | [workflow/unity-mcp.md](docs/workflow/unity-mcp.md) — 연결됨. 버전 `#main` 추적 중 |
@@ -91,6 +91,8 @@ GhostHunter — 1인칭 멀티플레이 "가구 던지기" 게임.
 - **씬 전환은 `ISceneFlow`를 경유한다.** `SceneManager`를 직접 호출하지 않는다.
 - 서비스는 자기 `static Instance`를 갖지 않는다. 등록은 `SceneInstaller`에서만.
 - 튜닝 수치는 코드 상수가 아니라 `ScriptableObject` 설정 에셋에 둔다.
+- **트랜스포트 모드의 직렬화 기본값은 항상 `Steam`이다.** 로컬 검증은 플레이 중 F1 HUD로 전환하고
+  저장하지 않는다. 릴리스 빌드는 `TransportModeBuildGuard`가 막는다.
 - 새 어셈블리 경계를 만들 땐 `.asmdef`를 함께 추가하고 `docs/architecture/overview.md`를 갱신한다.
 
 ### 3.5 게임플레이 규칙

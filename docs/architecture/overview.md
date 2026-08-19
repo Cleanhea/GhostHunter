@@ -159,7 +159,7 @@ Bootstrap                     (root 3개)
 └── NetworkManager            (씬 root)
     ├── Unity.Netcode.NetworkManager
     ├── FacepunchTransport
-    └── UnityTransport        (→ ADR-0011 확정 전까지 유지)
+    └── UnityTransport        (개발 전용. 기본값은 항상 Steam → ADR-0011)
 ```
 
 - **카메라와 라이트를 두지 않는다.** 멀티씬에서 `Bootstrap`은 내려가지 않으므로 게임플레이 씬과
@@ -261,7 +261,6 @@ UI (씬별, 로컬 전용)
 
 | 항목 | 상태 |
 | --- | --- |
-| 로컬(UTP) 경로 정책 | **미결정** → [ADR-0011](decisions/ADR-0011-local-transport-path.md) |
 | asmdef 실제 분리 | 대기 (roadmap MIG-5). 현재는 `GhostHunter.Runtime` 1개 + `GhostHunter.Editor` |
 | 씬 전환 코드의 `ISceneFlow` 이관 | 대기 (roadmap MIG-2). 인프라는 구현됨, 호출부는 아직 `SceneManager` 직접 호출 |
 | 씬 재편(Bootstrap/Title/Game/Result) | 대기 (roadmap MIG-2) |
