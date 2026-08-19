@@ -16,28 +16,14 @@ namespace GhostHunter.Player
             if (!PlayerSpawnRegistry.Instance.TryGetSpawn(OwnerClientId, out Vector3 position, out Quaternion rotation))
                 return;
 
-            if (IsOwner)
-                ApplySpawn(position, rotation);
-
-            var sendParams = new ClientRpcParams
-            {
-                Send = new ClientRpcSendParams
-                {
-                    TargetClientIds = new[] { OwnerClientId },
-                },
-            };
-
-            ApplySpawnClientRpc(position, rotation, sendParams);
+            // SendTo.Owner 는 호스트가 자기 플레이어의 Owner 일 때도 그대로 도달한다.
+            ApplySpawnRpc(position, rotation);
         }
 
-        [ClientRpc]
-        private void ApplySpawnClientRpc(
-            Vector3 position,
-            Quaternion rotation,
-            ClientRpcParams clientRpcParams = default)
+        [Rpc(SendTo.Owner)]
+        private void ApplySpawnRpc(Vector3 position, Quaternion rotation)
         {
-            if (IsOwner)
-                ApplySpawn(position, rotation);
+            ApplySpawn(position, rotation);
         }
 
         private void ApplySpawn(Vector3 position, Quaternion rotation)

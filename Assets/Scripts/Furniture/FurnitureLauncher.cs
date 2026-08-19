@@ -60,11 +60,11 @@ namespace GhostHunter.Furniture
                 Random.insideUnitSphere * _settings.TorqueScale,
                 ForceMode.Impulse);
 
-            OnLaunchedClientRpc(direction, magnitude);
+            NotifyLaunchedRpc(direction, magnitude);
         }
 
-        [ClientRpc]
-        private void OnLaunchedClientRpc(Vector3 direction, float magnitude)
+        [Rpc(SendTo.ClientsAndHost)]
+        private void NotifyLaunchedRpc(Vector3 direction, float magnitude)
         {
             // 사운드/파티클을 붙일 때 사용할 네트워크 훅. 프로토타입 범위에서는 물리 피드백만 쓴다.
         }

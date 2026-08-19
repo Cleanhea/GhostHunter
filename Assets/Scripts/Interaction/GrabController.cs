@@ -69,7 +69,7 @@ namespace GhostHunter.Interaction
             if (IsHolding && Time.unscaledTime >= _nextAimSendAt)
             {
                 _nextAimSendAt = Time.unscaledTime + _aimSendInterval;
-                UpdateAimServerRpc(
+                UpdateAimRpc(
                     _heldObjectId.Value,
                     _camera.transform.position,
                     _camera.transform.forward);
@@ -121,7 +121,7 @@ namespace GhostHunter.Interaction
             _requestSentAt = Time.unscaledTime;
             _targeter.SetHoldTarget(target);
 
-            RequestGrabServerRpc(
+            RequestGrabRpc(
                 target.NetworkObjectId,
                 _camera.transform.position,
                 _camera.transform.forward);
@@ -133,16 +133,16 @@ namespace GhostHunter.Interaction
             if (objectId == NoObjectId)
                 return;
 
-            RequestReleaseServerRpc(objectId, _camera.transform.forward);
+            RequestReleaseRpc(objectId, _camera.transform.forward);
             _requestedObjectId = NoObjectId;
         }
 
-        [ServerRpc]
-        private void RequestGrabServerRpc(
+        [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
+        private void RequestGrabRpc(
             ulong objectId,
             Vector3 aimOrigin,
             Vector3 aimDirection,
-            ServerRpcParams rpcParams = default)
+            RpcParams rpcParams = default)
         {
             ulong sender = rpcParams.Receive.SenderClientId;
             if (sender != OwnerClientId
@@ -160,12 +160,12 @@ namespace GhostHunter.Interaction
                 _heldObjectId.Value = objectId;
         }
 
-        [ServerRpc]
-        private void UpdateAimServerRpc(
+        [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
+        private void UpdateAimRpc(
             ulong objectId,
             Vector3 aimOrigin,
             Vector3 aimDirection,
-            ServerRpcParams rpcParams = default)
+            RpcParams rpcParams = default)
         {
             ulong sender = rpcParams.Receive.SenderClientId;
             if (sender != OwnerClientId
@@ -181,11 +181,11 @@ namespace GhostHunter.Interaction
             target.ServerUpdateAim(sender, aimOrigin, aimDirection);
         }
 
-        [ServerRpc]
-        private void RequestReleaseServerRpc(
+        [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
+        private void RequestReleaseRpc(
             ulong objectId,
             Vector3 aimDirection,
-            ServerRpcParams rpcParams = default)
+            RpcParams rpcParams = default)
         {
             ulong sender = rpcParams.Receive.SenderClientId;
             if (sender != OwnerClientId
