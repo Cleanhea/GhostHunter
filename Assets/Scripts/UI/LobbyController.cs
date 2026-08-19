@@ -1,9 +1,9 @@
 using System.Collections.Generic;
 using GhostHunter.Core;
+using GhostHunter.Core.Scenes;
 using GhostHunter.Core.Steam;
 using GhostHunter.Networking;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 namespace GhostHunter.UI
@@ -34,6 +34,7 @@ namespace GhostHunter.UI
 
         private ISteamLobbyService _lobby;
         private ConnectionManager _connection;
+        private ISceneFlow _sceneFlow;
         private readonly List<LobbyMemberEntry> _entries = new();
         private bool _localReady;
         private bool _departing; // 게임 시작 또는 접속 절차에 들어갔다.
@@ -57,6 +58,7 @@ namespace GhostHunter.UI
             SteamLobbyManager lobbyManager = SteamLobbyManager.Instance;
             _lobby = lobbyManager != null ? lobbyManager : null;
             _connection = ConnectionManager.Instance;
+            Services.TryGet(out _sceneFlow);
 
             if (_lobby == null || !_lobby.IsInLobby)
             {
@@ -132,7 +134,7 @@ namespace GhostHunter.UI
 
             _departing = true;
             _connection.SetTransportMode(TransportMode.Steam);
-            _connection.StartHostInGameScene(GameScenes.Prototype);
+            _connection.StartHostInGameScene(SceneId.Game);
         }
 
         private void HandleReadyClicked()
@@ -167,7 +169,7 @@ namespace GhostHunter.UI
             if (!_departing)
             {
                 _departing = true;
-                SceneManager.LoadScene(GameScenes.MainMenu);
+                _sceneFlow?.Load(SceneId.Title);
             }
         }
 
@@ -177,7 +179,7 @@ namespace GhostHunter.UI
                 return;
 
             _departing = true;
-            SceneManager.LoadScene(GameScenes.MainMenu);
+            _sceneFlow?.Load(SceneId.Title);
         }
 
         private void Refresh()

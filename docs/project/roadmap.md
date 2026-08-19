@@ -33,12 +33,12 @@
 ### 2.1 순서 (의존 관계)
 
 ```
-[완료] MIG-0 문서 · MIG-9 Steamworks 격리 · MIG-10 MCP · MIG-4 UniTask · MIG-8 RPC · MIG-1 Core 인프라
+[완료] MIG-0 문서 · MIG-9 Steamworks · MIG-10 MCP · MIG-4 UniTask · MIG-8 RPC · MIG-1 Core · MIG-2 씬 재편
                                     │
                                     ▼
-                          MIG-2 씬 재편 ──▶ MIG-3 리그 흡수 ──▶ MIG-5 asmdef 분리
-                               │                                      │
-                               └──▶ MIG-6 프리팹화                    └──▶ MIG-7 테스트
+                          MIG-3 리그 흡수 ──▶ MIG-5 asmdef 분리 ──▶ MIG-7 테스트
+                                                   │
+                                MIG-6 프리팹화 ────┘ (독립, 언제든 가능)
 ```
 
 > **D-1 해결(2026-08-20).** `Bootstrap` 씬에는 Facepunch 와 UTP 를 **둘 다** 둔다.
@@ -56,8 +56,8 @@
 | MIG-10 | Unity MCP 연결 | `.mcp.json` | — | **완료 (2026-08-20)** — 버전 고정만 남음 |
 | MIG-4 | **UniTask 전환** — `async void` 6건, 코루틴 2건 | `manifest.json`, asmdef + 6파일 | — | **완료 (2026-08-20)** — 컴파일 검증됨 |
 | MIG-1 | Core 인프라 — `Services`, `SceneInstaller`, `ISceneFlow`, `SceneReference`/`SceneNameSO`, `SceneFlowController` | `Scripts/{Core,Data,Systems}`, `Settings/Scenes/SceneNameSO.asset` | MIG-4 ✅ | **완료 (2026-08-20)** — 컴파일 검증됨, 런타임 미검증 |
-| MIG-2 | **씬 재편** — `Bootstrap` 신규, `MainMenu`→`Title`, `Prototype`→`Game`, `Result` 신규, 호출부를 `ISceneFlow`로 이관 | `Assets/Scenes/**` | MIG-1 ✅ | **다음 작업** |
-| MIG-3 | `NetworkRig` 프리팹 → `Bootstrap` 씬 흡수, `static Instance` 6건 제거 | `Bootstrap.unity`, `ConnectionManager` 외 | MIG-2 | 대기 |
+| MIG-2 | **씬 재편** — `Bootstrap`·`Result` 신규, `MainMenu`→`Title`, `Prototype`→`Game`, 호출부를 `ISceneFlow`로 이관 | `Assets/Scenes/**` | MIG-1 ✅ | **완료 (2026-08-20)** — 플레이 검증됨 |
+| MIG-3 | `NetworkRig` 프리팹 언팩 + `NetworkRigBootstrap` 제거, `static Instance` 6건 → `Services` | `Bootstrap.unity`, `ConnectionManager` 외 | MIG-2 ✅ | **다음 작업** |
 | MIG-5 | **asmdef 레이어 분리** + 폴더 이동 | asmdef 8개 | MIG-3 | 대기 |
 | MIG-6 | 가구·문 프리팹화 + 생성 도구 전환 | `Assets/Prefabs/Furniture/**`, `HousePrototypeBuilder` | MIG-2 | 대기 |
 | MIG-7 | 테스트 어셈블리 + 스모크 테스트 이관 | `Assets/Tests/**` | MIG-5 | 대기 |
@@ -87,7 +87,7 @@
 - [x] 바닥·벽·스폰 포인트 배치
 - [x] `Assets/Scripts/Temp.cs` 삭제
 - [x] 프로젝트 설정: Company Name `GhostHunter`
-- [x] 씬 분리 — `MainMenu` / `Lobby` / `Prototype` → **MIG-2에서 재편 예정**
+- [x] 씬 분리 — MIG-2에서 `Bootstrap`/`Title`/`Lobby`/`Game`/`Result` 로 재편 완료
 </details>
 
 <details>
@@ -214,6 +214,7 @@
 | 2026-08-20 | MIG-8 통합 RPC 속성 전환 | 레거시 5건 제거. **호출 권한 기본값 역전 함정** 발견·차단 |
 | 2026-08-20 | MIG-1 Core 인프라 | `Services`·`SceneInstaller`·`ISceneFlow`·`SceneFlowController`·`SceneReference`/`SceneNameSO` |
 | 2026-08-20 | D-1 결정 (ADR-0011 Accepted) | 로컬 UTP 존치 + 빌드 가드. **이미 Local 로 커밋돼 있던 프리팹 기본값 정정** |
+| 2026-08-20 | MIG-2 씬 재편 | 5씬 체계 + additive 전환. Bootstrap→Title→Lobby 플레이 검증, Game 씬 내용 무변경 |
 
 ---
 

@@ -13,17 +13,17 @@ MonoBehaviour:
   m_Name: SceneNameSO
   m_EditorClassIdentifier: GhostHunter.Runtime::GhostHunter.Data.Scenes.SceneNameSO
   _bootstrap:
-    _sceneAsset: {fileID: 0}
-    _sceneName: 
+    _sceneAsset: {fileID: 102900000, guid: 5f49e88f20d8302488af3e431acfa66e, type: 3}
+    _sceneName: Bootstrap
   _title:
     _sceneAsset: {fileID: 102900000, guid: dae29e146832bd84b8413ea24d93f57a, type: 3}
-    _sceneName: MainMenu
+    _sceneName: Title
   _lobby:
     _sceneAsset: {fileID: 102900000, guid: 80a935596d39e1b47bb4c3e5ab97f416, type: 3}
     _sceneName: Lobby
   _game:
     _sceneAsset: {fileID: 102900000, guid: 03c9f03fcb0c65a429b389ff270bc325, type: 3}
-    _sceneName: Prototype
+    _sceneName: Game
   _result:
-    _sceneAsset: {fileID: 0}
-    _sceneName: 
+    _sceneAsset: {fileID: 102900000, guid: fa90e54293374e94c89dabf9b455411e, type: 3}
+    _sceneName: Result

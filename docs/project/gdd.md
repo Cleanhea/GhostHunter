@@ -163,7 +163,7 @@
 
 | 화면 | 요소 | 상태 |
 | --- | --- | --- |
-| `Title` | 방 생성, 방 코드 참가, 설정, 종료, Steam 상태 메시지 | 구현됨 (`MainMenuController`) |
+| `Title` | 방 생성, 방 코드 참가, 설정, 종료, Steam 상태 메시지 | 구현됨 (`MainMenuController` — 클래스명은 MIG-5에서 정리) |
 | `Lobby` | 방 코드·복사·초대, 멤버 4슬롯(아바타·닉네임·준비), 준비/시작/나가기 | 구현됨 (`LobbyController`) |
 | `Game` HUD | 크로스헤어(조준 대상 유무), 차지 게이지(1인 준비/2인 잡기) | 구현됨 |
 | `Game` 윤곽선 | 조준 중 / 내가 홀드 / 남이 홀드 / 2인 홀드 색 구분 | 구현됨 |
@@ -210,11 +210,11 @@
 | 2 | **유령은 플레이어인가 AI인가?** | AI 설계, 비대칭 여부, 스폰 규칙 | **대기** |
 | 3 | 로비 가시성 — Public + 접속 승인 재검증 / FriendsOnly + 초대 전용 | 방 코드 기능 존치 | **대기** → [ADR-0012](../architecture/decisions/ADR-0012-room-code-and-lobby-visibility.md) |
 | 4 | 매치 중 난입을 허용하는가 | `SetJoinable` 정책, 스폰 안전성 | **대기** → [ADR-0012](../architecture/decisions/ADR-0012-room-code-and-lobby-visibility.md) |
-| 5 | 로컬(UTP) 개발 경로 존치 방식 | 테스트 전략 | **대기** → [ADR-0011](../architecture/decisions/ADR-0011-local-transport-path.md) |
+| 5 | ~~로컬(UTP) 개발 경로 존치 방식~~ | — | ✅ 해결 — 존치 + 빌드 가드 ([ADR-0011](../architecture/decisions/ADR-0011-local-transport-path.md)) |
 | 6 | ~~최대 인원~~ | — | ✅ 해결 — 4명 |
 | 7 | ~~방 코드 형식~~ | — | ✅ 해결 — 6자리 커스텀 코드 |
 | 8 | ~~타깃 플랫폼~~ | — | ✅ 해결 — Steam / Windows + macOS |
 
 ---
 
-최종 갱신: 2026-08-19
+최종 갱신: 2026-08-20

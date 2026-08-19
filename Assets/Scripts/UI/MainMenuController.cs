@@ -1,10 +1,10 @@
 using System;
 using Cysharp.Threading.Tasks;
 using GhostHunter.Core;
+using GhostHunter.Core.Scenes;
 using GhostHunter.Core.Steam;
 using GhostHunter.Networking;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 namespace GhostHunter.UI
@@ -33,6 +33,7 @@ namespace GhostHunter.UI
         [SerializeField] private Text _statusText;
 
         private ISteamLobbyService _lobby;
+        private ISceneFlow _sceneFlow;
         private bool _navigating;
 
         private void Start()
@@ -56,6 +57,7 @@ namespace GhostHunter.UI
             // TODO: MIG-1에서 Services.Get<ISteamLobbyService>() 로 교체한다.
             SteamLobbyManager lobbyManager = SteamLobbyManager.Instance;
             _lobby = lobbyManager != null ? lobbyManager : null;
+            Services.TryGet(out _sceneFlow);
 
             if (_lobby == null)
             {
@@ -199,7 +201,7 @@ namespace GhostHunter.UI
                 return;
 
             _navigating = true;
-            SceneManager.LoadScene(GameScenes.Lobby);
+            _sceneFlow?.Load(SceneId.Lobby);
         }
 
         private void SetMenuInteractable(bool interactable)

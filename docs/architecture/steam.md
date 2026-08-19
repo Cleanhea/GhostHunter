@@ -79,7 +79,7 @@ CreateLobbyAsync()
 
 ## 씬 세팅
 
-`Assets/Scenes/Prototype.unity`에는 아래 리그가 이미 만들어져 있다. 빈 씬에서 별도 리그가
+`Assets/Scenes/Bootstrap.unity`에 아래 리그가 만들어져 있다. 빈 씬에서 별도 리그가
 필요하면 메뉴 **`GhostHunter > 네트워크 리그 생성`** 을 사용한다:
 
 ```

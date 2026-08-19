@@ -30,9 +30,11 @@ namespace GhostHunter.EditorTools
     /// </summary>
     public static class PrototypeSceneSetup
     {
-        private const string ScenePath = "Assets/Scenes/Prototype.unity";
-        internal const string MainMenuScenePath = "Assets/Scenes/MainMenu.unity";
+        private const string ScenePath = "Assets/Scenes/Game.unity";
+        internal const string TitleScenePath = "Assets/Scenes/Title.unity";
         internal const string LobbyScenePath = "Assets/Scenes/Lobby.unity";
+        internal const string BootstrapScenePath = "Assets/Scenes/Bootstrap.unity";
+        internal const string ResultScenePath = "Assets/Scenes/Result.unity";
         internal const string NetworkRigPrefabPath = "Assets/Prefabs/NetworkRig.prefab";
         private const string PlayerPrefabPath = "Assets/Prefabs/Player.prefab";
         private const string MoveSettingsPath = "Assets/Settings/Gameplay/PlayerMoveSettings_Default.asset";
@@ -700,7 +702,8 @@ namespace GhostHunter.EditorTools
         {
             var scenes = new List<EditorBuildSettingsScene>();
 
-            foreach (string path in new[] { MainMenuScenePath, LobbyScenePath, ScenePath })
+            foreach (string path in new[]
+                     { BootstrapScenePath, TitleScenePath, LobbyScenePath, ScenePath, ResultScenePath })
             {
                 if (AssetDatabase.LoadAssetAtPath<SceneAsset>(path) != null)
                     scenes.Add(new EditorBuildSettingsScene(path, true));
@@ -1060,7 +1063,7 @@ namespace GhostHunter.EditorTools
             Directory.CreateDirectory(buildFolder);
 
             BuildReport report = BuildPipeline.BuildPlayer(
-                new[] { ScenePath },
+                new[] { BootstrapScenePath, ScenePath },
                 executablePath,
                 BuildTarget.StandaloneWindows64,
                 BuildOptions.Development);

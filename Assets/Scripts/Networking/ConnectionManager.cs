@@ -1,5 +1,7 @@
 using System;
 using Cysharp.Threading.Tasks;
+using GhostHunter.Core;
+using GhostHunter.Core.Scenes;
 using Netcode.Transports.Facepunch;
 using Steamworks;
 using Unity.Netcode;
@@ -49,6 +51,9 @@ namespace GhostHunter.Networking
                  "로비 UI가 시작 시점을 직접 정한다.")]
         [SerializeField] private bool _autoStartFromLobbyEvents = true;
 
+        /// <summary>게임 씬 로드를 기다리는 한계. 넘으면 원인을 로그로 남기고 포기한다.</summary>
+        private static readonly TimeSpan SceneLoadTimeout = TimeSpan.FromSeconds(30);
+
         public static ConnectionManager Instance { get; private set; }
 
         public TransportMode Mode => _transportMode;
@@ -61,6 +66,7 @@ namespace GhostHunter.Networking
         private NetworkManager Net => _networkManager != null ? _networkManager : NetworkManager.Singleton;
 
         private SteamLobbyManager _lobby;
+        private ISceneFlow _sceneFlow;
 
         private void Awake()
         {
@@ -85,6 +91,13 @@ namespace GhostHunter.Networking
 
             // SteamLobbyManager 도 Awake 에서 자기 자신을 등록하므로 Start 에서 잡는다.
             _lobby = SteamLobbyManager.Instance;
+
+            // 씬 전환은 Bootstrap 의 SceneFlowController 가 소유한다.
+            // TODO: MIG-3 에서 _lobby 도 Services 경유로 바꾼다.
+            Services.TryGet(out _sceneFlow);
+
+            if (_sceneFlow == null)
+                SetStatus("ISceneFlow 가 등록되지 않았습니다. Bootstrap 씬에서 시작했는지 확인하세요.");
 
             if (_lobby != null)
             {
@@ -198,28 +211,48 @@ namespace GhostHunter.Networking
         /// 반드시 게임 씬이 활성화된 다음 세션을 연다. 성공하면 Steam 로비에
         /// 게임 시작을 알려 게스트들이 접속하게 한다.
         /// </summary>
-        public void StartHostInGameScene(string sceneName)
+        public void StartHostInGameScene(SceneId scene)
         {
             if (!EnsureReadyToStart())
                 return;
 
-            StartHostInGameSceneAsync(sceneName).Forget();
-        }
-
-        private async UniTaskVoid StartHostInGameSceneAsync(string sceneName)
-        {
-            SetStatus($"게임 씬 로드 중... ({sceneName})");
-
-            AsyncOperation loadOperation = SceneManager.LoadSceneAsync(sceneName);
-            if (loadOperation == null)
+            if (_sceneFlow == null)
             {
-                SetStatus($"씬 '{sceneName}' 을 로드하지 못했습니다. Build Settings 를 확인하세요.");
+                SetStatus("ISceneFlow 가 없어 게임 씬으로 넘어갈 수 없습니다.");
                 return;
             }
 
+            StartHostInGameSceneAsync(scene).Forget();
+        }
+
+        private async UniTaskVoid StartHostInGameSceneAsync(SceneId target)
+        {
+            SetStatus($"게임 씬 로드 중... ({target})");
+
+            var loaded = new UniTaskCompletionSource();
+            Action<SceneId> onSceneChanged = id =>
+            {
+                if (id == target)
+                    loaded.TrySetResult();
+            };
+
+            _sceneFlow.SceneChanged += onSceneChanged;
+
             try
             {
-                await loadOperation.ToUniTask(cancellationToken: destroyCancellationToken);
+                _sceneFlow.Load(target);
+
+                // Load 는 거부될 수 있고(전환 중·미배선) 그때는 SceneChanged 가 오지 않는다.
+                // 무한 대기 대신 시간 제한을 둬서 원인이 로그에 남게 한다.
+                int winner = await UniTask.WhenAny(
+                    loaded.Task,
+                    UniTask.Delay(SceneLoadTimeout, cancellationToken: destroyCancellationToken));
+
+                if (winner != 0)
+                {
+                    SetStatus($"게임 씬({target}) 로드가 시간 안에 끝나지 않았습니다.");
+                    return;
+                }
 
                 // 씬 오브젝트(스폰 레지스트리 등)의 Awake 가 끝난 다음 프레임에 시작한다.
                 await UniTask.NextFrame(destroyCancellationToken);
@@ -227,6 +260,10 @@ namespace GhostHunter.Networking
             catch (OperationCanceledException)
             {
                 return;
+            }
+            finally
+            {
+                _sceneFlow.SceneChanged -= onSceneChanged;
             }
 
             StartHostInternal();

@@ -13,7 +13,7 @@ namespace GhostHunter.EditorTools
     /// <summary>
     /// 메인메뉴/로비 씬을 에디터 API로 생성한다. 씬 YAML을 손으로 만들지 않고,
     /// 같은 메뉴를 다시 실행하면 두 씬을 동일하게 재생성한다.
-    /// 흐름: MainMenu(방 생성/참가) → Lobby(대기실) → Prototype(게임, NGO 세션 시작).
+    /// 흐름: Title(방 생성/참가) → Lobby(대기실) → Game(NGO 세션 시작).
     /// </summary>
     public static class MenuScenesSetup
     {
@@ -28,7 +28,7 @@ namespace GhostHunter.EditorTools
         {
             GameObject rigPrefab = PrototypeSceneSetup.EnsureNetworkRigPrefab();
 
-            CreateMainMenuScene(rigPrefab);
+            CreateTitleScene(rigPrefab);
             CreateLobbyScene(rigPrefab);
 
             PrototypeSceneSetup.SyncBuildScenes();
@@ -36,9 +36,9 @@ namespace GhostHunter.EditorTools
             AssetDatabase.Refresh();
 
             Debug.Log(
-                "[MenuScenesSetup] MainMenu / Lobby 씬 생성 완료.\n" +
-                "MainMenu 씬에서 Play → 방 생성(방 코드 발급) 또는 방 참가(코드 입력) → " +
-                "로비에서 초대/준비 → 호스트가 게임 시작을 누르면 Prototype 씬으로 넘어갑니다.\n" +
+                "[MenuScenesSetup] Title / Lobby 씬 생성 완료.\n" +
+                "Bootstrap 씬에서 Play → 방 생성(방 코드 발급) 또는 방 참가(코드 입력) → " +
+                "로비에서 초대/준비 → 호스트가 게임 시작을 누르면 Game 씬으로 넘어갑니다.\n" +
                 "메뉴 흐름은 Steam 로비 기반이므로 Steam 클라이언트가 실행 중이어야 합니다.");
         }
 
@@ -50,7 +50,7 @@ namespace GhostHunter.EditorTools
 
         #region 메인메뉴 씬
 
-        private static void CreateMainMenuScene(GameObject rigPrefab)
+        private static void CreateTitleScene(GameObject rigPrefab)
         {
             Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
@@ -63,7 +63,7 @@ namespace GhostHunter.EditorTools
                 autoStartFromLobbyEvents: false,
                 connectionHudVisible: false);
 
-            GameObject canvasObject = CreateCanvas("MainMenuCanvas");
+            GameObject canvasObject = CreateCanvas("TitleCanvas");
             Transform canvas = canvasObject.transform;
 
             CreateText(canvas, "Title", "GhostHunter", 96, FontStyle.Bold, TitleColor,
@@ -114,7 +114,7 @@ namespace GhostHunter.EditorTools
             PrototypeSceneSetup.SetObjectReference(controller, "_joinCancelButton", joinCancelButton);
             PrototypeSceneSetup.SetObjectReference(controller, "_statusText", statusText);
 
-            EditorSceneManager.SaveScene(scene, PrototypeSceneSetup.MainMenuScenePath);
+            EditorSceneManager.SaveScene(scene, PrototypeSceneSetup.TitleScenePath);
         }
 
         #endregion

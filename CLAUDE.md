@@ -122,10 +122,10 @@ GhostHunter — 1인칭 멀티플레이 "가구 던지기" 게임.
 
 ```
 Assets/
-├─ Scenes/     목표: Bootstrap → Title → Lobby → Game → Result
-│              현재: MainMenu → Lobby → Prototype  (MIG-2에서 재편)
+├─ Scenes/     Bootstrap(0) → Title → Lobby → Game → Result
+│              Bootstrap 은 언로드되지 않고, 나머지가 그 위에 additive 로 오르내린다
 ├─ Scripts/    목표 레이어: Core / Data / Gameplay / Networking / UI / Systems / DebugTools / Editor
-│              현재: Core, Networking, Player, Interaction, Furniture, Map, UI, DebugTools, Editor
+│              현재: Core, Data, Systems 신설됨. Player/Interaction/Furniture/Map 은 MIG-5에서 Gameplay 로
 ├─ Prefabs/    NetworkRig, Player
 ├─ Settings/   URP 에셋, Gameplay SO
 ├─ Materials/  Shaders/  Tests/(미생성)
@@ -157,7 +157,8 @@ true로 박힌다. NGO가 프리팹을 구분하지 못하는데 에러 없이 �
 
 ## 6. 멀티플레이 빠른 시작
 
-**메뉴 흐름 (Steam 필요):** `Assets/Scenes/MainMenu.unity`을 열고 플레이한다.
+**메뉴 흐름 (Steam 필요):** `Assets/Scenes/Bootstrap.unity`을 열고 플레이한다.
+Bootstrap 이 `Title` 을 additive 로 올린다.
 
 1. **방 생성** → Steam 로비 생성 + 6자리 방 코드 발급 → 로비 씬으로 이동
 2. 상대는 **방 참가**에 방 코드를 입력하거나, 호스트의 **초대** 오버레이로 들어온다
@@ -167,9 +168,12 @@ true로 박힌다. NGO가 프리팹을 구분하지 못하는데 에러 없이 �
 **세션 시작 순서(씬 로드 → StartHost → 로비 신호)는 MUST 지킨다.** 로비 씬에서 바로 `StartHost` 하면
 플레이어가 스폰 지점 없는 씬에 스폰되고, 신호를 먼저 보내면 게스트가 세션 없는 호스트에 접속한다.
 
-**단독 플레이 (Steam 없이):** `Prototype.unity`을 열고 플레이 → 접속 HUD에서 `Local` / **Host**. **F1**로 HUD 토글.
+**단독 플레이 (Steam 없이):** `Bootstrap.unity`에서 플레이 → **F1** 접속 HUD → 모드 `Local` → **Host**.
+HUD 로 바꾼 모드는 저장하지 않는다. 저장하면 릴리스 빌드가 `TransportModeBuildGuard` 에 막힌다.
 
-씬/프리팹 재생성: 메뉴 **`GhostHunter > 프로토타입 게임 생성`**, **`GhostHunter > 메인메뉴·로비 씬 생성`**.
+> ⚠️ **씬 생성 도구를 함부로 재실행하지 않는다.** `GhostHunter > 프로토타입 게임 생성`은
+> `Game` 씬을 **처음부터 다시 만든다.** 방에 손으로 배치한 가구가 사라진다(도구는 방을 비운 채 집을 만든다).
+> 재실행은 씬을 통째로 버려도 될 때만 한다.
 
 상세: [docs/architecture/steam.md](docs/architecture/steam.md)
 

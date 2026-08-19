@@ -1,7 +1,7 @@
 # 아키텍처 개요
 
-> **이 문서는 목표 구조를 기술한다.** 2026-08-19 결정으로 씬 아키텍처·어셈블리 구조·의존성 획득
-> 방식이 바뀌었고, 코드 이관은 진행 중이다. 어디까지 왔는지는 [../project/roadmap.md §2](../project/roadmap.md).
+> **일부는 목표 구조다.** 씬 구조(§4)와 의존성 획득(§8)은 반영이 끝났고,
+> 스크립트 레이어(§2)와 asmdef(§3)는 아직 목표다. 어디까지 왔는지는 [../project/roadmap.md §2](../project/roadmap.md).
 > 현재 코드가 이 문서와 다르면 **이 문서가 목표, 코드가 미이관 상태**다.
 
 ## 1. 폴더 구조 (Assets)
@@ -146,21 +146,27 @@ additive로 얹었다 내린다 → [ADR-0004](decisions/ADR-0004-multi-scene-ad
 - 씬 단위 서비스는 그 씬의 `SceneInstaller` 파생 컴포넌트에서 `Bind`로 등록한다. 씬이 내려가면 자동 해제된다.
 - 씬 이름을 코드에서 문자열로 쓰지 않는다 → [../conventions/unity-assets.md](../conventions/unity-assets.md)
 
-### 4.1 Bootstrap 구성 (목표)
+### 4.1 Bootstrap 구성
 
 ```
 Bootstrap                     (root 3개)
 ├── --- Systems ---
-│   ├── BootstrapInstaller    전역 서비스 등록 (ISceneFlow, ISteamLobbyService, IConnectionService)
-│   ├── SteamLobbyManager     Steam 초기화·RunCallbacks·로비 생성/참가/초대
-│   ├── ConnectionManager     StartHost / StartClient
-│   └── SceneFlowController   씬 전환 단일 진입점
-├── --- UI ---                (로딩 화면 자리)
-└── NetworkManager            (씬 root)
-    ├── Unity.Netcode.NetworkManager
-    ├── FacepunchTransport
-    └── UnityTransport        (개발 전용. 기본값은 항상 Steam → ADR-0011)
+│   ├── SceneFlowController   씬 전환 단일 진입점 (SceneNameSO 참조, 첫 씬 = Title)
+│   └── BootstrapInstaller    전역 서비스 등록 (ISceneFlow, ISteamLobbyService)
+├── NetworkRig                (씬 root — NetworkManager 는 중첩할 수 없다)
+│   ├── Unity.Netcode.NetworkManager
+│   ├── FacepunchTransport
+│   ├── UnityTransport        개발 전용. 기본값은 항상 Steam → ADR-0011
+│   ├── SteamLobbyManager
+│   ├── ConnectionManager     autoStartFromLobbyEvents = false (메뉴 흐름이 직접 몬다)
+│   ├── ConnectionHud         개발용 IMGUI HUD (F1)
+│   └── PrototypeRuntimeSmoke -smoke-test 인자가 있을 때만 동작
+└── --- UI ---                (로딩 화면 자리)
 ```
+
+> `NetworkRig` 는 아직 프리팹 인스턴스다. 프리팹을 풀고 `static Instance` 를 걷어내는 것은 MIG-3.
+> 그때까지 `Title`/`Lobby`/`Game` 의 `NetworkRigBootstrap` 은 남아 있지만,
+> `ConnectionManager.Instance` 가 이미 있어 아무것도 하지 않는다.
 
 - **카메라와 라이트를 두지 않는다.** 멀티씬에서 `Bootstrap`은 내려가지 않으므로 게임플레이 씬과
   `AudioListener`·카메라가 중복된다. 카메라는 각 게임플레이 씬이 갖는다.
@@ -262,8 +268,6 @@ UI (씬별, 로컬 전용)
 | 항목 | 상태 |
 | --- | --- |
 | asmdef 실제 분리 | 대기 (roadmap MIG-5). 현재는 `GhostHunter.Runtime` 1개 + `GhostHunter.Editor` |
-| 씬 전환 코드의 `ISceneFlow` 이관 | 대기 (roadmap MIG-2). 인프라는 구현됨, 호출부는 아직 `SceneManager` 직접 호출 |
-| 씬 재편(Bootstrap/Title/Game/Result) | 대기 (roadmap MIG-2) |
 | `Result` 씬 내용 | TBD — 승패 조건 확정 후 |
 | 세이브/영속 데이터 방식 | TBD |
 | 오디오 시스템 | TBD |
