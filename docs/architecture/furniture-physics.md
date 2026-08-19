@@ -20,7 +20,7 @@
   손으로 한 배치와 겹쳐서 시작하자마자 물리가 폭발한다.
 - **침실 2칸은 손대지 않는다.** 세션이 시작되면 방 프리셋이 옮겨 오므로 손으로 놓은 가구와
   겹친다. 침실 배치를 바꾸려면 `Room_Presets`의 프리셋을 고친다
-  ([09-map-generation.md](09-map-generation.md#구현-현황-20260816)).
+  ([09-map-generation.md](map-generation.md#구현-현황-20260816)).
 
 ```
 House_01/PhysicsFurniture/<가구>   [layer: Furniture]   ← 루트에만 물리·네트워크 컴포넌트
@@ -101,7 +101,7 @@ if (!IsServer) {
 | `Furniture_Library/Items` | **던질 수 있는 가구 21종**을 종류별 하나씩 일렬로. 복붙용 원본 |
 | `Furniture_Library/Ground` | 라이브러리 받침 바닥 |
 | `Room_Presets/BedroomPreset_A·B·C` | 침실 프리셋 3종(집 남쪽 바깥). 세션 시작 시 둘이 슬롯으로 간다 |
-| `RoomSlotAssigner` | 서버가 프리셋을 중복 없이 뽑아 슬롯에 배치 ([09](09-map-generation.md)) |
+| `RoomSlotAssigner` | 서버가 프리셋을 중복 없이 뽑아 슬롯에 배치 ([09](map-generation.md)) |
 | `House_01_OriginalScale_Right` | 도면 치수 그대로(배율 ×1) 지은 비교용 집. 집 동쪽 3m 옆 |
 | `House_01_OriginalScale_Right/PhysicsFurniture` | **여기는 생성 도구가 가구를 깔아 둔다** (28개) |
 | `PlayerSpawnPoints` | 빈 오브젝트 2개 |
@@ -180,4 +180,8 @@ if (!IsServer) {
 | `FurnitureDefinition_Light` | 8 | light | 의자·스툴·협탁·소형 테이블·TV·창고 상자 |
 | `FurnitureDefinition_Heavy` | 25 | heavy | 침대·옷장·서랍장·책상·식탁·소파·선반·콘솔 |
 
-heavy는 혼자 던지면 `heavySoloMultiplier`만큼 약해진다 ([05-throw-system.md](05-throw-system.md) 참조). 2인 흡착의 존재 이유를 만들어주는 유일한 장치이므로, 두 등급의 체감 차이가 확실히 나도록 튜닝한다.
+heavy는 혼자 던지면 `heavySoloMultiplier`만큼 약해진다 ([05-throw-system.md](throw-system.md) 참조). 2인 흡착의 존재 이유를 만들어주는 유일한 장치이므로, 두 등급의 체감 차이가 확실히 나도록 튜닝한다.
+
+---
+
+최종 갱신: 2026-08-19

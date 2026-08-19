@@ -114,7 +114,7 @@ Pool의 예시로는 침실로 사용할 수 있는 디자인이 5개 있다면
 
 ### 집 전체 도면
 
-![House 1 도면](images/09-house-01-floorplan.png)
+![House 1 도면](../images/09-house-01-floorplan.png)
 
 > 원본 파일명: `7e711c3f-f5ee-4edd-bbc4-8d49749fb0ab.png`
 
@@ -178,7 +178,7 @@ Pool의 예시로는 침실로 사용할 수 있는 디자인이 5개 있다면
 House_01 동쪽 3m 옆에 하나 더 세워 뒀다(`House_01_OriginalScale_Right`). 이 집은 방 슬롯도
 프리셋도 쓰지 않고 **생성 도구가 방마다 가구를 깔아 준다** — 도면 치수에서 침실·주방·거실이
 가구로 얼마나 차는지가 이 집의 전부이기 때문이다. 침실 두 칸은 도면의 Bedroom_A · Bedroom_C
-구성을 그대로 쓴다. 자세한 것은 [06-furniture-physics.md](06-furniture-physics.md#씬-배치-prototype).
+구성을 그대로 쓴다. 자세한 것은 [06-furniture-physics.md](furniture-physics.md#씬-배치-prototype).
 
 | 개구부 | 폭 | 위치 |
 |---|---|---|
@@ -199,7 +199,7 @@ House_01 동쪽 3m 옆에 하나 더 세워 뒀다(`House_01_OriginalScale_Right
 
 ### Bedroom_A 프리셋
 
-![Bedroom_A 프리셋](images/09-bedroom-a.png)
+![Bedroom_A 프리셋](../images/09-bedroom-a.png)
 
 > 원본 파일명: `ChatGPT Image 2026년 8월 14일 오전 12_03_43 (1).png`
 
@@ -223,7 +223,7 @@ House_01 동쪽 3m 옆에 하나 더 세워 뒀다(`House_01_OriginalScale_Right
 
 완성 예시 그림)
 
-![Bedroom_A 완성 예시](images/09-bedroom-a-example.png)
+![Bedroom_A 완성 예시](../images/09-bedroom-a-example.png)
 
 > 원본 파일명: `925ed28f-d4fd-4349-80f4-8828d61214d0.png`
 
@@ -231,7 +231,7 @@ House_01 동쪽 3m 옆에 하나 더 세워 뒀다(`House_01_OriginalScale_Right
 
 ### Bedroom_B 프리셋
 
-![Bedroom_B 프리셋](images/09-bedroom-b.png)
+![Bedroom_B 프리셋](../images/09-bedroom-b.png)
 
 > 원본 파일명: `ChatGPT Image 2026년 8월 14일 오전 12_03_43 (2).png`
 
@@ -261,7 +261,7 @@ House_01 동쪽 3m 옆에 하나 더 세워 뒀다(`House_01_OriginalScale_Right
 
 완성 예시 그림)
 
-![Bedroom_B 완성 예시](images/09-bedroom-b-example.png)
+![Bedroom_B 완성 예시](../images/09-bedroom-b-example.png)
 
 > 원본 파일명: `a8eee1dd-c14c-412b-99fe-b6af4ed38184.png`
 
@@ -269,7 +269,7 @@ House_01 동쪽 3m 옆에 하나 더 세워 뒀다(`House_01_OriginalScale_Right
 
 ### Bedroom_C 프리셋
 
-![Bedroom_C 프리셋](images/09-bedroom-c.png)
+![Bedroom_C 프리셋](../images/09-bedroom-c.png)
 
 > 원본 파일명: `ChatGPT Image 2026년 8월 14일 오전 12_03_44 (3).png`
 
@@ -298,7 +298,7 @@ House_01 동쪽 3m 옆에 하나 더 세워 뒀다(`House_01_OriginalScale_Right
 
 완성 예시 그림)
 
-![Bedroom_C 완성 예시](images/09-bedroom-c-example.png)
+![Bedroom_C 완성 예시](../images/09-bedroom-c-example.png)
 
 > 원본 파일명: `a22d241c-18c4-494a-acf4-4e0ea5573dfe.png`
 
@@ -930,3 +930,7 @@ Shelf
 
 > 도면·프리셋 이미지의 치수와 Spawn Point 배치는 본문 표에 모두 옮겨 적어두었으므로,
 > 이미지가 없어도 사양 자체는 이 문서만으로 읽을 수 있다.
+
+---
+
+최종 갱신: 2026-08-19

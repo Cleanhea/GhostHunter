@@ -1,7 +1,12 @@
-# 03. 멀티플레이 세팅 (NGO + Facepunch Steamworks)
+# Steam 연동 (NGO + Facepunch Steamworks)
 
-> **상태: 설치 완료.** 이 문서는 "앞으로 할 절차"가 아니라 **현재 어떻게 구성되어 있는지**와
-> 새 PC에서 클론했을 때 무엇을 해야 하는지를 적는다.
+> Steam 관련 코드를 작성·수정하기 전 MUST 읽는다.
+> 선택 근거는 [ADR-0001](decisions/ADR-0001-steam-p2p-facepunch-transport.md),
+> 임베드·패치 근거는 [ADR-0006](decisions/ADR-0006-facepunch-transport-embed.md),
+> NGO 사용 규약은 [networking.md](networking.md).
+>
+> **상태: 설치·구현 완료 / 2PC 실기 검증 대기.** 이 문서는 "앞으로 할 절차"가 아니라
+> **현재 어떻게 구성되어 있는지**와 새 PC에서 클론했을 때 무엇을 해야 하는지를 적는다.
 
 ## 설치된 구성
 
@@ -31,8 +36,8 @@ Package Manager의 git URL로 설치하면 패키지가 **읽기 전용**이 되
 패치 없이는 쓸 수 없다. `main` 브랜치의 `FacepunchTransport.cs`에 **짝 없는 `#endregion`이
 하나 있어서 그대로 설치하면 프로젝트 전체가 컴파일되지 않는다(CS1028).**
 
-그 외 Steam 수명주기 관련 패치 2건이 더 있다. 전체 내역:
-[`Packages/com.community.netcode.transport.facepunch/PATCHES.md`](../Packages/com.community.netcode.transport.facepunch/PATCHES.md)
+그 외 Steam 수명주기·메타데이터·macOS 네이티브·전송 실패 감지 패치 4건이 더 있다(총 5건). 전체 내역:
+[`Packages/com.community.netcode.transport.facepunch/PATCHES.md`](../../Packages/com.community.netcode.transport.facepunch/PATCHES.md)
 
 대가: upstream 업데이트가 자동으로 오지 않는다. 갱신하려면 원본을 다시 받아 패치를 재적용한다.
 
@@ -44,10 +49,10 @@ Package Manager의 git URL로 설치하면 패키지가 **읽기 전용**이 되
 
 | 파일 | 역할 |
 |---|---|
-| [`Networking/SteamLobbyManager.cs`](../Assets/Scripts/Networking/SteamLobbyManager.cs) | Steam 수명주기(Init/RunCallbacks/Shutdown) + 로비 생성·참가·초대 |
-| [`Networking/ConnectionManager.cs`](../Assets/Scripts/Networking/ConnectionManager.cs) | StartHost/StartClient, 트랜스포트 전환, 접속 상태 |
-| [`DebugTools/ConnectionHud.cs`](../Assets/Scripts/DebugTools/ConnectionHud.cs) | 개발용 IMGUI 접속 HUD (F1 토글) |
-| [`Editor/NetworkRigSetup.cs`](../Assets/Scripts/Editor/NetworkRigSetup.cs) | 위 전부를 배선한 오브젝트를 메뉴 한 번으로 생성 |
+| [`Networking/SteamLobbyManager.cs`](../../Assets/Scripts/Networking/SteamLobbyManager.cs) | Steam 수명주기(Init/RunCallbacks/Shutdown) + 로비 생성·참가·초대 |
+| [`Networking/ConnectionManager.cs`](../../Assets/Scripts/Networking/ConnectionManager.cs) | StartHost/StartClient, 트랜스포트 전환, 접속 상태 |
+| [`DebugTools/ConnectionHud.cs`](../../Assets/Scripts/DebugTools/ConnectionHud.cs) | 개발용 IMGUI 접속 HUD (F1 토글) |
+| [`Editor/NetworkRigSetup.cs`](../../Assets/Scripts/Editor/NetworkRigSetup.cs) | 위 전부를 배선한 오브젝트를 메뉴 한 번으로 생성 |
 
 ### 역할 분리
 
@@ -82,7 +87,7 @@ NetworkRig
 ├─ NetworkManager          (Transport=Facepunch, SceneManagement=on, LogLevel=Developer)
 ├─ FacepunchTransport
 ├─ UnityTransport          (로컬 테스트용, 기본 127.0.0.1:7777)
-├─ SteamLobbyManager       (AppId 480, 최대 2인, 친구 전용)
+├─ SteamLobbyManager       (AppId 480, 최대 4인, 6자리 방 코드)
 ├─ ConnectionManager       (위 3개 참조가 자동 연결됨)
 └─ ConnectionHud           (F1 토글)
 ```
@@ -123,7 +128,7 @@ arm64가 없었다.** M시리즈 맥에서 arm64로 실행하면 `DllNotFoundExc
 Facepunch.Steamworks 2.5.2의 **x86_64 + arm64 유니버설** 네이티브 파일과 그에 맞는
 Posix 관리 DLL을 함께 적용했다. 네이티브 파일만 먼저 올려 생겼던 `SteamAPI_Init`
 엔트리포인트 불일치도 함께 해결했다. 경위는
-[PATCHES.md 패치 4](../Packages/com.community.netcode.transport.facepunch/PATCHES.md).
+[PATCHES.md 패치 4](../../Packages/com.community.netcode.transport.facepunch/PATCHES.md).
 
 네이티브 바이너리는 공식 2.5.2와 동일하지만, 파일명은 Mac Unity 에디터의 Mono P/Invoke가
 `libsteam_api`를 확실히 매핑하도록 기존 `.bundle`을 유지한다. `.dylib` 이름으로 두면 이
@@ -206,3 +211,12 @@ Steam이 찾지 못한다. `GhostHunter.app/Contents/MacOS/steam_appid.txt`에 �
 
 `NetworkManager`의 LogLevel이 `Developer`로 설정되어 있어 트랜스포트가 Steam 연결 과정을
 상세히 로그한다. 조용해지면 Normal로 낮춘다.
+
+---
+
+관련: [networking.md](networking.md) · [ADR-0001](decisions/ADR-0001-steam-p2p-facepunch-transport.md) · [ADR-0006](decisions/ADR-0006-facepunch-transport-embed.md) · [ADR-0012](decisions/ADR-0012-room-code-and-lobby-visibility.md) · [../workflow/playbooks.md PB-08](../workflow/playbooks.md)
+
+> **로비 가시성·난입 정책은 결정 대기 중이다** → [ADR-0012](decisions/ADR-0012-room-code-and-lobby-visibility.md).
+> 현재 `_friendsOnly = true`로 두면 6자리 방 코드 참가가 동작하지 않는다(LobbyList 검색은 공개 로비만 반환).
+
+최종 갱신: 2026-08-19
