@@ -1,13 +1,10 @@
 using System.Collections.Generic;
 using GhostHunter.Core;
+using GhostHunter.Core.Steam;
 using GhostHunter.Networking;
-using Steamworks;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
-
-// Steamworks 에도 동명의 타입(P2P 연결 핸들)이 있어 이름이 모호해진다.
-using ConnectionManager = GhostHunter.Networking.ConnectionManager;
 
 namespace GhostHunter.UI
 {
@@ -35,7 +32,7 @@ namespace GhostHunter.UI
         [SerializeField] private Button _startButton;
         [SerializeField] private Button _leaveButton;
 
-        private SteamLobbyManager _lobby;
+        private ISteamLobbyService _lobby;
         private ConnectionManager _connection;
         private readonly List<LobbyMemberEntry> _entries = new();
         private bool _localReady;
@@ -54,7 +51,11 @@ namespace GhostHunter.UI
 
             _memberEntryTemplate.gameObject.SetActive(false);
 
-            _lobby = SteamLobbyManager.Instance;
+            // MonoBehaviour를 인터페이스 참조로 들면 Unity의 가짜 null 연산자가 동작하지 않는다.
+            // 대입 시점에 구체 타입으로 한 번 걸러 진짜 null 로 정규화한다.
+            // TODO: MIG-1에서 Services.Get<ISteamLobbyService>() 로 교체한다.
+            SteamLobbyManager lobbyManager = SteamLobbyManager.Instance;
+            _lobby = lobbyManager != null ? lobbyManager : null;
             _connection = ConnectionManager.Instance;
 
             if (_lobby == null || !_lobby.IsInLobby)
@@ -209,26 +210,12 @@ namespace GhostHunter.UI
 
             _entries.Clear();
 
-            Steamworks.Data.Lobby lobby = _lobby.CurrentLobby.Value;
-            ulong ownerId = lobby.Owner.Id.Value;
-
-            // 방장을 항상 첫 줄에 놓는다.
-            var members = new List<Friend>(lobby.Members);
-            members.Sort((a, b) =>
-            {
-                bool aOwner = a.Id.Value == ownerId;
-                bool bOwner = b.Id.Value == ownerId;
-                if (aOwner != bOwner)
-                    return aOwner ? -1 : 1;
-
-                return string.CompareOrdinal(a.Name, b.Name);
-            });
-
-            foreach (Friend member in members)
+            // 정렬(방장 우선)은 서비스가 이미 해서 넘겨준다.
+            foreach (LobbyMemberInfo member in _lobby.GetMembers())
             {
                 LobbyMemberEntry entry = Instantiate(_memberEntryTemplate, _memberListRoot);
                 entry.gameObject.SetActive(true);
-                entry.Bind(member, member.Id.Value == ownerId, _lobby.IsMemberReady(member));
+                entry.Bind(member, _lobby);
                 _entries.Add(entry);
             }
         }

@@ -1,5 +1,5 @@
 using System;
-using System.Collections;
+using Cysharp.Threading.Tasks;
 using Netcode.Transports.Facepunch;
 using Steamworks;
 using Unity.Netcode;
@@ -151,7 +151,9 @@ namespace GhostHunter.Networking
         /// 호스트로 시작한다. Steam 모드에서는 로비를 먼저 만들고,
         /// <see cref="SteamLobbyManager.HostLobbyReady"/> 를 받은 뒤에 실제 StartHost 가 일어난다.
         /// </summary>
-        public async void StartHost()
+        public void StartHost() => StartHostAsync().Forget();
+
+        private async UniTaskVoid StartHostAsync()
         {
             if (!EnsureReadyToStart())
                 return;
@@ -179,10 +181,13 @@ namespace GhostHunter.Networking
             {
                 await _lobby.CreateLobbyAsync();
             }
+            catch (OperationCanceledException)
+            {
+                // 대기 도중 오브젝트가 파괴됐다. 정상 종료.
+            }
             catch (Exception e)
             {
-                // async void - 여기서 안 잡으면 예외가 조용히 사라진다.
-                Debug.LogError($"[ConnectionManager] 로비 생성 중 예외: {e}");
+                Debug.LogError($"[ConnectionManager] 로비 생성 중 예외: {e}", this);
                 SetStatus($"로비 생성 실패: {e.Message}");
             }
         }
@@ -198,10 +203,10 @@ namespace GhostHunter.Networking
             if (!EnsureReadyToStart())
                 return;
 
-            StartCoroutine(StartHostInGameSceneRoutine(sceneName));
+            StartHostInGameSceneAsync(sceneName).Forget();
         }
 
-        private IEnumerator StartHostInGameSceneRoutine(string sceneName)
+        private async UniTaskVoid StartHostInGameSceneAsync(string sceneName)
         {
             SetStatus($"게임 씬 로드 중... ({sceneName})");
 
@@ -209,14 +214,20 @@ namespace GhostHunter.Networking
             if (loadOperation == null)
             {
                 SetStatus($"씬 '{sceneName}' 을 로드하지 못했습니다. Build Settings 를 확인하세요.");
-                yield break;
+                return;
             }
 
-            while (!loadOperation.isDone)
-                yield return null;
+            try
+            {
+                await loadOperation.ToUniTask(cancellationToken: destroyCancellationToken);
 
-            // 씬 오브젝트(스폰 레지스트리 등)의 Awake 가 끝난 다음 프레임에 시작한다.
-            yield return null;
+                // 씬 오브젝트(스폰 레지스트리 등)의 Awake 가 끝난 다음 프레임에 시작한다.
+                await UniTask.NextFrame(destroyCancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
 
             StartHostInternal();
 
@@ -228,7 +239,7 @@ namespace GhostHunter.Networking
         /// 알고 있는 호스트 SteamId 로 클라이언트 접속한다. 메뉴→로비 흐름에서는
         /// 로비 UI가 "게임 시작" 신호를 받은 뒤 직접 부른다.
         /// </summary>
-        public void ConnectToSteamHost(SteamId hostSteamId)
+        public void ConnectToSteamHost(ulong hostSteamId)
         {
             if (IsRunning)
             {
@@ -242,7 +253,7 @@ namespace GhostHunter.Networking
                 return;
             }
 
-            if (hostSteamId.Value == 0)
+            if (hostSteamId == 0)
             {
                 SetStatus("호스트 SteamId 가 유효하지 않습니다.");
                 return;
@@ -357,7 +368,7 @@ namespace GhostHunter.Networking
             StartHostInternal();
         }
 
-        private void HandleJoinTargetResolved(SteamId hostSteamId)
+        private void HandleJoinTargetResolved(ulong hostSteamId)
         {
             // 메뉴 흐름에서는 로비 입장만으로 접속하지 않는다. 호스트 세션이 아직 없을 수
             // 있으므로 로비 UI가 "게임 시작" 신호를 확인하고 ConnectToSteamHost 를 부른다.

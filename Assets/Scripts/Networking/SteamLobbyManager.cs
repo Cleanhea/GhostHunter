@@ -1,5 +1,7 @@
 using System;
-using System.Threading.Tasks;
+using System.Collections.Generic;
+using Cysharp.Threading.Tasks;
+using GhostHunter.Core.Steam;
 using Steamworks;
 using Steamworks.Data;
 using Unity.Netcode;
@@ -19,7 +21,7 @@ namespace GhostHunter.Networking
     /// ConnectionManager가 한다 — Steam 관심사와 Netcode 관심사를 섞지 않기 위해서다.
     /// </summary>
     [DisallowMultipleComponent]
-    public class SteamLobbyManager : MonoBehaviour
+    public class SteamLobbyManager : MonoBehaviour, ISteamLobbyService
     {
         /// <summary>Valve의 공개 테스트 앱(Spacewar). 자체 App ID를 받기 전까지 사용한다.</summary>
         public const uint SpacewarAppId = 480;
@@ -61,7 +63,7 @@ namespace GhostHunter.Networking
         public static SteamLobbyManager Instance { get; private set; }
 
         public bool IsSteamReady => SteamClient.IsValid;
-        public SteamId LocalSteamId => SteamClient.IsValid ? SteamClient.SteamId : default;
+        public ulong LocalSteamId => SteamClient.IsValid ? SteamClient.SteamId.Value : 0UL;
         public string LocalName => SteamClient.IsValid ? SteamClient.Name : "(Steam 미연결)";
         public Lobby? CurrentLobby { get; private set; }
         public bool IsInLobby => CurrentLobby.HasValue;
@@ -79,8 +81,8 @@ namespace GhostHunter.Networking
             CurrentLobby.HasValue && CurrentLobby.Value.GetData(GameStartedKey) == "1";
 
         /// <summary>접속 대상 호스트 SteamId. 로비에 없으면 0.</summary>
-        public SteamId CurrentHostSteamId =>
-            CurrentLobby.HasValue ? ResolveHostSteamId(CurrentLobby.Value) : default;
+        public ulong CurrentHostSteamId =>
+            CurrentLobby.HasValue ? ResolveHostSteamId(CurrentLobby.Value).Value : 0UL;
 
         /// <summary>사람이 읽는 진행 상황. 개발용 HUD가 그대로 표시한다.</summary>
         public event Action<string> StatusChanged;
@@ -92,9 +94,12 @@ namespace GhostHunter.Networking
         public event Action HostLobbyReady;
 
         /// <summary>참가자로서 접속할 호스트 SteamId 확보. 이제 StartClient 해도 된다.</summary>
-        public event Action<SteamId> JoinTargetResolved;
+        public event Action<ulong> JoinTargetResolved;
 
         public event Action LobbyLeft;
+
+        // 아바타는 세션 내내 안 바뀌므로 SteamId별로 캐시한다. 몇 장 수준이라 해제하지 않는다.
+        private static readonly Dictionary<ulong, Texture2D> AvatarCache = new();
 
         private bool _ownsSteamClient;
         private bool _callbacksSubscribed;
@@ -232,7 +237,7 @@ namespace GhostHunter.Networking
         #region 로비 조작
 
         /// <summary>로비를 만든다. 성공하면 <see cref="HostLobbyReady"/>가 발생한다.</summary>
-        public async Task CreateLobbyAsync()
+        public async UniTask CreateLobbyAsync()
         {
             if (!RequireSteam())
                 return;
@@ -245,7 +250,9 @@ namespace GhostHunter.Networking
 
             SetStatus("로비 생성 중...");
 
-            Lobby? lobby = await SteamMatchmaking.CreateLobbyAsync(_maxLobbyMembers);
+            Lobby? lobby = await SteamMatchmaking.CreateLobbyAsync(_maxLobbyMembers)
+                .AsUniTask()
+                .AttachExternalCancellation(destroyCancellationToken);
 
             // 실제 설정과 HostLobbyReady 발생은 OnLobbyCreated 콜백에서 처리한다.
             // 여기서는 즉시 실패만 잡는다.
@@ -270,7 +277,7 @@ namespace GhostHunter.Networking
         }
 
         /// <summary>로비 ID로 직접 참가. 성공하면 <see cref="JoinTargetResolved"/>가 발생한다.</summary>
-        public async Task JoinLobbyAsync(SteamId lobbyId)
+        public async UniTask JoinLobbyAsync(SteamId lobbyId)
         {
             if (!RequireSteam())
                 return;
@@ -278,7 +285,9 @@ namespace GhostHunter.Networking
             SetStatus($"로비 참가 중... ({lobbyId})");
 
             var lobby = new Lobby(lobbyId);
-            RoomEnter result = await lobby.Join();
+            RoomEnter result = await lobby.Join()
+                .AsUniTask()
+                .AttachExternalCancellation(destroyCancellationToken);
 
             if (result != RoomEnter.Success)
             {
@@ -293,7 +302,7 @@ namespace GhostHunter.Networking
         /// 방 코드로 공개 로비를 검색해 참가한다. 코드는 로비 생성 시
         /// <see cref="RoomCodeKey"/> 데이터로 심어둔 값이다.
         /// </summary>
-        public async Task JoinLobbyByCodeAsync(string rawCode)
+        public async UniTask JoinLobbyByCodeAsync(string rawCode)
         {
             if (!RequireSteam())
                 return;
@@ -318,7 +327,9 @@ namespace GhostHunter.Networking
                 .WithKeyValue(RoomCodeKey, code)
                 .WithSlotsAvailable(1)
                 .FilterDistanceWorldwide()
-                .RequestAsync();
+                .RequestAsync()
+                .AsUniTask()
+                .AttachExternalCancellation(destroyCancellationToken);
 
             if (lobbies == null || lobbies.Length == 0)
             {
@@ -350,6 +361,95 @@ namespace GhostHunter.Networking
         {
             return CurrentLobby.HasValue
                    && CurrentLobby.Value.GetMemberData(member, ReadyMemberKey) == "1";
+        }
+
+        /// <summary>
+        /// 현재 로비 멤버 스냅샷. 방장이 첫 줄, 그다음은 이름 순.
+        /// UI가 <c>Friend</c>를 다루지 않도록 여기서 DTO로 바꿔 넘긴다.
+        /// </summary>
+        public IReadOnlyList<LobbyMemberInfo> GetMembers()
+        {
+            if (!CurrentLobby.HasValue)
+                return Array.Empty<LobbyMemberInfo>();
+
+            Lobby lobby = CurrentLobby.Value;
+            ulong ownerId = lobby.Owner.Id.Value;
+
+            var members = new List<Friend>(lobby.Members);
+            members.Sort((a, b) =>
+            {
+                bool aOwner = a.Id.Value == ownerId;
+                bool bOwner = b.Id.Value == ownerId;
+                if (aOwner != bOwner)
+                    return aOwner ? -1 : 1;
+
+                return string.CompareOrdinal(a.Name, b.Name);
+            });
+
+            var result = new List<LobbyMemberInfo>(members.Count);
+            foreach (Friend member in members)
+            {
+                result.Add(new LobbyMemberInfo(
+                    member.Id.Value,
+                    member.Name,
+                    member.Id.Value == ownerId,
+                    IsMemberReady(member)));
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// 멤버 아바타. 실패하면 null. 아바타는 세션 내내 안 바뀌므로 SteamId별로 캐시한다
+        /// (몇 장 수준이라 해제하지 않는다).
+        /// </summary>
+        public async UniTask<Texture2D> GetAvatarAsync(ulong steamId)
+        {
+            if (AvatarCache.TryGetValue(steamId, out Texture2D cached))
+                return cached;
+
+            if (!SteamClient.IsValid)
+                return null;
+
+            try
+            {
+                Steamworks.Data.Image? image = await SteamFriends.GetMediumAvatarAsync(steamId)
+                    .AsUniTask()
+                    .AttachExternalCancellation(destroyCancellationToken);
+
+                if (!image.HasValue)
+                    return null;
+
+                Texture2D texture = CreateAvatarTexture(image.Value);
+                AvatarCache[steamId] = texture;
+                return texture;
+            }
+            catch (OperationCanceledException)
+            {
+                return null;
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"[SteamLobbyManager] 아바타 로드 실패 ({steamId}): {e.Message}", this);
+                return null;
+            }
+        }
+
+        private static Texture2D CreateAvatarTexture(Steamworks.Data.Image image)
+        {
+            int width = (int)image.Width;
+            int height = (int)image.Height;
+
+            // Steam 아바타는 위→아래 순서의 RGBA, Texture2D는 아래→위라 행을 뒤집는다.
+            var flipped = new byte[image.Data.Length];
+            int stride = width * 4;
+            for (int y = 0; y < height; y++)
+                Buffer.BlockCopy(image.Data, y * stride, flipped, (height - 1 - y) * stride, stride);
+
+            var texture = new Texture2D(width, height, TextureFormat.RGBA32, false);
+            texture.LoadRawTextureData(flipped);
+            texture.Apply();
+            return texture;
         }
 
         /// <summary>호스트를 제외한 전원이 준비 완료인가. 게스트가 없으면 true(솔로 테스트).</summary>
@@ -483,7 +583,7 @@ namespace GhostHunter.Networking
             }
 
             SetStatus($"로비 입장 ({lobby.Id}). 호스트 {hostId} 에 접속합니다.");
-            JoinTargetResolved?.Invoke(hostId);
+            JoinTargetResolved?.Invoke(hostId.Value);
         }
 
         /// <summary>로비 데이터를 우선 쓰고, 없으면 로비 오너로 폴백한다.</summary>
@@ -525,22 +625,33 @@ namespace GhostHunter.Networking
             LobbyUpdated?.Invoke();
         }
 
-        /// <summary>친구 목록/오버레이에서 "게임 참가"를 눌렀을 때.</summary>
-        private async void HandleGameLobbyJoinRequested(Lobby lobby, SteamId invitedBy)
+        /// <summary>
+        /// 친구 목록/오버레이에서 "게임 참가"를 눌렀을 때.
+        /// Steam 콜백 델리게이트가 <c>void</c> 시그니처라 여기서 UniTask 로 넘긴다.
+        /// </summary>
+        private void HandleGameLobbyJoinRequested(Lobby lobby, SteamId invitedBy)
+            => AcceptInviteAsync(lobby, invitedBy).Forget();
+
+        private async UniTaskVoid AcceptInviteAsync(Lobby lobby, SteamId invitedBy)
         {
             SetStatus($"{invitedBy} 의 초대를 수락합니다...");
 
             try
             {
-                RoomEnter result = await lobby.Join();
+                RoomEnter result = await lobby.Join()
+                    .AsUniTask()
+                    .AttachExternalCancellation(destroyCancellationToken);
 
                 if (result != RoomEnter.Success)
                     SetStatus($"초대 수락 실패: {result}");
             }
+            catch (OperationCanceledException)
+            {
+                // 대기 도중 오브젝트가 파괴됐다. 정상 종료.
+            }
             catch (Exception e)
             {
-                // async void라 예외를 여기서 안 잡으면 조용히 사라진다.
-                Debug.LogError($"[SteamLobbyManager] 초대 수락 중 예외: {e}");
+                Debug.LogError($"[SteamLobbyManager] 초대 수락 중 예외: {e}", this);
             }
         }
 

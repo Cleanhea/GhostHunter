@@ -1,8 +1,11 @@
-using System.Collections;
+using System;
+using Cysharp.Threading.Tasks;
 using GhostHunter.DebugTools;
 using Unity.Netcode;
 using Unity.Netcode.Components;
 using UnityEngine;
+// System.Random 과 UnityEngine.Random 이 둘 다 보이면 모호해진다. 이 파일의 Random 은 Unity 쪽이다.
+using Random = UnityEngine.Random;
 
 namespace GhostHunter.Map
 {
@@ -32,7 +35,7 @@ namespace GhostHunter.Map
             if (!IsServer)
                 return;
 
-            StartCoroutine(AssignAfterSceneObjectsSpawn());
+            AssignAfterSceneObjectsSpawnAsync().Forget();
         }
 
         /// <summary>
@@ -42,12 +45,19 @@ namespace GhostHunter.Map
         /// 트랜스폼만 옮기게 되는데, 뒤이어 스폰되면서 Rigidbody 가 물리로 깨어나면 옮기기 전
         /// 자세로 되돌아간다. 다음 프레임이면 훑기가 끝나 전부 스폰된 상태다.
         /// </summary>
-        private IEnumerator AssignAfterSceneObjectsSpawn()
+        private async UniTaskVoid AssignAfterSceneObjectsSpawnAsync()
         {
-            yield return null;
+            try
+            {
+                await UniTask.NextFrame(destroyCancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
 
             if (!IsServer || !IsSpawned)
-                yield break;
+                return;
 
             AssignPresets();
         }

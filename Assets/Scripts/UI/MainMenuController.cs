@@ -1,5 +1,7 @@
 using System;
+using Cysharp.Threading.Tasks;
 using GhostHunter.Core;
+using GhostHunter.Core.Steam;
 using GhostHunter.Networking;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -30,7 +32,7 @@ namespace GhostHunter.UI
         [Header("상태 표시")]
         [SerializeField] private Text _statusText;
 
-        private SteamLobbyManager _lobby;
+        private ISteamLobbyService _lobby;
         private bool _navigating;
 
         private void Start()
@@ -49,7 +51,11 @@ namespace GhostHunter.UI
 
             _joinPanel.SetActive(false);
 
-            _lobby = SteamLobbyManager.Instance;
+            // MonoBehaviour를 인터페이스 참조로 들면 Unity의 가짜 null 연산자가 동작하지 않는다.
+            // 대입 시점에 구체 타입으로 한 번 걸러 진짜 null 로 정규화한다.
+            // TODO: MIG-1에서 Services.Get<ISteamLobbyService>() 로 교체한다.
+            SteamLobbyManager lobbyManager = SteamLobbyManager.Instance;
+            _lobby = lobbyManager != null ? lobbyManager : null;
 
             if (_lobby == null)
             {
@@ -78,7 +84,9 @@ namespace GhostHunter.UI
             _lobby.JoinTargetResolved -= HandleJoinTargetResolved;
         }
 
-        private async void HandleCreateRoomClicked()
+        private void HandleCreateRoomClicked() => CreateRoomAsync().Forget();
+
+        private async UniTaskVoid CreateRoomAsync()
         {
             if (_lobby == null || _navigating)
                 return;
@@ -89,10 +97,14 @@ namespace GhostHunter.UI
             {
                 await _lobby.CreateLobbyAsync();
             }
+            catch (OperationCanceledException)
+            {
+                // 대기 도중 씬이 바뀌었다. 정상 종료.
+                return;
+            }
             catch (Exception e)
             {
-                // async void - 여기서 안 잡으면 예외가 조용히 사라진다.
-                Debug.LogError($"[MainMenuController] 방 생성 중 예외: {e}");
+                Debug.LogError($"[MainMenuController] 방 생성 중 예외: {e}", this);
                 SetStatus($"방 생성 실패: {e.Message}");
             }
             finally
@@ -109,7 +121,9 @@ namespace GhostHunter.UI
             _roomCodeInput.ActivateInputField();
         }
 
-        private async void HandleJoinConfirmClicked()
+        private void HandleJoinConfirmClicked() => JoinRoomAsync().Forget();
+
+        private async UniTaskVoid JoinRoomAsync()
         {
             if (_lobby == null || _navigating)
                 return;
@@ -121,9 +135,13 @@ namespace GhostHunter.UI
             {
                 await _lobby.JoinLobbyByCodeAsync(_roomCodeInput.text);
             }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
             catch (Exception e)
             {
-                Debug.LogError($"[MainMenuController] 방 참가 중 예외: {e}");
+                Debug.LogError($"[MainMenuController] 방 참가 중 예외: {e}", this);
                 SetStatus($"방 참가 실패: {e.Message}");
             }
             finally
@@ -170,7 +188,7 @@ namespace GhostHunter.UI
         }
 
         /// <summary>게스트로 로비에 들어갔을 때(코드 참가 또는 초대 수락). 로비 씬으로 이동한다.</summary>
-        private void HandleJoinTargetResolved(Steamworks.SteamId hostSteamId)
+        private void HandleJoinTargetResolved(ulong hostSteamId)
         {
             NavigateToLobby();
         }

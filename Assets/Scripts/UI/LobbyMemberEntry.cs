@@ -1,6 +1,6 @@
 using System;
-using System.Collections.Generic;
-using Steamworks;
+using Cysharp.Threading.Tasks;
+using GhostHunter.Core.Steam;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -17,72 +17,47 @@ namespace GhostHunter.UI
         private static readonly Color ReadyColor = new(0.45f, 0.9f, 0.5f);
         private static readonly Color WaitingColor = new(0.65f, 0.68f, 0.75f);
 
-        // 아바타는 세션 내내 안 바뀌므로 SteamId 별로 캐시한다. 몇 장 수준이라 해제하지 않는다.
-        private static readonly Dictionary<ulong, Texture2D> AvatarCache = new();
-
         [SerializeField] private RawImage _avatarImage;
         [SerializeField] private Text _nameText;
         [SerializeField] private Text _stateText;
 
-        public void Bind(Friend member, bool isOwner, bool isReady)
+        public void Bind(LobbyMemberInfo member, ISteamLobbyService lobby)
         {
-            _nameText.text = member.Name;
+            _nameText.text = member.DisplayName;
 
-            if (isOwner)
+            if (member.IsOwner)
             {
                 _stateText.text = "방장";
                 _stateText.color = OwnerColor;
             }
             else
             {
-                _stateText.text = isReady ? "준비 완료" : "대기 중";
-                _stateText.color = isReady ? ReadyColor : WaitingColor;
+                _stateText.text = member.IsReady ? "준비 완료" : "대기 중";
+                _stateText.color = member.IsReady ? ReadyColor : WaitingColor;
             }
 
-            LoadAvatar(member.Id);
+            LoadAvatarAsync(member.SteamId, lobby).Forget();
         }
 
-        private async void LoadAvatar(SteamId steamId)
+        private async UniTaskVoid LoadAvatarAsync(ulong steamId, ISteamLobbyService lobby)
         {
-            if (AvatarCache.TryGetValue(steamId.Value, out Texture2D cached))
-            {
-                _avatarImage.texture = cached;
+            if (lobby == null)
                 return;
-            }
 
             try
             {
-                Steamworks.Data.Image? image = await SteamFriends.GetMediumAvatarAsync(steamId);
+                Texture2D texture = await lobby.GetAvatarAsync(steamId)
+                    .AttachExternalCancellation(destroyCancellationToken);
 
-                // 로비 갱신으로 이 엔트리가 이미 파괴됐을 수 있다.
-                if (this == null || !image.HasValue)
+                if (texture == null)
                     return;
 
-                Texture2D texture = CreateAvatarTexture(image.Value);
-                AvatarCache[steamId.Value] = texture;
                 _avatarImage.texture = texture;
             }
-            catch (Exception e)
+            catch (OperationCanceledException)
             {
-                Debug.LogWarning($"[LobbyMemberEntry] 아바타 로드 실패 ({steamId}): {e.Message}");
+                // 로비 갱신으로 이 엔트리가 파괴됐다. 정상 종료.
             }
-        }
-
-        private static Texture2D CreateAvatarTexture(Steamworks.Data.Image image)
-        {
-            int width = (int)image.Width;
-            int height = (int)image.Height;
-
-            // Steam 아바타는 위→아래 순서의 RGBA, Texture2D 는 아래→위라 행을 뒤집는다.
-            var flipped = new byte[image.Data.Length];
-            int stride = width * 4;
-            for (int y = 0; y < height; y++)
-                Buffer.BlockCopy(image.Data, y * stride, flipped, (height - 1 - y) * stride, stride);
-
-            var texture = new Texture2D(width, height, TextureFormat.RGBA32, false);
-            texture.LoadRawTextureData(flipped);
-            texture.Apply();
-            return texture;
         }
     }
 }

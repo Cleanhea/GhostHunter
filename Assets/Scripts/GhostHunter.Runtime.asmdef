@@ -5,7 +5,8 @@
         "Unity.Netcode.Runtime",
         "Unity.InputSystem",
         "Facepunch Transport for Netcode for GameObjects",
-        "UnityEngine.UI"
+        "UnityEngine.UI",
+        "UniTask"
     ],
     "includePlatforms": [
         "Editor",
