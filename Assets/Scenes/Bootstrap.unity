@@ -164,7 +164,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: GhostHunter.Runtime::GhostHunter.Systems.Installers.BootstrapInstaller
   _sceneFlow: {fileID: 1382687019}
-  _steamLobby: {fileID: 1789106162}
+  _steamLobby: {fileID: 5221456195027015277}
+  _connection: {fileID: 3352543703398193555}
 --- !u!1 &1382687018
 GameObject:
   m_ObjectHideFlags: 0
@@ -244,78 +245,6 @@ Transform:
   - {fileID: 603993669}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1001 &1789106161
-PrefabInstance:
-  m_ObjectHideFlags: 0
-  serializedVersion: 2
-  m_Modification:
-    serializedVersion: 3
-    m_TransformParent: {fileID: 0}
-    m_Modifications:
-    - target: {fileID: 3352543702972501602, guid: d757d669134a08742b24d1da486f95a1, type: 3}
-      propertyPath: _autoStartFromLobbyEvents
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 4723501033041127935, guid: d757d669134a08742b24d1da486f95a1, type: 3}
-      propertyPath: m_Name
-      value: NetworkRig
-      objectReference: {fileID: 0}
-    - target: {fileID: 6736883526755191016, guid: d757d669134a08742b24d1da486f95a1, type: 3}
-      propertyPath: m_LocalPosition.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 6736883526755191016, guid: d757d669134a08742b24d1da486f95a1, type: 3}
-      propertyPath: m_LocalPosition.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 6736883526755191016, guid: d757d669134a08742b24d1da486f95a1, type: 3}
-      propertyPath: m_LocalPosition.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 6736883526755191016, guid: d757d669134a08742b24d1da486f95a1, type: 3}
-      propertyPath: m_LocalRotation.w
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 6736883526755191016, guid: d757d669134a08742b24d1da486f95a1, type: 3}
-      propertyPath: m_LocalRotation.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 6736883526755191016, guid: d757d669134a08742b24d1da486f95a1, type: 3}
-      propertyPath: m_LocalRotation.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 6736883526755191016, guid: d757d669134a08742b24d1da486f95a1, type: 3}
-      propertyPath: m_LocalRotation.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 6736883526755191016, guid: d757d669134a08742b24d1da486f95a1, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 6736883526755191016, guid: d757d669134a08742b24d1da486f95a1, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 6736883526755191016, guid: d757d669134a08742b24d1da486f95a1, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.z
-      value: 0
-      objectReference: {fileID: 0}
-    m_RemovedComponents: []
-    m_RemovedGameObjects: []
-    m_AddedGameObjects: []
-    m_AddedComponents: []
-  m_SourcePrefab: {fileID: 100100000, guid: d757d669134a08742b24d1da486f95a1, type: 3}
---- !u!114 &1789106162 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 5221456195658351004, guid: d757d669134a08742b24d1da486f95a1, type: 3}
-  m_PrefabInstance: {fileID: 1789106161}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a74c0efdc803a0048bba9a48c88d24e9, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: GhostHunter.Runtime::GhostHunter.Networking.SteamLobbyManager
 --- !u!1 &2121923894
 GameObject:
   m_ObjectHideFlags: 0
@@ -347,10 +276,195 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &346294070715396087
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4723501032598470158}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6960e84d07fb87f47956e7a81d71c4e6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.Transports.UTP.UnityTransport
+  m_ProtocolType: 0
+  m_UseWebSockets: 0
+  m_UseEncryption: 0
+  m_MaxPacketQueueSize: 128
+  m_MaxPayloadSize: 6144
+  m_HeartbeatTimeoutMS: 500
+  m_ConnectTimeoutMS: 1000
+  m_MaxConnectAttempts: 60
+  m_DisconnectTimeoutMS: 30000
+  ConnectionData:
+    Address: 127.0.0.1
+    Port: 7777
+    WebSocketPath: /
+    ServerListenAddress: 
+    ClientBindPort: 0
+  DebugSimulator:
+    PacketDelayMS: 0
+    PacketJitterMS: 0
+    PacketDropRate: 0
+--- !u!114 &3352543703398193555
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4723501032598470158}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b6314d8d2cf7f5e43ad7d5c005c6c5a7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: GhostHunter.Runtime::GhostHunter.Networking.ConnectionManager
+  _networkManager: {fileID: 7615749263994014770}
+  _steamTransport: {fileID: 5512925869081666975}
+  _localTransport: {fileID: 346294070715396087}
+  _transportMode: 0
+  _allowCommandLineOverride: 1
+  _autoStartFromLobbyEvents: 0
+--- !u!1 &4723501032598470158
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 6736883526392553241}
+  - component: {fileID: 7615749263994014770}
+  - component: {fileID: 5512925869081666975}
+  - component: {fileID: 346294070715396087}
+  - component: {fileID: 5221456195027015277}
+  - component: {fileID: 3352543703398193555}
+  - component: {fileID: 5160963332714722353}
+  - component: {fileID: 5836024377602666450}
+  m_Layer: 0
+  m_Name: NetworkRig
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &5160963332714722353
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4723501032598470158}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b565cc0a760230b4295fd1f26bfd5a82, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: GhostHunter.Runtime::GhostHunter.DebugTools.ConnectionHud
+  _visible: 1
+  _toggleKey: 94
+--- !u!114 &5221456195027015277
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4723501032598470158}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a74c0efdc803a0048bba9a48c88d24e9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: GhostHunter.Runtime::GhostHunter.Networking.SteamLobbyManager
+  _appId: 480
+  _maxLobbyMembers: 4
+  _friendsOnly: 0
+--- !u!114 &5512925869081666975
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4723501032598470158}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 44dd247a00edbfa44b77868d755af6ea, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Facepunch Transport for Netcode for GameObjects::Netcode.Transports.Facepunch.FacepunchTransport
+  steamAppId: 480
+  targetSteamId: 0
+  userSteamId: 0
+--- !u!114 &5836024377602666450
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4723501032598470158}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e488e95c039de8a4882ee9aabec178ef, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: GhostHunter.Runtime::GhostHunter.DebugTools.PrototypeRuntimeSmoke
+--- !u!4 &6736883526392553241
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4723501032598470158}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &7615749263994014770
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4723501032598470158}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 593a2fe42fa9d37498c96f9a383b6521, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkManager
+  NetworkManagerExpanded: 0
+  NetworkConfig:
+    ProtocolVersion: 0
+    NetworkTransport: {fileID: 346294070715396087}
+    PlayerPrefab: {fileID: 6853845278674404290, guid: 43310e58daa3883479401d1f06688059, type: 3}
+    Prefabs:
+      NetworkPrefabsLists:
+      - {fileID: 11400000, guid: 50e780797ccdab0428e31613ad57848b, type: 2}
+    TickRate: 30
+    ClientConnectionBufferTimeout: 10
+    ConnectionApproval: 0
+    ConnectionData: 
+    EnableTimeResync: 0
+    TimeResyncInterval: 30
+    EnsureNetworkVariableLengthSafety: 0
+    EnableSceneManagement: 1
+    ForceSamePrefabs: 1
+    RecycleNetworkIds: 1
+    NetworkIdRecycleDelay: 120
+    RpcHashSize: 0
+    LoadSceneTimeOut: 120
+    SpawnTimeout: 10
+    EnableNetworkLogs: 1
+    NetworkTopology: 0
+    UseCMBService: 0
+    AutoSpawnPlayerPrefabClientSide: 1
+    NetworkProfilingMetrics: 1
+    OldPrefabList: []
+  RunInBackground: 1
+  LogLevel: 0
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
   - {fileID: 1772201363}
-  - {fileID: 1789106161}
+  - {fileID: 6736883526392553241}
   - {fileID: 2121923895}

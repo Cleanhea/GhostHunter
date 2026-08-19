@@ -196,6 +196,11 @@ private readonly NetworkVariable<bool> _isOpen =
 
 ## 5. 로컬(UnityTransport) 경로
 
+`NetworkManager`·두 트랜스포트·`ConnectionManager`는 언로드되지 않는
+`Bootstrap/NetworkRig` 씬 오브젝트에 함께 있다. `NetworkRig`는 프리팹이 아니며,
+`Title`·`Lobby`·`Game`이 별도 리그를 생성하지 않는다. 씬을 넘는 소비자는
+`BootstrapInstaller`가 등록한 `IConnectionService`로 접속 기능을 받는다.
+
 `ConnectionManager`가 `TransportMode.Local`(UTP, 127.0.0.1) / `TransportMode.Steam`(Facepunch)을
 런타임에 전환한다. **로컬 경로는 개발 전용이며 런타임에 그대로 남는다**
 → [ADR-0011](decisions/ADR-0011-local-transport-path.md)
@@ -245,4 +250,4 @@ private readonly NetworkVariable<bool> _isOpen =
 
 관련: [overview.md](overview.md) · [steam.md](steam.md) · [../conventions/code-style.md](../conventions/code-style.md)
 
-최종 갱신: 2026-08-19
+최종 갱신: 2026-08-20

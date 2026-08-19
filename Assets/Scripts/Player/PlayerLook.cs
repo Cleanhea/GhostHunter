@@ -23,6 +23,10 @@ namespace GhostHunter.Player
         {
             bool local = IsOwner;
 
+            // 새 리스너를 켜기 전에 씬의 Overview 리스너부터 꺼서 한 프레임 중복을 막는다.
+            if (local)
+                PrototypeSceneContext.SetGameplayCameraActive(true);
+
             if (_playerCamera != null)
                 _playerCamera.enabled = local;
 
@@ -35,7 +39,6 @@ namespace GhostHunter.Player
                 return;
             }
 
-            PrototypeSceneContext.SetGameplayCameraActive(true);
             SetCursorLocked(true);
         }
 
@@ -43,6 +46,13 @@ namespace GhostHunter.Player
         {
             if (!IsOwner)
                 return;
+
+            // Overview 리스너를 되살리기 전에 플레이어 쪽을 먼저 끈다.
+            if (_playerCamera != null)
+                _playerCamera.enabled = false;
+
+            if (_audioListener != null)
+                _audioListener.enabled = false;
 
             PrototypeSceneContext.SetGameplayCameraActive(false);
             SetCursorLocked(false);

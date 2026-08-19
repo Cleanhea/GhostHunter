@@ -1,5 +1,7 @@
+using GhostHunter.Core;
 using GhostHunter.Furniture;
 using GhostHunter.Interaction;
+using GhostHunter.Player;
 using UnityEngine;
 
 namespace GhostHunter.UI
@@ -9,6 +11,12 @@ namespace GhostHunter.UI
     {
         private GUIStyle _labelStyle;
         private Texture2D _whiteTexture;
+        private ILocalPlayerContext _localPlayer;
+
+        private void Awake()
+        {
+            _localPlayer = Services.Get<ILocalPlayerContext>();
+        }
 
         private void OnDestroy()
         {
@@ -18,7 +26,7 @@ namespace GhostHunter.UI
 
         private void OnGUI()
         {
-            GrabController grab = GrabController.LocalInstance;
+            GrabController grab = _localPlayer.GrabController;
             if (grab == null || !grab.TryGetHeldTarget(out FurnitureGrabTarget target))
                 return;
 

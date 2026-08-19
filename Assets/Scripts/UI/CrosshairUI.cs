@@ -1,5 +1,7 @@
+using GhostHunter.Core;
 using GhostHunter.Furniture;
 using GhostHunter.Interaction;
+using GhostHunter.Player;
 using UnityEngine;
 
 namespace GhostHunter.UI
@@ -13,6 +15,12 @@ namespace GhostHunter.UI
     {
         private GUIStyle _centerStyle;
         private GUIStyle _hintStyle;
+        private ILocalPlayerContext _localPlayer;
+
+        private void Awake()
+        {
+            _localPlayer = Services.Get<ILocalPlayerContext>();
+        }
 
         private void OnGUI()
         {
@@ -39,7 +47,7 @@ namespace GhostHunter.UI
 
         private void DrawInteractPrompt()
         {
-            PlayerInteractor interactor = PlayerInteractor.LocalInstance;
+            PlayerInteractor interactor = _localPlayer.Interactor;
             DoorInteractable door = interactor != null ? interactor.CurrentDoor : null;
             if (door == null)
                 return;
@@ -60,9 +68,9 @@ namespace GhostHunter.UI
             GUI.color = previous;
         }
 
-        private static Color ResolveCrosshairColor()
+        private Color ResolveCrosshairColor()
         {
-            FurnitureTargeter targeter = FurnitureTargeter.LocalInstance;
+            FurnitureTargeter targeter = _localPlayer.Targeter;
             if (targeter == null || targeter.CurrentTarget == null)
                 return Color.white;
 
@@ -77,7 +85,7 @@ namespace GhostHunter.UI
 
         private void DrawTestHoldStatus()
         {
-            GrabController grab = GrabController.LocalInstance;
+            GrabController grab = _localPlayer.GrabController;
             if (grab == null)
                 return;
 
@@ -93,7 +101,7 @@ namespace GhostHunter.UI
 
         private void DrawInstructions()
         {
-            string message = FurnitureTargeter.LocalInstance == null
+            string message = _localPlayer.Targeter == null
                 ? "<b>GhostHunter Prototype</b>\n왼쪽 HUD에서 Local 모드 → Host를 눌러 시작"
                 : "<b>WASD</b> 이동  ·  <b>Space</b> 점프  ·  <b>마우스</b> 시점  ·  <b>E</b> 문 여닫기\n" +
                   "<b>좌클릭 누름</b> 투척 준비  ·  <b>떼기</b> 밀기/던지기  ·  " +

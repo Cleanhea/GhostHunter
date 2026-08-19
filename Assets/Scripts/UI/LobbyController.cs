@@ -1,8 +1,8 @@
 using System.Collections.Generic;
 using GhostHunter.Core;
+using GhostHunter.Core.Networking;
 using GhostHunter.Core.Scenes;
 using GhostHunter.Core.Steam;
-using GhostHunter.Networking;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -33,11 +33,18 @@ namespace GhostHunter.UI
         [SerializeField] private Button _leaveButton;
 
         private ISteamLobbyService _lobby;
-        private ConnectionManager _connection;
+        private IConnectionService _connection;
         private ISceneFlow _sceneFlow;
         private readonly List<LobbyMemberEntry> _entries = new();
         private bool _localReady;
         private bool _departing; // 게임 시작 또는 접속 절차에 들어갔다.
+
+        private void Awake()
+        {
+            Services.TryGet(out _lobby);
+            Services.TryGet(out _connection);
+            Services.TryGet(out _sceneFlow);
+        }
 
         private void Start()
         {
@@ -51,14 +58,6 @@ namespace GhostHunter.UI
             _leaveButton.onClick.AddListener(HandleLeaveClicked);
 
             _memberEntryTemplate.gameObject.SetActive(false);
-
-            // MonoBehaviour를 인터페이스 참조로 들면 Unity의 가짜 null 연산자가 동작하지 않는다.
-            // 대입 시점에 구체 타입으로 한 번 걸러 진짜 null 로 정규화한다.
-            // TODO: MIG-1에서 Services.Get<ISteamLobbyService>() 로 교체한다.
-            SteamLobbyManager lobbyManager = SteamLobbyManager.Instance;
-            _lobby = lobbyManager != null ? lobbyManager : null;
-            _connection = ConnectionManager.Instance;
-            Services.TryGet(out _sceneFlow);
 
             if (_lobby == null || !_lobby.IsInLobby)
             {

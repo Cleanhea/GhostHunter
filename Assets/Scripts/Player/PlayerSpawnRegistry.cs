@@ -1,24 +1,12 @@
+using GhostHunter.Core.Player;
 using UnityEngine;
 
 namespace GhostHunter.Player
 {
     [DisallowMultipleComponent]
-    public sealed class PlayerSpawnRegistry : MonoBehaviour
+    public sealed class PlayerSpawnRegistry : MonoBehaviour, IPlayerSpawnRegistry
     {
         [SerializeField] private Transform[] _spawnPoints;
-
-        public static PlayerSpawnRegistry Instance { get; private set; }
-
-        private void Awake()
-        {
-            Instance = this;
-        }
-
-        private void OnDestroy()
-        {
-            if (Instance == this)
-                Instance = null;
-        }
 
         public bool TryGetSpawn(ulong clientId, out Vector3 position, out Quaternion rotation)
         {

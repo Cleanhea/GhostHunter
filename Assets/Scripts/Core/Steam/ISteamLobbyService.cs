@@ -42,6 +42,7 @@ namespace GhostHunter.Core.Steam
         UniTask CreateLobbyAsync();
         UniTask JoinLobbyByCodeAsync(string rawCode);
         void OpenInviteOverlay();
+        void MarkGameStarted();
         void LeaveLobby();
 
         void SetLocalReady(bool ready);

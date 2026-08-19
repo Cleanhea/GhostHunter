@@ -6,7 +6,7 @@
 - **관련**: [ADR-0002](ADR-0002-scene-flow-so-event-channel.md) (대체 대상), [../overview.md](../overview.md), [../../conventions/code-style.md](../../conventions/code-style.md)
 
 > **이관 메모 (2026-08-19).** 이 결정은 AlienGhost 프로젝트에서 검증된 뒤 GhostHunter로 이관했다.
-> 논거와 트레이드오프는 그대로 유효하나, **GhostHunter 코드에는 아직 반영되지 않았다.**
+> 논거와 트레이드오프는 그대로 유효하며, MIG-1과 MIG-3에서 GhostHunter 코드에 반영했다.
 > 진행 상황은 [../../project/roadmap.md](../../project/roadmap.md) 마이그레이션 보드를 본다.
 
 ## 배경 (Context)
@@ -95,10 +95,10 @@ SO 채널의 핵심 이점은 **코드 수정 없는 인스펙터 재배선**이
       `Scripts/Systems/Installers/{SceneInstaller,BootstrapInstaller}.cs`,
       `Scripts/Systems/SceneFlow/SceneFlowController.cs` (2026-08-20, MIG-1)
 - [x] 등록 지점을 컴포지션 루트(`BootstrapInstaller`)로 정리
-- [ ] 기존 `static Instance` 6건 제거 → MIG-3
-- [ ] ADR-0002를 Rejected로 기록
-- [ ] 영향받는 문서 갱신: [../overview.md](../overview.md), [README.md](README.md), [../../conventions/code-style.md](../../conventions/code-style.md)
-- [ ] Bootstrap 씬에 `BootstrapInstaller` 컴포넌트 부착 및 인스펙터 배선 (M0-5)
+- [x] 기존 `static Instance` 6건 제거 → MIG-3
+- [x] ADR-0002를 Rejected로 기록
+- [x] 영향받는 문서 갱신: [../overview.md](../overview.md), [README.md](README.md), [../../conventions/code-style.md](../../conventions/code-style.md)
+- [x] Bootstrap 씬에 `BootstrapInstaller` 컴포넌트 부착 및 인스펙터 배선 (MIG-2/3)
 - [ ] asmdef 도입 시 `Core` 참조가 UniTask 하나뿐인지 확인 → [../overview.md §3.1](../overview.md)
 
 ## 재검토 조건

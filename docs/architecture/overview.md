@@ -10,7 +10,7 @@
 Assets/
 ├── Scenes/            Bootstrap, Title, Lobby, Game, Result
 ├── Scripts/           런타임 C# (§2)
-├── Prefabs/           NetworkRig, Player, Furniture_*, UI_*
+├── Prefabs/           Player, Furniture_*, UI_*
 ├── Settings/          URP RP Asset · Renderer, Gameplay SO, Scenes SO
 ├── Materials/         M_*
 ├── Shaders/           SH_*
@@ -27,7 +27,9 @@ Assets/
 ```
 Assets/Scripts/
 ├── Core/          엔진 비의존에 가까운 기반 (서비스 로케이터, 서비스 인터페이스, 상수, 상태머신)
-│   └── Steam/     ISteamLobbyService · 로비 DTO (Steamworks 타입을 노출하지 않는다)
+│   ├── Networking/ IConnectionService · TransportMode
+│   ├── Player/     IPlayerSpawnRegistry
+│   └── Steam/      ISteamLobbyService · 로비 DTO (Steamworks 타입을 노출하지 않는다)
 ├── Data/          ScriptableObject 정의 + SceneReference / SceneNameSO (런타임 로직 없음)
 ├── Gameplay/      실제 게임 로직
 │   ├── Player/        이동·시점·스폰
@@ -38,7 +40,7 @@ Assets/Scripts/
 ├── UI/            뷰·프리젠터. Gameplay를 참조하되 그 반대는 금지
 ├── Systems/       매니저·부트스트랩·씬 로딩 등 횡단 시스템
 │   ├── SceneFlow/     SceneFlowController
-│   ├── Installers/    BootstrapInstaller, SceneInstaller 파생
+│   ├── Installers/    BootstrapInstaller, GameInstaller, SceneInstaller 파생
 │   └── Steam/         SteamLobbyManager. **Steamworks 참조는 여기에만 존재**
 ├── DebugTools/    개발 전용 HUD·스모크 테스트 (릴리스 빌드 대상 아님)
 └── Editor/        에디터 전용 도구 (별도 asmdef)
@@ -152,7 +154,7 @@ additive로 얹었다 내린다 → [ADR-0004](decisions/ADR-0004-multi-scene-ad
 Bootstrap                     (root 3개)
 ├── --- Systems ---
 │   ├── SceneFlowController   씬 전환 단일 진입점 (SceneNameSO 참조, 첫 씬 = Title)
-│   └── BootstrapInstaller    전역 서비스 등록 (ISceneFlow, ISteamLobbyService)
+│   └── BootstrapInstaller    전역 서비스 등록 (ISceneFlow, ISteamLobbyService, IConnectionService)
 ├── NetworkRig                (씬 root — NetworkManager 는 중첩할 수 없다)
 │   ├── Unity.Netcode.NetworkManager
 │   ├── FacepunchTransport
@@ -164,17 +166,15 @@ Bootstrap                     (root 3개)
 └── --- UI ---                (로딩 화면 자리)
 ```
 
-> `NetworkRig` 는 아직 프리팹 인스턴스다. 프리팹을 풀고 `static Instance` 를 걷어내는 것은 MIG-3.
-> 그때까지 `Title`/`Lobby`/`Game` 의 `NetworkRigBootstrap` 은 남아 있지만,
-> `ConnectionManager.Instance` 가 이미 있어 아무것도 하지 않는다.
+`NetworkRig`는 재사용 프리팹이 아니라 `Bootstrap` 씬이 직접 소유하는 root 오브젝트다.
+`Bootstrap`이 언로드되지 않으므로 `DontDestroyOnLoad`나 씬별 생성 부트스트랩이 필요 없다.
 
 - **카메라와 라이트를 두지 않는다.** 멀티씬에서 `Bootstrap`은 내려가지 않으므로 게임플레이 씬과
   `AudioListener`·카메라가 중복된다. 카메라는 각 게임플레이 씬이 갖는다.
 - `NetworkManager.NetworkConfig.NetworkTransport`는 같은 GameObject의 트랜스포트를 참조한다.
 - NGO Scene Management는 활성화하고 `Assets/DefaultNetworkPrefabs.asset`을 등록한다.
 
-> 이전 구조(`NetworkRig.prefab` + 씬별 `NetworkBootstrap`)는 `Bootstrap` 씬으로 대체된다.
-> 리그 프리팹은 마이그레이션 완료 시 제거한다 → roadmap MIG-3.
+이전 구조(`NetworkRig.prefab` + 씬별 `NetworkBootstrap`)는 MIG-3에서 제거했다.
 
 ### 4.2 에디터에서 플레이하기
 
@@ -202,6 +202,11 @@ Player 프리팹 (NetworkObject, 플레이어당 1개 스폰)
 ├─ PlayerVisuals            원격 플레이어 몸통 표시, 로컬은 숨김
 ├─ FurnitureTargeter        카메라 레이캐스트 → 현재 조준 대상 (로컬 전용)
 └─ GrabController           투척 준비/2인 잡기 입력, Grab/Release RPC 송신
+
+Game 씬 서비스
+├─ GameInstaller            IPlayerSpawnRegistry + ILocalPlayerContext 등록
+├─ PlayerSpawnRegistry      clientId별 시작 위치
+└─ LocalPlayerContext       로컬 소유 플레이어의 Targeter/Grab/Interactor 참조
 
 Furniture (씬 배치 NetworkObject, 프리팹 인스턴스)
 ├─ Rigidbody (서버만 non-kinematic)

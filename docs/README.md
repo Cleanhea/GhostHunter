@@ -88,11 +88,11 @@ docs/
 | architecture/throw-system.md | 🟢 구현됨 / 플레이테스트 튜닝 대기 |
 | architecture/furniture-physics.md | 🟢 구현됨 |
 | architecture/map-generation.md | 🟢 House_01 구현됨 / 콘텐츠 배치 미구현 |
-| architecture/decisions/ | 🟢 ADR-0001~0010 |
+| architecture/decisions/ | 🟡 ADR-0001~0011 확정 / ADR-0012 Proposed |
 | conventions/* | 🟢 규약 확정 |
-| workflow/unity-mcp.md | 🔴 미설치 — 사용자 마무리 절차 대기 |
+| workflow/unity-mcp.md | 🟢 설치·연결·씬 편집 검증됨 |
 | workflow/* (그 외) | 🟢 규약 확정 |
 
 ---
 
-최종 갱신: 2026-08-19
+최종 갱신: 2026-08-20

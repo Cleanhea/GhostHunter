@@ -1,4 +1,6 @@
-using GhostHunter.Networking;
+using GhostHunter.Core;
+using GhostHunter.Core.Networking;
+using GhostHunter.Core.Steam;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -19,16 +21,19 @@ namespace GhostHunter.DebugTools
         [SerializeField] private Key _toggleKey = Key.F1;
 
         private string _lastStatus = "대기 중";
-        private ConnectionManager _connection;
-        private SteamLobbyManager _lobby;
+        private IConnectionService _connection;
+        private ISteamLobbyService _lobby;
         private GUIStyle _boxStyle;
         private GUIStyle _richLabelStyle;
 
+        private void Awake()
+        {
+            Services.TryGet(out _connection);
+            Services.TryGet(out _lobby);
+        }
+
         private void Start()
         {
-            _connection = ConnectionManager.Instance;
-            _lobby = SteamLobbyManager.Instance;
-
             if (_connection != null)
                 _connection.StatusChanged += HandleStatus;
 
@@ -124,7 +129,7 @@ namespace GhostHunter.DebugTools
 
             GUILayout.Label($"Steam: {_lobby.LocalName}  ({_lobby.LocalSteamId})");
             GUILayout.Label(_lobby.IsInLobby
-                ? $"로비: {_lobby.CurrentLobby.Value.Id}  인원 {_lobby.CurrentLobby.Value.MemberCount}"
+                ? $"로비: {_lobby.CurrentRoomCode}  인원 {_lobby.GetMembers().Count}"
                 : "로비: 없음");
         }
 

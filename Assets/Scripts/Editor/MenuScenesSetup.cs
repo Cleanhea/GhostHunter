@@ -26,10 +26,8 @@ namespace GhostHunter.EditorTools
         [MenuItem("GhostHunter/메인메뉴·로비 씬 생성", priority = 2)]
         public static void SetupMenuScenes()
         {
-            GameObject rigPrefab = PrototypeSceneSetup.EnsureNetworkRigPrefab();
-
-            CreateTitleScene(rigPrefab);
-            CreateLobbyScene(rigPrefab);
+            CreateTitleScene();
+            CreateLobbyScene();
 
             PrototypeSceneSetup.SyncBuildScenes();
             AssetDatabase.SaveAssets();
@@ -50,18 +48,12 @@ namespace GhostHunter.EditorTools
 
         #region 메인메뉴 씬
 
-        private static void CreateTitleScene(GameObject rigPrefab)
+        private static void CreateTitleScene()
         {
             Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
             CreateMenuCamera();
             CreateEventSystem();
-
-            // 메뉴 씬은 로비 이벤트로 세션을 자동 시작하지 않는다(로비 씬에서 명시적으로 시작).
-            PrototypeSceneSetup.CreateNetworkBootstrap(
-                rigPrefab,
-                autoStartFromLobbyEvents: false,
-                connectionHudVisible: false);
 
             GameObject canvasObject = CreateCanvas("TitleCanvas");
             Transform canvas = canvasObject.transform;
@@ -121,17 +113,12 @@ namespace GhostHunter.EditorTools
 
         #region 로비 씬
 
-        private static void CreateLobbyScene(GameObject rigPrefab)
+        private static void CreateLobbyScene()
         {
             Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
             CreateMenuCamera();
             CreateEventSystem();
-
-            PrototypeSceneSetup.CreateNetworkBootstrap(
-                rigPrefab,
-                autoStartFromLobbyEvents: false,
-                connectionHudVisible: false);
 
             GameObject canvasObject = CreateCanvas("LobbyCanvas");
             Transform canvas = canvasObject.transform;

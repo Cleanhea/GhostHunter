@@ -1,24 +1,16 @@
 using System;
 using Cysharp.Threading.Tasks;
 using GhostHunter.Core;
+using GhostHunter.Core.Networking;
 using GhostHunter.Core.Scenes;
+using GhostHunter.Core.Steam;
 using Netcode.Transports.Facepunch;
-using Steamworks;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
 namespace GhostHunter.Networking
 {
-    public enum TransportMode
-    {
-        /// <summary>Steam P2P (FacepunchTransport). 실제 플레이 경로.</summary>
-        Steam,
-
-        /// <summary>127.0.0.1 (UnityTransport). Steam 없이 로직만 검증할 때.</summary>
-        Local,
-    }
-
     /// <summary>
     /// Netcode 세션의 시작/종료를 담당한다. Steam 쪽 사정은 <see cref="SteamLobbyManager"/>가 알고,
     /// 이 컴포넌트는 "언제 StartHost/StartClient를 부를지"만 안다.
@@ -28,7 +20,7 @@ namespace GhostHunter.Networking
     /// 멈추지 않도록 로컬 UTP 경로를 항상 열어둔다.
     /// </summary>
     [DisallowMultipleComponent]
-    public class ConnectionManager : MonoBehaviour
+    public class ConnectionManager : MonoBehaviour, IConnectionService
     {
         [Header("참조")]
         [Tooltip("비워두면 NetworkManager.Singleton 을 사용한다.")]
@@ -47,14 +39,11 @@ namespace GhostHunter.Networking
         [SerializeField] private bool _allowCommandLineOverride = true;
 
         [Tooltip("로비 이벤트(HostLobbyReady/JoinTargetResolved)를 받으면 즉시 세션을 시작한다. " +
-                 "Prototype 씬 단독 플레이(HUD) 흐름용. 메인메뉴→로비 흐름에서는 부트스트랩이 꺼서 " +
-                 "로비 UI가 시작 시점을 직접 정한다.")]
-        [SerializeField] private bool _autoStartFromLobbyEvents = true;
+                 "개발 HUD 직접 접속 흐름에서만 켠다. Title→Lobby 흐름은 로비 UI가 시작 시점을 정한다.")]
+        [SerializeField] private bool _autoStartFromLobbyEvents;
 
         /// <summary>게임 씬 로드를 기다리는 한계. 넘으면 원인을 로그로 남기고 포기한다.</summary>
         private static readonly TimeSpan SceneLoadTimeout = TimeSpan.FromSeconds(30);
-
-        public static ConnectionManager Instance { get; private set; }
 
         public TransportMode Mode => _transportMode;
         public bool IsRunning => Net != null && (Net.IsServer || Net.IsClient);
@@ -65,18 +54,13 @@ namespace GhostHunter.Networking
 
         private NetworkManager Net => _networkManager != null ? _networkManager : NetworkManager.Singleton;
 
-        private SteamLobbyManager _lobby;
+        private ISteamLobbyService _lobby;
         private ISceneFlow _sceneFlow;
 
         private void Awake()
         {
-            if (Instance != null && Instance != this)
-            {
-                Destroy(this);
-                return;
-            }
-
-            Instance = this;
+            Services.TryGet(out _lobby);
+            Services.TryGet(out _sceneFlow);
 
             if (_allowCommandLineOverride)
                 ApplyCommandLineOverride();
@@ -84,18 +68,6 @@ namespace GhostHunter.Networking
 
         private void Start()
         {
-            // Awake 에서 Destroy(this) 한 중복 인스턴스도 실제 파괴는 프레임 끝에 일어나므로
-            // Start 가 한 번 더 돌 수 있다. 이벤트를 이중 구독하지 않도록 막는다.
-            if (Instance != this)
-                return;
-
-            // SteamLobbyManager 도 Awake 에서 자기 자신을 등록하므로 Start 에서 잡는다.
-            _lobby = SteamLobbyManager.Instance;
-
-            // 씬 전환은 Bootstrap 의 SceneFlowController 가 소유한다.
-            // TODO: MIG-3 에서 _lobby 도 Services 경유로 바꾼다.
-            Services.TryGet(out _sceneFlow);
-
             if (_sceneFlow == null)
                 SetStatus("ISceneFlow 가 등록되지 않았습니다. Bootstrap 씬에서 시작했는지 확인하세요.");
 
@@ -123,9 +95,6 @@ namespace GhostHunter.Networking
 
         private void OnDestroy()
         {
-            if (Instance == this)
-                Instance = null;
-
             if (_lobby != null)
             {
                 _lobby.HostLobbyReady -= HandleHostLobbyReady;
@@ -154,15 +123,9 @@ namespace GhostHunter.Networking
             SetStatus($"트랜스포트: {mode}");
         }
 
-        /// <summary>씬 부트스트랩이 흐름(단독 플레이 vs 메뉴→로비)에 맞게 설정한다.</summary>
-        public void SetAutoStartFromLobbyEvents(bool value)
-        {
-            _autoStartFromLobbyEvents = value;
-        }
-
         /// <summary>
         /// 호스트로 시작한다. Steam 모드에서는 로비를 먼저 만들고,
-        /// <see cref="SteamLobbyManager.HostLobbyReady"/> 를 받은 뒤에 실제 StartHost 가 일어난다.
+        /// <see cref="ISteamLobbyService.HostLobbyReady"/> 를 받은 뒤에 실제 StartHost 가 일어난다.
         /// </summary>
         public void StartHost() => StartHostAsync().Forget();
 

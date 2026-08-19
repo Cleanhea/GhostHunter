@@ -1,5 +1,6 @@
 using GhostHunter.Core;
 using GhostHunter.Furniture;
+using GhostHunter.Player;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -15,9 +16,10 @@ namespace GhostHunter.Interaction
         private FurnitureGrabTarget _currentTarget;
         private FurnitureGrabTarget _holdTarget;
 
-        public static FurnitureTargeter LocalInstance { get; private set; }
         public FurnitureGrabTarget CurrentTarget => _holdTarget != null ? _holdTarget : _currentTarget;
         public bool HasTarget => CurrentTarget != null;
+
+        private ILocalPlayerContext _localPlayer;
 
         public override void OnNetworkSpawn()
         {
@@ -27,13 +29,14 @@ namespace GhostHunter.Interaction
                 return;
             }
 
-            LocalInstance = this;
+            _localPlayer = Services.Get<ILocalPlayerContext>();
+            _localPlayer.Register(this);
         }
 
         public override void OnNetworkDespawn()
         {
-            if (LocalInstance == this)
-                LocalInstance = null;
+            _localPlayer?.Unregister(this);
+            _localPlayer = null;
 
             SetRaycastTarget(null);
             _holdTarget = null;

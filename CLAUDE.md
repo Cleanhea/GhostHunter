@@ -126,7 +126,7 @@ Assets/
 │              Bootstrap 은 언로드되지 않고, 나머지가 그 위에 additive 로 오르내린다
 ├─ Scripts/    목표 레이어: Core / Data / Gameplay / Networking / UI / Systems / DebugTools / Editor
 │              현재: Core, Data, Systems 신설됨. Player/Interaction/Furniture/Map 은 MIG-5에서 Gameplay 로
-├─ Prefabs/    NetworkRig, Player
+├─ Prefabs/    Player, Furniture_*, UI_*
 ├─ Settings/   URP 에셋, Gameplay SO
 ├─ Materials/  Shaders/  Tests/(미생성)
 ```

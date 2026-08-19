@@ -130,7 +130,7 @@ B로 가려면 **먼저 테스트 어셈블리와 네트워크 PlayMode 테스�
 
 - 개발 빌드(`BuildOptions.Development`)는 면제한다. Local 이 정상 용법이다.
 - 릴리스 빌드에서 `Steam` 이 아니면 `BuildFailedException` 으로 **빌드를 중단**한다.
-- 씬 경로를 함께 검사하므로, 리그가 프리팹에서 `Bootstrap` 씬으로 옮겨가도(MIG-3) 그대로 동작한다.
+- 씬 경로를 함께 검사하므로, MIG-3에서 리그가 `Bootstrap` 씬 소유로 바뀐 뒤에도 같은 가드를 사용한다.
 
 ### 이 결정을 앞당긴 실물 증거
 
@@ -172,7 +172,7 @@ B로 가려면 **먼저 테스트 어셈블리와 네트워크 PlayMode 테스�
 - [x] `NetworkRig.prefab` 의 `_transportMode` 를 Steam 으로 정정
 - [x] 가드 동작 검증 — Steam 통과, Local 에서 `BuildFailedException`
 - [ ] 실제 릴리스 빌드 1회로 종단 검증 (가드가 빌드 파이프라인에서 실제로 불리는지)
-- [ ] MIG-3 에서 리그를 `Bootstrap` 씬으로 옮긴 뒤 씬 경로 검사가 도는지 확인
+- [ ] `Bootstrap` 씬 소유 리그를 대상으로 씬 경로 가드 종단 검증 (실제 릴리스 빌드)
 
 ## 재검토 조건
 

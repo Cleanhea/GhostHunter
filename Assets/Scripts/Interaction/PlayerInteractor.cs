@@ -22,10 +22,10 @@ namespace GhostHunter.Interaction
 
         private int _blockingMask;
 
-        public static PlayerInteractor LocalInstance { get; private set; }
-
         /// <summary>지금 조준 중인 문. HUD 프롬프트가 읽는다.</summary>
         public DoorInteractable CurrentDoor { get; private set; }
+
+        private ILocalPlayerContext _localPlayer;
 
         private void Awake()
         {
@@ -40,13 +40,14 @@ namespace GhostHunter.Interaction
                 return;
             }
 
-            LocalInstance = this;
+            _localPlayer = Services.Get<ILocalPlayerContext>();
+            _localPlayer.Register(this);
         }
 
         public override void OnNetworkDespawn()
         {
-            if (LocalInstance == this)
-                LocalInstance = null;
+            _localPlayer?.Unregister(this);
+            _localPlayer = null;
 
             CurrentDoor = null;
         }

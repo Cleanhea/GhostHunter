@@ -8099,53 +8099,6 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 177422075}
   m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
---- !u!1 &179413008
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 179413010}
-  - component: {fileID: 179413009}
-  m_Layer: 0
-  m_Name: NetworkBootstrap
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &179413009
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 179413008}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: dc4040d0ba51a6645b6bb9ad3aca3b51, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: GhostHunter.Runtime::GhostHunter.Networking.NetworkRigBootstrap
-  _rigPrefab: {fileID: 4723501033041127935, guid: d757d669134a08742b24d1da486f95a1, type: 3}
-  _autoStartFromLobbyEvents: 1
-  _connectionHudVisible: 1
---- !u!4 &179413010
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 179413008}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &181281966
 GameObject:
   m_ObjectHideFlags: 0
@@ -93322,6 +93275,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1986323994}
   - component: {fileID: 1986323993}
+  - component: {fileID: 1986323995}
   m_Layer: 0
   m_Name: PlayerSpawnPoints
   m_TagString: Untagged
@@ -93365,6 +93319,19 @@ Transform:
   - {fileID: 650691828}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1986323995
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1986323992}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b40d913672f3d8e49944a4b1c334d192, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: GhostHunter.Runtime::GhostHunter.Systems.Installers.GameInstaller
+  _playerSpawns: {fileID: 1986323993}
 --- !u!1 &1987051787
 GameObject:
   m_ObjectHideFlags: 0
@@ -101562,6 +101529,5 @@ SceneRoots:
   - {fileID: 1986323994}
   - {fileID: 1950932145}
   - {fileID: 865674350}
-  - {fileID: 179413010}
   - {fileID: 475167867}
   - {fileID: 1791227142}

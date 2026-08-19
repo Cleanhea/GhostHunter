@@ -140,6 +140,10 @@ public void OnStartButton() => Services.Get<ISceneFlow>().Load(SceneId.Lobby);
 **예외 — `NetworkBehaviour`.** NGO가 스폰한 객체는 인스톨러와 생성 시점이 어긋날 수 있다.
 스폰 객체는 MUST `OnNetworkSpawn`에서 `Services.Get<T>()`를 받는다.
 
+로컬 소유 플레이어 컴포넌트는 `static LocalInstance`를 만들지 않는다. Game 씬의
+`ILocalPlayerContext`에 `OnNetworkSpawn`에서 등록하고 `OnNetworkDespawn`에서 해제한다.
+UI는 `Awake`에서 컨텍스트를 한 번 받아 현재 로컬 플레이어 참조를 읽는다.
+
 ## 8. 비동기
 
 **UniTask를 기본으로 쓴다** (`com.cysharp.unitask` 2.5.11 → [ADR-0005](../architecture/decisions/ADR-0005-unitask-async.md)).
@@ -220,4 +224,4 @@ private async UniTaskVoid LoadAsync()
 
 관련: [unity-assets.md](unity-assets.md) · [git.md](git.md) · [../architecture/networking.md](../architecture/networking.md)
 
-최종 갱신: 2026-08-19
+최종 갱신: 2026-08-20

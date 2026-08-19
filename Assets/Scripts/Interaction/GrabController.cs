@@ -1,3 +1,4 @@
+using GhostHunter.Core;
 using GhostHunter.Furniture;
 using GhostHunter.Player;
 using Unity.Netcode;
@@ -29,17 +30,21 @@ namespace GhostHunter.Interaction
         private float _nextAimSendAt;
         private bool _testHoldLatched;
 
-        public static GrabController LocalInstance { get; private set; }
         public ulong HeldObjectId => _heldObjectId.Value;
         public bool IsHolding => _heldObjectId.Value != NoObjectId;
         public bool IsTestHoldLatched => _testHoldLatched;
+
+        private ILocalPlayerContext _localPlayer;
 
         public override void OnNetworkSpawn()
         {
             _heldObjectId.OnValueChanged += HandleHeldObjectChanged;
 
             if (IsOwner)
-                LocalInstance = this;
+            {
+                _localPlayer = Services.Get<ILocalPlayerContext>();
+                _localPlayer.Register(this);
+            }
         }
 
         public override void OnNetworkDespawn()
@@ -47,8 +52,8 @@ namespace GhostHunter.Interaction
             _heldObjectId.OnValueChanged -= HandleHeldObjectChanged;
             _testHoldLatched = false;
 
-            if (LocalInstance == this)
-                LocalInstance = null;
+            _localPlayer?.Unregister(this);
+            _localPlayer = null;
         }
 
         private void Update()

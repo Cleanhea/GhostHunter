@@ -3,7 +3,6 @@ using Cysharp.Threading.Tasks;
 using GhostHunter.Core;
 using GhostHunter.Core.Scenes;
 using GhostHunter.Core.Steam;
-using GhostHunter.Networking;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -36,6 +35,12 @@ namespace GhostHunter.UI
         private ISceneFlow _sceneFlow;
         private bool _navigating;
 
+        private void Awake()
+        {
+            Services.TryGet(out _lobby);
+            Services.TryGet(out _sceneFlow);
+        }
+
         private void Start()
         {
             // 게임 씬에서 잠긴 커서가 남아 있을 수 있다.
@@ -52,16 +57,9 @@ namespace GhostHunter.UI
 
             _joinPanel.SetActive(false);
 
-            // MonoBehaviour를 인터페이스 참조로 들면 Unity의 가짜 null 연산자가 동작하지 않는다.
-            // 대입 시점에 구체 타입으로 한 번 걸러 진짜 null 로 정규화한다.
-            // TODO: MIG-1에서 Services.Get<ISteamLobbyService>() 로 교체한다.
-            SteamLobbyManager lobbyManager = SteamLobbyManager.Instance;
-            _lobby = lobbyManager != null ? lobbyManager : null;
-            Services.TryGet(out _sceneFlow);
-
             if (_lobby == null)
             {
-                SetStatus("네트워크 리그가 없습니다. 씬 부트스트랩 설정을 확인하세요.");
+                SetStatus("네트워크 리그 서비스가 없습니다. Bootstrap 씬 배선을 확인하세요.");
                 SetMenuInteractable(false);
                 _quitButton.interactable = true;
                 return;

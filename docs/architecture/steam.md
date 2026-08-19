@@ -52,7 +52,7 @@ Package Manager의 git URL로 설치하면 패키지가 **읽기 전용**이 되
 | [`Networking/SteamLobbyManager.cs`](../../Assets/Scripts/Networking/SteamLobbyManager.cs) | Steam 수명주기(Init/RunCallbacks/Shutdown) + 로비 생성·참가·초대 |
 | [`Networking/ConnectionManager.cs`](../../Assets/Scripts/Networking/ConnectionManager.cs) | StartHost/StartClient, 트랜스포트 전환, 접속 상태 |
 | [`DebugTools/ConnectionHud.cs`](../../Assets/Scripts/DebugTools/ConnectionHud.cs) | 개발용 IMGUI 접속 HUD (F1 토글) |
-| [`Editor/NetworkRigSetup.cs`](../../Assets/Scripts/Editor/NetworkRigSetup.cs) | 위 전부를 배선한 오브젝트를 메뉴 한 번으로 생성 |
+| [`Editor/NetworkRigSetup.cs`](../../Assets/Scripts/Editor/NetworkRigSetup.cs) | Bootstrap 씬의 기존 NetworkRig를 열고 선택 |
 
 ### 역할 분리
 
@@ -79,8 +79,8 @@ CreateLobbyAsync()
 
 ## 씬 세팅
 
-`Assets/Scenes/Bootstrap.unity`에 아래 리그가 만들어져 있다. 빈 씬에서 별도 리그가
-필요하면 메뉴 **`GhostHunter > 네트워크 리그 생성`** 을 사용한다:
+`Assets/Scenes/Bootstrap.unity`가 아래 리그를 직접 소유한다. 별도 씬에 리그를 추가하지 않는다.
+리그를 선택하려면 메뉴 **`GhostHunter > Bootstrap 네트워크 리그 선택`** 을 사용한다:
 
 ```
 NetworkRig
@@ -219,4 +219,4 @@ Steam이 찾지 못한다. `GhostHunter.app/Contents/MacOS/steam_appid.txt`에 �
 > **로비 가시성·난입 정책은 결정 대기 중이다** → [ADR-0012](decisions/ADR-0012-room-code-and-lobby-visibility.md).
 > 현재 `_friendsOnly = true`로 두면 6자리 방 코드 참가가 동작하지 않는다(LobbyList 검색은 공개 로비만 반환).
 
-최종 갱신: 2026-08-19
+최종 갱신: 2026-08-20

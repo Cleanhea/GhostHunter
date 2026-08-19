@@ -9,11 +9,10 @@ using GhostHunter.Interaction;
 using GhostHunter.Map;
 using GhostHunter.Networking;
 using GhostHunter.Player;
+using GhostHunter.Systems.Installers;
 using GhostHunter.UI;
-using Netcode.Transports.Facepunch;
 using Unity.Netcode;
 using Unity.Netcode.Components;
-using Unity.Netcode.Transports.UTP;
 using UnityEditor;
 using UnityEditor.Build.Reporting;
 using UnityEditor.SceneManagement;
@@ -35,7 +34,6 @@ namespace GhostHunter.EditorTools
         internal const string LobbyScenePath = "Assets/Scenes/Lobby.unity";
         internal const string BootstrapScenePath = "Assets/Scenes/Bootstrap.unity";
         internal const string ResultScenePath = "Assets/Scenes/Result.unity";
-        internal const string NetworkRigPrefabPath = "Assets/Prefabs/NetworkRig.prefab";
         private const string PlayerPrefabPath = "Assets/Prefabs/Player.prefab";
         private const string MoveSettingsPath = "Assets/Settings/Gameplay/PlayerMoveSettings_Default.asset";
         private const string ThrowSettingsPath = "Assets/Settings/Gameplay/FurnitureThrowSettings_Default.asset";
@@ -152,8 +150,7 @@ namespace GhostHunter.EditorTools
                 inputActions,
                 playerMaterial);
 
-            NetworkPrefabsList networkPrefabs = ConfigureNetworkPrefabs(playerPrefab);
-            GameObject rigPrefab = CreateOrUpdateNetworkRigPrefab(playerPrefab, networkPrefabs);
+            ConfigureNetworkPrefabs(playerPrefab);
 
             var palette = new HousePrototypeBuilder.Palette(
                 mapWoodFloorMaterial,
@@ -172,7 +169,7 @@ namespace GhostHunter.EditorTools
                 throwSettings,
                 outlineMaterial);
 
-            CreatePrototypeScene(rigPrefab, palette, housePhysics);
+            CreatePrototypeScene(palette, housePhysics);
 
             if (AssetDatabase.LoadAssetAtPath<MonoScript>("Assets/Scripts/Temp.cs") != null)
                 AssetDatabase.DeleteAsset("Assets/Scripts/Temp.cs");
@@ -186,8 +183,8 @@ namespace GhostHunter.EditorTools
             FlushNetworkPrefabIdentity();
             ValidateGeneratedAssets();
             Debug.Log(
-                "[PrototypeSceneSetup] Prototype 씬과 게임플레이 프리팹 생성 완료.\n" +
-                "Prototype 씬을 열고 Play → 왼쪽 HUD에서 Local / Host를 누르면 즉시 플레이할 수 있습니다.");
+                "[PrototypeSceneSetup] Game 씬과 게임플레이 프리팹 생성 완료.\n" +
+                "Bootstrap 씬에서 Play → F1 HUD에서 Local / Host를 누르면 즉시 플레이할 수 있습니다.");
         }
 
         /// <summary>-batchmode -executeMethod 진입점.</summary>
@@ -573,7 +570,6 @@ namespace GhostHunter.EditorTools
         }
 
         private static void CreatePrototypeScene(
-            GameObject rigPrefab,
             HousePrototypeBuilder.Palette palette,
             HousePrototypeBuilder.PhysicsAssets housePhysics)
         {
@@ -602,13 +598,6 @@ namespace GhostHunter.EditorTools
                 roomPresets,
                 originalScaleHouse);
             CreateRoomSlotAssigner(bedroomSlots, roomPresets, resetter);
-
-            // 단독 플레이 진입점: 리그가 없으면 프리팹에서 만들고, HUD 로 즉시 Host/Join 한다.
-            // 메뉴 흐름으로 들어온 경우에는 앞선 씬의 영속 리그가 있어 아무것도 하지 않는다.
-            CreateNetworkBootstrap(
-                rigPrefab,
-                autoStartFromLobbyEvents: true,
-                connectionHudVisible: true);
 
             var ui = new GameObject("PrototypeUI");
             ui.AddComponent<CrosshairUI>();
@@ -754,6 +743,8 @@ namespace GhostHunter.EditorTools
             Vector3[] positions = HousePrototypeBuilder.PlayerSpawnPositions();
             var registryObject = new GameObject("PlayerSpawnPoints");
             PlayerSpawnRegistry registry = registryObject.AddComponent<PlayerSpawnRegistry>();
+            GameInstaller installer = registryObject.AddComponent<GameInstaller>();
+            SetObjectReference(installer, "_playerSpawns", registry);
 
             var points = new Transform[positions.Length];
             for (int i = 0; i < positions.Length; i++)
@@ -822,70 +813,6 @@ namespace GhostHunter.EditorTools
             point.transform.SetParent(parent);
             point.transform.SetPositionAndRotation(position, rotation);
             return point.transform;
-        }
-
-        /// <summary>
-        /// 영속 네트워크 리그를 프리팹으로 만든다. 씬에 직접 배치하지 않고
-        /// <see cref="NetworkRigBootstrap"/> 이 "없을 때만" 생성한다 — 메뉴 흐름과
-        /// 단독 플레이가 같은 리그를 공유하면서 NetworkManager 중복을 막기 위해서다.
-        /// </summary>
-        internal static GameObject CreateOrUpdateNetworkRigPrefab(
-            GameObject playerPrefab,
-            NetworkPrefabsList networkPrefabs)
-        {
-            var rig = new GameObject("NetworkRig");
-            NetworkManager networkManager = rig.AddComponent<NetworkManager>();
-            FacepunchTransport steamTransport = rig.AddComponent<FacepunchTransport>();
-            UnityTransport localTransport = rig.AddComponent<UnityTransport>();
-            rig.AddComponent<SteamLobbyManager>();
-            ConnectionManager connection = rig.AddComponent<ConnectionManager>();
-            rig.AddComponent<ConnectionHud>();
-            rig.AddComponent<PrototypeRuntimeSmoke>();
-
-            networkManager.NetworkConfig ??= new NetworkConfig();
-            networkManager.NetworkConfig.NetworkTransport = localTransport;
-            networkManager.NetworkConfig.EnableSceneManagement = true;
-            networkManager.NetworkConfig.PlayerPrefab = playerPrefab;
-            networkManager.NetworkConfig.Prefabs.NetworkPrefabsLists =
-                new List<NetworkPrefabsList> { networkPrefabs };
-            networkManager.LogLevel = LogLevel.Developer;
-
-            SetObjectReference(connection, "_networkManager", networkManager);
-            SetObjectReference(connection, "_steamTransport", steamTransport);
-            SetObjectReference(connection, "_localTransport", localTransport);
-            SetEnum(connection, "_transportMode", (int)TransportMode.Local);
-
-            return SavePrefab(rig, NetworkRigPrefabPath);
-        }
-
-        /// <summary>메뉴 씬 생성 도구가 리그 프리팹을 요구할 때. 없으면 프로토타입 생성을 먼저 돌린다.</summary>
-        internal static GameObject EnsureNetworkRigPrefab()
-        {
-            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(NetworkRigPrefabPath);
-            if (prefab != null)
-                return prefab;
-
-            SetupPrototype();
-
-            prefab = AssetDatabase.LoadAssetAtPath<GameObject>(NetworkRigPrefabPath);
-            if (prefab == null)
-                throw new MissingReferenceException($"리그 프리팹 생성 실패: {NetworkRigPrefabPath}");
-
-            return prefab;
-        }
-
-        /// <summary>현재 열린 씬에 리그 부트스트랩 오브젝트를 만든다.</summary>
-        internal static void CreateNetworkBootstrap(
-            GameObject rigPrefab,
-            bool autoStartFromLobbyEvents,
-            bool connectionHudVisible)
-        {
-            var bootstrapObject = new GameObject("NetworkBootstrap");
-            NetworkRigBootstrap bootstrap = bootstrapObject.AddComponent<NetworkRigBootstrap>();
-
-            SetObjectReference(bootstrap, "_rigPrefab", rigPrefab);
-            SetBoolean(bootstrap, "_autoStartFromLobbyEvents", autoStartFromLobbyEvents);
-            SetBoolean(bootstrap, "_connectionHudVisible", connectionHudVisible);
         }
 
         internal static void SetObjectReference(Object target, string propertyName, Object value)
@@ -966,7 +893,6 @@ namespace GhostHunter.EditorTools
         private static void ValidateGeneratedAssets()
         {
             RequireAsset<GameObject>(PlayerPrefabPath);
-            RequireAsset<GameObject>(NetworkRigPrefabPath);
             RequireAsset<SceneAsset>(ScenePath);
 
             GameObject player = AssetDatabase.LoadAssetAtPath<GameObject>(PlayerPrefabPath);

@@ -1,8 +1,9 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using GhostHunter.Core;
+using GhostHunter.Core.Networking;
 using GhostHunter.Furniture;
-using GhostHunter.Networking;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -17,6 +18,12 @@ namespace GhostHunter.DebugTools
     {
         private const string SmokeArgument = "-smoke-test";
         private static bool _failed;
+        private IConnectionService _connection;
+
+        private void Awake()
+        {
+            Services.TryGet(out _connection);
+        }
 
         private void Start()
         {
@@ -29,22 +36,21 @@ namespace GhostHunter.DebugTools
         private IEnumerator RunSmokeTest()
         {
             float setupDeadline = Time.realtimeSinceStartup + 10f;
-            while ((ConnectionManager.Instance == null || NetworkManager.Singleton == null)
+            while ((_connection == null || NetworkManager.Singleton == null)
                    && Time.realtimeSinceStartup < setupDeadline)
             {
                 yield return null;
             }
 
-            ConnectionManager connection = ConnectionManager.Instance;
             NetworkManager network = NetworkManager.Singleton;
-            if (connection == null || network == null)
+            if (_connection == null || network == null)
             {
                 Fail("ConnectionManager 또는 NetworkManager가 준비되지 않았습니다.");
                 yield break;
             }
 
-            connection.SetTransportMode(TransportMode.Local);
-            connection.StartHost();
+            _connection.SetTransportMode(TransportMode.Local);
+            _connection.StartHost();
 
             float spawnDeadline = Time.realtimeSinceStartup + 15f;
             while (Time.realtimeSinceStartup < spawnDeadline)

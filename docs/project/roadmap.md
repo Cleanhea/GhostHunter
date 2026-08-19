@@ -33,10 +33,10 @@
 ### 2.1 순서 (의존 관계)
 
 ```
-[완료] MIG-0 문서 · MIG-9 Steamworks · MIG-10 MCP · MIG-4 UniTask · MIG-8 RPC · MIG-1 Core · MIG-2 씬 재편
+[완료] MIG-0 문서 · MIG-9 Steamworks · MIG-10 MCP · MIG-4 UniTask · MIG-8 RPC · MIG-1 Core · MIG-2 씬 재편 · MIG-3 리그 흡수
                                     │
                                     ▼
-                          MIG-3 리그 흡수 ──▶ MIG-5 asmdef 분리 ──▶ MIG-7 테스트
+                                              MIG-5 asmdef 분리 ──▶ MIG-7 테스트
                                                    │
                                 MIG-6 프리팹화 ────┘ (독립, 언제든 가능)
 ```
@@ -55,10 +55,10 @@
 | MIG-9 | **`Steamworks` 격리** — UI 3파일에서 제거 | `Core/Steam/ISteamLobbyService.cs` 외 | — | **완료 (2026-08-19)** |
 | MIG-10 | Unity MCP 연결 | `.mcp.json` | — | **완료 (2026-08-20)** — 버전 고정만 남음 |
 | MIG-4 | **UniTask 전환** — `async void` 6건, 코루틴 2건 | `manifest.json`, asmdef + 6파일 | — | **완료 (2026-08-20)** — 컴파일 검증됨 |
-| MIG-1 | Core 인프라 — `Services`, `SceneInstaller`, `ISceneFlow`, `SceneReference`/`SceneNameSO`, `SceneFlowController` | `Scripts/{Core,Data,Systems}`, `Settings/Scenes/SceneNameSO.asset` | MIG-4 ✅ | **완료 (2026-08-20)** — 컴파일 검증됨, 런타임 미검증 |
+| MIG-1 | Core 인프라 — `Services`, `SceneInstaller`, `ISceneFlow`, `SceneReference`/`SceneNameSO`, `SceneFlowController` | `Scripts/{Core,Data,Systems}`, `Settings/Scenes/SceneNameSO.asset` | MIG-4 ✅ | **완료 (2026-08-20)** — MIG-2/3 플레이 경로에서 런타임 검증됨 |
 | MIG-2 | **씬 재편** — `Bootstrap`·`Result` 신규, `MainMenu`→`Title`, `Prototype`→`Game`, 호출부를 `ISceneFlow`로 이관 | `Assets/Scenes/**` | MIG-1 ✅ | **완료 (2026-08-20)** — 플레이 검증됨 |
-| MIG-3 | `NetworkRig` 프리팹 언팩 + `NetworkRigBootstrap` 제거, `static Instance` 6건 → `Services` | `Bootstrap.unity`, `ConnectionManager` 외 | MIG-2 ✅ | **다음 작업** |
-| MIG-5 | **asmdef 레이어 분리** + 폴더 이동 | asmdef 8개 | MIG-3 | 대기 |
+| MIG-3 | `NetworkRig` 프리팹 언팩 + `NetworkRigBootstrap` 제거, `static Instance` 6건 → `Services` | `Bootstrap.unity`, `ConnectionManager` 외 | MIG-2 ✅ | **완료 (2026-08-20)** — Local Host 플레이 검증됨 |
+| MIG-5 | **asmdef 레이어 분리** + 폴더 이동 | asmdef 8개 | MIG-3 ✅ | **다음 작업** |
 | MIG-6 | 가구·문 프리팹화 + 생성 도구 전환 | `Assets/Prefabs/Furniture/**`, `HousePrototypeBuilder` | MIG-2 | 대기 |
 | MIG-7 | 테스트 어셈블리 + 스모크 테스트 이관 | `Assets/Tests/**` | MIG-5 | 대기 |
 | MIG-8 | 레거시 RPC 속성 → `[Rpc(SendTo.…)]` | `GrabController` 3 · `FurnitureLauncher` 1 · `PlayerNetworkSpawn` 1 | — | **완료 (2026-08-20)** — 컴파일 검증됨 |
@@ -106,7 +106,7 @@
 <summary>M2 — 멀티플레이 접속 (UTP 로컬)</summary>
 
 - [x] NGO 2.13.1 + UTP 2.7.3
-- [x] `NetworkManager` 세팅 — `NetworkRigSetup` 에디터 도구
+- [x] `NetworkManager` 세팅 — `Bootstrap/NetworkRig` 씬 오브젝트
 - [x] `ConnectionManager` — Host/Join, 트랜스포트 스위칭
 - [x] 임시 접속 UI — `ConnectionHud` (F1)
 - [x] `ClientNetworkTransform` (소유자 권위)
@@ -215,6 +215,7 @@
 | 2026-08-20 | MIG-1 Core 인프라 | `Services`·`SceneInstaller`·`ISceneFlow`·`SceneFlowController`·`SceneReference`/`SceneNameSO` |
 | 2026-08-20 | D-1 결정 (ADR-0011 Accepted) | 로컬 UTP 존치 + 빌드 가드. **이미 Local 로 커밋돼 있던 프리팹 기본값 정정** |
 | 2026-08-20 | MIG-2 씬 재편 | 5씬 체계 + additive 전환. Bootstrap→Title→Lobby 플레이 검증, Game 씬 내용 무변경 |
+| 2026-08-20 | MIG-3 리그 흡수 | Bootstrap 씬 소유 리그로 전환, `static Instance` 6건 제거. Local Host 스폰·로컬 컨텍스트 등록/해제 플레이 검증 |
 
 ---
 

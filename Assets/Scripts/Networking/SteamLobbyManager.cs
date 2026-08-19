@@ -60,8 +60,6 @@ namespace GhostHunter.Networking
                  "공개 로비(꺼짐)에서만 동작한다.")]
         [SerializeField] private bool _friendsOnly;
 
-        public static SteamLobbyManager Instance { get; private set; }
-
         public bool IsSteamReady => SteamClient.IsValid;
         public ulong LocalSteamId => SteamClient.IsValid ? SteamClient.SteamId.Value : 0UL;
         public string LocalName => SteamClient.IsValid ? SteamClient.Name : "(Steam 미연결)";
@@ -125,16 +123,8 @@ namespace GhostHunter.Networking
 
         private void Awake()
         {
-            if (Instance != null && Instance != this)
-            {
-                Destroy(gameObject);
-                return;
-            }
-
-            Instance = this;
-
-            // 리그 프리팹에서 NetworkManager 와 같은 오브젝트에 붙는다. Singleton 은
-            // 이 시점(부트스트랩 Instantiate 중)에 아직 준비되지 않았을 수 있어 직접 잡는다.
+            // Bootstrap 씬의 NetworkRig에서 NetworkManager와 같은 오브젝트에 붙는다.
+            // Singleton 초기화 순서에 기대지 않고 같은 오브젝트에서 직접 잡는다.
             _networkManager = GetComponent<NetworkManager>();
 
             InitializeSteam();
@@ -150,9 +140,6 @@ namespace GhostHunter.Networking
 
         private void OnDestroy()
         {
-            if (Instance != this)
-                return;
-
             UnsubscribeCallbacks();
             LeaveLobby();
 
@@ -161,8 +148,6 @@ namespace GhostHunter.Networking
                 SteamClient.Shutdown();
                 _ownsSteamClient = false;
             }
-
-            Instance = null;
         }
 
         #region Steam 초기화

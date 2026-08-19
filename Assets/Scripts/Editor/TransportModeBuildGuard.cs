@@ -1,4 +1,5 @@
 using System.Text;
+using GhostHunter.Core.Networking;
 using GhostHunter.Networking;
 using UnityEditor;
 using UnityEditor.Build;
@@ -21,7 +22,7 @@ namespace GhostHunter.EditorTools
     {
         public int callbackOrder => 0;
 
-        /// <summary>프리팹에 놓인 리그를 검사한다.</summary>
+        /// <summary>재사용 프리팹에 잘못 들어간 ConnectionManager도 함께 검사한다.</summary>
         public void OnPreprocessBuild(BuildReport report)
         {
             if (IsExempt(report))
@@ -41,8 +42,7 @@ namespace GhostHunter.EditorTools
         }
 
         /// <summary>
-        /// 씬에 놓인 리그를 검사한다. 리그가 프리팹에서 Bootstrap 씬으로 옮겨가도(MIG-3)
-        /// 이 경로가 그대로 받는다.
+        /// Bootstrap 씬에 놓인 리그를 검사한다.
         /// </summary>
         public void OnProcessScene(Scene scene, BuildReport report)
         {

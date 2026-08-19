@@ -74,11 +74,11 @@
 - 언로드를 기다리지 않고 `IsLoading`을 해제한다. 전환 직후 다시 전환하면 이전 언로드가 진행 중일 수 있다.
 
 ### 후속 작업
-- [ ] `SceneFlowController` additive 전환 (로컬·NGO 양 경로, `SetActiveScene`, 이전 씬 언로드)
-- [ ] `GameBootstrap` → `BootstrapInstaller : SceneInstaller`
-- [ ] [../overview.md §4](../overview.md) 씬 표·규칙 정정
-- [ ] `Bootstrap`의 카메라 정리 — 확인 결과 애초에 카메라·라이트가 없었다. "두지 않는다"를 규칙으로 명문화
-- [ ] 플레이 검증: `Bootstrap` → `Title` → `Lobby` additive 전환, 이전 씬 언로드 확인 (M0-5)
+- [x] `SceneFlowController` additive 전환 (로컬 경로, `SetActiveScene`, 이전 씬 언로드) — MIG-2
+- [x] `GameBootstrap` 역할을 `BootstrapInstaller : SceneInstaller`로 흡수 — MIG-2/3
+- [x] [../overview.md §4](../overview.md) 씬 표·규칙 정정
+- [x] `Bootstrap`의 카메라·라이트를 두지 않는 규칙 명문화
+- [x] 플레이 검증: `Bootstrap` → `Title` → `Lobby` additive 전환, 이전 씬 언로드 확인 — MIG-2
 - [ ] 실제 2인 세션에서 `Lobby`(로컬 로드) → `Game`(NGO 로드) 전환 시 언로드 경로 검증 (M0-9 이후)
 
 ## 재검토 조건
