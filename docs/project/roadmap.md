@@ -33,13 +33,16 @@
 ### 2.1 순서 (의존 관계)
 
 ```
-[완료] MIG-0 문서 재편 · MIG-9 Steamworks 격리 · MIG-10 MCP · MIG-4 UniTask · MIG-8 RPC 정리
+[완료] MIG-0 문서 · MIG-9 Steamworks 격리 · MIG-10 MCP · MIG-4 UniTask · MIG-8 RPC · MIG-1 Core 인프라
                                     │
                                     ▼
-                          MIG-1 Core 인프라 ──▶ MIG-2 씬 재편 ──▶ MIG-3 리그 흡수 ──▶ MIG-5 asmdef 분리
-                                                     │                                      │
-                                                     └──▶ MIG-6 프리팹화                    └──▶ MIG-7 테스트
+                          MIG-2 씬 재편 ──▶ MIG-3 리그 흡수 ──▶ MIG-5 asmdef 분리
+                               │                                      │
+                               └──▶ MIG-6 프리팹화                    └──▶ MIG-7 테스트
 ```
+
+> **MIG-2 는 D-1([ADR-0011](../architecture/decisions/ADR-0011-local-transport-path.md)) 결정이 선행되어야 한다.**
+> `Bootstrap` 씬에 `UnityTransport` 를 둘지가 거기서 갈린다.
 
 **MIG-4(UniTask)를 MIG-1보다 먼저 했다.** Core 인프라(`SceneFlowController`·`Services`)를 새로 쓸 때
 이미 UniTask가 있어야 두 번 쓰지 않는다.
@@ -52,8 +55,8 @@
 | MIG-9 | **`Steamworks` 격리** — UI 3파일에서 제거 | `Core/Steam/ISteamLobbyService.cs` 외 | — | **완료 (2026-08-19)** |
 | MIG-10 | Unity MCP 연결 | `.mcp.json` | — | **완료 (2026-08-20)** — 버전 고정만 남음 |
 | MIG-4 | **UniTask 전환** — `async void` 6건, 코루틴 2건 | `manifest.json`, asmdef + 6파일 | — | **완료 (2026-08-20)** — 컴파일 검증됨 |
-| MIG-1 | Core 인프라 — `Services`, `SceneInstaller`, `ISceneFlow`, `SceneReference`/`SceneNameSO` | `Scripts/Core`, `Scripts/Data`, `Scripts/Systems` | MIG-4 ✅ | **다음 작업** |
-| MIG-2 | **씬 재편** — `Bootstrap` 신규, `MainMenu`→`Title`, `Prototype`→`Game`, `Result` 신규, additive 전환 | `Assets/Scenes/**` | MIG-1 | 대기 |
+| MIG-1 | Core 인프라 — `Services`, `SceneInstaller`, `ISceneFlow`, `SceneReference`/`SceneNameSO`, `SceneFlowController` | `Scripts/{Core,Data,Systems}`, `Settings/Scenes/SceneNameSO.asset` | MIG-4 ✅ | **완료 (2026-08-20)** — 컴파일 검증됨, 런타임 미검증 |
+| MIG-2 | **씬 재편** — `Bootstrap` 신규, `MainMenu`→`Title`, `Prototype`→`Game`, `Result` 신규, 호출부를 `ISceneFlow`로 이관 | `Assets/Scenes/**` | MIG-1 ✅ | **다음 작업 (D-1 선행)** |
 | MIG-3 | `NetworkRig` 프리팹 → `Bootstrap` 씬 흡수, `static Instance` 6건 제거 | `Bootstrap.unity`, `ConnectionManager` 외 | MIG-2 | 대기 |
 | MIG-5 | **asmdef 레이어 분리** + 폴더 이동 | asmdef 8개 | MIG-3 | 대기 |
 | MIG-6 | 가구·문 프리팹화 + 생성 도구 전환 | `Assets/Prefabs/Furniture/**`, `HousePrototypeBuilder` | MIG-2 | 대기 |
@@ -210,6 +213,7 @@
 | 2026-08-20 | MIG-10 Unity MCP 연결 | 브리지 기동 + `.mcp.json` 등록 |
 | 2026-08-20 | MIG-4 UniTask 전환 | `async void` 6건 · 코루틴 2건 제거, 취소 토큰 적용 |
 | 2026-08-20 | MIG-8 통합 RPC 속성 전환 | 레거시 5건 제거. **호출 권한 기본값 역전 함정** 발견·차단 |
+| 2026-08-20 | MIG-1 Core 인프라 | `Services`·`SceneInstaller`·`ISceneFlow`·`SceneFlowController`·`SceneReference`/`SceneNameSO` |
 
 ---
 

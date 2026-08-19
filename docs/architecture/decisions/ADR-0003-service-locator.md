@@ -91,13 +91,15 @@ SO 채널의 핵심 이점은 **코드 수정 없는 인스펙터 재배선**이
   `[RuntimeInitializeOnLoadMethod(SubsystemRegistration)]`으로 플레이 시작마다 비운다.
 
 ### 후속 작업
-- [ ] 코드 반영: `Scripts/Core/Services.cs`, `Scripts/Core/Scenes/ISceneFlow.cs`,
-      `Scripts/Systems/BootstrapInstaller.cs`, `SceneFlowController` 수정
-- [ ] 등록 지점을 컴포지션 루트(`BootstrapInstaller`)로 정리
+- [x] 코드 반영: `Scripts/Core/Services.cs`, `Scripts/Core/Scenes/ISceneFlow.cs`,
+      `Scripts/Systems/Installers/{SceneInstaller,BootstrapInstaller}.cs`,
+      `Scripts/Systems/SceneFlow/SceneFlowController.cs` (2026-08-20, MIG-1)
+- [x] 등록 지점을 컴포지션 루트(`BootstrapInstaller`)로 정리
+- [ ] 기존 `static Instance` 6건 제거 → MIG-3
 - [ ] ADR-0002를 Rejected로 기록
 - [ ] 영향받는 문서 갱신: [../overview.md](../overview.md), [README.md](README.md), [../../conventions/code-style.md](../../conventions/code-style.md)
 - [ ] Bootstrap 씬에 `BootstrapInstaller` 컴포넌트 부착 및 인스펙터 배선 (M0-5)
-- [ ] asmdef 도입 시 `Core`가 아무것도 참조하지 않는지 확인
+- [ ] asmdef 도입 시 `Core` 참조가 UniTask 하나뿐인지 확인 → [../overview.md §3.1](../overview.md)
 
 ## 재검토 조건
 

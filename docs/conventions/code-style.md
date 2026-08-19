@@ -123,15 +123,19 @@ private void Awake()
 // 좋음 — Awake에서 한 번, 필드로
 private ISceneFlow _sceneFlow;
 private void Awake() => _sceneFlow = Services.Get<ISceneFlow>();
-public void OnStartButton() => _sceneFlow.LoadLobby();
+public void OnStartButton() => _sceneFlow.Load(SceneId.Lobby);
 
 // 나쁨 — 호출 시점마다 조회
-public void OnStartButton() => Services.Get<ISceneFlow>().LoadLobby();
+public void OnStartButton() => Services.Get<ISceneFlow>().Load(SceneId.Lobby);
 ```
 
 `Awake` 획득이 안전한 이유는 인스톨러가 `[DefaultExecutionOrder(SceneInstaller.ExecutionOrder)]`로
 같은 씬의 다른 `Awake`보다 먼저 등록을 끝내기 때문이다. **이 실행 순서를 없애면 위 규칙이 깨진다.**
-`SceneInstaller`를 상속할 때 `Awake`/`OnDestroy`를 재정의하면 MUST `base`를 호출한다.
+
+- `SceneInstaller`를 상속할 때 `Awake`/`OnDestroy`를 재정의하면 MUST `base`를 호출한다.
+- **파생 인스톨러에도 MUST `[DefaultExecutionOrder(SceneInstaller.ExecutionOrder)]`를 직접 단다.**
+  Unity의 실행 순서 속성은 상속이 보장되지 않는다. 빠뜨리면 조용히 기본 순서로 돌아
+  다른 컴포넌트의 `Awake`에서 `Services.Get`이 실패한다.
 
 **예외 — `NetworkBehaviour`.** NGO가 스폰한 객체는 인스톨러와 생성 시점이 어긋날 수 있다.
 스폰 객체는 MUST `OnNetworkSpawn`에서 `Services.Get<T>()`를 받는다.

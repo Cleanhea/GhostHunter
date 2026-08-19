@@ -57,7 +57,8 @@ Networking ──▶ Gameplay, Data, Core
 DebugTools ──▶ 전부 (개발 전용, 아무도 DebugTools를 참조하지 않는다)
 ```
 
-- `Core`는 아무것도 참조하지 않는다(UnityEngine 제외).
+- `Core`는 **UnityEngine 과 UniTask 외에는 아무것도 참조하지 않는다.**
+  UniTask 예외의 근거는 §3.1.
 - `Data`는 로직을 갖지 않는다. 값과 참조만 보유한다.
 - **역방향 참조 금지.** 필요하면 이벤트/인터페이스로 역전시킨다.
 - 순환 참조가 생기면 asmdef 컴파일이 실패한다 — 그게 정상 동작이며, 우회하지 말고 설계를 고친다.
@@ -73,7 +74,7 @@ DebugTools ──▶ 전부 (개발 전용, 아무도 DebugTools를 참조하지
 
 | asmdef | 경로 | 참조 |
 | --- | --- | --- |
-| `GhostHunter.Core` | `Scripts/Core` | (없음) |
+| `GhostHunter.Core` | `Scripts/Core` | UniTask (§3.1) |
 | `GhostHunter.Data` | `Scripts/Data` | Core |
 | `GhostHunter.Gameplay` | `Scripts/Gameplay` | Core, Data, Unity.Netcode.Runtime, Unity.InputSystem, UniTask |
 | `GhostHunter.Networking` | `Scripts/Networking` | Core, Data, Gameplay, Unity.Netcode.Runtime, UniTask |
@@ -89,7 +90,24 @@ DebugTools ──▶ 전부 (개발 전용, 아무도 DebugTools를 참조하지
 - 새 참조를 추가하기 전에 §2 의존 방향을 위반하지 않는지 확인한다.
 - `Auto Referenced`는 런타임 어셈블리에서 끄지 않는다(기본값 유지).
 
-### 3.1 플랫폼 제한은 `Systems`에만 건다
+### 3.1 `Core`가 UniTask를 참조하는 이유
+
+`Core`는 "아무것도 참조하지 않는다"가 원칙이지만 **UniTask 하나만 예외로 둔다.**
+
+`Core`에 있는 서비스 인터페이스 중 일부는 본질적으로 awaitable 이어야 한다.
+`ISteamLobbyService.CreateLobbyAsync()` 는 소비자(UI)가 결과를 기다렸다가 실패를 표시해야 하고,
+이것을 void + 이벤트로 바꾸면 호출부가 "요청했다"와 "끝났다"를 따로 배선하게 된다.
+
+**UniTask는 도메인 의존이 아니라 언어 수준의 비동기 원시 타입이다.** BCL의 `Task`가 인터페이스
+시그니처에 등장하는 것을 의존성이라 부르지 않는 것과 같은 이유로, 이 예외는 레이어 규칙을 무너뜨리지 않는다.
+
+**다른 어떤 것도 `Core` 참조에 추가하지 않는다.** NGO·Steamworks·UI·Gameplay 타입이 `Core`에
+등장하면 그것은 설계가 틀린 것이다.
+
+> `ISceneFlow`는 반대로 **void + 이벤트**로 두었다. 씬 전환은 UI 버튼이 던지는 "요청"이고
+> 완료를 기다릴 호출부가 없어서, awaitable 로 만들 이유가 없다.
+
+### 3.2 플랫폼 제한은 `Systems`에만 건다
 
 Facepunch 패키지는 **Editor / Windows32·64 / Linux64 / macOS**에만 매니지드 DLL을 제공한다.
 목록에 없는 플랫폼을 타겟하면 그 DLL을 참조하는 어셈블리가 통째로 빠진다.
@@ -245,6 +263,7 @@ UI (씬별, 로컬 전용)
 | --- | --- |
 | 로컬(UTP) 경로 정책 | **미결정** → [ADR-0011](decisions/ADR-0011-local-transport-path.md) |
 | asmdef 실제 분리 | 대기 (roadmap MIG-5). 현재는 `GhostHunter.Runtime` 1개 + `GhostHunter.Editor` |
+| 씬 전환 코드의 `ISceneFlow` 이관 | 대기 (roadmap MIG-2). 인프라는 구현됨, 호출부는 아직 `SceneManager` 직접 호출 |
 | 씬 재편(Bootstrap/Title/Game/Result) | 대기 (roadmap MIG-2) |
 | `Result` 씬 내용 | TBD — 승패 조건 확정 후 |
 | 세이브/영속 데이터 방식 | TBD |
