@@ -62,7 +62,7 @@
 | MIG-6 | 가구·문 프리팹화 + 생성 도구 전환 | `Assets/Prefabs/{Furniture,Map}/**`, `HousePrototypeBuilder` | MIG-2 ✅ | **코드 완료 (2026-08-21)** — 배치 로직은 테스트로 검증됨. **에디터에서 생성 도구 재실행 필요** |
 | MIG-7 | 테스트 어셈블리 + 스모크 테스트 이관 | `Assets/Tests/**` | MIG-5 ✅ | **완료 (2026-08-21)** — EditMode 21 통과·3 건너뜀, PlayMode 12 통과 |
 | MIG-8 | 레거시 RPC 속성 → `[Rpc(SendTo.…)]` | `GrabController` 3 · `FurnitureLauncher` 1 · `PlayerNetworkSpawn` 1 | — | **완료 (2026-08-20)** — 컴파일 검증됨 |
-| MIG-11 | 로비 정책 반영 — `gh_game` 키, 가시성, 난입, 접속 승인 검증 | `SteamLobbyManager`, `ConnectionManager` | [ADR-0012](../architecture/decisions/ADR-0012-room-code-and-lobby-visibility.md) 확정 | **대기 (결정 필요)** |
+| MIG-11 | 로비 정책 반영 — `gh_game` 키, 가시성, 난입, 접속 승인 검증 | `SteamLobbyManager`, `ConnectionManager` | [ADR-0012](../architecture/decisions/ADR-0012-room-code-and-lobby-visibility.md) 확정 | **부분 완료 (2026-08-21)** — `gh_game` 키·스폰 점유 검사 완료. 가시성·난입·접속 승인은 **D-2/D-3 결정 대기** |
 | MIG-12 | 브랜치 규약 적용 — `Feature/Prototype` → kebab-case | git | — | **완료 (2026-08-21)** — 로컬 완료, 원격 반영은 push 필요 |
 
 ### 2.3 결정 대기 (에이전트가 진행할 수 없는 것)
@@ -220,6 +220,7 @@
 | 2026-08-21 | MIG-7 테스트 어셈블리 | EditMode/PlayMode 2개 + 36건. **batchmode 가 프로젝트 스크립트를 에셋에 바인딩하지 못하는 한계** 발견·문서화 → [testing.md §5.3](../workflow/testing.md) |
 | 2026-08-21 | MIG-6 가구·문 프리팹화 | `FurnitureCatalog` 도입, 가구 33종·문 3종을 프리팹 원본으로 통일. **같은 이름이 자리마다 다른 치수였던 4종을 회전으로 정리** |
 | 2026-08-21 | MIG-12 브랜치 규약 | `Feature/Prototype` → `feature/prototype` (로컬). 원격은 사용자 push 필요 |
+| 2026-08-21 | MIG-11 부분 — 결정 무관 항목 | `gh_game` 로비 키, 스폰 지점 점유 검사(난입자가 겹쳐 나오던 결함) |
 
 ---
 

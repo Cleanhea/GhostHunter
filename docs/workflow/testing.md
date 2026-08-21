@@ -23,6 +23,7 @@ Assets/Tests/
 │   ├── FurnitureLaunchDirectionTests.cs   발사각 보정 (순수 계산)
 │   ├── ServicesTests.cs                   서비스 로케이터 계약
 │   ├── ProjectWiringTests.cs              레이어·씬 목록·네트워크 프리팹 식별자
+│   ├── PlayerSpawnRegistryTests.cs        스폰 지점 빈자리 선택
 │   └── MapGeneratorTests.cs               맵 생성 도구 + 자체 검증 함수
 └── PlayMode/
     ├── GhostHunter.Tests.PlayMode.asmdef
@@ -188,7 +189,7 @@ $PROJ  = "C:\MainScreen\Dev\GitDirectory\GhostHunter"
 | 항목 | 상태 |
 | --- | --- |
 | 테스트 어셈블리 | ✅ EditMode / PlayMode 2개 |
-| EditMode 테스트 | **30건 — 27 통과 · 3 건너뜀**(§5.3) |
+| EditMode 테스트 | **36건 — 33 통과 · 3 건너뜀**(§5.3) |
 | PlayMode 테스트 | **12건 — 12 통과** |
 | **런타임 스모크 테스트** | `Assets/Scripts/DebugTools/PrototypeRuntimeSmoke.cs` — 존치 (§7.1) |
 | CI | ❌ 없음 → roadmap 백로그 |

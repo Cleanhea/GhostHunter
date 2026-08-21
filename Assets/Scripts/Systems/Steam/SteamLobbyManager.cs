@@ -28,6 +28,16 @@ namespace GhostHunter.Systems.Steam
         /// <summary>Valve의 공개 테스트 앱(Spacewar). 자체 App ID를 받기 전까지 사용한다.</summary>
         public const uint SpacewarAppId = 480;
 
+        /// <summary>
+        /// 우리 게임의 로비임을 표시하는 키. App ID 480(Spacewar)은 Valve 공개 테스트 앱이라
+        /// <b>다른 게임의 로비가 같은 목록에 섞인다.</b> 검색 필터의 1차 관문이다
+        /// → [ADR-0012 §2](../../../../docs/architecture/decisions/ADR-0012-room-code-and-lobby-visibility.md)
+        /// </summary>
+        public const string GameKey = "gh_game";
+
+        /// <summary><see cref="GameKey"/> 의 값. 바꾸면 옛 빌드의 로비가 검색되지 않는다.</summary>
+        public const string GameKeyValue = "GhostHunter";
+
         /// <summary>로비 데이터에 호스트 SteamId를 담는 키.</summary>
         public const string HostSteamIdKey = "gh_host_steam_id";
 
@@ -313,6 +323,7 @@ namespace GhostHunter.Systems.Steam
 
             Lobby[] lobbies = await SteamMatchmaking.LobbyList
                 .WithMaxResults(1)
+                .WithKeyValue(GameKey, GameKeyValue)
                 .WithKeyValue(RoomCodeKey, code)
                 .WithSlotsAvailable(1)
                 .FilterDistanceWorldwide()
@@ -520,6 +531,9 @@ namespace GhostHunter.Systems.Steam
             // 참가자가 "누구에게 P2P 연결할지" 알아내는 경로. Lobby.Owner로도 알 수 있지만
             // 오너 정보가 아직 복제되지 않은 타이밍이 있어 명시적으로 심어둔다.
             lobby.SetData(HostSteamIdKey, SteamClient.SteamId.Value.ToString());
+
+            // 480 공용 로비 목록에서 우리 방만 걸러 내는 1차 필터.
+            lobby.SetData(GameKey, GameKeyValue);
 
             // 참가자가 검색으로 이 로비를 찾을 수 있게 방 코드를 심는다.
             CurrentRoomCode = GenerateRoomCode();
