@@ -38,7 +38,7 @@
                                     ▼
                                       [완료] MIG-5 asmdef 분리 ──▶ [완료] MIG-7 테스트
                                                    │
-                                MIG-6 프리팹화 ────┘ (독립, 언제든 가능)
+                       [완료] MIG-6 프리팹화 ──────┘ (독립이었음)
 ```
 
 > **D-1 해결(2026-08-20).** `Bootstrap` 씬에는 Facepunch 와 UTP 를 **둘 다** 둔다.
@@ -59,11 +59,11 @@
 | MIG-2 | **씬 재편** — `Bootstrap`·`Result` 신규, `MainMenu`→`Title`, `Prototype`→`Game`, 호출부를 `ISceneFlow`로 이관 | `Assets/Scenes/**` | MIG-1 ✅ | **완료 (2026-08-20)** — 플레이 검증됨 |
 | MIG-3 | `NetworkRig` 프리팹 언팩 + `NetworkRigBootstrap` 제거, `static Instance` 6건 → `Services` | `Bootstrap.unity`, `ConnectionManager` 외 | MIG-2 ✅ | **완료 (2026-08-20)** — Local Host 플레이 검증됨 |
 | MIG-5 | **asmdef 레이어 분리** + 폴더 이동 | asmdef 8개 | MIG-3 ✅ | **완료 (2026-08-20)** — 8개 DLL 컴파일·Bootstrap 배선 검증됨 |
-| MIG-6 | 가구·문 프리팹화 + 생성 도구 전환 | `Assets/Prefabs/Furniture/**`, `HousePrototypeBuilder` | MIG-2 | 대기 |
+| MIG-6 | 가구·문 프리팹화 + 생성 도구 전환 | `Assets/Prefabs/{Furniture,Map}/**`, `HousePrototypeBuilder` | MIG-2 ✅ | **코드 완료 (2026-08-21)** — 배치 로직은 테스트로 검증됨. **에디터에서 생성 도구 재실행 필요** |
 | MIG-7 | 테스트 어셈블리 + 스모크 테스트 이관 | `Assets/Tests/**` | MIG-5 ✅ | **완료 (2026-08-21)** — EditMode 21 통과·3 건너뜀, PlayMode 12 통과 |
 | MIG-8 | 레거시 RPC 속성 → `[Rpc(SendTo.…)]` | `GrabController` 3 · `FurnitureLauncher` 1 · `PlayerNetworkSpawn` 1 | — | **완료 (2026-08-20)** — 컴파일 검증됨 |
 | MIG-11 | 로비 정책 반영 — `gh_game` 키, 가시성, 난입, 접속 승인 검증 | `SteamLobbyManager`, `ConnectionManager` | [ADR-0012](../architecture/decisions/ADR-0012-room-code-and-lobby-visibility.md) 확정 | **대기 (결정 필요)** |
-| MIG-12 | 브랜치 규약 적용 — `Feature/Prototype` → kebab-case | git | — | 대기 |
+| MIG-12 | 브랜치 규약 적용 — `Feature/Prototype` → kebab-case | git | — | **완료 (2026-08-21)** — 로컬 완료, 원격 반영은 push 필요 |
 
 ### 2.3 결정 대기 (에이전트가 진행할 수 없는 것)
 
@@ -138,7 +138,7 @@
 - [x] `Outline` 셰이더 + `FurnitureOutline`
 - [x] `FurnitureTargeter` — 카메라 레이캐스트 타겟팅
 - [x] `CrosshairUI`
-- [ ] 프리팹 에셋화 → **MIG-6**
+- [x] 프리팹 에셋화 → **MIG-6** (가구 33종 · 문 3종)
 
 → [../architecture/furniture-physics.md](../architecture/furniture-physics.md)
 </details>
@@ -218,6 +218,8 @@
 | 2026-08-20 | MIG-3 리그 흡수 | Bootstrap 씬 소유 리그로 전환, `static Instance` 6건 제거. Local Host 스폰·로컬 컨텍스트 등록/해제 플레이 검증 |
 | 2026-08-20 | MIG-5 asmdef 레이어 분리 | 8개 실체 DLL로 분리, Gameplay 폴더 이관, Steam/Facepunch 구체 참조를 Systems로 격리 |
 | 2026-08-21 | MIG-7 테스트 어셈블리 | EditMode/PlayMode 2개 + 36건. **batchmode 가 프로젝트 스크립트를 에셋에 바인딩하지 못하는 한계** 발견·문서화 → [testing.md §5.3](../workflow/testing.md) |
+| 2026-08-21 | MIG-6 가구·문 프리팹화 | `FurnitureCatalog` 도입, 가구 33종·문 3종을 프리팹 원본으로 통일. **같은 이름이 자리마다 다른 치수였던 4종을 회전으로 정리** |
+| 2026-08-21 | MIG-12 브랜치 규약 | `Feature/Prototype` → `feature/prototype` (로컬). 원격은 사용자 push 필요 |
 
 ---
 

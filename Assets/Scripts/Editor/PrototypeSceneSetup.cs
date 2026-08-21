@@ -34,6 +34,8 @@ namespace GhostHunter.EditorTools
         internal const string BootstrapScenePath = "Assets/Scenes/Bootstrap.unity";
         internal const string ResultScenePath = "Assets/Scenes/Result.unity";
         private const string PlayerPrefabPath = "Assets/Prefabs/Player.prefab";
+        private const string FurniturePrefabFolder = "Assets/Prefabs/Furniture";
+        private const string MapPrefabFolder = "Assets/Prefabs/Map";
         private const string MoveSettingsPath = "Assets/Settings/Gameplay/PlayerMoveSettings_Default.asset";
         private const string ThrowSettingsPath = "Assets/Settings/Gameplay/FurnitureThrowSettings_Default.asset";
         private const string LightDefinitionPath = "Assets/Settings/Gameplay/FurnitureDefinition_Light.asset";
@@ -168,7 +170,8 @@ namespace GhostHunter.EditorTools
                 throwSettings,
                 outlineMaterial);
 
-            CreatePrototypeScene(palette, housePhysics);
+            FurnitureCatalog catalog = BakeFurniturePrefabs(palette, housePhysics);
+            CreatePrototypeScene(palette, catalog);
 
             if (AssetDatabase.LoadAssetAtPath<MonoScript>("Assets/Scripts/Temp.cs") != null)
                 AssetDatabase.DeleteAsset("Assets/Scripts/Temp.cs");
@@ -234,7 +237,7 @@ namespace GhostHunter.EditorTools
 
             Transform original = HousePrototypeBuilder.CreateOriginalScaleHouseRight(
                 palette,
-                LoadHousePhysicsAssets());
+                LoadFurnitureCatalog());
             HousePrototypeBuilder.ValidateFurnishedHouse(
                 original,
                 HousePrototypeBuilder.OriginalMapScale);
@@ -254,28 +257,96 @@ namespace GhostHunter.EditorTools
         }
 
         /// <summary>
-        /// 이미 만들어져 있는 가구 공용 에셋을 읽어 온다. 도면 배율 비교용 집만 다시 놓을 때는
-        /// 에셋을 새로 만들 이유가 없으므로, 없으면 전체 생성을 먼저 돌리라고 알려 준다.
+        /// 이미 구워 둔 가구·문 프리팹을 카탈로그로 읽어 온다. 도면 배율 비교용 집만 다시 놓을
+        /// 때는 프리팹을 새로 구울 이유가 없으므로, 없으면 전체 생성을 먼저 돌리라고 알려 준다.
         /// </summary>
-        private static HousePrototypeBuilder.PhysicsAssets LoadHousePhysicsAssets()
+        private static FurnitureCatalog LoadFurnitureCatalog()
         {
-            T Require<T>(string path) where T : Object
+            var catalog = new FurnitureCatalog();
+            List<string> paths = FurniturePrefabPaths();
+
+            if (paths.Count == 0)
             {
-                T asset = AssetDatabase.LoadAssetAtPath<T>(path);
-                if (asset == null)
+                throw new MissingReferenceException(
+                    $"{FurniturePrefabFolder} 에 가구 프리팹이 없습니다. " +
+                    "'GhostHunter > 프로토타입 게임 생성'을 먼저 실행하세요.");
+            }
+
+            foreach (string path in paths)
+            {
+                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+                if (prefab == null)
                 {
                     throw new MissingReferenceException(
                         $"{path} 이(가) 없습니다. 'GhostHunter > 프로토타입 게임 생성'을 먼저 실행하세요.");
                 }
 
-                return asset;
+                catalog.Register(prefab.name, prefab);
             }
 
-            return new HousePrototypeBuilder.PhysicsAssets(
-                Require<FurnitureDefinition>(LightDefinitionPath),
-                Require<FurnitureDefinition>(HeavyDefinitionPath),
-                Require<FurnitureThrowSettings>(ThrowSettingsPath),
-                Require<Material>(OutlineMaterialPath));
+            return catalog;
+        }
+
+        /// <summary>
+        /// 가구·문 원본을 조립해 프리팹으로 굽고, 그 프리팹을 담은 카탈로그를 돌려준다.
+        ///
+        /// 굽는 순서가 중요하다: <see cref="SavePrefab"/> 이 임시 씬 오브젝트를 저장한 뒤
+        /// 강제 재임포트로 GlobalObjectIdHash 를 에셋 기준으로 다시 계산시킨다. 이걸 빠뜨리면
+        /// 모든 가구 프리팹이 같은 해시를 갖고 in-scene placed 로 박힌다
+        /// → conventions/unity-assets.md §5.2
+        /// </summary>
+        private static FurnitureCatalog BakeFurniturePrefabs(
+            HousePrototypeBuilder.Palette palette,
+            HousePrototypeBuilder.PhysicsAssets physics)
+        {
+            var stagingObject = new GameObject("__FurniturePrefabStaging");
+            var catalog = new FurnitureCatalog();
+
+            try
+            {
+                Bake(HousePrototypeBuilder.BuildFurnitureSources(
+                    palette,
+                    physics,
+                    stagingObject.transform),
+                    FurniturePrefabFolder);
+
+                Bake(HousePrototypeBuilder.BuildDoorSources(palette, stagingObject.transform),
+                    MapPrefabFolder);
+            }
+            finally
+            {
+                Object.DestroyImmediate(stagingObject);
+            }
+
+            return catalog;
+
+            void Bake(List<(string Key, GameObject Source)> sources, string folder)
+            {
+                foreach ((string key, GameObject source) in sources)
+                {
+                    // 프리팹으로 저장하기 전에 임시 부모에서 떼어 낸다. 루트가 아닌 오브젝트는
+                    // SaveAsPrefabAsset 이 받지 않는다.
+                    source.transform.SetParent(null, true);
+                    source.transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
+
+                    GameObject prefab = SavePrefab(source, $"{folder}/{key}.prefab");
+                    catalog.Register(key, prefab);
+                }
+            }
+        }
+
+        /// <summary>구워 둔 가구·문 프리팹의 경로. 순서는 카탈로그 등록 순서와 같다.</summary>
+        private static List<string> FurniturePrefabPaths()
+        {
+            var paths = new List<string>();
+
+            foreach (string guid in AssetDatabase.FindAssets("t:Prefab", new[] { FurniturePrefabFolder }))
+                paths.Add(AssetDatabase.GUIDToAssetPath(guid));
+
+            foreach (string guid in AssetDatabase.FindAssets("t:Prefab", new[] { MapPrefabFolder }))
+                paths.Add(AssetDatabase.GUIDToAssetPath(guid));
+
+            return paths;
         }
 
         /// <summary>
@@ -324,6 +395,8 @@ namespace GhostHunter.EditorTools
         private static void EnsureFolders()
         {
             EnsureFolder("Assets", "Prefabs");
+            EnsureFolder("Assets/Prefabs", "Furniture");
+            EnsureFolder("Assets/Prefabs", "Map");
             EnsureFolder("Assets", "Materials");
             EnsureFolder("Assets", "Shaders");
             EnsureFolder("Assets/Settings", "Gameplay");
@@ -570,17 +643,17 @@ namespace GhostHunter.EditorTools
 
         private static void CreatePrototypeScene(
             HousePrototypeBuilder.Palette palette,
-            HousePrototypeBuilder.PhysicsAssets housePhysics)
+            FurnitureCatalog catalog)
         {
             Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
             CreateLighting();
-            Transform house = HousePrototypeBuilder.Create(palette);
+            Transform house = HousePrototypeBuilder.Create(palette, catalog);
             Transform originalScaleHouse =
-                HousePrototypeBuilder.CreateOriginalScaleHouseRight(palette, housePhysics);
+                HousePrototypeBuilder.CreateOriginalScaleHouseRight(palette, catalog);
             Transform[] bedroomSlots = HousePrototypeBuilder.CreateBedroomSlots(house);
-            Transform furnitureLibrary = HousePrototypeBuilder.CreateFurnitureLibrary(palette, housePhysics);
-            Transform roomPresets = HousePrototypeBuilder.CreateBedroomPresets(palette, housePhysics);
+            Transform furnitureLibrary = HousePrototypeBuilder.CreateFurnitureLibrary(palette, catalog);
+            Transform roomPresets = HousePrototypeBuilder.CreateBedroomPresets(palette, catalog);
             CreateOverviewCamera();
             Transform[] playerSpawns = CreatePlayerSpawns();
             HousePrototypeBuilder.ValidateLayout(
@@ -907,13 +980,18 @@ namespace GhostHunter.EditorTools
         }
 
         /// <summary>
-        /// 동적으로 스폰하는 네트워크 프리팹. 맵 가구는 씬에 놓이므로 여기 없고,
-        /// <see cref="ValidateScenePlacedNetworkObjects"/> 가 대신 검사한다.
+        /// 식별자를 검사할 네트워크 프리팹 <b>에셋</b> 전부.
+        ///
+        /// 가구·문은 여기 있어도 <see cref="ConfigureNetworkPrefabs"/> 의 NetworkPrefabsList 에는
+        /// 넣지 않는다 — 씬에 인스턴스로 놓이지 동적으로 스폰되지 않기 때문이다(ADR-0009).
+        /// 씬 인스턴스 쪽은 <see cref="ValidateScenePlacedNetworkObjects"/> 가 따로 검사한다.
         /// </summary>
-        private static readonly string[] NetworkPrefabPaths =
+        private static List<string> NetworkPrefabAssetPaths()
         {
-            PlayerPrefabPath,
-        };
+            var paths = new List<string> { PlayerPrefabPath };
+            paths.AddRange(FurniturePrefabPaths());
+            return paths;
+        }
 
         /// <summary>
         /// 재임포트로 고쳐진 GlobalObjectIdHash 를 디스크까지 내려보낸다.
@@ -925,7 +1003,7 @@ namespace GhostHunter.EditorTools
         /// </summary>
         private static void FlushNetworkPrefabIdentity()
         {
-            foreach (string path in NetworkPrefabPaths)
+            foreach (string path in NetworkPrefabAssetPaths())
             {
                 GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
                 if (prefab == null)
@@ -947,10 +1025,15 @@ namespace GhostHunter.EditorTools
         {
             var seen = new Dictionary<uint, string>();
 
-            foreach (string path in NetworkPrefabPaths)
+            foreach (string path in NetworkPrefabAssetPaths())
             {
                 GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+                if (prefab == null)
+                    throw new MissingReferenceException($"네트워크 프리팹을 찾지 못했습니다: {path}");
+
                 var networkObject = prefab.GetComponent<NetworkObject>();
+                if (networkObject == null)
+                    throw new MissingComponentException($"{path} 루트에 NetworkObject 가 없습니다.");
 
                 // GlobalObjectIdHash 는 internal 이라 SerializedObject 로 읽는다.
                 var serialized = new SerializedObject(networkObject);

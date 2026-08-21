@@ -27,9 +27,10 @@ GhostHunter — 1인칭 멀티플레이 "가구 던지기" 게임.
 **게임의 목표·루프·승패 조건은 [docs/project/gdd.md](docs/project/gdd.md)에 정의한다.
 아직 `TBD`인 항목이 있으면 임의로 정하지 말고 사용자에게 확인한다.**
 
-> **⚠️ 아키텍처 정비 진행 중.** 씬 구조·서비스 수명·8개 asmdef 레이어 이관은 완료됐다.
-> 남은 작업(MIG-6 프리팹화, MIG-7 테스트 이관 등)은
-> [docs/project/roadmap.md §2](docs/project/roadmap.md)에서 추적한다.
+> **⚠️ 아키텍처 정비 마무리 단계.** 씬 구조·서비스 수명·8개 asmdef 레이어·테스트 어셈블리·
+> 가구/문 프리팹화까지 코드 작업은 끝났다. 남은 것은 로비 정책(MIG-11, 결정 대기)과
+> **가구 프리팹을 실제로 굽는 생성 도구 재실행**이다 →
+> [docs/project/roadmap.md §2](docs/project/roadmap.md)
 
 ---
 
@@ -110,6 +111,9 @@ GhostHunter — 1인칭 멀티플레이 "가구 던지기" 게임.
 - 생성 도구는 **방을 비운 채로** 집을 만들고, 가구는 `Furniture_Library`에 종류별 한 개씩 놓는다.
   방 배치는 거기서 복사해 붙여 넣는다 — **생성 도구에 방별 가구 좌표를 심지 않는다.**
   예외는 도면 배율 비교용 집(`House_01_OriginalScale_Right`)뿐이다.
+- **가구·문은 프리팹 에셋의 인스턴스다.** 한 종류 = 한 프리팹이고, 벽 방향이 다른 자리는
+  치수를 바꾸지 말고 **회전으로** 맞춘다. 종류를 추가하려면 `HousePrototypeBuilder.FurnitureKinds()`
+  에 넣는다 → [docs/architecture/furniture-physics.md](docs/architecture/furniture-physics.md)
 
 ### 3.6 문서 동기화
 - **코드 변경이 문서의 서술을 무효화하면, 같은 작업 안에서 문서를 갱신한다.** 문서 갱신 없는 구조 변경은 미완료다.
@@ -126,7 +130,7 @@ Assets/
 │              Bootstrap 은 언로드되지 않고, 나머지가 그 위에 additive 로 오르내린다
 ├─ Scripts/    Core / Data / Gameplay / Networking / UI / Systems / DebugTools / Editor
 │              런타임 7개 + Editor 1개 asmdef로 분리됨
-├─ Prefabs/    Player, Furniture_*, UI_*
+├─ Prefabs/    Player, Furniture/(가구 33종), Map/(문 3종), UI_*
 ├─ Settings/   URP 에셋, Gameplay SO
 ├─ Materials/  Shaders/  Tests/(미생성)
 ```

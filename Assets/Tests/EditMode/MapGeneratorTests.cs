@@ -1,7 +1,9 @@
 using System.Collections.Generic;
 using GhostHunter.EditorTools;
 using GhostHunter.Gameplay.Furniture;
+using GhostHunter.Gameplay.Interaction;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
@@ -24,6 +26,8 @@ namespace GhostHunter.Tests.EditMode
 
         private HousePrototypeBuilder.Palette _palette;
         private HousePrototypeBuilder.PhysicsAssets _physics;
+        private FurnitureCatalog _catalog;
+        private GameObject _catalogStaging;
 
         [SetUp]
         public void SetUp()
@@ -38,6 +42,38 @@ namespace GhostHunter.Tests.EditMode
                 CreateDefinition(25f, FurnitureWeightClass.Heavy),
                 Track(ScriptableObject.CreateInstance<FurnitureThrowSettings>()),
                 CreateMaterial());
+
+            _catalog = BuildInMemoryCatalog();
+        }
+
+        /// <summary>
+        /// 원본을 프리팹으로 굽지 않고 메모리에 조립해 카탈로그를 만든다.
+        /// 프리팹 저장은 AssetDatabase 가 필요해 batchmode 에서 실패한다(testing.md §5.3) —
+        /// <see cref="FurnitureCatalog"/> 가 원본 종류를 가리지 않는 덕분에 그대로 쓸 수 있다.
+        /// </summary>
+        private FurnitureCatalog BuildInMemoryCatalog()
+        {
+            _catalogStaging = Track(new GameObject("__CatalogStaging"));
+            _catalogStaging.SetActive(false);
+
+            var catalog = new FurnitureCatalog();
+
+            foreach ((string key, GameObject source) in
+                     HousePrototypeBuilder.BuildFurnitureSources(
+                         _palette,
+                         _physics,
+                         _catalogStaging.transform))
+            {
+                catalog.Register(key, source);
+            }
+
+            foreach ((string key, GameObject source) in
+                     HousePrototypeBuilder.BuildDoorSources(_palette, _catalogStaging.transform))
+            {
+                catalog.Register(key, source);
+            }
+
+            return catalog;
         }
 
         [TearDown]
@@ -50,6 +86,8 @@ namespace GhostHunter.Tests.EditMode
             }
 
             _created.Clear();
+            _catalog = null;
+            _catalogStaging = null;
             Physics.SyncTransforms();
         }
 
@@ -107,10 +145,10 @@ namespace GhostHunter.Tests.EditMode
         [Test]
         public void House_01_생성물이_ValidateLayout_을_통과한다()
         {
-            Transform house = TrackRoot(HousePrototypeBuilder.Create(_palette));
+            Transform house = TrackRoot(HousePrototypeBuilder.Create(_palette, _catalog));
             Transform[] slots = HousePrototypeBuilder.CreateBedroomSlots(house);
-            Transform library = TrackRoot(HousePrototypeBuilder.CreateFurnitureLibrary(_palette, _physics));
-            Transform presets = TrackRoot(HousePrototypeBuilder.CreateBedroomPresets(_palette, _physics));
+            Transform library = TrackRoot(HousePrototypeBuilder.CreateFurnitureLibrary(_palette, _catalog));
+            Transform presets = TrackRoot(HousePrototypeBuilder.CreateBedroomPresets(_palette, _catalog));
 
             Transform[] spawns = CreatePlayerSpawns();
             foreach (Transform spawn in spawns)
@@ -127,7 +165,7 @@ namespace GhostHunter.Tests.EditMode
         public void 도면배율_집이_ValidateFurnishedHouse_를_통과한다()
         {
             Transform original =
-                TrackRoot(HousePrototypeBuilder.CreateOriginalScaleHouseRight(_palette, _physics));
+                TrackRoot(HousePrototypeBuilder.CreateOriginalScaleHouseRight(_palette, _catalog));
 
             Assert.DoesNotThrow(
                 () => HousePrototypeBuilder.ValidateFurnishedHouse(
@@ -142,9 +180,9 @@ namespace GhostHunter.Tests.EditMode
         [Test]
         public void 생성된_오브젝트의_스케일이_전부_1이다()
         {
-            Transform house = TrackRoot(HousePrototypeBuilder.Create(_palette));
-            Transform library = TrackRoot(HousePrototypeBuilder.CreateFurnitureLibrary(_palette, _physics));
-            Transform presets = TrackRoot(HousePrototypeBuilder.CreateBedroomPresets(_palette, _physics));
+            Transform house = TrackRoot(HousePrototypeBuilder.Create(_palette, _catalog));
+            Transform library = TrackRoot(HousePrototypeBuilder.CreateFurnitureLibrary(_palette, _catalog));
+            Transform presets = TrackRoot(HousePrototypeBuilder.CreateBedroomPresets(_palette, _catalog));
 
             foreach (Transform root in new[] { house, library, presets })
             {
@@ -163,13 +201,13 @@ namespace GhostHunter.Tests.EditMode
         }
 
         /// <summary>
-        /// 가구 라이브러리는 종류별로 하나씩만 둔다. 이름이 겹치면 프리팹으로 뽑을 때
-        /// 어느 쪽이 정본인지 알 수 없다.
+        /// 가구 라이브러리는 카탈로그 전 종류를 하나씩 진열한다. 하나라도 빠지면 방을 꾸밀 때
+        /// 복사해 붙일 견본이 없다.
         /// </summary>
         [Test]
-        public void 가구_라이브러리에_같은_이름의_가구가_둘_이상_없다()
+        public void 가구_라이브러리가_카탈로그_전_종류를_하나씩_진열한다()
         {
-            Transform library = TrackRoot(HousePrototypeBuilder.CreateFurnitureLibrary(_palette, _physics));
+            Transform library = TrackRoot(HousePrototypeBuilder.CreateFurnitureLibrary(_palette, _catalog));
 
             var seen = new HashSet<string>();
             foreach (FurnitureGrabTarget furniture in
@@ -179,6 +217,150 @@ namespace GhostHunter.Tests.EditMode
                     seen.Add(furniture.name),
                     $"가구 라이브러리에 '{furniture.name}' 이 둘 이상 있습니다.");
             }
+
+            foreach (string key in _catalog.Keys)
+            {
+                // 문은 진열 대상이 아니다 — 던질 수 있는 가구만 라이브러리에 올린다.
+                if (key.StartsWith("Door_"))
+                    continue;
+
+                Assert.IsTrue(seen.Contains(key), $"가구 라이브러리에 '{key}' 이(가) 없습니다.");
+            }
+        }
+
+        /// <summary>
+        /// 방에 놓인 가구는 전부 카탈로그 원본에서 나온다. 종류가 겹쳐도 같은 모양이어야
+        /// 프리팹 하나로 대표할 수 있다 — 예전에는 같은 이름이 치수만 다르게 두 벌 있었다.
+        /// </summary>
+        [Test]
+        public void 같은_이름의_가구는_어디에_놓여도_같은_크기다()
+        {
+            Transform presets = TrackRoot(HousePrototypeBuilder.CreateBedroomPresets(_palette, _catalog));
+            Transform original =
+                TrackRoot(HousePrototypeBuilder.CreateOriginalScaleHouseRight(_palette, _catalog));
+
+            var footprints = new Dictionary<string, Vector3>();
+
+            foreach (Transform root in new[] { presets, original })
+            {
+                foreach (FurnitureGrabTarget furniture in
+                         root.GetComponentsInChildren<FurnitureGrabTarget>(true))
+                {
+                    Bounds bounds = LocalColliderBounds(furniture.transform);
+                    string key = StripInstanceSuffix(furniture.name);
+
+                    if (!footprints.TryGetValue(key, out Vector3 known))
+                    {
+                        footprints.Add(key, bounds.size);
+                        continue;
+                    }
+
+                    Assert.AreEqual(
+                        known.x, bounds.size.x, 0.01f, $"'{key}' 의 폭이 자리마다 다릅니다.");
+                    Assert.AreEqual(
+                        known.y, bounds.size.y, 0.01f, $"'{key}' 의 높이가 자리마다 다릅니다.");
+                    Assert.AreEqual(
+                        known.z, bounds.size.z, 0.01f, $"'{key}' 의 깊이가 자리마다 다릅니다.");
+                }
+            }
+        }
+
+        /// <summary>
+        /// 문짝은 프리팹 하나(경첩에서 +X 로 뻗은 문짝)를 회전만 바꿔 다섯 개구부에 쓴다.
+        /// 회전을 잘못 잡으면 문이 벽 안쪽으로 들어가거나 반대로 열려서, 겉보기에는 멀쩡하고
+        /// 플레이해야만 드러난다. 닫힘·열림 양쪽에서 문짝이 경첩 기준 어디에 서는지 고정한다.
+        /// </summary>
+        [Test]
+        public void 문짝이_닫힘_열림_양쪽에서_경첩_기준_제자리에_선다()
+        {
+            Transform house = TrackRoot(HousePrototypeBuilder.Create(_palette, _catalog));
+
+            var expected = new Dictionary<string, (Vector2 Closed, Vector2 Open)>
+            {
+                ["FrontDoor_1.5m"] = (new Vector2(-0.75f, 0f), new Vector2(0f, 0.75f)),
+                ["Bedroom01_Door_1.2m"] = (new Vector2(0.6f, 0f), new Vector2(0f, 0.6f)),
+                ["Bedroom02_Door_1.2m"] = (new Vector2(-0.6f, 0f), new Vector2(0f, 0.6f)),
+                ["Bathroom_Door_0.9m"] = (new Vector2(0f, -0.45f), new Vector2(0.45f, 0f)),
+                ["Storage_Door_0.9m"] = (new Vector2(0f, -0.45f), new Vector2(0.45f, 0f)),
+            };
+
+            DoorInteractable[] doors = house.GetComponentsInChildren<DoorInteractable>(true);
+            Assert.AreEqual(expected.Count, doors.Length, "여닫이 문 개수가 다릅니다.");
+
+            foreach (DoorInteractable door in doors)
+            {
+                Assert.IsTrue(expected.ContainsKey(door.name), $"모르는 문 '{door.name}' 입니다.");
+                (Vector2 closed, Vector2 open) = expected[door.name];
+
+                AssertLeafOffset(door, "_closedYaw", closed, "닫힘");
+                AssertLeafOffset(door, "_openYaw", open, "열림");
+            }
+        }
+
+        private static void AssertLeafOffset(
+            DoorInteractable door,
+            string yawField,
+            Vector2 expected,
+            string label)
+        {
+            var serialized = new SerializedObject(door);
+            float yaw = serialized.FindProperty(yawField).floatValue;
+
+            Transform leaf = door.transform.Find("DoorLeaf");
+            Assert.IsNotNull(leaf, $"'{door.name}' 에 DoorLeaf 가 없습니다.");
+
+            Quaternion restore = door.transform.localRotation;
+            door.transform.localRotation = Quaternion.Euler(0f, yaw, 0f);
+
+            Vector3 offset = leaf.position - door.transform.position;
+            door.transform.localRotation = restore;
+
+            Assert.AreEqual(expected.x, offset.x, 0.01f, $"'{door.name}' {label} 문짝 X");
+            Assert.AreEqual(expected.y, offset.z, 0.01f, $"'{door.name}' {label} 문짝 Z");
+        }
+
+        /// <summary>회전을 뺀 로컬 기준 크기. 벽 방향만 다른 같은 가구를 비교하기 위한 것이다.</summary>
+        private static Bounds LocalColliderBounds(Transform root)
+        {
+            Quaternion restore = root.rotation;
+            root.rotation = Quaternion.identity;
+            Physics.SyncTransforms();
+
+            bool hasBounds = false;
+            Bounds bounds = default;
+            foreach (Collider collider in root.GetComponentsInChildren<Collider>(true))
+            {
+                if (!hasBounds)
+                {
+                    bounds = collider.bounds;
+                    hasBounds = true;
+                    continue;
+                }
+
+                bounds.Encapsulate(collider.bounds);
+            }
+
+            root.rotation = restore;
+            Physics.SyncTransforms();
+
+            Assert.IsTrue(hasBounds, $"'{root.name}' 에 콜라이더가 없습니다.");
+            return bounds;
+        }
+
+        /// <summary>머리맡/발치처럼 역할만 다른 인스턴스 이름에서 원본 키를 되찾는다.</summary>
+        private static string StripInstanceSuffix(string instanceName)
+        {
+            const string head = "BedsideTable_Head_";
+            const string foot = "BedsideTable_Foot_";
+
+            if (instanceName.StartsWith(head))
+                return "BedsideTable_" + instanceName.Substring(head.Length);
+            if (instanceName.StartsWith(foot))
+                return "BedsideTable_" + instanceName.Substring(foot.Length);
+            if (instanceName.StartsWith("Chair_0.5x0.5"))
+                return "Chair_0.5x0.5";
+
+            return instanceName;
         }
 
         private static string GetPath(Transform target)

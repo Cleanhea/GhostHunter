@@ -91,8 +91,8 @@ GhostHunter의 현재 상태는 **둘 다 아니다.** `HousePrototypeBuilder`�
 - 프리팹 GUID가 새로 생기므로 씬 참조가 재작성된다. 다른 마이그레이션과 같은 커밋에 섞지 않는다.
 
 ### 후속 작업
-- [ ] 가구 25종 프리팹 에셋 생성 (`Assets/Prefabs/Furniture/Furniture_*.prefab`)
-- [ ] 문 프리팹 (`Furniture_Door` 또는 `Prop_Door`)
+- [x] 가구 프리팹 에셋 생성 (`Assets/Prefabs/Furniture/*.prefab`) — MIG-6, 33종
+- [x] 문 프리팹 (`Assets/Prefabs/Map/Door_{1.5,1.2,0.9}m.prefab`) — MIG-6
 - [ ] `HousePrototypeBuilder`를 프리팹 인스턴스화로 전환
 - [ ] 기존 씬 오브젝트를 프리팹 인스턴스로 교체 후 `GlobalObjectIdHash` 재검증
 - [ ] `FurnitureDefinition`에 프리팹 참조 연결

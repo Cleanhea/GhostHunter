@@ -22,7 +22,8 @@ Assets/Tests/
 │   ├── GhostHunter.Tests.EditMode.asmdef
 │   ├── FurnitureLaunchDirectionTests.cs   발사각 보정 (순수 계산)
 │   ├── ServicesTests.cs                   서비스 로케이터 계약
-│   └── ProjectWiringTests.cs              레이어·씬 목록·네트워크 프리팹 식별자
+│   ├── ProjectWiringTests.cs              레이어·씬 목록·네트워크 프리팹 식별자
+│   └── MapGeneratorTests.cs               맵 생성 도구 + 자체 검증 함수
 └── PlayMode/
     ├── GhostHunter.Tests.PlayMode.asmdef
     ├── NetworkFurnitureFixture.cs         호스트 세션 + 가구 스폰 토대
@@ -92,7 +93,19 @@ Steam 실경로(로비·초대·SDR 연결)는 사람이 2대로 확인한다 �
 런타임에 만든 `NetworkObject`는 `GlobalObjectIdHash`가 0이라 NGO가 서로를 구분하지 못한다.
 픽스처가 인스턴스마다 고유 값을 리플렉션으로 넣어 준다 → [../conventions/unity-assets.md §5.2](../conventions/unity-assets.md)
 
-### 4.3 접속하지 않은 홀더로 2인 경로를 흉내 낼 때
+### 4.3 맵 생성 도구는 에셋 없이 검증한다
+
+`MapGeneratorTests` 는 `GhostHunter > 프로토타입 게임 생성` 이 하는 일 중 **씬 오브젝트를
+만들고 검증하는 부분만** 떼어 돌린다. 프리팹을 굽거나 씬을 저장하지 않는다.
+
+- 설정 SO·머티리얼은 `ScriptableObject.CreateInstance` / `new Material` 로 만든다.
+- 가구 원본은 `FurnitureCatalog` 에 **메모리 오브젝트로** 등록한다. 실제 생성 도구는 같은
+  자리에 프리팹 에셋을 등록한다 — 카탈로그가 둘을 구분하지 않는 덕분에 배치·검증 로직이
+  그대로 돌아간다.
+- 따라서 **프리팹 굽기와 씬 저장은 이 테스트가 검증하지 않는다.** 그 두 가지는 §5.3 때문에
+  batchmode 에서 아예 되지 않으므로, 에디터에서 생성 도구를 실행해 확인해야 한다.
+
+### 4.4 접속하지 않은 홀더로 2인 경로를 흉내 낼 때
 
 2인 잡기 규칙은 홀더가 둘이어야 검사할 수 있는데, 한 프로세스에서 진짜 클라이언트를 둘
 띄우는 것은 비싸다. 그래서 두 번째 홀더는 접속하지 않은 가짜 clientId를 쓴다.
@@ -175,7 +188,7 @@ $PROJ  = "C:\MainScreen\Dev\GitDirectory\GhostHunter"
 | 항목 | 상태 |
 | --- | --- |
 | 테스트 어셈블리 | ✅ EditMode / PlayMode 2개 |
-| EditMode 테스트 | **24건 — 21 통과 · 3 건너뜀**(§5.3) |
+| EditMode 테스트 | **30건 — 27 통과 · 3 건너뜀**(§5.3) |
 | PlayMode 테스트 | **12건 — 12 통과** |
 | **런타임 스모크 테스트** | `Assets/Scripts/DebugTools/PrototypeRuntimeSmoke.cs` — 존치 (§7.1) |
 | CI | ❌ 없음 → roadmap 백로그 |

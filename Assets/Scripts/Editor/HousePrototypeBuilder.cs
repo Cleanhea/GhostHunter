@@ -196,18 +196,12 @@ namespace GhostHunter.EditorTools
         }
 
         /// <summary>
-        /// 만든 가구를 물리·네트워크 배선까지 끝내 배치 목록에 넣는 콜백.
-        /// <paramref name="supportHeight"/>는 가구가 앉을 지지면 높이다 — 바닥은 0,
-        /// 책상 위 소품은 상판 윗면을 넘긴다(<see cref="TableTopSurface"/>).
+        /// 게임플레이용 집. 방은 비운 채로 만든다 — 던질 수 있는 가구는
+        /// <see cref="CreateFurnitureLibrary"/> 에서 복사해 넣는다.
         /// </summary>
-        private delegate void AddFurniture(
-            Transform item,
-            FurnitureWeightClass weightClass,
-            float supportHeight = 0f);
-
-        internal static Transform Create(Palette palette)
+        internal static Transform Create(Palette palette, FurnitureCatalog catalog)
         {
-            return CreateAtScale(palette, GameplayMapScale, "House_01", Vector3.zero, null);
+            return CreateAtScale(palette, catalog, GameplayMapScale, "House_01", Vector3.zero, false);
         }
 
         /// <summary>
@@ -215,34 +209,38 @@ namespace GhostHunter.EditorTools
         /// <b>방마다 가구를 깔아서</b> 만든다 — "도면 크기에서 사람과 가구가 어떻게 느껴지는가"를
         /// 보려고 세워 둔 집이라, 라이브러리에서 복사해 넣을 때까지 비워 둘 이유가 없다.
         /// </summary>
-        internal static Transform CreateOriginalScaleHouseRight(Palette palette, PhysicsAssets physics)
+        internal static Transform CreateOriginalScaleHouseRight(Palette palette, FurnitureCatalog catalog)
         {
-            if (physics == null)
-                throw new ArgumentNullException(nameof(physics));
+            if (catalog == null)
+                throw new ArgumentNullException(nameof(catalog));
 
             float centerX = 6.4f * GameplayMapScale
                 + SideBySideGap
                 + 6.4f * OriginalMapScale;
             return CreateAtScale(
                 palette,
+                catalog,
                 OriginalMapScale,
                 "House_01_OriginalScale_Right",
                 new Vector3(centerX, 0f, 0f),
-                physics);
+                true);
         }
 
-        /// <param name="furnishings">
-        /// null 이면 방을 비운 채로 만든다(House_01 규칙). 넘기면 방마다 가구를 깔아 준다.
+        /// <param name="furnish">
+        /// false 면 방을 비운 채로 만든다(House_01 규칙). true 면 방마다 가구를 깔아 준다.
         /// </param>
         private static Transform CreateAtScale(
             Palette palette,
+            FurnitureCatalog catalog,
             float mapScale,
             string rootName,
             Vector3 worldPosition,
-            PhysicsAssets furnishings)
+            bool furnish)
         {
             if (palette == null)
                 throw new ArgumentNullException(nameof(palette));
+            if (catalog == null)
+                throw new ArgumentNullException(nameof(catalog));
             if (mapScale <= 0f)
                 throw new ArgumentOutOfRangeException(nameof(mapScale));
 
@@ -262,14 +260,14 @@ namespace GhostHunter.EditorTools
 
                 CreateFloors(rooms, palette);
                 CreateWalls(shell, palette);
-                CreateDoorsAndWindows(shell, palette);
+                CreateDoorsAndWindows(shell, palette, catalog);
                 CreateKitchenFixtures(fixtures, palette);
                 CreateBathroom(fixtures, palette);
                 CreateFrontSteps(house.transform, palette);
                 CreateRoomLights(lights);
 
-                if (furnishings != null)
-                    FurnishRooms(furniture, palette, furnishings);
+                if (furnish)
+                    FurnishRooms(furniture, catalog);
 
                 house.transform.position = worldPosition;
                 return house.transform;
@@ -349,18 +347,26 @@ namespace GhostHunter.EditorTools
                 new Vector3(trimDepth, trimHeight, NorthRoomSouth - OuterSouth - 0.2f), material, parent, false);
         }
 
-        private static void CreateDoorsAndWindows(Transform parent, Palette palette)
+        /// <summary>
+        /// 문짝은 프리팹에서 찍어 낸다. 원본은 경첩에서 <b>로컬 +X 방향</b>으로 뻗은 문짝
+        /// 하나뿐이고, 벽을 따라 눕히거나 반대로 여는 것은 전부 <c>orientationYaw</c> 로 돌린다
+        /// — 개구부마다 문짝 모양을 따로 만들지 않기 위해서다.
+        /// </summary>
+        private static void CreateDoorsAndWindows(
+            Transform parent,
+            Palette palette,
+            FurnitureCatalog catalog)
         {
-            CreateDoor("FrontDoor_1.5m", new Vector3(FrontDoorEast, 0f, OuterSouth),
-                FrontDoorWidth, 90f, true, -1f, palette, parent);
-            CreateDoor("Bedroom01_Door_1.2m", new Vector3(Bedroom01DoorWest, 0f, NorthRoomSouth),
-                BedroomDoorWidth, -90f, true, palette, parent);
-            CreateDoor("Bedroom02_Door_1.2m", new Vector3(Bedroom02DoorEast, 0f, NorthRoomSouth),
-                BedroomDoorWidth, 90f, true, -1f, palette, parent);
-            CreateDoor("Bathroom_Door_0.9m", new Vector3(ServiceWest, 0f, BathroomDoorNorth),
-                ServiceDoorWidth, -90f, false, -1f, palette, parent);
-            CreateDoor("Storage_Door_0.9m", new Vector3(ServiceWest, 0f, StorageDoorNorth),
-                ServiceDoorWidth, -90f, false, -1f, palette, parent);
+            PlaceDoor(catalog, FrontDoorKey, "FrontDoor_1.5m",
+                new Vector3(FrontDoorEast, 0f, OuterSouth), 90f, 180f, parent);
+            PlaceDoor(catalog, BedroomDoorKey, "Bedroom01_Door_1.2m",
+                new Vector3(Bedroom01DoorWest, 0f, NorthRoomSouth), -90f, 0f, parent);
+            PlaceDoor(catalog, BedroomDoorKey, "Bedroom02_Door_1.2m",
+                new Vector3(Bedroom02DoorEast, 0f, NorthRoomSouth), 90f, 180f, parent);
+            PlaceDoor(catalog, ServiceDoorKey, "Bathroom_Door_0.9m",
+                new Vector3(ServiceWest, 0f, BathroomDoorNorth), -90f, 90f, parent);
+            PlaceDoor(catalog, ServiceDoorKey, "Storage_Door_0.9m",
+                new Vector3(ServiceWest, 0f, StorageDoorNorth), -90f, 90f, parent);
 
             CreateDoorFrameX("Kitchen_OpenPassage_1.4m", KitchenCenter, NorthRoomSouth,
                 KitchenPassageWidth, palette.Trim, parent);
@@ -461,22 +467,17 @@ namespace GhostHunter.EditorTools
         //    좌표는 전부 방 안쪽 면에서 역산하므로 벽을 옮기면 가구가 따라간다. 문짝이 도는
         //    사분원과 방 한가운데 통행로는 비워 둔다 — ValidateFurnishedHouse 가 그걸 검사한다.
 
-        private static void FurnishRooms(Transform parent, Palette palette, PhysicsAssets physics)
+        private static void FurnishRooms(Transform parent, FurnitureCatalog catalog)
         {
-            void Add(Transform item, FurnitureWeightClass weightClass, float supportHeight = 0f)
-            {
-                MakePhysical(item, physics, weightClass, supportHeight);
-            }
-
-            FurnishBedroom01(parent, palette, Add);
-            FurnishBedroom02(parent, palette, Add);
-            FurnishKitchen(parent, palette, Add);
-            FurnishLivingRoom(parent, palette, Add);
-            FurnishStorage(parent, palette, Add);
+            FurnishBedroom01(parent, catalog);
+            FurnishBedroom02(parent, catalog);
+            FurnishKitchen(parent, catalog);
+            FurnishLivingRoom(parent, catalog);
+            FurnishStorage(parent, catalog);
         }
 
         /// <summary>침실1 — 도면 Bedroom_A 구성(옷장·싱글침대·협탁·책상·의자)에 소품을 얹었다.</summary>
-        private static void FurnishBedroom01(Transform items, Palette palette, AddFurniture add)
+        private static void FurnishBedroom01(Transform items, FurnitureCatalog catalog)
         {
             float west = OuterWest + HalfWall;
             float east = Bedroom01East - HalfWall;
@@ -486,115 +487,121 @@ namespace GhostHunter.EditorTools
             // 침대는 동쪽 벽에 머리를 북쪽으로. 문이 도는 남서쪽 사분원에서 가장 먼 자리다.
             float bedX = east - 0.54f - WallGap;
             float bedHeadZ = north - 1.01f - WallGap;
-            add(CreateBed("SingleBed_1.0x2.0", new Vector3(bedX, 0f, bedHeadZ),
-                    1f, 2f, 0f, palette, items),
-                FurnitureWeightClass.Heavy);
+            catalog.Place("SingleBed_1.0x2.0", new Vector3(bedX, 0f, bedHeadZ), 0f, items);
 
             float nightstandX = bedX - 0.54f - ItemGap - 0.225f;
             float nightstandZ = north - WallGap - 0.2f;
-            add(CreateTable("Nightstand_0.45x0.4", new Vector3(nightstandX, 0f, nightstandZ),
-                    new Vector3(0.45f, 0.4f), 0f, palette.Wood, items, 0.5f),
-                FurnitureWeightClass.Light);
+            catalog.Place("Nightstand_0.45x0.4", new Vector3(nightstandX, 0f, nightstandZ), 0f, items);
 
             // 옷장(위) · 책상(아래): 서쪽 벽. 둘 다 앞면이 방 안쪽(동쪽)을 본다.
             float westWallX = west + 0.3f + WallGap;
             float wardrobeZ = north - WallGap - 0.6f;
-            add(CreateCabinet("Wardrobe_1.2x0.6", new Vector3(westWallX, 0f, wardrobeZ),
-                    new Vector3(1.2f, 1.85f, 0.6f), palette, items, -90f),
-                FurnitureWeightClass.Heavy);
+            catalog.Place("Wardrobe_1.2x0.6", new Vector3(westWallX, 0f, wardrobeZ), -90f, items);
 
             float deskZ = ((wardrobeZ - 0.6f) + south) * 0.5f;
-            add(CreateTable("Desk_1.2x0.6", new Vector3(westWallX, 0f, deskZ),
-                    new Vector3(1.2f, 0.6f), 90f, palette.Wood, items),
-                FurnitureWeightClass.Heavy);
-            add(CreateChair("DeskChair_0.55x0.55",
-                    new Vector3(westWallX + 0.3f + ItemGap + 0.275f, 0f, deskZ),
-                    90f, palette, items, 0.55f),
-                FurnitureWeightClass.Light);
+            catalog.Place("Desk_1.2x0.6", new Vector3(westWallX, 0f, deskZ), 90f, items);
+            catalog.Place(
+                "DeskChair_0.55x0.55",
+                new Vector3(westWallX + 0.3f + ItemGap + 0.275f, 0f, deskZ),
+                90f,
+                items);
 
             // 소품: 책상과 옷장 사이 벽에 쓰레기통, 책상 위에 책.
-            add(CreateProp("TrashBin_0.3",
-                    new Vector3(west + WallGap + 0.15f, 0f, ((deskZ + 0.6f) + (wardrobeZ - 0.6f)) * 0.5f),
-                    new Vector3(0.3f, 0.4f, 0.3f), palette.Metal, items),
-                FurnitureWeightClass.Light);
-            add(CreateProp("Book_Stack_0.22", new Vector3(westWallX, 0f, deskZ - 0.28f),
-                    new Vector3(0.22f, 0.09f, 0.3f), palette.Trim, items),
-                FurnitureWeightClass.Light, TableTopSurface(0.72f));
+            catalog.Place(
+                "TrashBin_0.3",
+                new Vector3(west + WallGap + 0.15f, 0f, ((deskZ + 0.6f) + (wardrobeZ - 0.6f)) * 0.5f),
+                0f,
+                items);
+            catalog.Place(
+                "Book_Stack_0.22",
+                new Vector3(westWallX, 0f, deskZ - 0.28f),
+                0f,
+                items,
+                TableTopSurface(0.72f));
         }
 
         /// <summary>침실2 — 도면 Bedroom_C 구성(싱글침대·책상·의자·책장·서랍장·수납함).</summary>
-        private static void FurnishBedroom02(Transform items, Palette palette, AddFurniture add)
+        private static void FurnishBedroom02(Transform items, FurnitureCatalog catalog)
         {
             float west = Bedroom02West + HalfWall;
             float east = OuterEast - HalfWall;
             float north = OuterNorth - HalfWall;
             float south = NorthRoomSouth + HalfWall;
 
-            add(CreateBed("SingleBed_1.1x2.0",
-                    new Vector3(west + 0.59f + WallGap, 0f, north - 1.01f - WallGap),
-                    1.1f, 2f, 0f, palette, items),
-                FurnitureWeightClass.Heavy);
+            catalog.Place(
+                "SingleBed_1.1x2.0",
+                new Vector3(west + 0.59f + WallGap, 0f, north - 1.01f - WallGap),
+                0f,
+                items);
 
             // 책상 + 의자: 북동쪽 모서리. 의자는 책상을 보고 앉는다.
             float deskX = east - WallGap - 0.5f;
             float deskZ = north - WallGap - 0.25f;
-            add(CreateTable("Desk_1.0x0.5", new Vector3(deskX, 0f, deskZ),
-                    new Vector3(1f, 0.5f), 0f, palette.Wood, items),
-                FurnitureWeightClass.Heavy);
-            add(CreateChair("Chair_0.5x0.5",
-                    new Vector3(deskX, 0f, deskZ - 0.25f - ItemGap - 0.25f), 180f, palette, items),
-                FurnitureWeightClass.Light);
+            catalog.Place("Desk_1.0x0.5", new Vector3(deskX, 0f, deskZ), 0f, items);
+            catalog.Place(
+                "Chair_0.5x0.5",
+                new Vector3(deskX, 0f, deskZ - 0.25f - ItemGap - 0.25f),
+                180f,
+                items);
 
-            // 서랍장(남쪽) + 책장(가운데): 동쪽 벽.
+            // 서랍장(남쪽) + 책장(가운데): 동쪽 벽. 원본은 폭이 X 축이라 90도 눕혀 벽에 붙인다.
             float dresserZ = south + 0.44f;
-            add(CreateCabinet("Dresser_0.8x0.45", new Vector3(east - WallGap - 0.225f, 0f, dresserZ),
-                    new Vector3(0.8f, 0.82f, 0.45f), palette, items, 90f),
-                FurnitureWeightClass.Heavy);
-            add(CreateShelf("Bookshelf_0.9x0.3",
-                    new Vector3(east - WallGap - 0.169f, 0f, dresserZ + 1.05f),
-                    new Vector3(0.3f, 1.6f, 0.9f), palette, items),
-                FurnitureWeightClass.Heavy);
+            catalog.Place(
+                "Dresser_0.8x0.45",
+                new Vector3(east - WallGap - 0.225f, 0f, dresserZ),
+                90f,
+                items);
+            catalog.Place(
+                "Bookshelf_0.9x0.3",
+                new Vector3(east - WallGap - 0.169f, 0f, dresserZ + 1.05f),
+                90f,
+                items);
 
             // 수납함은 문 동쪽 남쪽 벽. 문짝(서쪽으로 열림)이 지나가지 않는 쪽이다.
-            add(CreateProp("StorageChest_0.9x0.45",
-                    new Vector3(Bedroom02DoorEast + 0.92f, 0f, south + WallGap + 0.225f),
-                    new Vector3(0.9f, 0.5f, 0.45f), palette.Wood, items),
-                FurnitureWeightClass.Light);
+            catalog.Place(
+                "StorageChest_0.9x0.45",
+                new Vector3(Bedroom02DoorEast + 0.92f, 0f, south + WallGap + 0.225f),
+                0f,
+                items);
 
             float deskTop = TableTopSurface(0.72f);
-            add(CreateProp("Cup_0.12", new Vector3(deskX - 0.3f, 0f, deskZ),
-                    new Vector3(0.12f, 0.14f, 0.12f), palette.Ceramic, items),
-                FurnitureWeightClass.Light, deskTop);
-            add(CreateProp("Book_Stack_0.22", new Vector3(deskX + 0.3f, 0f, deskZ),
-                    new Vector3(0.22f, 0.09f, 0.3f), palette.Trim, items),
-                FurnitureWeightClass.Light, deskTop);
+            catalog.Place("Cup_0.12", new Vector3(deskX - 0.3f, 0f, deskZ), 0f, items, deskTop);
+            catalog.Place("Book_Stack_0.22", new Vector3(deskX + 0.3f, 0f, deskZ), 0f, items, deskTop);
         }
 
         /// <summary>주방 — 붙박이(북·동 카운터)를 뺀 자리에 식탁 한 벌.</summary>
-        private static void FurnishKitchen(Transform items, Palette palette, AddFurniture add)
+        private static void FurnishKitchen(Transform items, FurnitureCatalog catalog)
         {
             float south = NorthRoomSouth + HalfWall;
 
             // 식탁은 서쪽으로 붙인다. 방 한가운데를 비워야 주방을 가로질러 다닐 수 있다.
             float tableX = KitchenWestFace + 1.08f;
             float tableZ = south + 1.49f;
-            add(CreateTable("DiningTable_1.55x0.85", new Vector3(tableX, 0f, tableZ),
-                    new Vector3(1.55f, 0.85f), 0f, palette.Wood, items, 0.74f),
-                FurnitureWeightClass.Heavy);
-            add(CreateChair("Chair_0.5x0.5",
-                    new Vector3(tableX, 0f, tableZ - 0.425f - ItemGap - 0.26f), 180f, palette, items),
-                FurnitureWeightClass.Light);
-            add(CreateChair("Chair_0.5x0.5",
-                    new Vector3(tableX, 0f, tableZ + 0.425f + ItemGap + 0.26f), 0f, palette, items),
-                FurnitureWeightClass.Light);
+            catalog.Place("DiningTable_1.55x0.85", new Vector3(tableX, 0f, tableZ), 0f, items);
+            catalog.Place(
+                "Chair_0.5x0.5",
+                new Vector3(tableX, 0f, tableZ - 0.425f - ItemGap - 0.26f),
+                180f,
+                items,
+                0f,
+                "Chair_0.5x0.5_South");
+            catalog.Place(
+                "Chair_0.5x0.5",
+                new Vector3(tableX, 0f, tableZ + 0.425f + ItemGap + 0.26f),
+                0f,
+                items,
+                0f,
+                "Chair_0.5x0.5_North");
 
-            add(CreateProp("Crate_0.62", new Vector3(KitchenEastFace - 1.13f, 0f, south + 0.44f),
-                    new Vector3(0.62f, 0.64f, 0.62f), palette.Wood, items),
-                FurnitureWeightClass.Light);
+            catalog.Place(
+                "Crate_0.62",
+                new Vector3(KitchenEastFace - 1.13f, 0f, south + 0.44f),
+                0f,
+                items);
         }
 
         /// <summary>거실 — 소파·좌탁·TV장. 현관문이 도는 반경 1.5m와 문 개구부는 비워 둔다.</summary>
-        private static void FurnishLivingRoom(Transform items, Palette palette, AddFurniture add)
+        private static void FurnishLivingRoom(Transform items, FurnitureCatalog catalog)
         {
             float west = LivingWest + HalfWall;
             float north = NorthRoomSouth - HalfWall;
@@ -602,72 +609,62 @@ namespace GhostHunter.EditorTools
             float east = ServiceWest - HalfWall;
 
             float sofaX = west + 1.66f;
-            add(CreateSofa("Sofa_2.2x0.9", new Vector3(sofaX, 0f, south + WallGap + 0.45f),
-                    180f, palette, items),
-                FurnitureWeightClass.Heavy);
+            catalog.Place(
+                "Sofa_2.2x0.9",
+                new Vector3(sofaX, 0f, south + WallGap + 0.45f),
+                180f,
+                items);
 
             float coffeeZ = south + 1.64f;
-            add(CreateTable("CoffeeTable_1.25x0.65", new Vector3(sofaX, 0f, coffeeZ),
-                    new Vector3(1.25f, 0.65f), 0f, palette.Wood, items, 0.42f),
-                FurnitureWeightClass.Light);
-            add(CreateChair("Chair_0.5x0.5", new Vector3(sofaX + 1.5f, 0f, coffeeZ),
-                    90f, palette, items),
-                FurnitureWeightClass.Light);
+            catalog.Place("CoffeeTable_1.25x0.65", new Vector3(sofaX, 0f, coffeeZ), 0f, items);
+            catalog.Place("Chair_0.5x0.5", new Vector3(sofaX + 1.5f, 0f, coffeeZ), 90f, items);
 
             // TV장은 침실1 문과 주방 이동문 사이 북쪽 벽. 둘 다 개구부를 가리면 안 된다.
             float consoleX = (Bedroom01DoorEast + KitchenPassageWest) * 0.5f;
             float consoleZ = north - WallGap - 0.225f;
-            add(CreateCabinet("LivingConsole_1.6x0.45", new Vector3(consoleX, 0f, consoleZ),
-                    new Vector3(1.6f, 0.62f, 0.45f), palette, items),
-                FurnitureWeightClass.Heavy);
+            catalog.Place("LivingConsole_1.6x0.45", new Vector3(consoleX, 0f, consoleZ), 0f, items);
+            catalog.Place("Television", new Vector3(consoleX, 0f, consoleZ), 90f, items, 0.62f);
 
-            Transform television = CreateTelevision(new Vector3(consoleX, 0f, consoleZ), palette, items);
-            television.rotation = Quaternion.Euler(0f, 90f, 0f);
-            add(television, FurnitureWeightClass.Light, 0.62f);
-
-            add(CreateProp("Crate_0.45", new Vector3(east - 0.73f, 0f, south + 0.39f),
-                    new Vector3(0.45f, 0.44f, 0.45f), palette.Wood, items),
-                FurnitureWeightClass.Light);
+            catalog.Place("Crate_0.45", new Vector3(east - 0.73f, 0f, south + 0.39f), 0f, items);
         }
 
         /// <summary>창고 — 선반과 상자. 문짝이 도는 반경 0.9m 안쪽은 비워 둔다.</summary>
-        private static void FurnishStorage(Transform items, Palette palette, AddFurniture add)
+        private static void FurnishStorage(Transform items, FurnitureCatalog catalog)
         {
             float west = ServiceWest + HalfWall;
             float east = OuterEast - HalfWall;
             float south = OuterSouth + HalfWall;
             float north = BathroomSouth - HalfWall;
 
-            add(CreateShelf("Shelving_1.65x0.45",
-                    new Vector3((west + east) * 0.5f, 0f, south + WallGap + 0.225f),
-                    new Vector3(1.65f, 1.65f, 0.45f), palette, items),
-                FurnitureWeightClass.Heavy);
+            catalog.Place(
+                "Shelving_1.65x0.45",
+                new Vector3((west + east) * 0.5f, 0f, south + WallGap + 0.225f),
+                0f,
+                items);
 
             // 큰 상자 위에 작은 상자를 얹는다 — 얹을 자리를 지지면 높이로 넘기면 정확히 앉는다.
             var cratePosition = new Vector3(east - 0.41f, 0f, north - 0.61f);
-            add(CreateProp("Crate_0.62", cratePosition,
-                    new Vector3(0.62f, 0.64f, 0.62f), palette.Wood, items),
-                FurnitureWeightClass.Light);
-            add(CreateProp("Crate_0.45", cratePosition,
-                    new Vector3(0.45f, 0.44f, 0.45f), palette.Wood, items),
-                FurnitureWeightClass.Light, 0.64f);
+            catalog.Place("Crate_0.62", cratePosition, 0f, items);
+            catalog.Place("Crate_0.45", cratePosition, 0f, items, 0.64f);
         }
 
         /// <summary>
-        /// 던질 수 있는 가구를 종류별로 한 개씩 집 북쪽에 일렬로 만든다.
+        /// 던질 수 있는 가구를 <b>종류별로 한 개씩</b> 집 북쪽에 일렬로 진열한다.
         ///
         /// 방 안에 미리 배치하지 않는 이유: 방 구성은 손으로 잡는 것이 빠르고, 여기 있는 것을
         /// 복사해 붙여 넣으면 물리·네트워크 배선이 이미 끝난 가구가 그대로 하나 더 생긴다.
         /// 붙여 넣을 자리는 <c>House_01/PhysicsFurniture</c> 다.
         ///
-        /// 자리 계산은 실제 콜라이더 크기로 한다 — 가구 치수를 바꿔도 줄 간격이 알아서 맞는다.
+        /// 목록은 <see cref="FurnitureCatalog"/> 에서 그대로 가져온다 — 새 가구를 카탈로그에
+        /// 넣으면 진열대에도 자동으로 올라온다. 자리 계산은 실제 콜라이더 크기로 하므로
+        /// 가구 치수를 바꿔도 줄 간격이 알아서 맞는다.
         /// </summary>
-        internal static Transform CreateFurnitureLibrary(Palette palette, PhysicsAssets physics)
+        internal static Transform CreateFurnitureLibrary(Palette palette, FurnitureCatalog catalog)
         {
             if (palette == null)
                 throw new ArgumentNullException(nameof(palette));
-            if (physics == null)
-                throw new ArgumentNullException(nameof(physics));
+            if (catalog == null)
+                throw new ArgumentNullException(nameof(catalog));
 
             var libraryObject = new GameObject("Furniture_Library");
             Transform root = libraryObject.transform;
@@ -677,78 +674,15 @@ namespace GhostHunter.EditorTools
             float cursor = 0f;
             float rowDepth = 0f;
 
-            void Add(Transform item, FurnitureWeightClass weightClass)
+            foreach (string key in catalog.Keys)
             {
-                MakePhysical(item, physics, weightClass);
+                Transform item = catalog.Place(key, Vector3.zero, 0f, items);
 
                 Bounds bounds = MeasureColliderBounds(item);
                 item.position += new Vector3(cursor - bounds.min.x, 0f, LibraryRowZ - bounds.center.z);
                 cursor += bounds.size.x + LibraryGap;
                 rowDepth = Mathf.Max(rowDepth, bounds.size.z);
             }
-
-            // 침실
-            Add(CreateBed("SingleBed_1.0x2.0", Vector3.zero, 1f, 2f, 0f, palette, items),
-                FurnitureWeightClass.Heavy);
-            Add(CreateBed("DoubleBed_1.6x2.0", Vector3.zero, 1.6f, 2f, 0f, palette, items),
-                FurnitureWeightClass.Heavy);
-            Add(CreateCabinet("Wardrobe_1.2x0.6", Vector3.zero,
-                    new Vector3(0.6f, 1.85f, 1.2f), palette, items),
-                FurnitureWeightClass.Heavy);
-            Add(CreateCabinet("Wardrobe_1.5x0.6", Vector3.zero,
-                    new Vector3(0.6f, 1.85f, 1.5f), palette, items),
-                FurnitureWeightClass.Heavy);
-            Add(CreateCabinet("Dresser_1.2x0.5", Vector3.zero,
-                    new Vector3(0.5f, 0.82f, 1.2f), palette, items),
-                FurnitureWeightClass.Heavy);
-            Add(CreateTable("Desk_1.2x0.6", Vector3.zero,
-                    new Vector3(1.2f, 0.6f), 0f, palette.Wood, items),
-                FurnitureWeightClass.Heavy);
-            Add(CreateTable("Vanity_1.0x0.5", Vector3.zero,
-                    new Vector3(1f, 0.5f), 0f, palette.Wood, items),
-                FurnitureWeightClass.Heavy);
-            Add(CreateTable("Nightstand_0.45x0.4", Vector3.zero,
-                    new Vector3(0.45f, 0.4f), 0f, palette.Wood, items, 0.5f),
-                FurnitureWeightClass.Light);
-            Add(CreateTable("BedsideTable_0.5x0.4", Vector3.zero,
-                    new Vector3(0.5f, 0.4f), 0f, palette.Wood, items, 0.5f),
-                FurnitureWeightClass.Light);
-            Add(CreateChair("DeskChair_0.55x0.55", Vector3.zero, 0f, palette, items, 0.55f),
-                FurnitureWeightClass.Light);
-            Add(CreateChair("VanityStool_0.45x0.45", Vector3.zero, 0f, palette, items, 0.45f),
-                FurnitureWeightClass.Light);
-
-            // 주방
-            Add(CreateTable("DiningTable_1.55x0.85", Vector3.zero,
-                    new Vector3(1.55f, 0.85f), 0f, palette.Wood, items, 0.74f),
-                FurnitureWeightClass.Heavy);
-            Add(CreateChair("Chair_0.5x0.5", Vector3.zero, 0f, palette, items),
-                FurnitureWeightClass.Light);
-
-            // 거실
-            Add(CreateSofa("Sofa_2.2x0.9", Vector3.zero, 0f, palette, items),
-                FurnitureWeightClass.Heavy);
-            Add(CreateTable("CoffeeTable_1.25x0.65", Vector3.zero,
-                    new Vector3(1.25f, 0.65f), 0f, palette.Wood, items, 0.42f),
-                FurnitureWeightClass.Light);
-            Add(CreateCabinet("LivingConsole_1.6x0.45", Vector3.zero,
-                    new Vector3(0.45f, 0.62f, 1.6f), palette, items),
-                FurnitureWeightClass.Heavy);
-            Add(CreateTelevision(Vector3.zero, palette, items), FurnitureWeightClass.Light);
-
-            // 창고
-            Add(CreateShelf("Shelving_2.6x0.55", Vector3.zero,
-                    new Vector3(0.55f, 1.9f, 2.6f), palette, items),
-                FurnitureWeightClass.Heavy);
-            Add(CreateShelf("Shelving_1.65x0.45", Vector3.zero,
-                    new Vector3(1.65f, 1.65f, 0.45f), palette, items),
-                FurnitureWeightClass.Heavy);
-            Add(CreateCube("Crate_0.62", new Vector3(0f, 0.32f, 0f),
-                    new Vector3(0.62f, 0.64f, 0.62f), palette.Wood, items).transform,
-                FurnitureWeightClass.Light);
-            Add(CreateCube("Crate_0.45", new Vector3(0f, 0.22f, 0f),
-                    new Vector3(0.45f, 0.44f, 0.45f), palette.Wood, items).transform,
-                FurnitureWeightClass.Light);
 
             // 줄 전체를 집 중앙(x=0)에 맞춘다.
             float rowWidth = Mathf.Max(cursor - LibraryGap, 0f);
@@ -812,19 +746,19 @@ namespace GhostHunter.EditorTools
         /// 전시장에는 방 윤곽만 낮은 벽으로 그려 둔다 — 위에서 내려다보며 배치를 고치기 좋고,
         /// 실제로 옮겨 가는 건 가구뿐이라 벽은 높을 이유가 없다.
         /// </summary>
-        internal static Transform CreateBedroomPresets(Palette palette, PhysicsAssets physics)
+        internal static Transform CreateBedroomPresets(Palette palette, FurnitureCatalog catalog)
         {
             if (palette == null)
                 throw new ArgumentNullException(nameof(palette));
-            if (physics == null)
-                throw new ArgumentNullException(nameof(physics));
+            if (catalog == null)
+                throw new ArgumentNullException(nameof(catalog));
 
             var rootObject = new GameObject("Room_Presets");
             Transform root = rootObject.transform;
 
-            CreateBedroomPreset("A", new Vector3(-PresetPitch, 0f, PresetRowZ), root, palette, physics);
-            CreateBedroomPreset("B", new Vector3(0f, 0f, PresetRowZ), root, palette, physics);
-            CreateBedroomPreset("C", new Vector3(PresetPitch, 0f, PresetRowZ), root, palette, physics);
+            CreateBedroomPreset("A", new Vector3(-PresetPitch, 0f, PresetRowZ), root, palette, catalog);
+            CreateBedroomPreset("B", new Vector3(0f, 0f, PresetRowZ), root, palette, catalog);
+            CreateBedroomPreset("C", new Vector3(PresetPitch, 0f, PresetRowZ), root, palette, catalog);
             return root;
         }
 
@@ -833,7 +767,7 @@ namespace GhostHunter.EditorTools
             Vector3 center,
             Transform parent,
             Palette palette,
-            PhysicsAssets physics)
+            FurnitureCatalog catalog)
         {
             Transform room = CreateGroup($"BedroomPreset_{id}", parent);
             room.position = center;
@@ -842,28 +776,24 @@ namespace GhostHunter.EditorTools
             Transform items = CreateGroup("Items", room);
             items.position = center;
 
-            var collected = new List<NetworkObject>();
-
-            void Add(Transform item, FurnitureWeightClass weightClass, float supportHeight = 0f)
-            {
-                MakePhysical(item, physics, weightClass, supportHeight);
-                collected.Add(item.GetComponent<NetworkObject>());
-            }
-
             switch (id)
             {
                 case "A":
-                    FillBedroomPresetA(items, center, palette, Add);
+                    FillBedroomPresetA(items, center, catalog);
                     break;
                 case "B":
-                    FillBedroomPresetB(items, center, palette, Add);
+                    FillBedroomPresetB(items, center, catalog);
                     break;
                 case "C":
-                    FillBedroomPresetC(items, center, palette, Add);
+                    FillBedroomPresetC(items, center, catalog);
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(id), id, "알 수 없는 침실 프리셋입니다.");
             }
+
+            var collected = new List<NetworkObject>();
+            foreach (FurnitureGrabTarget furniture in items.GetComponentsInChildren<FurnitureGrabTarget>(true))
+                collected.Add(furniture.GetComponent<NetworkObject>());
 
             RoomPreset preset = room.gameObject.AddComponent<RoomPreset>();
             PrototypeSceneSetup.SetString(preset, "_presetId", id);
@@ -929,62 +859,52 @@ namespace GhostHunter.EditorTools
         private static void FillBedroomPresetA(
             Transform items,
             Vector3 origin,
-            Palette palette,
-            AddFurniture add)
+            FurnitureCatalog catalog)
         {
             Vector3 At(float x, float z) => origin + new Vector3(x, 0f, z);
 
             float bedX = RoomEastFace - 0.54f - WallGap;
-            add(CreateBed("SingleBed_1.0x2.0", At(bedX, BedHeadZ), 1f, 2f, 0f, palette, items),
-                FurnitureWeightClass.Heavy);
+            catalog.Place("SingleBed_1.0x2.0", At(bedX, BedHeadZ), 0f, items);
 
             float nightstandX = bedX - 0.54f - ItemGap - 0.225f;
             float nightstandZ = RoomNorthFace - WallGap - 0.2f;
-            add(CreateTable("Nightstand_0.45x0.4", At(nightstandX, nightstandZ),
-                    new Vector3(0.45f, 0.4f), 0f, palette.Wood, items, 0.5f),
-                FurnitureWeightClass.Light);
+            catalog.Place("Nightstand_0.45x0.4", At(nightstandX, nightstandZ), 0f, items);
 
             // 옷장: 서쪽 벽 위쪽. 문이 방 안쪽(동쪽)을 보도록 돌린다.
             float westCabinetX = RoomWestFace + 0.3f + WallGap;
-            add(CreateCabinet("Wardrobe_1.2x0.6", At(westCabinetX, RoomNorthFace - 0.9f),
-                    new Vector3(1.2f, 1.85f, 0.6f), palette, items, -90f),
-                FurnitureWeightClass.Heavy);
+            catalog.Place("Wardrobe_1.2x0.6", At(westCabinetX, RoomNorthFace - 0.9f), -90f, items);
 
             // 책상: 서쪽 벽 아래쪽. 의자는 책상 동쪽에서 서쪽(책상)을 본다.
             const float deskZ = -1.1f;
-            add(CreateTable("Desk_1.2x0.6", At(westCabinetX, deskZ),
-                    new Vector3(1.2f, 0.6f), 90f, palette.Wood, items),
-                FurnitureWeightClass.Heavy);
-            add(CreateChair("DeskChair_0.55x0.55",
-                    At(westCabinetX + 0.3f + ItemGap + 0.275f, deskZ), 90f, palette, items, 0.55f),
-                FurnitureWeightClass.Light);
+            catalog.Place("Desk_1.2x0.6", At(westCabinetX, deskZ), 90f, items);
+            catalog.Place(
+                "DeskChair_0.55x0.55",
+                At(westCabinetX + 0.3f + ItemGap + 0.275f, deskZ),
+                90f,
+                items);
 
             // 서랍장(옷장과 책상 사이)과 책장: 도면에는 없지만 방이 도면의 배율배라 벽이 비어
             // 남는다. 09-map-generation "도면과 달라진 점"에서 채우기로 한 여백이다.
-            add(CreateCabinet("Dresser_1.2x0.5", At(RoomWestFace + 0.25f + WallGap, 0.7f),
-                    new Vector3(1.2f, 0.82f, 0.5f), palette, items, -90f),
-                FurnitureWeightClass.Heavy);
-            add(CreateShelf("Bookshelf_0.9x0.3", At(-1.6f, RoomNorthFace - WallGap - 0.15f),
-                    new Vector3(0.9f, 1.6f, 0.3f), palette, items),
-                FurnitureWeightClass.Heavy);
+            catalog.Place("Dresser_1.2x0.5", At(RoomWestFace + 0.25f + WallGap, 0.7f), -90f, items);
+            catalog.Place("Bookshelf_0.9x0.3", At(-1.6f, RoomNorthFace - WallGap - 0.15f), 0f, items);
 
             // 바닥 Spawn Point 자리(상자·쓰레기통·빨래바구니)와 책상 위 Spawn Point 자리(컵·책).
             // 상자만 남쪽 벽까지 내려가는데, 두 문 사이 가운데 띠라 문짝이 지나가지 않는다.
-            add(CreateProp("Crate_0.6", At(1f, -3f),
-                    new Vector3(0.6f, 0.6f, 0.6f), palette.Wood, items),
-                FurnitureWeightClass.Light);
-            add(CreateProp("TrashBin_0.3", At(-3.5f, -2.15f),
-                    new Vector3(0.3f, 0.4f, 0.3f), palette.Metal, items),
-                FurnitureWeightClass.Light);
-            add(CreateProp("LaundryBasket_0.5x0.4", At(-2.9f, -2.2f),
-                    new Vector3(0.5f, 0.45f, 0.4f), palette.Fabric, items),
-                FurnitureWeightClass.Light);
-            add(CreateProp("Book_Stack_0.22", At(westCabinetX, deskZ - 0.25f),
-                    new Vector3(0.22f, 0.09f, 0.3f), palette.Trim, items),
-                FurnitureWeightClass.Light, TableTopSurface(0.72f));
-            add(CreateProp("Cup_0.12", At(nightstandX, nightstandZ),
-                    new Vector3(0.12f, 0.14f, 0.12f), palette.Ceramic, items),
-                FurnitureWeightClass.Light, TableTopSurface(0.5f));
+            catalog.Place("Crate_0.6", At(1f, -3f), 0f, items);
+            catalog.Place("TrashBin_0.3", At(-3.5f, -2.15f), 0f, items);
+            catalog.Place("LaundryBasket_0.5x0.4", At(-2.9f, -2.2f), 0f, items);
+            catalog.Place(
+                "Book_Stack_0.22",
+                At(westCabinetX, deskZ - 0.25f),
+                0f,
+                items,
+                TableTopSurface(0.72f));
+            catalog.Place(
+                "Cup_0.12",
+                At(nightstandX, nightstandZ),
+                0f,
+                items,
+                TableTopSurface(0.5f));
         }
 
         /// <summary>
@@ -995,72 +915,76 @@ namespace GhostHunter.EditorTools
         private static void FillBedroomPresetB(
             Transform items,
             Vector3 origin,
-            Palette palette,
-            AddFurniture add)
+            FurnitureCatalog catalog)
         {
             Vector3 At(float x, float z) => origin + new Vector3(x, 0f, z);
 
             float bedX = RoomEastFace - 0.84f - WallGap;
-            add(CreateBed("DoubleBed_1.6x2.0", At(bedX, BedHeadZ), 1.6f, 2f, 0f, palette, items),
-                FurnitureWeightClass.Heavy);
+            catalog.Place("DoubleBed_1.6x2.0", At(bedX, BedHeadZ), 0f, items);
 
             float headTableX = bedX - 0.84f - ItemGap - 0.25f;
             float headTableZ = RoomNorthFace - WallGap - 0.2f;
             float footTableX = RoomEastFace - WallGap - 0.25f;
             float footTableZ = BedHeadZ - 1f - ItemGap - 0.2f;
-            add(CreateTable("BedsideTable_Head_0.5x0.4", At(headTableX, headTableZ),
-                    new Vector3(0.5f, 0.4f), 0f, palette.Wood, items, 0.5f),
-                FurnitureWeightClass.Light);
-            add(CreateTable("BedsideTable_Foot_0.5x0.4", At(footTableX, footTableZ),
-                    new Vector3(0.5f, 0.4f), 0f, palette.Wood, items, 0.5f),
-                FurnitureWeightClass.Light);
+            catalog.Place(
+                "BedsideTable_0.5x0.4",
+                At(headTableX, headTableZ),
+                0f,
+                items,
+                0f,
+                "BedsideTable_Head_0.5x0.4");
+            catalog.Place(
+                "BedsideTable_0.5x0.4",
+                At(footTableX, footTableZ),
+                0f,
+                items,
+                0f,
+                "BedsideTable_Foot_0.5x0.4");
 
             // 화장대 + 스툴: 북쪽 벽 왼쪽. 스툴은 화장대를 보고 앉는다.
             const float vanityX = -1.2f;
             float vanityZ = RoomNorthFace - WallGap - 0.25f;
-            add(CreateTable("Vanity_1.0x0.5", At(vanityX, vanityZ),
-                    new Vector3(1f, 0.5f), 0f, palette.Wood, items),
-                FurnitureWeightClass.Heavy);
-            add(CreateChair("VanityStool_0.45x0.45",
-                    At(vanityX, vanityZ - 0.25f - ItemGap - 0.225f), 180f, palette, items, 0.45f),
-                FurnitureWeightClass.Light);
+            catalog.Place("Vanity_1.0x0.5", At(vanityX, vanityZ), 0f, items);
+            catalog.Place(
+                "VanityStool_0.45x0.45",
+                At(vanityX, vanityZ - 0.25f - ItemGap - 0.225f),
+                180f,
+                items);
 
             // 서랍장(위) + 옷장(아래): 서쪽 벽. 둘 다 문이 방 안쪽을 본다.
-            add(CreateCabinet("Dresser_1.2x0.5",
-                    At(RoomWestFace + 0.25f + WallGap, RoomNorthFace - 0.9f),
-                    new Vector3(1.2f, 0.82f, 0.5f), palette, items, -90f),
-                FurnitureWeightClass.Heavy);
-            add(CreateCabinet("Wardrobe_1.5x0.6", At(RoomWestFace + 0.3f + WallGap, 0.6f),
-                    new Vector3(1.5f, 1.85f, 0.6f), palette, items, -90f),
-                FurnitureWeightClass.Heavy);
+            catalog.Place(
+                "Dresser_1.2x0.5",
+                At(RoomWestFace + 0.25f + WallGap, RoomNorthFace - 0.9f),
+                -90f,
+                items);
+            catalog.Place("Wardrobe_1.5x0.6", At(RoomWestFace + 0.3f + WallGap, 0.6f), -90f, items);
 
             // 책장(동쪽 벽)과 수납함(서쪽 벽 아래): 넓어진 방의 남쪽 절반을 채운다.
-            add(CreateShelf("Bookshelf_0.9x0.3", At(RoomEastFace - WallGap - 0.169f, -1f),
-                    new Vector3(0.3f, 1.6f, 0.9f), palette, items),
-                FurnitureWeightClass.Heavy);
-            add(CreateProp("StorageChest_0.9x0.45", At(RoomWestFace + WallGap + 0.225f, -1.5f),
-                    new Vector3(0.45f, 0.5f, 0.9f), palette.Wood, items),
-                FurnitureWeightClass.Light);
+            // 둘 다 원본은 폭이 X 축이라 벽에 붙이려면 90도 눕힌다.
+            catalog.Place("Bookshelf_0.9x0.3", At(RoomEastFace - WallGap - 0.169f, -1f), 90f, items);
+            catalog.Place(
+                "StorageChest_0.9x0.45",
+                At(RoomWestFace + WallGap + 0.225f, -1.5f),
+                90f,
+                items);
 
             // 바닥·화장대 위·협탁 위 Spawn Point 자리.
-            add(CreateProp("Crate_0.6", At(0.5f, -3f),
-                    new Vector3(0.6f, 0.6f, 0.6f), palette.Wood, items),
-                FurnitureWeightClass.Light);
-            add(CreateProp("LaundryBasket_0.5x0.4", At(-2.2f, -2.2f),
-                    new Vector3(0.5f, 0.45f, 0.4f), palette.Fabric, items),
-                FurnitureWeightClass.Light);
-            add(CreateProp("TrashBin_0.3", At(-0.45f, 3.3f),
-                    new Vector3(0.3f, 0.4f, 0.3f), palette.Metal, items),
-                FurnitureWeightClass.Light);
-            add(CreateProp("CosmeticBox_0.25", At(vanityX - 0.3f, vanityZ + 0.06f),
-                    new Vector3(0.25f, 0.2f, 0.18f), palette.Ceramic, items),
-                FurnitureWeightClass.Light, TableTopSurface(0.72f));
-            add(CreateProp("Cup_0.12", At(headTableX, headTableZ),
-                    new Vector3(0.12f, 0.14f, 0.12f), palette.Ceramic, items),
-                FurnitureWeightClass.Light, TableTopSurface(0.5f));
-            add(CreateProp("Book_Stack_0.22", At(footTableX, footTableZ),
-                    new Vector3(0.22f, 0.09f, 0.3f), palette.Trim, items),
-                FurnitureWeightClass.Light, TableTopSurface(0.5f));
+            catalog.Place("Crate_0.6", At(0.5f, -3f), 0f, items);
+            catalog.Place("LaundryBasket_0.5x0.4", At(-2.2f, -2.2f), 0f, items);
+            catalog.Place("TrashBin_0.3", At(-0.45f, 3.3f), 0f, items);
+            catalog.Place(
+                "CosmeticBox_0.25",
+                At(vanityX - 0.3f, vanityZ + 0.06f),
+                0f,
+                items,
+                TableTopSurface(0.72f));
+            catalog.Place("Cup_0.12", At(headTableX, headTableZ), 0f, items, TableTopSurface(0.5f));
+            catalog.Place(
+                "Book_Stack_0.22",
+                At(footTableX, footTableZ),
+                0f,
+                items,
+                TableTopSurface(0.5f));
         }
 
         /// <summary>
@@ -1071,66 +995,52 @@ namespace GhostHunter.EditorTools
         private static void FillBedroomPresetC(
             Transform items,
             Vector3 origin,
-            Palette palette,
-            AddFurniture add)
+            FurnitureCatalog catalog)
         {
             Vector3 At(float x, float z) => origin + new Vector3(x, 0f, z);
 
-            add(CreateBed("SingleBed_1.1x2.0", At(RoomWestFace + 0.59f + WallGap, BedHeadZ),
-                    1.1f, 2f, 0f, palette, items),
-                FurnitureWeightClass.Heavy);
+            catalog.Place(
+                "SingleBed_1.1x2.0",
+                At(RoomWestFace + 0.59f + WallGap, BedHeadZ),
+                0f,
+                items);
 
             // 장난감 수납함: 서쪽 벽, 침대 발치 아래.
-            add(CreateCube("ToyChest_0.9x0.45",
-                    At(RoomWestFace + 0.45f + WallGap, 1f) + new Vector3(0f, 0.25f, 0f),
-                    new Vector3(0.9f, 0.5f, 0.45f), palette.Wood, items).transform,
-                FurnitureWeightClass.Light);
+            catalog.Place("ToyChest_0.9x0.45", At(RoomWestFace + 0.45f + WallGap, 1f), 0f, items);
 
             // 책상 + 의자: 북동쪽 모서리. 의자는 책상을 보고 앉는다.
             float deskX = RoomEastFace - WallGap - 0.5f;
             float deskZ = RoomNorthFace - WallGap - 0.25f;
-            add(CreateTable("Desk_1.0x0.5", At(deskX, deskZ),
-                    new Vector3(1f, 0.5f), 0f, palette.Wood, items),
-                FurnitureWeightClass.Heavy);
-            add(CreateChair("Chair_0.5x0.5", At(deskX, deskZ - 0.25f - ItemGap - 0.25f),
-                    180f, palette, items),
-                FurnitureWeightClass.Light);
+            catalog.Place("Desk_1.0x0.5", At(deskX, deskZ), 0f, items);
+            catalog.Place("Chair_0.5x0.5", At(deskX, deskZ - 0.25f - ItemGap - 0.25f), 180f, items);
 
-            // 책장(가운데) + 서랍장(아래): 동쪽 벽. 책장은 기둥이 선반보다 0.019 더 튀어나온다.
-            add(CreateShelf("Bookshelf_0.9x0.3", At(RoomEastFace - WallGap - 0.169f, 0.9f),
-                    new Vector3(0.3f, 1.6f, 0.9f), palette, items),
-                FurnitureWeightClass.Heavy);
-            add(CreateCabinet("Dresser_0.8x0.45", At(RoomEastFace - WallGap - 0.225f, -1f),
-                    new Vector3(0.8f, 0.82f, 0.45f), palette, items, 90f),
-                FurnitureWeightClass.Heavy);
+            // 책장(가운데) + 서랍장(아래): 동쪽 벽. 벽에 붙이려면 90도 눕힌다.
+            catalog.Place("Bookshelf_0.9x0.3", At(RoomEastFace - WallGap - 0.169f, 0.9f), 90f, items);
+            catalog.Place("Dresser_0.8x0.45", At(RoomEastFace - WallGap - 0.225f, -1f), 90f, items);
 
             // 옷장(북쪽 벽)과 협탁(침대 머리맡): 넓어진 방에서 비는 북쪽 벽을 채운다.
             // 옷장은 벽 가운데 창(폭 1.45m)을 가리지 않도록 책상 쪽으로 붙인다.
-            add(CreateCabinet("Wardrobe_1.2x0.6", At(1.5f, RoomNorthFace - WallGap - 0.3f),
-                    new Vector3(1.2f, 1.85f, 0.6f), palette, items),
-                FurnitureWeightClass.Heavy);
+            catalog.Place("Wardrobe_1.2x0.6", At(1.5f, RoomNorthFace - WallGap - 0.3f), 0f, items);
             float nightstandX = -2.25f;
             float nightstandZ = RoomNorthFace - WallGap - 0.2f;
-            add(CreateTable("Nightstand_0.45x0.4", At(nightstandX, nightstandZ),
-                    new Vector3(0.45f, 0.4f), 0f, palette.Wood, items, 0.5f),
-                FurnitureWeightClass.Light);
+            catalog.Place("Nightstand_0.45x0.4", At(nightstandX, nightstandZ), 0f, items);
 
             // 바닥·책상 위 Spawn Point 자리. 상자는 두 문 사이 가운데 띠에 둔다.
-            add(CreateProp("Crate_0.45", At(1.5f, -3.1f),
-                    new Vector3(0.45f, 0.44f, 0.45f), palette.Wood, items),
-                FurnitureWeightClass.Light);
-            add(CreateProp("LaundryBasket_0.5x0.4", At(-2.5f, -2.2f),
-                    new Vector3(0.5f, 0.45f, 0.4f), palette.Fabric, items),
-                FurnitureWeightClass.Light);
-            add(CreateProp("TrashBin_0.3", At(2.55f, 2.6f),
-                    new Vector3(0.3f, 0.4f, 0.3f), palette.Metal, items),
-                FurnitureWeightClass.Light);
-            add(CreateProp("Book_Stack_0.22", At(deskX - 0.29f, deskZ + 0.01f),
-                    new Vector3(0.22f, 0.09f, 0.3f), palette.Trim, items),
-                FurnitureWeightClass.Light, TableTopSurface(0.72f));
-            add(CreateProp("Cup_0.12", At(deskX + 0.26f, deskZ - 0.09f),
-                    new Vector3(0.12f, 0.14f, 0.12f), palette.Ceramic, items),
-                FurnitureWeightClass.Light, TableTopSurface(0.72f));
+            catalog.Place("Crate_0.45", At(1.5f, -3.1f), 0f, items);
+            catalog.Place("LaundryBasket_0.5x0.4", At(-2.5f, -2.2f), 0f, items);
+            catalog.Place("TrashBin_0.3", At(2.55f, 2.6f), 0f, items);
+            catalog.Place(
+                "Book_Stack_0.22",
+                At(deskX - 0.29f, deskZ + 0.01f),
+                0f,
+                items,
+                TableTopSurface(0.72f));
+            catalog.Place(
+                "Cup_0.12",
+                At(deskX + 0.26f, deskZ - 0.09f),
+                0f,
+                items,
+                TableTopSurface(0.72f));
         }
 
         /// <summary>
@@ -2128,6 +2038,185 @@ namespace GhostHunter.EditorTools
         /// <param name="supportHeight">
         /// 가구가 앉을 지지면 높이. 바닥은 0, 책상·장식장 위 소품은 그 윗면을 넘긴다.
         /// </param>
+        // ── 프리팹 원본 목록 ─────────────────────────────────────────────────────
+        //    맵에 놓는 가구·문은 전부 여기서 한 번 조립해 프리팹으로 굽고, 배치는 그 인스턴스로 한다
+        //    → roadmap MIG-6 · conventions/unity-assets.md §5
+        //
+        //    한 종류 = 한 원본이다. 같은 가구를 벽 방향만 바꿔 쓰던 자리는 <b>회전으로</b> 맞춘다 —
+        //    예전에는 X·Z 치수를 바꿔 넘겨서 같은 이름의 가구가 두 가지 모양으로 존재했다.
+
+        internal const string FrontDoorKey = "Door_1.5m";
+        internal const string BedroomDoorKey = "Door_1.2m";
+        internal const string ServiceDoorKey = "Door_0.9m";
+
+        private readonly struct FurnitureKind
+        {
+            internal readonly string Key;
+            internal readonly FurnitureWeightClass Weight;
+            internal readonly Func<Palette, Transform, Transform> Build;
+
+            internal FurnitureKind(
+                string key,
+                FurnitureWeightClass weight,
+                Func<Palette, Transform, Transform> build)
+            {
+                Key = key;
+                Weight = weight;
+                Build = build;
+            }
+        }
+
+        /// <summary>
+        /// 던질 수 있는 가구 전 종류. 순서가 곧 <see cref="CreateFurnitureLibrary"/> 의 진열 순서다.
+        /// 원본은 전부 원점에 회전 없이 만든다 — 벽에 붙이는 방향은 배치할 때 정한다.
+        /// </summary>
+        private static FurnitureKind[] FurnitureKinds()
+        {
+            return new[]
+            {
+                // 침실
+                new FurnitureKind("SingleBed_1.0x2.0", FurnitureWeightClass.Heavy,
+                    (p, t) => CreateBed("SingleBed_1.0x2.0", Vector3.zero, 1f, 2f, 0f, p, t)),
+                new FurnitureKind("SingleBed_1.1x2.0", FurnitureWeightClass.Heavy,
+                    (p, t) => CreateBed("SingleBed_1.1x2.0", Vector3.zero, 1.1f, 2f, 0f, p, t)),
+                new FurnitureKind("DoubleBed_1.6x2.0", FurnitureWeightClass.Heavy,
+                    (p, t) => CreateBed("DoubleBed_1.6x2.0", Vector3.zero, 1.6f, 2f, 0f, p, t)),
+                new FurnitureKind("Wardrobe_1.2x0.6", FurnitureWeightClass.Heavy,
+                    (p, t) => CreateCabinet("Wardrobe_1.2x0.6", Vector3.zero,
+                        new Vector3(1.2f, 1.85f, 0.6f), p, t)),
+                new FurnitureKind("Wardrobe_1.5x0.6", FurnitureWeightClass.Heavy,
+                    (p, t) => CreateCabinet("Wardrobe_1.5x0.6", Vector3.zero,
+                        new Vector3(1.5f, 1.85f, 0.6f), p, t)),
+                new FurnitureKind("Dresser_1.2x0.5", FurnitureWeightClass.Heavy,
+                    (p, t) => CreateCabinet("Dresser_1.2x0.5", Vector3.zero,
+                        new Vector3(1.2f, 0.82f, 0.5f), p, t)),
+                new FurnitureKind("Dresser_0.8x0.45", FurnitureWeightClass.Heavy,
+                    (p, t) => CreateCabinet("Dresser_0.8x0.45", Vector3.zero,
+                        new Vector3(0.8f, 0.82f, 0.45f), p, t)),
+                new FurnitureKind("Desk_1.2x0.6", FurnitureWeightClass.Heavy,
+                    (p, t) => CreateTable("Desk_1.2x0.6", Vector3.zero,
+                        new Vector3(1.2f, 0.6f), 0f, p.Wood, t)),
+                new FurnitureKind("Desk_1.0x0.5", FurnitureWeightClass.Heavy,
+                    (p, t) => CreateTable("Desk_1.0x0.5", Vector3.zero,
+                        new Vector3(1f, 0.5f), 0f, p.Wood, t)),
+                new FurnitureKind("Vanity_1.0x0.5", FurnitureWeightClass.Heavy,
+                    (p, t) => CreateTable("Vanity_1.0x0.5", Vector3.zero,
+                        new Vector3(1f, 0.5f), 0f, p.Wood, t)),
+                new FurnitureKind("Nightstand_0.45x0.4", FurnitureWeightClass.Light,
+                    (p, t) => CreateTable("Nightstand_0.45x0.4", Vector3.zero,
+                        new Vector3(0.45f, 0.4f), 0f, p.Wood, t, 0.5f)),
+                new FurnitureKind("BedsideTable_0.5x0.4", FurnitureWeightClass.Light,
+                    (p, t) => CreateTable("BedsideTable_0.5x0.4", Vector3.zero,
+                        new Vector3(0.5f, 0.4f), 0f, p.Wood, t, 0.5f)),
+                new FurnitureKind("DeskChair_0.55x0.55", FurnitureWeightClass.Light,
+                    (p, t) => CreateChair("DeskChair_0.55x0.55", Vector3.zero, 0f, p, t, 0.55f)),
+                new FurnitureKind("VanityStool_0.45x0.45", FurnitureWeightClass.Light,
+                    (p, t) => CreateChair("VanityStool_0.45x0.45", Vector3.zero, 0f, p, t, 0.45f)),
+                new FurnitureKind("Bookshelf_0.9x0.3", FurnitureWeightClass.Heavy,
+                    (p, t) => CreateShelf("Bookshelf_0.9x0.3", Vector3.zero,
+                        new Vector3(0.9f, 1.6f, 0.3f), p, t)),
+
+                // 주방
+                new FurnitureKind("DiningTable_1.55x0.85", FurnitureWeightClass.Heavy,
+                    (p, t) => CreateTable("DiningTable_1.55x0.85", Vector3.zero,
+                        new Vector3(1.55f, 0.85f), 0f, p.Wood, t, 0.74f)),
+                new FurnitureKind("Chair_0.5x0.5", FurnitureWeightClass.Light,
+                    (p, t) => CreateChair("Chair_0.5x0.5", Vector3.zero, 0f, p, t)),
+
+                // 거실
+                new FurnitureKind("Sofa_2.2x0.9", FurnitureWeightClass.Heavy,
+                    (p, t) => CreateSofa("Sofa_2.2x0.9", Vector3.zero, 0f, p, t)),
+                new FurnitureKind("CoffeeTable_1.25x0.65", FurnitureWeightClass.Light,
+                    (p, t) => CreateTable("CoffeeTable_1.25x0.65", Vector3.zero,
+                        new Vector3(1.25f, 0.65f), 0f, p.Wood, t, 0.42f)),
+                new FurnitureKind("LivingConsole_1.6x0.45", FurnitureWeightClass.Heavy,
+                    (p, t) => CreateCabinet("LivingConsole_1.6x0.45", Vector3.zero,
+                        new Vector3(1.6f, 0.62f, 0.45f), p, t)),
+                new FurnitureKind("Television", FurnitureWeightClass.Light,
+                    (p, t) => CreateTelevision(Vector3.zero, p, t)),
+
+                // 창고 · 소품
+                new FurnitureKind("Shelving_2.6x0.55", FurnitureWeightClass.Heavy,
+                    (p, t) => CreateShelf("Shelving_2.6x0.55", Vector3.zero,
+                        new Vector3(2.6f, 1.9f, 0.55f), p, t)),
+                new FurnitureKind("Shelving_1.65x0.45", FurnitureWeightClass.Heavy,
+                    (p, t) => CreateShelf("Shelving_1.65x0.45", Vector3.zero,
+                        new Vector3(1.65f, 1.65f, 0.45f), p, t)),
+                new FurnitureKind("Crate_0.62", FurnitureWeightClass.Light,
+                    (p, t) => CreateProp("Crate_0.62", Vector3.zero,
+                        new Vector3(0.62f, 0.64f, 0.62f), p.Wood, t)),
+                new FurnitureKind("Crate_0.6", FurnitureWeightClass.Light,
+                    (p, t) => CreateProp("Crate_0.6", Vector3.zero,
+                        new Vector3(0.6f, 0.6f, 0.6f), p.Wood, t)),
+                new FurnitureKind("Crate_0.45", FurnitureWeightClass.Light,
+                    (p, t) => CreateProp("Crate_0.45", Vector3.zero,
+                        new Vector3(0.45f, 0.44f, 0.45f), p.Wood, t)),
+                new FurnitureKind("ToyChest_0.9x0.45", FurnitureWeightClass.Light,
+                    (p, t) => CreateProp("ToyChest_0.9x0.45", Vector3.zero,
+                        new Vector3(0.9f, 0.5f, 0.45f), p.Wood, t)),
+                new FurnitureKind("StorageChest_0.9x0.45", FurnitureWeightClass.Light,
+                    (p, t) => CreateProp("StorageChest_0.9x0.45", Vector3.zero,
+                        new Vector3(0.9f, 0.5f, 0.45f), p.Wood, t)),
+                new FurnitureKind("LaundryBasket_0.5x0.4", FurnitureWeightClass.Light,
+                    (p, t) => CreateProp("LaundryBasket_0.5x0.4", Vector3.zero,
+                        new Vector3(0.5f, 0.45f, 0.4f), p.Fabric, t)),
+                new FurnitureKind("TrashBin_0.3", FurnitureWeightClass.Light,
+                    (p, t) => CreateProp("TrashBin_0.3", Vector3.zero,
+                        new Vector3(0.3f, 0.4f, 0.3f), p.Metal, t)),
+                new FurnitureKind("CosmeticBox_0.25", FurnitureWeightClass.Light,
+                    (p, t) => CreateProp("CosmeticBox_0.25", Vector3.zero,
+                        new Vector3(0.25f, 0.2f, 0.18f), p.Ceramic, t)),
+                new FurnitureKind("Book_Stack_0.22", FurnitureWeightClass.Light,
+                    (p, t) => CreateProp("Book_Stack_0.22", Vector3.zero,
+                        new Vector3(0.22f, 0.09f, 0.3f), p.Trim, t)),
+                new FurnitureKind("Cup_0.12", FurnitureWeightClass.Light,
+                    (p, t) => CreateProp("Cup_0.12", Vector3.zero,
+                        new Vector3(0.12f, 0.14f, 0.12f), p.Ceramic, t)),
+            };
+        }
+
+        /// <summary>
+        /// 가구 원본을 전 종류 조립한다. 호출부가 이것을 프리팹으로 굽거나(생성 도구)
+        /// 그대로 카탈로그에 등록한다(테스트).
+        /// </summary>
+        internal static List<(string Key, GameObject Source)> BuildFurnitureSources(
+            Palette palette,
+            PhysicsAssets physics,
+            Transform parent)
+        {
+            if (palette == null)
+                throw new ArgumentNullException(nameof(palette));
+            if (physics == null)
+                throw new ArgumentNullException(nameof(physics));
+
+            var sources = new List<(string Key, GameObject Source)>();
+            foreach (FurnitureKind kind in FurnitureKinds())
+            {
+                Transform item = kind.Build(palette, parent);
+                item.name = kind.Key;
+                MakePhysical(item, physics, kind.Weight);
+                sources.Add((kind.Key, item.gameObject));
+            }
+
+            return sources;
+        }
+
+        /// <summary>문 원본 3종(현관 1.5m · 침실 1.2m · 서비스 0.9m).</summary>
+        internal static List<(string Key, GameObject Source)> BuildDoorSources(
+            Palette palette,
+            Transform parent)
+        {
+            if (palette == null)
+                throw new ArgumentNullException(nameof(palette));
+
+            return new List<(string Key, GameObject Source)>
+            {
+                (FrontDoorKey, CreateDoorSource(FrontDoorKey, FrontDoorWidth, palette, parent).gameObject),
+                (BedroomDoorKey, CreateDoorSource(BedroomDoorKey, BedroomDoorWidth, palette, parent).gameObject),
+                (ServiceDoorKey, CreateDoorSource(ServiceDoorKey, ServiceDoorWidth, palette, parent).gameObject),
+            };
+        }
+
         private static void MakePhysical(
             Transform root,
             PhysicsAssets physics,
@@ -2202,7 +2291,7 @@ namespace GhostHunter.EditorTools
         /// 가구가 지지면에 정확히 닿도록 높이를 맞춘다. 도면 좌표는 눈으로 배치한 값이라
         /// 몇 cm씩 떠 있는 것들이 있는데, 그대로 물리를 켜면 세션 시작과 동시에 전부 떨어진다.
         /// </summary>
-        private static void RestOnSupport(Transform root, float supportHeight)
+        internal static void RestOnSupport(Transform root, float supportHeight)
         {
             Bounds bounds = MeasureColliderBounds(root);
             float offset = supportHeight - bounds.min.y;
@@ -2254,25 +2343,21 @@ namespace GhostHunter.EditorTools
                 GameObjectUtility.SetStaticEditorFlags(child.gameObject, 0);
         }
 
-        private static void CreateDoor(
+        /// <summary>
+        /// 문 프리팹의 원본. 경첩이 원점, 문짝이 로컬 +X 로 뻗는다.
+        /// 어느 벽의 어느 쪽으로 열리는지는 <see cref="PlaceDoor"/> 가 회전으로 정한다.
+        /// </summary>
+        private static Transform CreateDoorSource(
             string name,
-            Vector3 hingePosition,
             float width,
-            float openAngle,
-            bool runsAlongX,
-            float direction,
             Palette palette,
             Transform parent)
         {
             Transform pivot = CreateGroup(name, parent);
-            pivot.SetPositionAndRotation(hingePosition, Quaternion.Euler(0f, openAngle, 0f));
+            pivot.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
 
-            Vector3 localPosition = runsAlongX
-                ? new Vector3(width * 0.5f * direction, 1.02f, 0f)
-                : new Vector3(0f, 1.02f, width * 0.5f * direction);
-            Vector3 scale = runsAlongX
-                ? new Vector3(width, 2.04f, 0.06f)
-                : new Vector3(0.06f, 2.04f, width);
+            var localPosition = new Vector3(width * 0.5f, 1.02f, 0f);
+            var scale = new Vector3(width, 2.04f, 0.06f);
 
             // 문짝은 런타임에 회전하므로 정적 배칭에서 빼야 한다 — 배칭된 메시는 정점이
             // 월드 좌표로 구워져서, 콜라이더만 돌고 그림은 제자리에 남는다.
@@ -2280,7 +2365,41 @@ namespace GhostHunter.EditorTools
             CreateLocalCube("Handle", localPosition + new Vector3(0f, 0f, -0.05f),
                 new Vector3(0.08f, 0.08f, 0.08f), palette.Metal, pivot, false);
 
-            ConfigureDoorInteraction(pivot, openAngle);
+            ConfigureDoorInteraction(pivot);
+            return pivot;
+        }
+
+        /// <summary>
+        /// 문 하나를 개구부에 놓는다.
+        /// </summary>
+        /// <param name="openAngle">닫힘 대비 열림 각도. 부호가 열리는 방향이다.</param>
+        /// <param name="orientationYaw">
+        /// 원본(+X 로 뻗은 문짝)을 이 개구부의 <b>닫힘</b> 자세로 돌리는 각도.
+        /// 벽을 따라 눕히거나(±90) 반대쪽으로 뻗게(180) 만든다.
+        /// </param>
+        private static void PlaceDoor(
+            FurnitureCatalog catalog,
+            string key,
+            string instanceName,
+            Vector3 hingePosition,
+            float openAngle,
+            float orientationYaw,
+            Transform parent)
+        {
+            // 씬에 저장하는 자세가 곧 "열린 상태"다(_startsOpen = true).
+            float closedYaw = orientationYaw;
+            float openYaw = orientationYaw + openAngle;
+
+            Transform pivot = catalog.PlaceExact(key, hingePosition, openYaw, parent);
+            pivot.name = instanceName;
+
+            var door = pivot.GetComponent<DoorInteractable>();
+            if (door == null)
+                throw new MissingComponentException($"'{key}' 프리팹에 DoorInteractable 이 없습니다.");
+
+            PrototypeSceneSetup.SetFloat(door, "_closedYaw", closedYaw);
+            PrototypeSceneSetup.SetFloat(door, "_openYaw", openYaw);
+            PrototypeSceneSetup.SetBoolean(door, "_startsOpen", true);
         }
 
         /// <summary>
@@ -2290,29 +2409,14 @@ namespace GhostHunter.EditorTools
         /// 움직이면 PhysX 가 정적 콜라이더 트리를 다시 만든다. 문처럼 도는 물체는 키네마틱
         /// 바디로 잡아야 이동 비용이 정상 경로를 탄다.
         /// </summary>
-        private static void ConfigureDoorInteraction(Transform pivot, float openAngle)
+        private static void ConfigureDoorInteraction(Transform pivot)
         {
             Rigidbody body = pivot.gameObject.AddComponent<Rigidbody>();
             body.isKinematic = true;
             body.useGravity = false;
 
             pivot.gameObject.AddComponent<NetworkObject>();
-            DoorInteractable door = pivot.gameObject.AddComponent<DoorInteractable>();
-            PrototypeSceneSetup.SetFloat(door, "_closedYaw", 0f);
-            PrototypeSceneSetup.SetFloat(door, "_openYaw", openAngle);
-            PrototypeSceneSetup.SetBoolean(door, "_startsOpen", true);
-        }
-
-        private static void CreateDoor(
-            string name,
-            Vector3 hingePosition,
-            float width,
-            float openAngle,
-            bool runsAlongX,
-            Palette palette,
-            Transform parent)
-        {
-            CreateDoor(name, hingePosition, width, openAngle, runsAlongX, 1f, palette, parent);
+            pivot.gameObject.AddComponent<DoorInteractable>();
         }
 
         private static void CreateDoorFrameX(

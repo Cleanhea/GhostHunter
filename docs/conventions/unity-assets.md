@@ -35,6 +35,8 @@ MCP로 씬·프리팹을 바꿨다면 MUST **변경 내용과 저장 여부를 �
 - 도구가 만드는 대상(집 구조, 네트워크 리그, 메뉴 씬)은 MUST 도구를 고쳐서 바꾼다. 씬에서 직접 고치고 끝내지 않는다.
 - 도구가 만들지 않는 대상(방별 가구 배치)은 MUST 씬에서 손으로 배치한다. 도구에 좌표를 심지 않는다 — 손 배치와 겹친다.
 - 도구를 고쳤으면 MUST 재실행 결과를 검증 함수(`Validate…`)까지 통과시킨다.
+  **재실행 전에 `MapGeneratorTests`(EditMode)를 먼저 돌린다** — 씬을 버리지 않고 같은 검증을
+  통과하는지 볼 수 있다 → [../workflow/testing.md §4.3](../workflow/testing.md)
 
 ## 2. 네이밍
 
@@ -118,6 +120,10 @@ public sealed class PlayerMoveSettings : ScriptableObject
 | 대상 | 배치 방식 | 이유 |
 | --- | --- | --- |
 | 가구, 문, 붙박이, 방 프리셋 | **프리팹 인스턴스를 씬에 배치** | 레벨 디자인이 씬 파일에 남고, 접속 시 스폰 폭풍이 없으며, 라이트맵·정적 배칭 대상이 된다 → [ADR-0009](../architecture/decisions/ADR-0009-scene-placed-level-objects.md) |
+
+**한 종류 = 한 프리팹.** 같은 이름의 가구가 자리마다 다른 치수를 가지면 프리팹으로 대표할 수
+없다. 벽 방향이 다른 자리는 치수를 바꿔 넘기지 말고 **회전으로** 맞춘다.
+씬 인스턴스의 오버라이드는 **위치·회전에 한정**한다.
 | 플레이어 | NGO Player Prefab 자동 스폰 | 접속 인원이 가변 |
 | 투사체·이펙트 등 런타임 생성물 | 서버 스폰 | 개수가 사전에 정해지지 않음 |
 
@@ -161,8 +167,9 @@ public sealed class PlayerMoveSettings : ScriptableObject
 
 | 항목 | 문제 | 조치 |
 | --- | --- | --- |
-| House_01 가구 25개 | `GameObject.CreatePrimitive`로 만든 익명 씬 오브젝트 — 프리팹 에셋이 아니다 | 프리팹화 (roadmap MIG-6) |
-| 문 5개 · 붙박이 | 위와 동일 | 프리팹화 (roadmap MIG-6) |
+| ~~맵 가구~~ | ~~익명 씬 오브젝트~~ | ✅ MIG-6 — `Assets/Prefabs/Furniture/` 33종 |
+| ~~문 5개~~ | ~~위와 동일~~ | ✅ MIG-6 — `Assets/Prefabs/Map/` 3종(1.5·1.2·0.9m) |
+| 붙박이(주방 카운터·욕실 기구), 창·문틀 | `GameObject.CreatePrimitive`로 만든 익명 씬 오브젝트 | 프리팹화 미정 — 던질 수 없고 정적이라 이득이 작다 |
 | `Assets/TutorialInfo/`, `Assets/Readme.asset` | Unity 템플릿 잔재 | 삭제 검토 |
 | `Assets/Scenes/SampleScene.unity` | 템플릿 잔재 | 삭제 검토 |
 
@@ -170,4 +177,4 @@ public sealed class PlayerMoveSettings : ScriptableObject
 
 관련: [code-style.md](code-style.md) · [git.md](git.md)
 
-최종 갱신: 2026-08-19
+최종 갱신: 2026-08-21
