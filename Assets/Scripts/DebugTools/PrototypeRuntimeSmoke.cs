@@ -3,7 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using GhostHunter.Core;
 using GhostHunter.Core.Networking;
-using GhostHunter.Furniture;
+using GhostHunter.Gameplay.Furniture;
 using Unity.Netcode;
 using UnityEngine;
 

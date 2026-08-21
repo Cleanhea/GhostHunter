@@ -1,0 +1,16 @@
+{
+    "name": "GhostHunter.Data",
+    "rootNamespace": "GhostHunter.Data",
+    "references": [
+        "GhostHunter.Core"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

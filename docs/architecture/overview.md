@@ -1,8 +1,8 @@
 # 아키텍처 개요
 
-> **일부는 목표 구조다.** 씬 구조(§4)와 의존성 획득(§8)은 반영이 끝났고,
-> 스크립트 레이어(§2)와 asmdef(§3)는 아직 목표다. 어디까지 왔는지는 [../project/roadmap.md §2](../project/roadmap.md).
-> 현재 코드가 이 문서와 다르면 **이 문서가 목표, 코드가 미이관 상태**다.
+> 씬 구조(§4), 의존성 획득(§8), 스크립트 레이어(§2), 런타임·에디터 asmdef(§3)는
+> 현재 프로젝트에 반영됐다. 테스트 asmdef는 MIG-7에서 추가한다.
+> 남은 이관 상태는 [../project/roadmap.md §2](../project/roadmap.md)를 본다.
 
 ## 1. 폴더 구조 (Assets)
 
@@ -80,12 +80,12 @@ DebugTools ──▶ 전부 (개발 전용, 아무도 DebugTools를 참조하지
 | `GhostHunter.Data` | `Scripts/Data` | Core |
 | `GhostHunter.Gameplay` | `Scripts/Gameplay` | Core, Data, Unity.Netcode.Runtime, Unity.InputSystem, UniTask |
 | `GhostHunter.Networking` | `Scripts/Networking` | Core, Data, Gameplay, Unity.Netcode.Runtime, UniTask |
-| `GhostHunter.UI` | `Scripts/UI` | Core, Data, Gameplay, UniTask |
-| `GhostHunter.Systems` | `Scripts/Systems` | 전부 + Facepunch.Steamworks, FacepunchTransport, UniTask |
-| `GhostHunter.DebugTools` | `Scripts/DebugTools` | 전부 |
-| `GhostHunter.Editor` | `Scripts/Editor` | 전부 (Editor 플랫폼 한정) |
-| `GhostHunter.Tests.EditMode` | `Tests/EditMode` | 전부 + Test Framework |
-| `GhostHunter.Tests.PlayMode` | `Tests/PlayMode` | 전부 + Test Framework |
+| `GhostHunter.UI` | `Scripts/UI` | Core, Data, Gameplay, Unity.Netcode.Runtime, UnityEngine.UI, UniTask |
+| `GhostHunter.Systems` | `Scripts/Systems` | Core, Data, Gameplay, Networking, Unity.Netcode.Runtime, UnityEngine.UI, FacepunchTransport, UniTask |
+| `GhostHunter.DebugTools` | `Scripts/DebugTools` | Core, Gameplay, Unity.Netcode.Runtime, Unity.InputSystem |
+| `GhostHunter.Editor` | `Scripts/Editor` | 런타임 7개 + 에디터/패키지 참조 (Editor 플랫폼 한정) |
+| `GhostHunter.Tests.EditMode` | `Tests/EditMode` | 전부 + Test Framework (**MIG-7 예정**) |
+| `GhostHunter.Tests.PlayMode` | `Tests/PlayMode` | 전부 + Test Framework (**MIG-7 예정**) |
 
 **규칙**
 - asmdef를 추가/변경하면 MUST 이 표를 갱신한다.
@@ -119,6 +119,10 @@ Facepunch 패키지는 **Editor / Windows32·64 / Linux64 / macOS**에만 매니
 
 단일 `GhostHunter.Runtime` 시절에는 게임플레이 코드 전체가 이 제한을 뒤집어썼다
 (Mac 빌드에서 게임이 통째로 사라지는 증상). **레이어 분리의 실질적 이득 중 하나가 이것이다.**
+
+`Networking/ConnectionManager`는 `NetworkTransport` 기반 타입과 `Core` 인터페이스만 사용한다.
+Facepunch의 구체 API(`targetSteamId`) 설정은 `ISteamLobbyService.TrySetConnectionTarget`으로 위임하고,
+구현체인 `Systems/Steam/SteamLobbyManager`만 `FacepunchTransport`를 안다.
 
 ## 4. 씬 구성
 
@@ -272,7 +276,7 @@ UI (씬별, 로컬 전용)
 
 | 항목 | 상태 |
 | --- | --- |
-| asmdef 실제 분리 | 대기 (roadmap MIG-5). 현재는 `GhostHunter.Runtime` 1개 + `GhostHunter.Editor` |
+| 테스트 asmdef·스모크 테스트 이관 | 대기 (roadmap MIG-7) |
 | `Result` 씬 내용 | TBD — 승패 조건 확정 후 |
 | 세이브/영속 데이터 방식 | TBD |
 | 오디오 시스템 | TBD |

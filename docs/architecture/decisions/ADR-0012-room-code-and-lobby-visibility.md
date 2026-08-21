@@ -59,7 +59,7 @@ Steam의 `ELobbyType` 중 **로비 목록 검색(`RequestLobbyList`)에 잡히�
 **로비를 `FriendsOnly`로 만들면 이 검색이 아무것도 반환하지 않는다.** 방 코드 기능이 통째로 죽는다.
 
 현재 코드에는 `SetFriendsOnly()`와 `SetPublic()` 분기가 둘 다 있다
-([`SteamLobbyManager.cs:415-417`](../../../Assets/Scripts/Networking/SteamLobbyManager.cs)).
+([`SteamLobbyManager.cs`](../../../Assets/Scripts/Systems/Steam/SteamLobbyManager.cs)).
 `_friendsOnly = true`로 두면 방 코드가 동작하지 않는 상태다.
 
 ### 선택지

@@ -1,24 +1,14 @@
 {
-    "name": "GhostHunter.Editor",
-    "rootNamespace": "GhostHunter.EditorTools",
+    "name": "GhostHunter.Networking",
+    "rootNamespace": "GhostHunter.Networking",
     "references": [
         "GhostHunter.Core",
         "GhostHunter.Data",
         "GhostHunter.Gameplay",
-        "GhostHunter.Networking",
-        "GhostHunter.UI",
-        "GhostHunter.Systems",
-        "GhostHunter.DebugTools",
         "Unity.Netcode.Runtime",
-        "Unity.Netcode.Editor",
-        "Unity.InputSystem",
-        "Facepunch Transport for Netcode for GameObjects",
-        "UnityEngine.UI",
         "UniTask"
     ],
-    "includePlatforms": [
-        "Editor"
-    ],
+    "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
     "overrideReferences": false,

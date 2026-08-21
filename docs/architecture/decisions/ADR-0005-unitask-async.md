@@ -5,9 +5,8 @@
 - **결정자**: MinGiHong
 - **관련**: [ADR-0001](ADR-0001-steam-p2p-facepunch-transport.md), [ADR-0004](ADR-0004-multi-scene-additive.md), [../../conventions/code-style.md §8](../../conventions/code-style.md)
 
-> **이관 메모 (2026-08-19).** 이 결정은 AlienGhost 프로젝트에서 검증된 뒤 GhostHunter로 이관했다.
-> 논거와 트레이드오프는 그대로 유효하나, **GhostHunter 코드에는 아직 반영되지 않았다.**
-> 진행 상황은 [../../project/roadmap.md](../../project/roadmap.md) 마이그레이션 보드를 본다.
+> **이관 메모.** 이 결정은 AlienGhost 프로젝트에서 검증된 뒤 GhostHunter로 이관했으며,
+> MIG-4에서 코드 전환, MIG-5에서 asmdef 참조 분리를 완료했다.
 
 ## 배경 (Context)
 
@@ -75,13 +74,13 @@ B로 받으면 컨텍스트·취소 문제를 매번 손으로 처리하게 된�
   **UniTask 외에는 어떤 것도 `Core` 참조에 추가하지 않는다.**
 
 ### 후속 작업
-- [ ] 패키지 설치 및 태그 고정 (`manifest.json`, `packages-lock.json`)
-- [ ] `SceneFlowController.LoadLocalRoutine` → `LoadLocalAsync` 전환
-- [ ] [../../conventions/code-style.md](../../conventions/code-style.md) §4·§8·§10 갱신
-- [ ] [../networking.md](../networking.md) 정리 체크리스트, [../../workflow/testing.md](../../workflow/testing.md) 분류 갱신
-- [ ] [../../../CLAUDE.md](../../../CLAUDE.md) 스냅샷 표에 반영
-- [ ] asmdef 도입 시 `UniTask` 참조 대상 어셈블리 확정, `Core` 제외 확인
-- [ ] Steam 연동에서 Facepunch의 `Task`를 `UniTask`로 받는 패턴 확립 (M0-9)
+- [x] 패키지 설치 및 태그 고정 (`manifest.json`, `packages-lock.json`)
+- [x] `SceneFlowController.LoadLocalRoutine` → `LoadLocalAsync` 전환
+- [x] [../../conventions/code-style.md](../../conventions/code-style.md) §4·§8·§10 갱신
+- [x] [../networking.md](../networking.md) 정리 체크리스트, [../../workflow/testing.md](../../workflow/testing.md) 분류 갱신
+- [x] [../../../CLAUDE.md](../../../CLAUDE.md) 스냅샷 표에 반영
+- [x] asmdef 도입 후 `UniTask` 참조 대상 어셈블리 확정. `Core`는 UniTask만 예외로 참조 (MIG-5)
+- [x] Steam 연동에서 Facepunch의 `Task`를 `UniTask`로 받는 패턴 확립 (MIG-4)
 
 ## 재검토 조건
 

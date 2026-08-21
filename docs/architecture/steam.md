@@ -49,15 +49,16 @@ Package Manager의 git URL로 설치하면 패키지가 **읽기 전용**이 되
 
 | 파일 | 역할 |
 |---|---|
-| [`Networking/SteamLobbyManager.cs`](../../Assets/Scripts/Networking/SteamLobbyManager.cs) | Steam 수명주기(Init/RunCallbacks/Shutdown) + 로비 생성·참가·초대 |
+| [`Systems/Steam/SteamLobbyManager.cs`](../../Assets/Scripts/Systems/Steam/SteamLobbyManager.cs) | Steam 수명주기(Init/RunCallbacks/Shutdown) + 로비 생성·참가·초대 + Facepunch 접속 대상 설정 |
 | [`Networking/ConnectionManager.cs`](../../Assets/Scripts/Networking/ConnectionManager.cs) | StartHost/StartClient, 트랜스포트 전환, 접속 상태 |
 | [`DebugTools/ConnectionHud.cs`](../../Assets/Scripts/DebugTools/ConnectionHud.cs) | 개발용 IMGUI 접속 HUD (F1 토글) |
 | [`Editor/NetworkRigSetup.cs`](../../Assets/Scripts/Editor/NetworkRigSetup.cs) | Bootstrap 씬의 기존 NetworkRig를 열고 선택 |
 
 ### 역할 분리
 
-`SteamLobbyManager`는 Steam만 알고, `ConnectionManager`는 Netcode만 안다.
+`SteamLobbyManager`는 Steamworks와 FacepunchTransport를 알고, `ConnectionManager`는 Netcode 기반 타입만 안다.
 로비가 준비되면 이벤트로 알리고, 실제 `StartHost`/`StartClient`는 `ConnectionManager`가 부른다.
+클라이언트 접속 대상 설정은 `ISteamLobbyService.TrySetConnectionTarget`으로 Steam 레이어에 위임한다.
 
 ```
 SteamLobbyManager                        ConnectionManager
@@ -71,7 +72,8 @@ CreateLobbyAsync()
 (친구가 초대 수락)
    └ OnGameLobbyJoinRequested → Join()
        └ OnLobbyEntered
-           └ JoinTargetResolved(hostId) ─► targetSteamId 설정 → StartClient()
+           └ JoinTargetResolved(hostId) ─► TrySetConnectionTarget(hostId)
+                                           └ targetSteamId 설정 → StartClient()
 ```
 
 **순서가 중요하다.** 로비가 먼저 만들어져야 참가자가 "누구에게 P2P 연결할지"를 알 수 있다.
@@ -115,9 +117,9 @@ Windows 호스트 ↔ macOS 클라이언트는 Steam P2P로 문제없이 붙는�
 
 ### 1. asmdef 플랫폼 (해결됨)
 
-`GhostHunter.Runtime.asmdef`의 `includePlatforms`에 `macOSStandalone`이 없으면
-**Mac 빌드에서 우리 게임플레이·네트워킹 코드가 전부 제외**된다. 에디터 플레이는 되는데
-빌드만 아무 반응이 없다면 이걸 의심한다. 현재는 추가되어 있다.
+Facepunch를 참조하는 `GhostHunter.Systems.asmdef`의 `includePlatforms`에 `macOSStandalone`이 없으면
+**Mac 빌드에서 Steam·씬 흐름 등 횡단 시스템이 제외**된다. 현재는 Editor + WindowsStandalone64 +
+macOSStandalone만 포함하고, Core·Data·Gameplay·Networking·UI에는 플랫폼 제한을 걸지 않는다.
 
 ### 2. Apple Silicon — 네이티브 Steam 바이너리 arm64 (해결됨)
 
@@ -204,7 +206,7 @@ Steam이 찾지 못한다. `GhostHunter.app/Contents/MacOS/steam_appid.txt`에 �
 | HUD에 `Steam: 미초기화` | 위와 동일. Local 모드로는 계속 개발 가능 |
 | Mac에서 `DllNotFoundException: libsteam_api` | 네이티브 파일이 `libsteam_api.bundle` 이름인지와 Mac Editor import가 켜졌는지 확인 |
 | Mac에서 `EntryPointNotFoundException: SteamAPI_Init` | 구형 관리 DLL과 신형 네이티브 파일이 섞였다. Facepunch 2.5.2 세트인지 확인 |
-| Mac 빌드에 HUD·플레이어가 아예 없음 | `GhostHunter.Runtime.asmdef`에 `macOSStandalone`이 있는가 |
+| Mac 빌드에서 Steam·씬 시스템이 없음 | `GhostHunter.Systems.asmdef`에 `macOSStandalone`이 있는가 |
 | 스폰이 조용히 실패 | `NetworkManager`의 Network Prefabs List에 프리팹을 등록했는가 |
 | 씬 전환이 동기화 안 됨 | `NetworkManager.SceneManager.LoadScene`을 썼는가 (`SceneManager.LoadScene` 아님) |
 | 접속은 되는데 아무것도 안 보임 | Player Prefab이 지정되어 있는가 |

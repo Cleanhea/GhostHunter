@@ -205,6 +205,10 @@ private readonly NetworkVariable<bool> _isOpen =
 런타임에 전환한다. **로컬 경로는 개발 전용이며 런타임에 그대로 남는다**
 → [ADR-0011](decisions/ADR-0011-local-transport-path.md)
 
+`ConnectionManager`는 `GhostHunter.Networking` 어셈블리에 있고 직렬화 필드도 `NetworkTransport` 기반 타입이다.
+Facepunch 고유 `targetSteamId` 설정은 `ISteamLobbyService.TrySetConnectionTarget`으로 위임하므로,
+구체 트랜스포트 참조는 `GhostHunter.Systems/SteamLobbyManager` 안에만 남는다.
+
 존재 이유: 같은 Steam 계정으로는 두 인스턴스를 P2P 연결할 수 없다. SteamId 가 같아 자기 자신에게
 연결하는 꼴이 된다. 실제 2인 검증에는 PC 2대 + 계정 2개가 필요하므로, 일상 로직 검증은 UTP 로 한다.
 

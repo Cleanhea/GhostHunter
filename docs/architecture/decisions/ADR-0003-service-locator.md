@@ -99,7 +99,7 @@ SO 채널의 핵심 이점은 **코드 수정 없는 인스펙터 재배선**이
 - [x] ADR-0002를 Rejected로 기록
 - [x] 영향받는 문서 갱신: [../overview.md](../overview.md), [README.md](README.md), [../../conventions/code-style.md](../../conventions/code-style.md)
 - [x] Bootstrap 씬에 `BootstrapInstaller` 컴포넌트 부착 및 인스펙터 배선 (MIG-2/3)
-- [ ] asmdef 도입 시 `Core` 참조가 UniTask 하나뿐인지 확인 → [../overview.md §3.1](../overview.md)
+- [x] asmdef 도입 후 `Core` 참조가 UniTask 하나뿐인지 확인 (2026-08-20, MIG-5) → [../overview.md §3.1](../overview.md)
 
 ## 재검토 조건
 

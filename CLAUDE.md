@@ -27,9 +27,9 @@ GhostHunter — 1인칭 멀티플레이 "가구 던지기" 게임.
 **게임의 목표·루프·승패 조건은 [docs/project/gdd.md](docs/project/gdd.md)에 정의한다.
 아직 `TBD`인 항목이 있으면 임의로 정하지 말고 사용자에게 확인한다.**
 
-> **⚠️ 2026-08-19: 아키텍처 정비 진행 중.** 씬 구조·어셈블리 분리·의존성 획득 방식이 바뀌었고
-> 코드 이관은 아직이다. `docs/`는 **목표 구조**를 기술한다. 현재 코드와 다르면 코드가 미이관 상태다.
-> 진행 상황: [docs/project/roadmap.md §2](docs/project/roadmap.md)
+> **⚠️ 아키텍처 정비 진행 중.** 씬 구조·서비스 수명·8개 asmdef 레이어 이관은 완료됐다.
+> 남은 작업(MIG-6 프리팹화, MIG-7 테스트 이관 등)은
+> [docs/project/roadmap.md §2](docs/project/roadmap.md)에서 추적한다.
 
 ---
 
@@ -124,8 +124,8 @@ GhostHunter — 1인칭 멀티플레이 "가구 던지기" 게임.
 Assets/
 ├─ Scenes/     Bootstrap(0) → Title → Lobby → Game → Result
 │              Bootstrap 은 언로드되지 않고, 나머지가 그 위에 additive 로 오르내린다
-├─ Scripts/    목표 레이어: Core / Data / Gameplay / Networking / UI / Systems / DebugTools / Editor
-│              현재: Core, Data, Systems 신설됨. Player/Interaction/Furniture/Map 은 MIG-5에서 Gameplay 로
+├─ Scripts/    Core / Data / Gameplay / Networking / UI / Systems / DebugTools / Editor
+│              런타임 7개 + Editor 1개 asmdef로 분리됨
 ├─ Prefabs/    Player, Furniture_*, UI_*
 ├─ Settings/   URP 에셋, Gameplay SO
 ├─ Materials/  Shaders/  Tests/(미생성)

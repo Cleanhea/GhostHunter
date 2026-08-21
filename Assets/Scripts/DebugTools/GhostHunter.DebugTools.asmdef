@@ -1,0 +1,19 @@
+{
+    "name": "GhostHunter.DebugTools",
+    "rootNamespace": "GhostHunter.DebugTools",
+    "references": [
+        "GhostHunter.Core",
+        "GhostHunter.Gameplay",
+        "Unity.Netcode.Runtime",
+        "Unity.InputSystem"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

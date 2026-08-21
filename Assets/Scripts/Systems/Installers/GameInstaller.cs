@@ -1,5 +1,5 @@
 using GhostHunter.Core.Player;
-using GhostHunter.Player;
+using GhostHunter.Gameplay.Player;
 using UnityEngine;
 
 namespace GhostHunter.Systems.Installers

@@ -4,7 +4,6 @@ using GhostHunter.Core;
 using GhostHunter.Core.Networking;
 using GhostHunter.Core.Scenes;
 using GhostHunter.Core.Steam;
-using Netcode.Transports.Facepunch;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -12,7 +11,7 @@ using UnityEngine.SceneManagement;
 namespace GhostHunter.Networking
 {
     /// <summary>
-    /// Netcode 세션의 시작/종료를 담당한다. Steam 쪽 사정은 <see cref="SteamLobbyManager"/>가 알고,
+    /// Netcode 세션의 시작/종료를 담당한다. Steam 쪽 사정은 <see cref="ISteamLobbyService"/>가 알고,
     /// 이 컴포넌트는 "언제 StartHost/StartClient를 부를지"만 안다.
     ///
     /// 트랜스포트를 두 개 두는 이유: 같은 Steam 계정으로는 두 인스턴스를 P2P 연결할 수 없다
@@ -27,7 +26,7 @@ namespace GhostHunter.Networking
         [SerializeField] private NetworkManager _networkManager;
 
         [Tooltip("Steam P2P 트랜스포트. NetworkManager 와 같은 오브젝트에 붙인다.")]
-        [SerializeField] private FacepunchTransport _steamTransport;
+        [SerializeField] private NetworkTransport _steamTransport;
 
         [Tooltip("로컬 테스트용 UnityTransport. 구체 타입 의존을 피하려고 기반 타입으로 받는다.")]
         [SerializeField] private NetworkTransport _localTransport;
@@ -249,7 +248,7 @@ namespace GhostHunter.Networking
 
             if (_steamTransport == null)
             {
-                SetStatus("FacepunchTransport 가 연결되어 있지 않습니다.");
+                SetStatus("Steam 트랜스포트가 연결되어 있지 않습니다.");
                 return;
             }
 
@@ -264,7 +263,11 @@ namespace GhostHunter.Networking
             if (!ApplyTransport())
                 return;
 
-            _steamTransport.targetSteamId = hostSteamId;
+            if (_lobby == null || !_lobby.TrySetConnectionTarget(hostSteamId))
+            {
+                SetStatus("Steam 접속 대상을 설정하지 못했습니다.");
+                return;
+            }
 
             if (Net.StartClient())
                 SetStatus($"호스트 {hostSteamId} 에 접속 시도 중...");

@@ -1,7 +1,7 @@
 using GhostHunter.Core;
-using GhostHunter.Furniture;
-using GhostHunter.Interaction;
-using GhostHunter.Player;
+using GhostHunter.Gameplay.Furniture;
+using GhostHunter.Gameplay.Interaction;
+using GhostHunter.Gameplay.Player;
 using UnityEngine;
 
 namespace GhostHunter.UI

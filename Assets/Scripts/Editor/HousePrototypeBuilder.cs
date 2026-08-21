@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
 using GhostHunter.Core;
-using GhostHunter.Furniture;
-using GhostHunter.Interaction;
-using GhostHunter.Map;
+using GhostHunter.Gameplay.Furniture;
+using GhostHunter.Gameplay.Interaction;
+using GhostHunter.Gameplay.Map;
 using Unity.Netcode;
 using Unity.Netcode.Components;
 using UnityEditor;

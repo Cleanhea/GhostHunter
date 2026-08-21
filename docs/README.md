@@ -81,7 +81,7 @@ docs/
 | project/overview.md | 🟡 프로토타입 범위 서술 — 본게임 범위 재정의 필요 |
 | project/gdd.md | 🟡 던지기 시스템은 확정, 승패·루프·유령 진영 TBD |
 | project/roadmap.md | 🟢 M0~M7 + 마이그레이션 보드 |
-| architecture/overview.md | 🟡 목표 구조 확정 / 현재 구조와 다름 (마이그레이션 중) |
+| architecture/overview.md | 🟢 씬·서비스·스크립트 레이어와 asmdef 구조 반영됨 |
 | architecture/networking.md | 🟢 규약 확정 |
 | architecture/steam.md | 🟢 구현·패치 완료 / 2PC 실기 검증 대기 |
 | architecture/player-controller.md | 🟢 구현됨 |
