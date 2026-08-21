@@ -1,6 +1,6 @@
 # 테스트 전략
 
-> Unity Test Framework 사용. 테스트 어셈블리는 아직 **미구성**이다 → roadmap MIG-7.
+> Unity Test Framework 사용. 테스트 어셈블리는 MIG-7에서 구성했다.
 
 ## 1. 무엇을 테스트하는가
 
@@ -14,19 +14,29 @@
 
 **원칙**: 버그가 나면 비싼 것부터 테스트한다. 커버리지 숫자를 목표로 삼지 않는다.
 
-## 2. 폴더 구성 (MIG-7에서 생성)
+## 2. 폴더 구성
 
 ```
 Assets/Tests/
 ├── EditMode/
-│   └── GhostHunter.Tests.EditMode.asmdef
+│   ├── GhostHunter.Tests.EditMode.asmdef
+│   ├── FurnitureLaunchDirectionTests.cs   발사각 보정 (순수 계산)
+│   ├── ServicesTests.cs                   서비스 로케이터 계약
+│   └── ProjectWiringTests.cs              레이어·씬 목록·네트워크 프리팹 식별자
 └── PlayMode/
-    └── GhostHunter.Tests.PlayMode.asmdef
+    ├── GhostHunter.Tests.PlayMode.asmdef
+    ├── NetworkFurnitureFixture.cs         호스트 세션 + 가구 스폰 토대
+    └── FurnitureThrowFlowTests.cs         잡기 → 차징 → 발사 상태 기계
 ```
 
-- 테스트 asmdef는 `UnityEngine.TestRunner`, `UnityEditor.TestRunner`(EditMode)를 참조하고
+- 테스트 asmdef는 `UnityEngine.TestRunner`, `UnityEditor.TestRunner`를 참조하고
   `nunit.framework.dll`을 Override References에 추가한다.
+- `defineConstraints`에 `UNITY_INCLUDE_TESTS`를 넣어 플레이어 빌드에서 빠지게 한다.
+- **EditMode 어셈블리는 `includePlatforms: ["Editor"]`**, PlayMode 어셈블리는 플랫폼 제한이 없다.
 - 테스트 대상 런타임 asmdef를 참조에 추가한다 → [../architecture/overview.md §3](../architecture/overview.md)
+- `internal` 멤버를 테스트해야 하면 대상 어셈블리의 `AssemblyInfo.cs`에 `InternalsVisibleTo`를 추가한다.
+  현재는 `GhostHunter.Gameplay`가 두 테스트 어셈블리에 열려 있다
+  (`FurnitureLauncher.ResolveLaunchDirection`).
 
 ## 3. 작성 규칙
 
@@ -45,11 +55,14 @@ public void TakeDamage_체력보다_큰_피해_체력은_0이_된다()
 
 - 테스트 1개 = 검증 1개. `Assert`를 나열해 여러 개념을 섞지 않는다.
 - 테스트는 서로 독립적이어야 한다. 실행 순서에 의존 금지.
+  **전역 상태(`Services`)를 건드리는 테스트는 MUST `TearDown`에서 등록을 해제한다.**
+  `Services.Unbind`는 제네릭 타입이 등록할 때와 같아야 지워진다 — 구체 타입으로 부르면
+  조용히 아무것도 지우지 않고 다음 테스트로 새어 나간다.
 - PlayMode 테스트는 `[UnityTest]` + `IEnumerator`, 생성한 `GameObject`는 MUST `TearDown`에서 정리한다.
 
 ## 4. 네트워크 테스트
 
-- `NetworkManager`를 코드로 구성해 Host/Client를 띄우고 검증한다.
+- `NetworkManager`를 코드로 구성해 Host/Client를 띄우고 검증한다 → `NetworkFurnitureFixture`.
 - 검증 포인트: 서버 권위 유지, NetworkVariable 전파, RPC 검증 로직 거부 케이스.
 - 프레임 대기는 `yield return null` 또는 조건 대기 헬퍼를 쓴다. 고정 `WaitForSeconds` 남용 금지(불안정).
 
@@ -68,12 +81,35 @@ public void TakeDamage_체력보다_큰_피해_체력은_0이_된다()
 
 Steam 실경로(로비·초대·SDR 연결)는 사람이 2대로 확인한다 → [playbooks.md PB-08](playbooks.md).
 
+### 4.2 테스트는 프리팹 에셋에 기대지 않는다
+
+`NetworkFurnitureFixture`는 가구를 `Assets/Prefabs/**`에서 불러오지 않고 코드로 조립한다.
+
+- 프리팹을 읽으려면 `AssetDatabase`가 필요해 **플레이어 빌드에서 돌릴 수 없게 된다.**
+- 검증 대상은 배치가 아니라 `FurnitureGrabTarget` 상태 기계다. 맵 생성 도구가 가구 치수를
+  바꿀 때마다 테스트가 흔들리면 안 된다.
+
+런타임에 만든 `NetworkObject`는 `GlobalObjectIdHash`가 0이라 NGO가 서로를 구분하지 못한다.
+픽스처가 인스턴스마다 고유 값을 리플렉션으로 넣어 준다 → [../conventions/unity-assets.md §5.2](../conventions/unity-assets.md)
+
+### 4.3 접속하지 않은 홀더로 2인 경로를 흉내 낼 때
+
+2인 잡기 규칙은 홀더가 둘이어야 검사할 수 있는데, 한 프로세스에서 진짜 클라이언트를 둘
+띄우는 것은 비싸다. 그래서 두 번째 홀더는 접속하지 않은 가짜 clientId를 쓴다.
+
+**그 홀더는 플레이어 오브젝트가 없다.** `FurnitureHoverMotor`는 `FixedUpdate`마다 홀더의
+플레이어 위치를 확인해 찾지 못하면 강제 해제하므로, **물리 스텝을 사이에 두면 홀더가 사라진다.**
+상태 전이는 `FurnitureGrabTarget` 안에서 동기적으로 끝나므로 2인 경로의 단언은
+`yield` 없이 같은 프레임에 이어서 한다.
+
 ## 5. 실행
 
-### 5.1 Unity MCP 경유 (에디터가 켜져 있을 때 권장)
+### 5.1 에디터 Test Runner (권장 · 판정 기준)
 
-에디터가 실행 중이면 MCP 도구로 테스트를 돌린다. 에디터를 끄지 않아도 되고 결과를 바로 받는다.
-→ [unity-mcp.md](unity-mcp.md)
+`Window > General > Test Runner`. 에디터가 켜져 있으면 이쪽이 **정답**이다 —
+§5.3 때문에 batchmode 에서는 일부 검사를 할 수 없다.
+
+Unity MCP 가 연결돼 있으면 도구로도 돌릴 수 있다 → [unity-mcp.md](unity-mcp.md)
 
 ### 5.2 batchmode CLI (에디터를 끌 수 있을 때 / CI)
 
@@ -91,8 +127,34 @@ $PROJ  = "C:\MainScreen\Dev\GitDirectory\GhostHunter"
 ```
 
 - MUST Unity 에디터를 먼저 종료한다(프로젝트 잠금). **끄기 전에 §5.1로 해결되는지 먼저 확인한다.**
-- 결과 XML의 `<test-run result="Passed" ...>` 및 실패 케이스를 확인해 보고한다.
-- 에디터 GUI에서는 `Window > General > Test Runner`.
+- 결과 XML의 `<test-run result="..." total=... passed=... failed=... skipped=...>`를 확인해 보고한다.
+  **`skipped`가 0이 아니면 §5.3 때문일 수 있으니 그대로 보고한다.**
+
+### 5.3 batchmode 한계 — 프로젝트 스크립트가 에셋에 바인딩되지 않는다
+
+> 2026-08-21 · Unity 6000.3.20f1 · Windows 에서 확인.
+
+`-batchmode`로 띄운 에디터는 **`Assets/` 아래 스크립트를 관리 클래스에 연결하지 못한다.**
+결과는 이렇다.
+
+| 증상 | 예 |
+| --- | --- |
+| 우리 `ScriptableObject` 에셋이 열리지 않는다 | `LoadAssetAtPath<SceneNameSO>` → `null` |
+| 씬의 우리 컴포넌트가 "missing script" 로 보인다 | `Bootstrap` 의 `SceneFlowController` 등 |
+| `MonoScript.GetClass()` 가 언제나 `null` | 새로 만든 빈 스크립트도 마찬가지 |
+
+**패키지 어셈블리(NGO 등)는 정상이다.** 프리팹을 `GameObject`로 열거나 `NetworkObject`를
+읽는 것은 되고, 우리 `MonoBehaviour`/`ScriptableObject` 타입만 안 된다.
+
+이것은 **이 저장소의 문제가 아니다.** 스크립트 한 개짜리 새 프로젝트를 만들어도 같은 결과가
+나온다(대조군 확인). 따라서:
+
+- 우리 SO를 읽어야 하는 EditMode 테스트는 **파일 존재는 단언하고, 역직렬화가 실패하면
+  `Assert.Ignore`로 건너뛴다.** 에셋을 지운 실수는 계속 잡히고, 환경 한계만 비켜 간다.
+- **씬 생성 도구를 `-executeMethod`로 batchmode 에서 돌리지 않는다.**
+  `LoadOrCreateAsset`이 기존 설정 에셋을 못 찾아 새로 만들어 버린다.
+  생성 도구는 MUST 에디터 메뉴에서 실행한다 → [../conventions/unity-assets.md §1.1](../conventions/unity-assets.md)
+- `-quit -batchmode -nographics ... -logFile -` 로 하는 **컴파일 검증은 영향받지 않는다.**
 
 ## 6. 수동 검증 체크리스트
 
@@ -108,33 +170,38 @@ $PROJ  = "C:\MainScreen\Dev\GitDirectory\GhostHunter"
 
 ## 7. 현재 상태
 
+> 2026-08-21 기준. batchmode(`-runTests`)로 실행한 결과다.
+
 | 항목 | 상태 |
 | --- | --- |
-| 테스트 어셈블리 | ❌ 미구성 → roadmap MIG-7 |
-| EditMode 테스트 | 0건 |
-| PlayMode 테스트 | 0건 |
-| **런타임 스모크 테스트** | ⚠️ `Assets/Scripts/DebugTools/PrototypeRuntimeSmoke.cs` |
-| CI | ❌ 없음 |
+| 테스트 어셈블리 | ✅ EditMode / PlayMode 2개 |
+| EditMode 테스트 | **24건 — 21 통과 · 3 건너뜀**(§5.3) |
+| PlayMode 테스트 | **12건 — 12 통과** |
+| **런타임 스모크 테스트** | `Assets/Scripts/DebugTools/PrototypeRuntimeSmoke.cs` — 존치 (§7.1) |
+| CI | ❌ 없음 → roadmap 백로그 |
 
-### 7.1 런타임 스모크 테스트의 위치
+### 7.1 런타임 스모크 테스트를 남겨 두는 이유
 
-`PrototypeRuntimeSmoke`는 정식 테스트가 아니라 **플레이 중 자동으로 도는 점검 스크립트**다.
-Local Host 시작, 1인 투척 준비/발사, 2슬롯 배정, 첫 홀더 해제 시 복귀, 마지막 해제 시 발사를 확인한다.
+`PrototypeRuntimeSmoke`는 정식 테스트가 아니라 **빌드된 플레이어에서 `-smoke-test` 인자로
+도는 점검 스크립트**다. MIG-7에서 상태 기계 검증은 `FurnitureThrowFlowTests`로 옮겼지만,
+스크립트 자체는 지우지 않았다.
 
-- 테스트 러너가 아니라 씬에서 돌기 때문에 **결과가 XML로 남지 않고 CI에서 판정할 수 없다.**
-- 코루틴 기반이라 [../conventions/code-style.md §8](../conventions/code-style.md)의 유일한 예외다.
-  MIG-4에서 나머지 코루틴을 전부 걷어낼 때 **의도적으로 남겼다** — 곧 대체될 코드라 전환 비용이 회수되지 않고,
-  현재 유일한 자동 검증 수단이라 손대는 위험이 이득보다 크다.
-- **MIG-7에서 PlayMode 테스트로 이관한다.** 그때까지는 유일한 자동 검증 수단이므로 지우지 않는다.
+- 테스트 러너는 **에디터 안**에서 돈다. 스모크는 `BuildSmokeBatch`가 만든 **실제 실행 파일**을
+  켜서 확인하므로 겹치지 않는다 — 빌드에서만 드러나는 문제(스트립핑, 씬 목록, IL2CPP)를 잡는다.
+- 코루틴을 쓰는 것은 [../conventions/code-style.md §8](../conventions/code-style.md)의 유일한 예외다.
+- `Bootstrap` 씬의 `NetworkRig`에 컴포넌트로 붙어 있다. 지우려면 씬 편집이 필요하다.
 
-### 7.2 UTP 의존성 주의
+**중복이라고 판단되면 지우는 것도 가능하다.** 그때는 씬에서 컴포넌트를 먼저 떼고
+스크립트를 지운다(순서를 뒤집으면 씬에 missing script 가 남는다).
 
-현재 스모크 테스트와 일상 검증이 `TransportMode.Local`(UnityTransport)에 의존한다.
-이 경로의 존치 여부는 [../architecture/decisions/ADR-0011](../architecture/decisions/ADR-0011-local-transport-path.md)에서
-결정 대기 중이며, **테스트 어셈블리 구축이 그 결정의 선행 조건**이다.
+### 7.2 테스트는 UTP 경로에 의존한다
+
+테스트는 `UnityTransport`로 세션을 만든다(§4.1). 이 경로의 존치는
+[../architecture/decisions/ADR-0011](../architecture/decisions/ADR-0011-local-transport-path.md)에서
+**Accepted** 로 확정됐다 — 로컬 UTP 를 남기고 릴리스는 `TransportModeBuildGuard`가 막는다.
 
 ---
 
 관련: [development-loop.md](development-loop.md)
 
-최종 갱신: 2026-08-20
+최종 갱신: 2026-08-21

@@ -1,7 +1,6 @@
 # 아키텍처 개요
 
-> 씬 구조(§4), 의존성 획득(§8), 스크립트 레이어(§2), 런타임·에디터 asmdef(§3)는
-> 현재 프로젝트에 반영됐다. 테스트 asmdef는 MIG-7에서 추가한다.
+> 씬 구조(§4), 의존성 획득(§8), 스크립트 레이어(§2), asmdef 10개(§3)는 현재 프로젝트에 반영됐다.
 > 남은 이관 상태는 [../project/roadmap.md §2](../project/roadmap.md)를 본다.
 
 ## 1. 폴더 구조 (Assets)
@@ -84,13 +83,16 @@ DebugTools ──▶ 전부 (개발 전용, 아무도 DebugTools를 참조하지
 | `GhostHunter.Systems` | `Scripts/Systems` | Core, Data, Gameplay, Networking, Unity.Netcode.Runtime, UnityEngine.UI, FacepunchTransport, UniTask |
 | `GhostHunter.DebugTools` | `Scripts/DebugTools` | Core, Gameplay, Unity.Netcode.Runtime, Unity.InputSystem |
 | `GhostHunter.Editor` | `Scripts/Editor` | 런타임 7개 + 에디터/패키지 참조 (Editor 플랫폼 한정) |
-| `GhostHunter.Tests.EditMode` | `Tests/EditMode` | 전부 + Test Framework (**MIG-7 예정**) |
-| `GhostHunter.Tests.PlayMode` | `Tests/PlayMode` | 전부 + Test Framework (**MIG-7 예정**) |
+| `GhostHunter.Tests.EditMode` | `Tests/EditMode` | 런타임 7개 + Test Framework + nunit (Editor 한정) |
+| `GhostHunter.Tests.PlayMode` | `Tests/PlayMode` | Core, Data, Gameplay, Networking + Test Framework + nunit |
 
 **규칙**
 - asmdef를 추가/변경하면 MUST 이 표를 갱신한다.
 - 새 참조를 추가하기 전에 §2 의존 방향을 위반하지 않는지 확인한다.
-- `Auto Referenced`는 런타임 어셈블리에서 끄지 않는다(기본값 유지).
+- `Auto Referenced`는 런타임 어셈블리에서 끄지 않는다(기본값 유지). **테스트 어셈블리는 끈다.**
+- 테스트 어셈블리는 `defineConstraints: ["UNITY_INCLUDE_TESTS"]`로 플레이어 빌드에서 빠진다.
+  **`GhostHunter.Tests.PlayMode`는 `GhostHunter.Systems`를 참조하지 않는다** — Systems 의
+  플랫폼 제한(§3.2)을 물려받으면 다른 플랫폼에서 테스트가 통째로 사라진다.
 
 ### 3.1 `Core`가 UniTask를 참조하는 이유
 
@@ -276,7 +278,6 @@ UI (씬별, 로컬 전용)
 
 | 항목 | 상태 |
 | --- | --- |
-| 테스트 asmdef·스모크 테스트 이관 | 대기 (roadmap MIG-7) |
 | `Result` 씬 내용 | TBD — 승패 조건 확정 후 |
 | 세이브/영속 데이터 방식 | TBD |
 | 오디오 시스템 | TBD |
@@ -285,4 +286,4 @@ UI (씬별, 로컬 전용)
 
 관련: [networking.md](networking.md) · [steam.md](steam.md) · [decisions/](decisions/README.md)
 
-최종 갱신: 2026-08-20
+최종 갱신: 2026-08-21

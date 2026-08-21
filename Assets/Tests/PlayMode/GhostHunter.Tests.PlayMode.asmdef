@@ -1,0 +1,28 @@
+{
+    "name": "GhostHunter.Tests.PlayMode",
+    "rootNamespace": "GhostHunter.Tests.PlayMode",
+    "references": [
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner",
+        "GhostHunter.Core",
+        "GhostHunter.Data",
+        "GhostHunter.Gameplay",
+        "GhostHunter.Networking",
+        "Unity.Netcode.Runtime",
+        "Unity.InputSystem",
+        "UniTask"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
