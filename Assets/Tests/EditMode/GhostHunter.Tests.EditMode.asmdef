@@ -11,6 +11,7 @@
         "GhostHunter.UI",
         "GhostHunter.Systems",
         "GhostHunter.DebugTools",
+        "GhostHunter.Editor",
         "Unity.Netcode.Runtime",
         "Unity.InputSystem",
         "UniTask"

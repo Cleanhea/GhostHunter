@@ -841,7 +841,7 @@ namespace GhostHunter.EditorTools
             EditorUtility.SetDirty(target);
         }
 
-        private static void SetEnum(Object target, string propertyName, int enumIndex)
+        internal static void SetEnum(Object target, string propertyName, int enumIndex)
         {
             var serialized = new SerializedObject(target);
             SerializedProperty property = serialized.FindProperty(propertyName);
