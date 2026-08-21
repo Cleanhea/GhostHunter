@@ -189,7 +189,7 @@ $PROJ  = "C:\MainScreen\Dev\GitDirectory\GhostHunter"
 | 항목 | 상태 |
 | --- | --- |
 | 테스트 어셈블리 | ✅ EditMode / PlayMode 2개 |
-| EditMode 테스트 | **36건 — 33 통과 · 3 건너뜀**(§5.3) |
+| EditMode 테스트 | **38건 — 35 통과 · 3 건너뜀**(§5.3) |
 | PlayMode 테스트 | **12건 — 12 통과** |
 | **런타임 스모크 테스트** | `Assets/Scripts/DebugTools/PrototypeRuntimeSmoke.cs` — 존치 (§7.1) |
 | CI | ❌ 없음 → roadmap 백로그 |

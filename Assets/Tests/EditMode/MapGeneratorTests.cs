@@ -266,6 +266,65 @@ namespace GhostHunter.Tests.EditMode
         }
 
         /// <summary>
+        /// 던지는 가구의 Rigidbody 설정. `ValidatePhysicsFurniture` 는 컴포넌트 유무만 보므로
+        /// <b>값</b>은 여기서 고정한다 — 특히 <c>Continuous Dynamic</c> 은 빠르게 날아가는 가구가
+        /// 벽을 뚫지 않게 하는 유일한 방어다(기본 Discrete 로는 한 물리 스텝에 벽을 건너뛴다).
+        /// → [furniture-physics.md](../../../docs/architecture/furniture-physics.md)
+        ///
+        /// 실제로 벽을 안 뚫는지는 던져 봐야 안다(roadmap M7). 여기서는 설정이 조용히 바뀌는 것만 막는다.
+        /// </summary>
+        [Test]
+        public void 가구_Rigidbody_가_투척_설정을_지킨다()
+        {
+            Transform library = TrackRoot(HousePrototypeBuilder.CreateFurnitureLibrary(_palette, _catalog));
+
+            FurnitureGrabTarget[] furniture = library.GetComponentsInChildren<FurnitureGrabTarget>(true);
+            Assert.Greater(furniture.Length, 0, "가구 라이브러리가 비어 있습니다.");
+
+            foreach (FurnitureGrabTarget item in furniture)
+            {
+                var body = item.GetComponent<Rigidbody>();
+                Assert.IsNotNull(body, $"'{item.name}' 에 Rigidbody 가 없습니다.");
+
+                Assert.AreEqual(
+                    CollisionDetectionMode.ContinuousDynamic,
+                    body.collisionDetectionMode,
+                    $"'{item.name}' 이 벽을 뚫을 수 있는 충돌 판정입니다.");
+                Assert.AreEqual(
+                    RigidbodyInterpolation.Interpolate,
+                    body.interpolation,
+                    $"'{item.name}' 의 보간이 꺼져 있습니다.");
+                Assert.IsTrue(
+                    body.isKinematic,
+                    $"'{item.name}' 이 씬 저장 시점에 물리로 깨어 있습니다. " +
+                    "세션 시작 전에도 굴러떨어집니다.");
+                Assert.IsTrue(body.useGravity, $"'{item.name}' 의 중력이 꺼져 있습니다.");
+                Assert.Greater(body.mass, 0f, $"'{item.name}' 의 질량이 0 입니다.");
+            }
+        }
+
+        /// <summary>
+        /// 무거운 가구는 2인이라야 제대로 던진다. 질량이 <see cref="FurnitureDefinition"/> 에서
+        /// 오지 않으면 무게 등급이 의미를 잃는다.
+        /// </summary>
+        [Test]
+        public void 가구_질량이_무게_등급을_따른다()
+        {
+            Transform library = TrackRoot(HousePrototypeBuilder.CreateFurnitureLibrary(_palette, _catalog));
+
+            foreach (FurnitureNetworkPhysics physics in
+                     library.GetComponentsInChildren<FurnitureNetworkPhysics>(true))
+            {
+                Assert.IsNotNull(physics.Definition, $"'{physics.name}' 에 FurnitureDefinition 이 없습니다.");
+                Assert.AreEqual(
+                    physics.Definition.Mass,
+                    physics.GetComponent<Rigidbody>().mass,
+                    0.001f,
+                    $"'{physics.name}' 의 질량이 정의와 다릅니다.");
+            }
+        }
+
+        /// <summary>
         /// 문짝은 프리팹 하나(경첩에서 +X 로 뻗은 문짝)를 회전만 바꿔 다섯 개구부에 쓴다.
         /// 회전을 잘못 잡으면 문이 벽 안쪽으로 들어가거나 반대로 열려서, 겉보기에는 멀쩡하고
         /// 플레이해야만 드러난다. 닫힘·열림 양쪽에서 문짝이 경첩 기준 어디에 서는지 고정한다.
