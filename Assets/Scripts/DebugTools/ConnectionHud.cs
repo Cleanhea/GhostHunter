@@ -23,7 +23,7 @@ namespace GhostHunter.DebugTools
         [SerializeField] private bool _visible = true;
 
         [Tooltip("HUD 표시를 켜고 끄는 키.")]
-        [SerializeField] private Key _toggleKey = Key.F1;
+        [SerializeField] private Key _toggleKey = Key.Tab;
 
         private string _lastStatus = "대기 중";
         private IConnectionService _connection;
