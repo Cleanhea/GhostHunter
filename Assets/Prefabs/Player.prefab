@@ -280,6 +280,7 @@ GameObject:
   - component: {fileID: 6650919084466105846}
   - component: {fileID: 3886323098072392360}
   - component: {fileID: 648880312144743003}
+  - component: {fileID: 3351523169414524554}
   m_Layer: 8
   m_Name: Player
   m_TagString: Untagged
@@ -543,3 +544,17 @@ MonoBehaviour:
   m_EditorClassIdentifier: GhostHunter.Gameplay::GhostHunter.Gameplay.Sanity.SanityNetworkState
   ShowTopMostFoldoutHeaderGroup: 1
   _settings: {fileID: 11400000, guid: 6254a0bee414ba1468a1226fdd97d646, type: 2}
+--- !u!114 &3351523169414524554
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6853845278674404290}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c8b873b113de1cf49951ffc98e299b83, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: GhostHunter.Gameplay::GhostHunter.Gameplay.Player.MoleBurrowController
+  ShowTopMostFoldoutHeaderGroup: 1
+  _settings: {fileID: 11400000, guid: 1c6aa3b4e4f9f6e40a0168cfc968b97b, type: 2}
