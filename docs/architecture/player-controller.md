@@ -38,6 +38,7 @@
 | `Jump` | Space | 점프 |
 | `Attack` | 마우스 좌클릭 (**Hold 아님, press/release 둘 다 필요**) | 가구 잡기/던지기 |
 | `Interact` | E | 문 여닫기 (조준선 2.5m 안의 문) |
+| `Burrow` | R | 굴착 스킬 토글 |
 
 > **주의:** `Attack` 액션은 홀드 방식이므로 Interaction을 `Press`(Trigger Behavior: `Press And Release`)로 두고 `started`/`canceled` 콜백을 각각 잡는다. `Hold` Interaction을 붙이면 최소 유지 시간 임계값이 생겨 짧은 탭이 씹힌다.
 
@@ -101,16 +102,21 @@ Player (root)          ← 요(Y) 회전. ClientNetworkTransform이 복제
 
 | 값 | 초기값 |
 |---|---|
-| 이동 속도 | 5.0 m/s |
+| 이동 속도 (걷기) | 5.0 m/s |
+| 달리기 배수 (`sprintMultiplier`, `Sprint`=Left Shift) | 1.4× → 7.0 m/s. 웅크리는 중엔 무효 |
+| 웅크리기 이동 속도 (`Crouch`=C) | 3.5 m/s |
 | 공중 제어 계수 | 0.4 |
 | 점프 높이 | 1.2 m |
 | 중력 | -20 m/s² (실제 중력보다 무겁게 — 체감이 좋다) |
 | 마우스 감도 | 0.1 (deg per pixel) |
-| 캡슐 높이 / 반지름 | 1.8 m / 0.35 m |
-| 카메라 높이 | 1.65 m |
+| 캡슐 높이 / 반지름 (서있음 / 웅크림) | 1.8 / 1.2 m · 반지름 0.35 m |
+| 카메라 높이 (서있음 / 웅크림) | 1.65 / 1.05 m |
 
 전부 플레이테스트로 바뀔 값이다. 코드에 박지 말 것.
 
+이동 속도 결정 순서: **웅크리기 > 달리기 > 걷기** (`PlayerMotor.ResolveMoveSpeed`). 웅크리는
+동안에는 `Sprint` 입력을 무시한다.
+
 ---
 
-최종 갱신: 2026-08-19
+최종 갱신: 2026-08-31 (달리기 ×1.4 + 웅크리기 반영. `Prototype` → `Game` 씬 개명 등 나머지 낡은 서술은 미정리)

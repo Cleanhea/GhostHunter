@@ -28,6 +28,7 @@ namespace GhostHunter.Tests.PlayMode
         protected const ulong PartnerClientId = 999;
 
         private const float StartTimeoutSeconds = 15f;
+        private const ushort TestPort = 17777;
 
         private GameObject _networkManagerObject;
         private GameObject _furnitureTemplate;
@@ -62,6 +63,7 @@ namespace GhostHunter.Tests.PlayMode
 
             var network = _networkManagerObject.AddComponent<NetworkManager>();
             var transport = _networkManagerObject.AddComponent<UnityTransport>();
+            transport.SetConnectionData("127.0.0.1", TestPort, "127.0.0.1");
             network.NetworkConfig = new NetworkConfig
             {
                 NetworkTransport = transport,

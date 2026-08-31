@@ -12,18 +12,40 @@
 | M0~M6 | 프로토타입 | 던지기 메커닉 검증 | 아래 §3 | **완료** (실기 검증 항목 제외) |
 | **MIG** | **아키텍처 정비** | 본 프로젝트 구조로 이관 | §2 전 항목 | **거의 완료** — MIG-11(결정 대기)·MIG-10(버전 고정) 외 전부 |
 | M7 | 가구 간 물리 + 정리 | 연쇄 충돌이 두 클라이언트에서 자연스럽게 | §3 M7 | 대기 |
-| M8 | **게임 설계** | 루프·승패·유령 확정 | [gdd.md §1·§2·§5](gdd.md) TBD 해소 | **대기 (사용자 입력 필요)** |
+| M8 | **게임 설계** | 루프·승패·유령 세부 규칙 확정 | [gdd.md §1·§2](gdd.md) TBD 해소 + [ghost-system.md §13](ghost-system.md) 잔여 결정 | **부분 진행 — 귀신 공통 규칙 기획 확정, 유령 P1 + 정신력 코어 구현. 루프·승패 미정** |
 | M9 | 실기 검증 | Steam 2PC 전 경로 통과 | [PB-08](../workflow/playbooks.md) 전항 | 대기 |
 | M10 | 게임플레이 완성 | 승패 조건까지 동작 | 매치 시작→종료 완주 | 대기 |
 | M11 | 폴리싱 & 빌드 | 배포 가능 상태 | Windows·macOS 빌드 + 성능 목표 | 대기 |
 
-> **M8이 병목이다.** 승패 조건이 없으면 `Result` 씬·라운드 구조·난입 정책·스폰 규칙이 전부 막힌다.
+> **M8이 병목이다.** 2026-08-30 [귀신 시스템 기획서](ghost-system.md)로 귀신 공통 규칙(상태·정신력 구간·어택 판정·탐지·추격·예외)은 확정됐다. 남은 병목은 **게임 루프와 승패 조건(D-4)** 이며, 그것이 없으면 `Result` 씬과 정식 라운드 구조를 완성할 수 없다.
 
-> **지금 사용자에게 필요한 것** (2026-08-21)
-> 1. 에디터에서 `GhostHunter > 프로토타입 게임 생성` 재실행 — MIG-6 프리팹을 실제로 굽는다
-> 2. D-2 / D-3 결정 → MIG-11 마무리
-> 3. `Packages/manifest.json` 의 Unity MCP 버전 고정 승인 → MIG-10 마무리
-> 4. D-4 / D-5 결정 → M8 착수
+> **지금 사용자에게 필요한 것** (2026-08-23)
+> 1. D-2 / D-3 결정 → MIG-11 마무리
+> 2. `Packages/manifest.json` 의 Unity MCP 버전 고정 승인 → MIG-10 마무리
+> 3. D-4 / D-11 / D-12 최종 결정 → M8 기획 완료 (D-10 은 귀신 시스템 기획서로 해결됨)
+> 4. 필요 시 F1 HUD에서 귀신 P1을 반복 플레이 테스트하고 임시 수치를 조정
+> 5. (2026-08-31 추가) D-13 / D-14 결정 → 두더지 스킬 구현 착수 가능
+>    ([mole-skill-system.md](mole-skill-system.md) 초안의 MS-1~15)
+
+### 1.1 M8 귀신·정신력 통합 TODO
+
+> 2026-08-24 전체 검토에서 확인한 후속 작업이다. 현재 P1 코어의 결함과 정식 게임플레이
+> 연결 대기 항목을 함께 추적하되, 기획 결정이 필요한 작업은 D-10~D-12 확정 전에 구현하지 않는다.
+
+| # | TODO | 선행 조건 | 상태 |
+| --- | --- | --- | --- |
+| M8-GS-1a | 귀신 프로토타입의 모의 정신력을 제거하고, 귀신 HUD가 `ISanityTeamService`의 팀 평균 판정값을 그대로 읽게 한다. | — | ✅ 완료 (2026-08-24) |
+| M8-GS-1b | 그 팀 평균으로 귀신 상태·이벤트·어택 조건을 **판정**한다. | — (D-10 해결) | ✅ **완료 (2026-08-30)** — 팀 평균 80/60 구간으로 상태 전이, 10초 §7.3 확률 판정, 어택 30~90초, 자연 진정 30초, 강제 진정 10초 → [ghost-prototype.md](../architecture/ghost-prototype.md) |
+| M8-GS-2 | 9종 초자연현상 중 무엇을 `귀신 이벤트 목격`으로 처리할지 정의하고, 서버 가시 판정에서 `ServerApplyGhostEventWitnessed()`를 호출한다. 단순 근접은 현재 감소 조건이 아니다. | [G-6](ghost-system.md) | ✅ **완료 (2026-08-31)** — 사용자 확정: 종류 불문 목격 시 전부 적용, 감소량 10→**15**. `GhostPrototypeController.ServerCheckPhenomenonWitnessed`(거리 12m·각도 70°·가림)가 현상 발생마다 판정해 `ServerApplyGhostEventWitnessed()` 호출 → [ghost-prototype.md §4](../architecture/ghost-prototype.md) |
+| M8-GS-3 | 헤드라이트·드릴 카 안전 구역·시체 목격·정신력 아이템·사망·스테이지 생명주기를 정신력 서버 API에 연결한다. | 관련 시스템 구현 | 대기 |
+| M8-GS-4a | 정신력 20 이하 카메라 테두리 노이즈를 URP Volume 연출로 연결한다. | — | ✅ 완료 (2026-08-24) — **2026-08-31 재검증**: `AssetDatabase.AddObjectToAsset` 누락으로 비네트·필름그레인·색수차가 실제로는 저장되지 않고 있었다(2026-08-24 당시엔 인스펙터에서만 보이다 사라지는 버그). 굴착 스킬 연출 작업 중 발견해 수정 완료 → [mole-skill-system.md §8](mole-skill-system.md) |
+| M8-GS-4b | 10 이하 속삭임, 5 이하 숨소리·심장 소리를 실제 SFX 재생으로 연결한다. | 오디오 에셋 | 대기 |
+| M8-GS-5 | 정신력 0에서 새 시체 목격 시 값이 변하지 않았는데도 감소 성공으로 보고하는 `SanityState.WitnessCorpse()` 반환값과 F1 메시지를 수정하고 회귀 테스트를 추가한다. | — | 대기 |
+| M8-GS-6 | 원격 클라이언트 F1 HUD가 스폰된 귀신을 찾지 못하고 남은 상태 시간을 0초로 표시하는 문제를 수정한다. | — | ✅ **해결 (2026-08-30)** — 재구현에서 귀신 F1 조작을 Host 전용으로 두어(`IGhostDebug.CanControl` = `IsServer`) 원격이 귀신을 조회하지 않는다. 원격은 복제된 `GhostPhase` 로 연출만 재생한다 |
+| M8-GS-7 | 귀신 스폰·탐지·추격·공격, 정신력 복제·팀 평균·HUD 갱신, 귀신 이벤트→정신력→HUD 흐름의 PlayMode 통합 테스트를 추가한다. | M8-GS-1~6 | 대기 — 상태 기계·시야 기하는 EditMode 로 검증됨(93건). 스폰·탐지·추격의 PlayMode 통합 테스트가 남음 |
+| M8-GS-8 | Steam 2PC에서 귀신·정신력 상태와 개인/팀 HUD 동기화를 검증한다. | M8-GS-7, M9 환경 | 대기 |
+| M8-GS-9 | Unity Editor 재시작 후 Local Host 기본 UDP 7777 점유가 재발하는지 확인하고, 재발하면 `UnityTransport` 종료 수명주기를 진단한다. | — | 대기 |
+| M8-GS-10 | 스폰된 귀신을 Scene 뷰에서 식별할 수 있도록 전용 레이어와 Gizmo 표식을 둔다. | — | ✅ **완료 (2026-08-30)** — `GhostPrototype` 레이어(10)·파란 Scene Gizmo 추가, 플레이어 카메라 culling mask는 변경하지 않음 |
 
 ---
 
@@ -78,7 +100,13 @@
 | D-2 | 로비 가시성 (Public vs FriendsOnly) | [ADR-0012](../architecture/decisions/ADR-0012-room-code-and-lobby-visibility.md) §3 → MIG-11 |
 | D-3 | 난입 허용 여부 | [ADR-0012](../architecture/decisions/ADR-0012-room-code-and-lobby-visibility.md) §4 → MIG-11 |
 | D-4 | 게임 루프·승패 조건 | [gdd.md §2](gdd.md) → M8 전체 |
-| D-5 | 유령의 정체 (플레이어/AI) | [gdd.md §5](gdd.md) → M8 전체 |
+| ~~D-5~~ | ~~유령의 정체 (플레이어/AI)~~ | ✅ 해결 — 적대 AI 시스템 (2026-08-23) |
+| ~~D-9~~ | ~~정신력의 관리 단위·증감 조건·임계값~~ | ✅ 해결 — 시작 100%, 개인·팀 평균·증감·디버프 확정·코어 구현 → [sanity-system.md](sanity-system.md) |
+| ~~D-10~~ | ~~어택 타임의 수치·발동·종료·안전 규칙~~ | ✅ 해결 — 팀 평균 80/60/30 구간, 10초 주기 확률 판정, 어택 30~90초, 자연 진정 30초, 강제 진정 10초 → [ghost-system.md](ghost-system.md). 활동도(0~100) 존치 여부만 G-5로 남음 |
+| D-11 | 시야 거리·각도, 달리기·걷기 소리 탐지 거리, 다중 플레이어 타깃 선정·변경 규칙 | 탐지 **방식**은 확정(원뿔 시야 + 이동 소리, 웅크리기 무음) / **수치 대기** → [ghost-system.md §13 G-3·G-4](ghost-system.md) |
+| D-12 | 청소·이사 작업 중 귀신 출현·어택 처리 | [ghost-system.md §13 G-11](ghost-system.md) → M8 예외 처리 |
+| D-13 | 두더지 스킬의 **사용 키·공통 판정 조건·쿨타임 수치** (MS-1·MS-2·MS-3) | [mole-skill-system.md §9](mole-skill-system.md) → 스킬 구현 착수 전체 |
+| D-14 | **청소·이사 작업 시스템**(얼룩·이동 대상 가구·진행도)의 정의 | 탐지 스킬(MS-5), 귀신 청소 40% 트리거([G-1](ghost-system.md)), 게임 루프(D-4) |
 
 ---
 
@@ -227,7 +255,31 @@
 | 2026-08-21 | MIG-6 가구·문 프리팹화 | `FurnitureCatalog` 도입, 가구 33종·문 3종을 프리팹 원본으로 통일. **같은 이름이 자리마다 다른 치수였던 4종을 회전으로 정리** |
 | 2026-08-21 | MIG-12 브랜치 규약 | `Feature/Prototype` → `feature/prototype` (로컬). 원격은 사용자 push 필요 |
 | 2026-08-21 | MIG-11 부분 — 결정 무관 항목 | `gh_game` 로비 키, 스폰 지점 점유 검사(난입자가 겹쳐 나오던 결함) |
+| 2026-08-23 | Game 집·침실 프리셋 축소 | `House_01` 평면 배율 ×2 → ×1.5, 프리셋 5.7 × 5.4m 재배치·전 조합 검증 |
+| 2026-08-23 | M8 유령 시스템 1차 기획 | 적대 AI 방향, 5상태, 정신력·활동도·어택·탐지·추적·연출·예외 처리 TBD 정리 |
+| 2026-08-23 | 유령 P1 프로토타입 | 서버 권위 5상태·동적 스폰·탐지·추격·수색·공격 판정 구현, F1 HUD 연결, Local Host 플레이 검증 |
+| 2026-08-23 | 정신력 시스템 v0.3 문서 반영 | 개인 0~100, 생존자 팀 평균, 어둠·이벤트·시체 감소, 디버프 임계값, 드릴 카 모니터 요구사항 정리 |
+| 2026-08-23 | 정신력 코어 P1 | 시작 100%, 서버 권위 개인 상태·팀 평균·어둠 누적·이벤트/시체/회복 API·디버프 상태·F1 HUD 구현 및 Local Host 검증 |
+| 2026-08-23 | 정신력 UI 초기 연결 | 개인/팀 정신력 게이지와 런타임 데이터 연결 검증 |
+| 2026-08-24 | 정신력 World Space 모니터 | 임시 화면 고정 HUD 제거, Game 후면에 개인/팀 게이지·정수 퍼센트 모니터 배치 |
+| 2026-08-24 | 정신력 4인 숫자 모니터 | 게이지 제거, P1~P4 전체 개인 정신력과 팀 평균 숫자 표시, 미접속 슬롯 흑백 처리 |
+| 2026-08-24 | 귀신·정신력 통합 (M8-GS-1a) | 귀신의 모의 정신력·설정 필드·`NetworkVariable` 제거, 귀신 HUD가 실제 팀 평균을 표시. 상태 전이는 임계값 확정까지 시간 기반 유지 |
+| 2026-08-24 | 정신력 테스트베드 | 집 서쪽에 시체 2구·귀신 이벤트 1개를 둔 임시 검증 공간. 서버 가시 판정(12m·70°·가림)으로 실제 감소 API 호출 |
+| 2026-08-24 | 카메라 노이즈 연출 (M8-GS-4a) | 정신력 20 이하에서 비네트·필름 그레인·색수차 Volume 을 켠다. Player 카메라 포스트 프로세싱 활성화 포함 |
+| 2026-08-30 | 귀신 시스템 기획서 1.0 반영 | 공통 5상태·강제 진정·정신력 80/60/30 구간·10초 어택 판정·30~90초 어택·7초 수색·은신처·드릴 카 세이프 존 확정. D-10 해결, 잔여 미결정 15건(G-1~15) 정리 → [ghost-system.md](ghost-system.md) |
+| 2026-08-30 | 귀신 프로토타입 재구현 (M8-GS-1b) | 기획서 1.0 기준 처음부터 작성. 팀 평균 정신력으로 5상태 + 강제 진정 전이, 10초 §7.3 확률 어택 판정, 원뿔 시야·소리 탐지, 추격→마지막 위치→7초 수색 AI, 잡힘→`ServerMarkDead()`. F1 HUD Host 전용 연결. EditMode 33건 추가(93 통과). 활동도(0~100) 제거(G-5) → [ghost-prototype.md](../architecture/ghost-prototype.md) |
+| 2026-08-30 | 귀신 Scene 뷰 식별 (M8-GS-10) | `GhostPrototype` 레이어와 파란 Gizmo 표식을 추가. 평상시 본체의 플레이어 카메라 비노출 정책은 유지하고, AI 레이캐스트에서 귀신 자신을 제외. EditMode 3건 통과 → [ghost-prototype.md](../architecture/ghost-prototype.md) |
+| 2026-08-31 | 두더지 스킬 기획 초안 반영 | 탐지(5초 표시)·굴착(최대 5초 은신 → 도약) 2종, 사용 자격·무제한 사용·종료 후 쿨타임 확정. **원문이 비어 있던 공통 판정 조건·제목·이미지**를 포함해 미결정 15건(MS-1~15) 정리, D-13·D-14 신설 → [mole-skill-system.md](mole-skill-system.md) |
+| 2026-08-31 | 굴착 스킬 프로토타입 구현 | 사용자 확정값(E 임시 키·4m 도약·낙하피해 없음·수직 고정·땅속 이동 불가·어디서든 가능·시전 임의·추격 중 진입 허용)으로 `MoleBurrowController` 구현. `PlayerMotor`에 이동 잠금·수직 발사 추가, 귀신 탐지에서 굴착 중 플레이어 제외(`SanityNetworkState.IsBurrowed`). `Player.prefab`에 컴포넌트 배선, `InputSystem_Actions`에 `Burrow` 액션 추가. EditMode 98/98 통과(회귀 없음). MS-7·MS-9 해소, MS-1·2·3·8·10·13 부분 진전 → [mole-skill-system.md](mole-skill-system.md) §8 |
+| 2026-08-31 | 굴착 스킬 카메라 연출 추가 | 굴착 시전~매몰 동안 카메라를 바닥 근처(0.15m)로 낮추고(`PlayerMotor.CameraHeightOverride`, 웅크리기와 같은 전환 속도) 화면 비네트를 켠다(`MoleBurrowCameraEffect` + 전용 Global Volume `PP_MoleBurrowVignette.asset`, 정신력 노이즈와 별개 프로필). 로컬 전용 `MoleBurrowController.IsActive`로 구동 — 귀신 탐지용 `IsBurrowed`(안전 여부)와는 분리. `ILocalPlayerContext`에 `BurrowController` 등록 추가. Game 씬에 설치 도구(`MoleBurrowPostProcessingSetup`, 메뉴 `GhostHunter/두더지 굴착 카메라 연출 설치`)로 배선. EditMode 98/98 통과. MS-8 완전 해소 → [mole-skill-system.md](mole-skill-system.md) §5.5·§6 |
+| 2026-08-31 | Volume 오버라이드 미저장 버그 수정 | 사용자가 "비네트에 오버라이드가 하나도 없다"고 보고 — `VolumeProfile.Add<T>()`만으로는 컴포넌트가 서브 에셋으로 저장되지 않고(`AssetDatabase.AddObjectToAsset` 누락) 도메인 리로드 후 조용히 사라지는 버그였다. `MoleBurrowPostProcessingSetup`·`SanityPostProcessingSetup` 둘 다 수정하고 `ValidateInstallation()`에 `AssetDatabase.Contains()` 재발 감지를 추가. **정신력 카메라 노이즈(M8-GS-4a)도 2026-08-24부터 같은 버그로 실제로는 적용되지 않고 있었다** — 재설치로 해결, 위 M8-GS-4a 행 갱신. EditMode 98/98 재확인 |
+| 2026-08-31 | 귀신 초자연현상 구현 | 사용자 확정값(전체 8종 프레임 / 소리 2종은 오디오 대기로 비활성 / 정신력 비연결)으로 `GhostPhenomenaDirector`(§6.4 선정 루프 — 평상시·활동에서만, 활성 Pool에서 직전 현상 제외 랜덤) + `GhostPhenomenaPlayer`(조명 점멸·환영 연출) 구현. 6종 활성: 물건 흔들기·작은 물건 떨어뜨리기(서버가 가구 Rigidbody 임펄스, ADR-0010) · 문 열고 닫기(`DoorInteractable.ServerForceToggle` 신규) · 서랍 열기(`GhostDrawer` 신규, 씬 배선) · 조명 깜빡임/끄기(`GhostAmbientLight` 마커) · 귀신 일시 출현. 서버가 `PlayPhenomenonRpc(kind,pos,seed)` 로 전 피어 연출 재생(§10). 발생 주기·반경·세기는 `GhostPrototypeSettings` 에 `[TBD] G-13` 노출. F1 HUD `Phenomena` 줄 + `현상 랜덤` + **8종 기능별 시험 버튼**(상태·주기 무관 즉시 실행). EditMode 115/115 통과(신규 11건), PlayMode 12/12 회귀 없음. M8-GS-2 는 정신력 연결(G-6)만 남음 → [ghost-prototype.md](../architecture/ghost-prototype.md) |
+| 2026-08-31 | 귀신 초자연현상 튜닝 + 이동/조준 정비 | (1) F1 HUD 접이식 정리 + `내 위치에 스폰`·`본체 보이기`(NetworkVariable) 토글. (2) 귀신 CharacterController 가 `Physics.IgnoreLayerCollision` 으로 Player·Furniture 통과 — 흔들기 방해 제거. (3) 흔들기 재작성: 반경 6m 내 Idle 가구 전체를 사인파 각속도(진폭 `ShakeTorque` 12, 9Hz)로 동시에 흔듦. (4) 떨어뜨리기 재작성: '작은 물건' 기준을 Light 등급 + 렌더러 바운즈 ≤ `SmallPropMaxSize`(0.45m)로 정의, 반경 내 전부를 질량 무관 `DropSpeed`(2.5m/s)로 튕김. (5) 좌클릭 가구 조준 `maxTargetDistance` 12→2m. (6) **달리기 구현** — `Sprint`(Left Shift) 입력, `PlayerMoveSettings.sprintMultiplier` 1.4× (5→7 m/s), 웅크림 중엔 무효 (`PlayerMotor.ResolveMoveSpeed`). EditMode 115/115. **미결: 귀신 `RunSpeedThreshold`(4.5) < 걷기(5)라 걷기/달리기 소리 구분 안 됨 → G-4 재튜닝 필요** |
+| 2026-08-31 | 드릴 카 세이프 존 임시 구현 | 정식 드릴 카 없이 `DrillCarSafeZone`(순수 MonoBehaviour + 정적 레지스트리, 씬 고정 상자) 하나를 현관 앞에 둔다 — 설치 도구가 `House_01` 현관문 남쪽으로 역산 배치(`Game/DrillCarSafeZone_Temp`, 4.5×3×5, 스케일 1). 서버 `TryDetectPlayer`/`TryCatch` 가 `DrillCarSafeZone.Contains` 로 그 안의 플레이어를 탐지·잡힘에서 제외. 다른 플레이어 어택·귀신 상태·타이머는 불변. §11.1 세부(전원 이탈 타이머·재진입 처리)는 미구현. `ValidateInstallation()` 에 존재 검사 추가. EditMode 115/115 → [ghost-prototype.md](../architecture/ghost-prototype.md) |
+| 2026-08-31 | 초자연현상 목격 → 정신력 연결 (M8-GS-2, G-6 해결) | 사용자 확정(종류 불문 목격 시 적용, 감소량 15 — `SanitySystemSettings.GhostEventDecrease` 10→15). `GhostPrototypeController.ServerCheckPhenomenonWitnessed` 신규 — 현상 발생마다 생존·비굴착 플레이어 전원의 목격 여부(거리 `PhenomenonWitnessDistance` 12m·각도 `PhenomenonWitnessAngle` 70°·가림, `GhostVision.IsInsideCone` 재사용, 서버는 카메라 피치를 모르므로 요만 판정)를 확인해 `SanityNetworkState.ServerApplyGhostEventWitnessed()` 호출. `GhostPrototypeSettings`·`SanitySystemSettings` 두 기본 에셋을 `manage_scriptable_object` 로 갱신(YAML 손편집 없음). 값 변경으로 깨진 기존 테스트 2건(`SanityStateTests`) 수정 — 디버프 경계 테스트는 감소량에 결합되지 않도록 `TickDarkness` 기반으로 재작성. EditMode 115/115 통과 → [ghost-prototype.md §4·§5](../architecture/ghost-prototype.md), [sanity-system.md §4.2](sanity-system.md) |
+| 2026-08-31 | 일반 은신처 임시 구현 (G-8 판정 시점만) | 사용자 확정: "수색 중 은신처 최초 접근 시 1회만" 30%[임시] 검사, **주기·재검사 여부는 여전히 미정**. `HidingSpot`(신규, `Ghost/HidingSpot.cs`) — 정식 가구가 아직 없어 종류를 구분하지 않고 순수 상자 하나로 통일, `DrillCarSafeZone`과 같은 정적 레지스트리 패턴. `GhostPrototypeController` — `TryDetectPlayer`/`TryCatch` 양쪽에서 은신처 안의 플레이어를 제외, `Pursuit.Search` 중 `ServerTickHidingSpots`가 반경(`HidingSpotCheckRadius` 2.5m) 안 미확인 은신처를 발견 즉시 1회 소모하며 30%(`HidingSpotCheckChance`) 판정 → 성공 시 `ServerMarkDead()`. 씬 배치는 `GhostPrototypeSetup.InstallHidingSpots`가 방 바닥 앵커(`Bedroom_01_A_Floor` 등 4개)에서 위치·크기를 역산해 `HidingSpots_Temp`에 침실1·침실2·거실·창고 4개 생성, `ValidateInstallation()`에 존재 검사 추가. EditMode 118/118 통과(신규 `HidingSpotTests` 3건 — 정적 레지스트리는 Play Mode 전용 생명주기라 EditMode 검증 대상 아님, `DrillCarSafeZone`과 동일 관례), PlayMode 12/12 회귀 없음. **알려진 한계**: 기존 귀신 배회 경계 버그로 침실 은신처 2개는 경계 가장자리에 걸림(경계 자체는 이 작업 범위 밖) → [ghost-prototype.md §4·§6](../architecture/ghost-prototype.md), [ghost-system.md §9.5·§13 G-8](ghost-system.md) |
+| 2026-08-31 | 걷기 소리 탐지 반경 6m 확정 (G-4 부분 해결) | `GhostPrototypeSettings.RunSpeedThreshold` 4.5→6m/s로 조정해 걷기 5m/s는 `WalkHearingRadius` 6m, 달리기 7m/s는 `RunHearingRadius` 12m로 분리. 웅크리기는 기존 명시적 무음 유지. 기본 에셋은 Unity MCP `manage_scriptable_object`로 저장했고 EditMode 119/119 통과. 달리기 반경·어택 외 상태 적용 여부는 G-4 잔여 |
 
 ---
 
-최종 갱신: 2026-08-21
+최종 갱신: 2026-08-31 (걷기 소리 탐지 반경 6m 확정 — G-4 부분 해결. 달리기 반경·어택 외 상태 적용 여부는 잔여)

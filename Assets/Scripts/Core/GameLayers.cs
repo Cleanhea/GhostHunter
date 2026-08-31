@@ -10,25 +10,34 @@ namespace GhostHunter.Core
     {
         public const string PlayerName = "Player";
         public const string FurnitureName = "Furniture";
+        public const string GhostPrototypeName = "GhostPrototype";
 
         /// <summary>Project Settings > Tags and Layers 에 아직 만들지 않았으면 -1.</summary>
         public static int Player { get; private set; }
         public static int Furniture { get; private set; }
+        public static int GhostPrototype { get; private set; }
 
         /// <summary>가구 타겟팅 레이캐스트용 마스크. 레이어가 없으면 0(아무것도 안 맞음).</summary>
         public static LayerMask FurnitureMask { get; private set; }
+
+        /// <summary>귀신 자신을 제외해야 하는 AI 레이캐스트용 마스크.</summary>
+        public static LayerMask NonGhostPrototypeRaycastMask { get; private set; }
 
         static GameLayers()
         {
             Player = LayerMask.NameToLayer(PlayerName);
             Furniture = LayerMask.NameToLayer(FurnitureName);
+            GhostPrototype = LayerMask.NameToLayer(GhostPrototypeName);
 
             FurnitureMask = Furniture >= 0 ? 1 << Furniture : 0;
+            int ghostPrototypeMask = GhostPrototype >= 0 ? 1 << GhostPrototype : 0;
+            NonGhostPrototypeRaycastMask = Physics.DefaultRaycastLayers & ~ghostPrototypeMask;
 
             // 레이어를 만들기 전에 조용히 동작하면 "레이캐스트가 아무것도 안 맞는" 원인을
             // 찾느라 시간을 버린다. 시작할 때 한 번 크게 알린다.
             WarnIfMissing(Player, PlayerName);
             WarnIfMissing(Furniture, FurnitureName);
+            WarnIfMissing(GhostPrototype, GhostPrototypeName);
         }
 
         private static void WarnIfMissing(int layer, string name)

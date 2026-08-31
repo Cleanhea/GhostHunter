@@ -1,9 +1,12 @@
 using GhostHunter.Core;
 using GhostHunter.Core.Networking;
 using GhostHunter.Core.Steam;
+using GhostHunter.Gameplay.Ghost;
+using GhostHunter.Gameplay.Sanity;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.SceneManagement;
 
 namespace GhostHunter.DebugTools
 {
@@ -11,6 +14,8 @@ namespace GhostHunter.DebugTools
     /// 개발용 접속 HUD. 일부러 IMGUI로 만들었다 — 씬에 Canvas/버튼을 배치하지 않아도
     /// 컴포넌트만 붙이면 바로 테스트할 수 있어야 하기 때문이다.
     /// 실제 로비 UI가 생기면 이 파일은 삭제한다.
+    ///
+    /// 섹션은 접이식이다. 지금 시험하는 것만 펼쳐서 화면을 어지럽히지 않는다.
     /// </summary>
     [DisallowMultipleComponent]
     public class ConnectionHud : MonoBehaviour
@@ -23,8 +28,18 @@ namespace GhostHunter.DebugTools
         private string _lastStatus = "대기 중";
         private IConnectionService _connection;
         private ISteamLobbyService _lobby;
+        private ISanityDebug _sanityDebug;
+        private IGhostDebug _ghostDebug;
+
+        private Vector2 _scroll;
+        private bool _showConnection = true;
+        private bool _showSanity;
+        private bool _showGhost = true;
+        private bool _showPhenomena;
+
         private GUIStyle _boxStyle;
         private GUIStyle _richLabelStyle;
+        private GUIStyle _headerStyle;
 
         private void Awake()
         {
@@ -39,6 +54,10 @@ namespace GhostHunter.DebugTools
 
             if (_lobby != null)
                 _lobby.StatusChanged += HandleStatus;
+
+            SceneManager.sceneLoaded += HandleSceneLoaded;
+            SceneManager.sceneUnloaded += HandleSceneUnloaded;
+            ResolveSceneServices();
         }
 
         private void OnDestroy()
@@ -48,6 +67,9 @@ namespace GhostHunter.DebugTools
 
             if (_lobby != null)
                 _lobby.StatusChanged -= HandleStatus;
+
+            SceneManager.sceneLoaded -= HandleSceneLoaded;
+            SceneManager.sceneUnloaded -= HandleSceneUnloaded;
         }
 
         private void Update()
@@ -72,20 +94,31 @@ namespace GhostHunter.DebugTools
 
             EnsureStyles();
 
-            GUILayout.BeginArea(new Rect(10, 10, 340, 400), GUIContent.none, _boxStyle);
+            float height = Mathf.Min(760f, Screen.height - 20f);
+            GUILayout.BeginArea(new Rect(10, 10, 380, height), GUIContent.none, _boxStyle);
 
-            GUILayout.Label($"<b>GhostHunter 접속 HUD</b>  ({_toggleKey} 로 토글)", _richLabelStyle);
-            GUILayout.Space(6);
+            GUILayout.Label($"<b>GhostHunter 접속 HUD</b>   ({_toggleKey})", _richLabelStyle);
+            DrawStatusLines();
 
-            DrawSteamSection();
-            GUILayout.Space(6);
-            DrawSessionSection();
-            GUILayout.Space(6);
-            DrawButtons();
+            GUILayout.Space(4);
+            _scroll = GUILayout.BeginScrollView(_scroll);
 
-            GUILayout.Space(8);
-            GUILayout.Label("상태:", GUI.skin.label);
-            GUILayout.Label(_lastStatus, GUI.skin.textArea, GUILayout.MinHeight(44));
+            _showConnection = SectionHeader("연결 · 세션", _showConnection);
+            if (_showConnection)
+                DrawConnectionBody();
+
+            _showSanity = SectionHeader(SectionTitle("정신력", _sanityDebug != null), _showSanity);
+            if (_showSanity)
+                DrawSanityBody();
+
+            _showGhost = SectionHeader(SectionTitle("귀신 프로토타입", _ghostDebug != null), _showGhost);
+            if (_showGhost)
+                DrawGhostBody();
+
+            GUILayout.EndScrollView();
+
+            GUILayout.Space(4);
+            GUILayout.Label(_lastStatus, GUI.skin.textArea, GUILayout.MinHeight(38));
 
             GUILayout.EndArea();
         }
@@ -110,49 +143,59 @@ namespace GhostHunter.DebugTools
             {
                 richText = true,
             };
+
+            _headerStyle = new GUIStyle(GUI.skin.button)
+            {
+                alignment = TextAnchor.MiddleLeft,
+                fontStyle = FontStyle.Bold,
+                richText = true,
+                margin = new RectOffset(0, 0, 3, 1),
+            };
         }
 
-        private void DrawSteamSection()
-        {
-            if (_lobby == null)
-            {
-                GUILayout.Label("Steam: SteamLobbyManager 없음");
-                return;
-            }
+        private static string SectionTitle(string name, bool ready) => ready ? name : name + "  (씬 없음)";
 
-            if (!_lobby.IsSteamReady)
+        private bool SectionHeader(string title, bool open)
+        {
+            if (GUILayout.Button((open ? "▼  " : "▶  ") + title, _headerStyle))
+                open = !open;
+
+            return open;
+        }
+
+        /// <summary>항상 보이는 Steam·세션 요약 두어 줄.</summary>
+        private void DrawStatusLines()
+        {
+            if (_lobby == null || !_lobby.IsSteamReady)
             {
-                GUILayout.Label("Steam: <color=#ff6b6b>미초기화</color> (Steam 클라이언트 확인)",
+                GUILayout.Label(
+                    _lobby == null
+                        ? "Steam: 매니저 없음"
+                        : "Steam: <color=#ff6b6b>미초기화</color>",
                     _richLabelStyle);
-                return;
+            }
+            else
+            {
+                GUILayout.Label(_lobby.IsInLobby
+                    ? $"Steam: {_lobby.LocalName} · 로비 {_lobby.CurrentRoomCode} ({_lobby.GetMembers().Count})"
+                    : $"Steam: {_lobby.LocalName} · 로비 없음");
             }
 
-            GUILayout.Label($"Steam: {_lobby.LocalName}  ({_lobby.LocalSteamId})");
-            GUILayout.Label(_lobby.IsInLobby
-                ? $"로비: {_lobby.CurrentRoomCode}  인원 {_lobby.GetMembers().Count}"
-                : "로비: 없음");
-        }
-
-        private void DrawSessionSection()
-        {
             NetworkManager net = NetworkManager.Singleton;
-
             if (net == null)
             {
-                GUILayout.Label("NetworkManager 없음");
+                GUILayout.Label("세션: NetworkManager 없음");
                 return;
             }
 
             string role = net.IsHost ? "Host" : net.IsServer ? "Server" : net.IsClient ? "Client" : "정지";
-            GUILayout.Label($"세션: {role}");
-
-            if (net.IsServer)
-                GUILayout.Label($"접속 클라이언트: {net.ConnectedClientsIds.Count}");
-            else if (net.IsClient)
-                GUILayout.Label($"내 ClientId: {net.LocalClientId}");
+            string detail = net.IsServer
+                ? $"접속 {net.ConnectedClientsIds.Count}"
+                : net.IsClient ? $"ClientId {net.LocalClientId}" : "—";
+            GUILayout.Label($"세션: {role} · {detail}");
         }
 
-        private void DrawButtons()
+        private void DrawConnectionBody()
         {
             if (_connection == null)
             {
@@ -162,25 +205,20 @@ namespace GhostHunter.DebugTools
 
             bool running = _connection.IsRunning;
 
-            GUILayout.BeginHorizontal();
             GUI.enabled = !running;
-            if (GUILayout.Button($"모드: {_connection.Mode}"))
+            if (GUILayout.Button($"모드 전환 (현재: {_connection.Mode})"))
             {
                 _connection.SetTransportMode(
                     _connection.Mode == TransportMode.Steam ? TransportMode.Local : TransportMode.Steam);
             }
-            GUI.enabled = true;
-            GUILayout.EndHorizontal();
 
             GUILayout.BeginHorizontal();
-            GUI.enabled = !running;
             if (GUILayout.Button("Host"))
                 _connection.StartHost();
-
             if (GUILayout.Button("Join (로컬)"))
                 _connection.StartLocalClient();
-            GUI.enabled = true;
             GUILayout.EndHorizontal();
+            GUI.enabled = true;
 
             GUILayout.BeginHorizontal();
             GUI.enabled = _lobby != null && _lobby.IsInLobby;
@@ -191,6 +229,147 @@ namespace GhostHunter.DebugTools
                 _connection.Disconnect();
             GUI.enabled = true;
             GUILayout.EndHorizontal();
+        }
+
+        private void DrawSanityBody()
+        {
+            if (_sanityDebug == null)
+            {
+                GUILayout.Label("Game 씬의 정신력 서비스가 아직 없습니다.");
+                return;
+            }
+
+            GUILayout.Label(_sanityDebug.StatusSummary, GUI.skin.textArea);
+
+            GUI.enabled = _sanityDebug.CanControl;
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("어둠 ON/OFF"))
+                _sanityDebug.ToggleLocalDarkness();
+            if (GUILayout.Button("귀신 이벤트 -10"))
+                _sanityDebug.ApplyLocalGhostEvent();
+            if (GUILayout.Button("아이템 +10"))
+                _sanityDebug.RestoreLocalSanity();
+            GUILayout.EndHorizontal();
+
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("새 시체 -20"))
+                _sanityDebug.WitnessNewCorpse();
+            if (GUILayout.Button("같은 시체 재목격"))
+                _sanityDebug.WitnessSameCorpse();
+            GUILayout.EndHorizontal();
+
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("사망 처리"))
+                _sanityDebug.MarkLocalPlayerDead();
+            if (GUILayout.Button("스테이지 리셋"))
+                _sanityDebug.ResetLocalPlayerForStage();
+            GUILayout.EndHorizontal();
+            GUI.enabled = true;
+
+            GUILayout.Label(_sanityDebug.LastStatus, GUI.skin.label);
+        }
+
+        private void DrawGhostBody()
+        {
+            if (_ghostDebug == null)
+            {
+                GUILayout.Label("Game 씬의 귀신 서비스가 아직 없습니다.");
+                return;
+            }
+
+            GUILayout.Label(_ghostDebug.StatusSummary, GUI.skin.textArea);
+
+            GUI.enabled = _ghostDebug.CanControl;
+
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button(_ghostDebug.HasGhost ? "귀신 제거" : "귀신 스폰"))
+            {
+                if (_ghostDebug.HasGhost)
+                    _ghostDebug.DespawnGhost();
+                else
+                    _ghostDebug.SpawnGhost();
+            }
+
+            bool noGhost = !_ghostDebug.HasGhost;
+            GUI.enabled = _ghostDebug.CanControl && noGhost;
+            if (GUILayout.Button("내 위치에 스폰"))
+                _ghostDebug.SpawnGhostAtPlayer();
+            GUI.enabled = _ghostDebug.CanControl;
+            GUILayout.EndHorizontal();
+
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("활동 강제"))
+                _ghostDebug.ToggleForceActive();
+            if (GUILayout.Button(_ghostDebug.IsGhostForcedVisible ? "본체 숨기기" : "본체 보이기"))
+                _ghostDebug.ToggleGhostVisible();
+            GUILayout.EndHorizontal();
+
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("어택 강제"))
+                _ghostDebug.ForceSpecialAttack();
+            if (GUILayout.Button("강제 진정"))
+                _ghostDebug.ForceSuppression();
+            GUILayout.EndHorizontal();
+
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("청소 +10%"))
+                _ghostDebug.AddCleaningProgress(10);
+            if (GUILayout.Button("청소 리셋"))
+                _ghostDebug.ResetCleaningProgress();
+            GUILayout.EndHorizontal();
+
+            _showPhenomena = SectionHeader("초자연현상 (§6)", _showPhenomena);
+            if (_showPhenomena)
+                DrawPhenomenonButtons();
+
+            GUI.enabled = true;
+
+            GUILayout.Label(_ghostDebug.LastStatus, GUI.skin.label);
+        }
+
+        private static readonly (GhostPhenomenonKind Kind, string Label)[] PhenomenonButtons =
+        {
+            (GhostPhenomenonKind.ObjectShake, "1 흔들기"),
+            (GhostPhenomenonKind.SmallObjectDrop, "2 떨어뜨림"),
+            (GhostPhenomenonKind.DoorMove, "3 문"),
+            (GhostPhenomenonKind.DrawerOpen, "4 서랍"),
+            (GhostPhenomenonKind.LightFlicker, "5 조명"),
+            (GhostPhenomenonKind.WallKnock, "6 두드림"),
+            (GhostPhenomenonKind.Footsteps, "7 발소리"),
+            (GhostPhenomenonKind.Apparition, "8 출현"),
+        };
+
+        private void DrawPhenomenonButtons()
+        {
+            GUILayout.Label("상태·주기 무관 즉시 실행 · 귀신 반경 6m · 6·7 무음(오디오 대기)",
+                GUI.skin.label);
+
+            if (GUILayout.Button("랜덤 (직전 제외 Pool)"))
+                _ghostDebug.ForcePhenomenon();
+
+            const int perRow = 4;
+            for (int i = 0; i < PhenomenonButtons.Length; i++)
+            {
+                if (i % perRow == 0)
+                    GUILayout.BeginHorizontal();
+
+                (GhostPhenomenonKind kind, string label) = PhenomenonButtons[i];
+                if (GUILayout.Button(label))
+                    _ghostDebug.ForcePhenomenon(kind);
+
+                if (i % perRow == perRow - 1 || i == PhenomenonButtons.Length - 1)
+                    GUILayout.EndHorizontal();
+            }
+        }
+
+        private void HandleSceneLoaded(Scene scene, LoadSceneMode mode) => ResolveSceneServices();
+
+        private void HandleSceneUnloaded(Scene scene) => ResolveSceneServices();
+
+        private void ResolveSceneServices()
+        {
+            Services.TryGet(out _sanityDebug);
+            Services.TryGet(out _ghostDebug);
         }
     }
 }

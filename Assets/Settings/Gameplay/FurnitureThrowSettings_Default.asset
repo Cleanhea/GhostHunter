@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f44522bf6d7de644ab7b60467154022a, type: 3}
   m_Name: FurnitureThrowSettings_Default
   m_EditorClassIdentifier: GhostHunter.Runtime::GhostHunter.Furniture.FurnitureThrowSettings
-  _maxTargetDistance: 12
+  _maxTargetDistance: 2
   _maxHoldDistance: 15
   _hoverDistance: 3
   _springStiffness: 60

@@ -47,6 +47,9 @@ GhostHunter — 1인칭 멀티플레이 "가구 던지기" 게임.
 | 플레이어 이동·시점·입력 | `docs/architecture/player-controller.md` |
 | 잡기·부양·발사 | `docs/architecture/throw-system.md` |
 | 가구 물리·아웃라인 | `docs/architecture/furniture-physics.md` |
+| 귀신 상태·어택·탐지·추격 | `docs/project/ghost-system.md`, `docs/architecture/ghost-prototype.md` |
+| 정신력 | `docs/project/sanity-system.md`, `docs/architecture/sanity-system.md` |
+| 플레이어 스킬(탐지·굴착) | `docs/project/mole-skill-system.md` — **초안. 미결정 15건(MS-1~15)** |
 | 맵·방 프리셋·스폰 포인트 | `docs/architecture/map-generation.md` |
 | C# 코드 작성 / 리팩터링 | `docs/conventions/code-style.md` |
 | 프리팹·씬·ScriptableObject·에셋 | `docs/conventions/unity-assets.md` |
@@ -102,7 +105,7 @@ GhostHunter — 1인칭 멀티플레이 "가구 던지기" 게임.
 - **예외는 플레이어 이동 하나뿐**(소유자 권위) → [ADR-0008](docs/architecture/decisions/ADR-0008-owner-authoritative-player-movement.md).
   새 예외를 만들려면 ADR이 필요하다.
 - **던질 수 있는 가구는 씬에 배치된 실제 가구다.** 런타임 스폰하지 않는다 → [ADR-0009](docs/architecture/decisions/ADR-0009-scene-placed-level-objects.md)
-- **맵은 `HousePrototypeBuilder.MapScale`(현재 ×2)로 평면(X·Z)만 넓힌다.** 배율은 **좌표에만** 곱한다 —
+- **맵은 `HousePrototypeBuilder.MapScale`(현재 ×1.5)로 평면(X·Z)만 넓힌다.** 배율은 **좌표에만** 곱한다 —
   트랜스폼 스케일을 쓰면 개구부 폭과 벽 높이까지 늘어난다. 벽 높이·두께·문 폭·창 크기·붙박이·계단·가구·
   플레이어·투척 수치는 배율을 받지 않는다. **씬의 어떤 오브젝트도 스케일이 1이 아니면 안 된다.**
 - **침실 2칸은 프리셋이 자동으로 채운다.** `Room_Presets` A·B·C 중 둘을 서버가 중복 없이 뽑아
@@ -131,7 +134,7 @@ Assets/
 ├─ Scripts/    Core / Data / Gameplay / Networking / UI / Systems / DebugTools / Editor
 │              런타임 7개 + Editor 1개 asmdef로 분리됨
 ├─ Prefabs/    Player, Furniture/(가구 33종), Map/(문 3종), UI_*
-├─ Settings/   URP 에셋, Gameplay SO
+├─ Settings/   URP 에셋, Gameplay SO, PostProcessing/(정신력 노이즈 Volume 프로필)
 ├─ Materials/  Shaders/  Tests/(미생성)
 ```
 
@@ -174,6 +177,11 @@ Bootstrap 이 `Title` 을 additive 로 올린다.
 
 **단독 플레이 (Steam 없이):** `Bootstrap.unity`에서 플레이 → **F1** 접속 HUD → 모드 `Local` → **Host**.
 HUD 로 바꾼 모드는 저장하지 않는다. 저장하면 릴리스 빌드가 `TransportModeBuildGuard` 에 막힌다.
+
+**정신력 감소 확인:** 집 **서쪽**(`Game/SanityTestbed`)에 시체 2구와 귀신 이벤트를 둔 임시 칸이 있다.
+칸 안으로 들어가 소품을 바라보면 서버가 목격을 판정해 정신력이 줄고, 20 이하가 되면 화면 테두리
+노이즈가 켜진다. 임시 공간이라 정식 시스템이 생기면 삭제한다 →
+[docs/architecture/sanity-system.md §7](docs/architecture/sanity-system.md)
 
 > ⚠️ **씬 생성 도구를 함부로 재실행하지 않는다.** `GhostHunter > 프로토타입 게임 생성`은
 > `Game` 씬을 **처음부터 다시 만든다.** 방에 손으로 배치한 가구가 사라진다(도구는 방을 비운 채 집을 만든다).

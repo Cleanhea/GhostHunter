@@ -114,17 +114,17 @@ if (!IsServer) {
 | `House_01/Walls_Doors_Windows` | 외벽·내벽·창, 여닫이 문 5개 |
 | `House_01/Fixtures` | 붙박이(카운터·위생도기). 정적 콜라이더 |
 | `House_01/PhysicsFurniture` | 손으로 배치한 가구가 들어갈 자리. **생성 직후에는 비어 있다** |
-| `House_01/RoomSlots` | 침실 슬롯 2개. 방 중심(바닥면), 회전 없음 |
+| `House_01/RoomSlots` | 5.7 × 5.4m 침실 슬롯 2개. 방 중심(바닥면), 회전 없음 |
 | `Furniture_Library/Items` | **던질 수 있는 가구 21종**을 종류별 하나씩 일렬로. 복붙용 원본 |
 | `Furniture_Library/Ground` | 라이브러리 받침 바닥 |
 | `Room_Presets/BedroomPreset_A·B·C` | 침실 프리셋 3종(집 남쪽 바깥). 세션 시작 시 둘이 슬롯으로 간다 |
 | `RoomSlotAssigner` | 서버가 프리셋을 중복 없이 뽑아 슬롯에 배치 ([09](map-generation.md)) |
 | `House_01_OriginalScale_Right` | 도면 치수 그대로(배율 ×1) 지은 비교용 집. 집 동쪽 3m 옆 |
-| `House_01_OriginalScale_Right/PhysicsFurniture` | **여기는 생성 도구가 가구를 깔아 둔다** (28개) |
-| `PlayerSpawnPoints` | 빈 오브젝트 2개 |
+| `House_01_OriginalScale_Right/PhysicsFurniture` | **여기는 생성 도구가 가구를 깔아 둔다** (29개) |
+| `PlayerSpawnPoints` | 빈 오브젝트 4개 |
 | `FurnitureReset` | 개발용. 호스트가 `R`을 누르면 가구를 초기 위치로 되돌린다 |
 
-`FurnitureReset`은 라이브러리 21종 + 프리셋 40개 + 비교용 집 28개를 모두 들고 있다.
+`FurnitureReset`은 현재 씬 기준 라이브러리 21종 + 프리셋 34개 + 비교용 집 29개를 모두 들고 있다.
 프리셋이 슬롯으로 옮겨진 **뒤에** `CapturePoses()`가 다시 불려서, `R`은 전시 자리가 아니라
 배치된 방으로 되돌린다.
 
@@ -201,4 +201,4 @@ heavy는 혼자 던지면 `heavySoloMultiplier`만큼 약해진다 ([05-throw-sy
 
 ---
 
-최종 갱신: 2026-08-19
+최종 갱신: 2026-08-23

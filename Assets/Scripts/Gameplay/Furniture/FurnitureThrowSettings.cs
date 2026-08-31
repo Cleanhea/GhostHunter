@@ -8,7 +8,8 @@ namespace GhostHunter.Gameplay.Furniture
     public sealed class FurnitureThrowSettings : ScriptableObject
     {
         [Header("타겟팅 / 홀드")]
-        [SerializeField, Min(0.1f)] private float _maxTargetDistance = 12f;
+        [Tooltip("좌클릭으로 가구를 조준·붙잡을 수 있는 최대 거리(m).")]
+        [SerializeField, Min(0.1f)] private float _maxTargetDistance = 2f;
         [SerializeField, Min(0.1f)] private float _maxHoldDistance = 15f;
         [SerializeField, Min(0.1f)] private float _hoverDistance = 3f;
 

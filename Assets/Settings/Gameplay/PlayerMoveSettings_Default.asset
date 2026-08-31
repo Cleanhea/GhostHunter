@@ -13,8 +13,15 @@ MonoBehaviour:
   m_Name: PlayerMoveSettings_Default
   m_EditorClassIdentifier: GhostHunter.Runtime::GhostHunter.Player.PlayerMoveSettings
   _moveSpeed: 5
+  _crouchMoveSpeed: 3.5
+  _sprintMultiplier: 1.4
   _airControl: 0.4
   _jumpHeight: 1.2
   _gravity: -20
+  _standingHeight: 1.8
+  _crouchHeight: 1.2
+  _standingCameraHeight: 1.65
+  _crouchCameraHeight: 1.05
+  _postureTransitionSpeed: 4
   _mouseSensitivity: 0.1
   _pitchLimit: 89

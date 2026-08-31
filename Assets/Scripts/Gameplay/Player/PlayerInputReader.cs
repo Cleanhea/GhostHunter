@@ -20,6 +20,9 @@ namespace GhostHunter.Gameplay.Player
         private InputAction _jumpAction;
         private InputAction _attackAction;
         private InputAction _interactAction;
+        private InputAction _crouchAction;
+        private InputAction _sprintAction;
+        private InputAction _burrowAction;
         private bool _jumpQueued;
 
         public Vector2 Move { get; private set; }
@@ -27,6 +30,16 @@ namespace GhostHunter.Gameplay.Player
         public bool AttackPressedThisFrame { get; private set; }
         public bool AttackReleasedThisFrame { get; private set; }
         public bool InteractPressedThisFrame { get; private set; }
+        public bool CrouchHeld { get; private set; }
+
+        /// <summary>달리기 입력(기본 Left Shift). 유지하는 동안 참.</summary>
+        public bool SprintHeld { get; private set; }
+
+        /// <summary>
+        /// 굴착 스킬 토글 입력(§5.3) — 한 번 누르면 진입, 진입/유지 중 다시 누르면 즉시 종료.
+        /// 키는 사용자 확정 R이며 Interact(E)와 분리된다 → 두더지 스킬 시스템 기획서(mole-skill-system.md).
+        /// </summary>
+        public bool BurrowPressedThisFrame { get; private set; }
 
         public override void OnNetworkSpawn()
         {
@@ -49,6 +62,9 @@ namespace GhostHunter.Gameplay.Player
             _jumpAction = _runtimeActions.FindAction("Player/Jump", true);
             _attackAction = _runtimeActions.FindAction("Player/Attack", true);
             _interactAction = _runtimeActions.FindAction("Player/Interact", true);
+            _crouchAction = _runtimeActions.FindAction("Player/Crouch", true);
+            _sprintAction = _runtimeActions.FindAction("Player/Sprint", true);
+            _burrowAction = _runtimeActions.FindAction("Player/Burrow", true);
             _runtimeActions.Enable();
         }
 
@@ -60,6 +76,8 @@ namespace GhostHunter.Gameplay.Player
             _runtimeActions.Disable();
             Destroy(_runtimeActions);
             _runtimeActions = null;
+            CrouchHeld = false;
+            SprintHeld = false;
         }
 
         private void Update()
@@ -71,10 +89,13 @@ namespace GhostHunter.Gameplay.Player
             Look = _lookAction.ReadValue<Vector2>();
             AttackPressedThisFrame = _attackAction.WasPressedThisFrame();
             AttackReleasedThisFrame = _attackAction.WasReleasedThisFrame();
+            CrouchHeld = _crouchAction.IsPressed();
+            SprintHeld = _sprintAction.IsPressed();
 
             // Interact 액션에는 Hold Interaction 이 붙어 있지만, WasPressedThisFrame 은
             // Interaction 의 phase 가 아니라 컨트롤이 눌린 순간을 보므로 탭이 씹히지 않는다.
             InteractPressedThisFrame = _interactAction.WasPressedThisFrame();
+            BurrowPressedThisFrame = _burrowAction.WasPressedThisFrame();
 
             if (_jumpAction.WasPressedThisFrame())
                 _jumpQueued = true;

@@ -1,5 +1,7 @@
 using GhostHunter.Core.Player;
+using GhostHunter.Gameplay.Ghost;
 using GhostHunter.Gameplay.Player;
+using GhostHunter.Gameplay.Sanity;
 using UnityEngine;
 
 namespace GhostHunter.Systems.Installers
@@ -10,6 +12,8 @@ namespace GhostHunter.Systems.Installers
     public sealed class GameInstaller : SceneInstaller
     {
         [SerializeField] private PlayerSpawnRegistry _playerSpawns;
+        [SerializeField] private SanityTeamService _sanityTeam;
+        [SerializeField] private GhostPrototypeSpawner _ghostSpawner;
 
         private readonly LocalPlayerContext _localPlayer = new();
 
@@ -17,6 +21,9 @@ namespace GhostHunter.Systems.Installers
         {
             Bind<IPlayerSpawnRegistry>(_playerSpawns);
             Bind<ILocalPlayerContext>(_localPlayer);
+            Bind<ISanityTeamService>(_sanityTeam);
+            Bind<ISanityDebug>(_sanityTeam);
+            Bind<IGhostDebug>(_ghostSpawner);
         }
     }
 }

@@ -172,6 +172,10 @@ namespace GhostHunter.EditorTools
 
             FurnitureCatalog catalog = BakeFurniturePrefabs(palette, housePhysics);
             CreatePrototypeScene(palette, catalog);
+            SanitySystemSetup.InstallIntoActiveGameScene(false);
+            SanityPostProcessingSetup.InstallIntoActiveGameScene(false);
+            SanityTestbedSetup.InstallIntoActiveGameScene(false);
+            GhostPrototypeSetup.InstallIntoActiveGameScene(false);
 
             if (AssetDatabase.LoadAssetAtPath<MonoScript>("Assets/Scripts/Temp.cs") != null)
                 AssetDatabase.DeleteAsset("Assets/Scripts/Temp.cs");
@@ -195,6 +199,161 @@ namespace GhostHunter.EditorTools
             SetupPrototype();
         }
 
+        /// <summary>
+        /// Game 씬의 수동 배치 루트는 보존하면서 게임플레이 집과 침실 프리셋만 현재
+        /// <see cref="HousePrototypeBuilder.GameplayMapScale"/> 기준으로 다시 만든다.
+        /// </summary>
+        [MenuItem("GhostHunter/Resize Gameplay House And Room Presets", priority = 2)]
+        public static void ResizeGameplayHouseAndRoomPresets()
+        {
+            if (EditorApplication.isPlayingOrWillChangePlaymode)
+                throw new InvalidOperationException("Exit Play Mode before resizing the Game scene.");
+
+            Scene scene = SceneManager.GetActiveScene();
+            if (scene.path != ScenePath)
+            {
+                throw new InvalidOperationException(
+                    $"Open {ScenePath} before resizing the gameplay house. " +
+                    $"The active scene is '{scene.path}'.");
+            }
+
+            Transform gameplayHouse = null;
+            Transform roomPresets = null;
+            Transform originalScaleHouse = null;
+            Transform furnitureLibrary = null;
+            Transform spawnRoot = null;
+            Transform overviewCamera = null;
+            FurnitureResetter resetter = null;
+            RoomSlotAssigner assigner = null;
+
+            foreach (GameObject root in scene.GetRootGameObjects())
+            {
+                switch (root.name)
+                {
+                    case "House_01":
+                        gameplayHouse = root.transform;
+                        break;
+                    case "Room_Presets":
+                        roomPresets = root.transform;
+                        break;
+                    case "House_01_OriginalScale_Right":
+                        originalScaleHouse = root.transform;
+                        break;
+                    case "Furniture_Library":
+                        furnitureLibrary = root.transform;
+                        break;
+                    case "PlayerSpawnPoints":
+                        spawnRoot = root.transform;
+                        break;
+                    case "OverviewCamera":
+                        overviewCamera = root.transform;
+                        break;
+                }
+
+                resetter ??= root.GetComponentInChildren<FurnitureResetter>(true);
+                assigner ??= root.GetComponentInChildren<RoomSlotAssigner>(true);
+            }
+
+            if (gameplayHouse == null || roomPresets == null || originalScaleHouse == null
+                || furnitureLibrary == null || spawnRoot == null || overviewCamera == null
+                || resetter == null || assigner == null)
+            {
+                throw new MissingReferenceException(
+                    "Game 씬의 집·프리셋 또는 런타임 배선 루트가 없습니다. 전체 생성물을 먼저 확인하세요.");
+            }
+
+            Transform placedFurniture = gameplayHouse.Find("PhysicsFurniture");
+            if (placedFurniture == null || placedFurniture.childCount != 0)
+            {
+                throw new InvalidOperationException(
+                    "House_01/PhysicsFurniture 가 비어 있지 않아 안전하게 집을 다시 만들 수 없습니다.");
+            }
+
+            HousePrototypeBuilder.Palette palette = LoadGeneratedMapPalette();
+            var sourceStagingObject = new GameObject("__ResizeSources");
+            FurnitureCatalog catalog;
+            try
+            {
+                catalog = BuildTransientFurnitureCatalog(palette, sourceStagingObject.transform);
+                sourceStagingObject.SetActive(false);
+            }
+            catch
+            {
+                Object.DestroyImmediate(sourceStagingObject);
+                throw;
+            }
+
+            Transform resizedHouse = null;
+            Transform resizedPresets = null;
+            Transform[] existingSpawns = FindPlayerSpawns(spawnRoot);
+            var previousSpawnPositions = new Vector3[existingSpawns.Length];
+            for (int i = 0; i < existingSpawns.Length; i++)
+                previousSpawnPositions[i] = existingSpawns[i].position;
+
+            gameplayHouse.gameObject.SetActive(false);
+            roomPresets.gameObject.SetActive(false);
+
+            Transform[] bedroomSlots;
+            Transform[] playerSpawns;
+            try
+            {
+                resizedHouse = HousePrototypeBuilder.Create(palette, catalog);
+                bedroomSlots = HousePrototypeBuilder.CreateBedroomSlots(resizedHouse);
+                resizedPresets = HousePrototypeBuilder.CreateBedroomPresets(palette, catalog);
+                Object.DestroyImmediate(sourceStagingObject);
+                playerSpawns = RepositionPlayerSpawns(spawnRoot);
+
+                HousePrototypeBuilder.ValidateLayout(
+                    resizedHouse,
+                    furnitureLibrary,
+                    resizedPresets,
+                    bedroomSlots,
+                    playerSpawns);
+                HousePrototypeBuilder.ValidateFurnishedHouse(
+                    originalScaleHouse,
+                    HousePrototypeBuilder.OriginalMapScale);
+            }
+            catch
+            {
+                if (sourceStagingObject != null)
+                    Object.DestroyImmediate(sourceStagingObject);
+                if (resizedHouse != null)
+                    Object.DestroyImmediate(resizedHouse.gameObject);
+                if (resizedPresets != null)
+                    Object.DestroyImmediate(resizedPresets.gameObject);
+
+                for (int i = 0; i < existingSpawns.Length; i++)
+                    existingSpawns[i].position = previousSpawnPositions[i];
+
+                gameplayHouse.gameObject.SetActive(true);
+                roomPresets.gameObject.SetActive(true);
+                Physics.SyncTransforms();
+                throw;
+            }
+
+            Object.DestroyImmediate(gameplayHouse.gameObject);
+            Object.DestroyImmediate(roomPresets.gameObject);
+
+            originalScaleHouse.position = HousePrototypeBuilder.OriginalScaleHousePosition();
+            (Vector3 cameraPosition, Vector3 cameraLookAt) = HousePrototypeBuilder.OverviewCameraPose();
+            overviewCamera.position = cameraPosition;
+            overviewCamera.LookAt(cameraLookAt);
+
+            SetObjectArray(assigner, "_slots", bedroomSlots);
+            SetObjectArray(assigner, "_pool", resizedPresets.GetComponentsInChildren<RoomPreset>(true));
+            SetObjectReference(assigner, "_resetter", resetter);
+            RebindFurnitureResetter(scene, originalScaleHouse);
+
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene);
+            RefreshScenePlacedNetworkObjects();
+
+            Debug.Log(
+                $"[PrototypeSceneSetup] House_01과 Room_Presets를 평면 배율 " +
+                $"x{HousePrototypeBuilder.GameplayMapScale:0.##}로 갱신했습니다. " +
+                "다른 Game 씬 루트는 유지했습니다.");
+        }
+
         [MenuItem("GhostHunter/Place Original Scale House Right", priority = 2)]
         public static void PlaceOriginalScaleHouseRight()
         {
@@ -215,25 +374,7 @@ namespace GhostHunter.EditorTools
                 }
             }
 
-            Material LoadMaterial(string path)
-            {
-                Material material = AssetDatabase.LoadAssetAtPath<Material>(path);
-                if (material == null)
-                    throw new MissingReferenceException($"Missing map material: {path}");
-                return material;
-            }
-
-            var palette = new HousePrototypeBuilder.Palette(
-                LoadMaterial("Assets/Materials/Map_Floor_Wood.mat"),
-                LoadMaterial("Assets/Materials/Map_Floor_Tile.mat"),
-                LoadMaterial(MapWallMaterialPath),
-                LoadMaterial("Assets/Materials/Map_Trim.mat"),
-                LoadMaterial("Assets/Materials/Map_Furniture_Wood.mat"),
-                LoadMaterial("Assets/Materials/Map_Furniture_Fabric.mat"),
-                LoadMaterial("Assets/Materials/Map_Bedding.mat"),
-                LoadMaterial("Assets/Materials/Map_Ceramic.mat"),
-                LoadMaterial("Assets/Materials/Map_Metal.mat"),
-                LoadMaterial("Assets/Materials/Map_Window.mat"));
+            HousePrototypeBuilder.Palette palette = LoadGeneratedMapPalette();
 
             Transform original = HousePrototypeBuilder.CreateOriginalScaleHouseRight(
                 palette,
@@ -252,8 +393,32 @@ namespace GhostHunter.EditorTools
             RefreshScenePlacedNetworkObjects();
 
             Debug.Log(
-                "[PrototypeSceneSetup] Kept House_01 at x2 scale and placed furnished " +
+                $"[PrototypeSceneSetup] Kept House_01 at x{HousePrototypeBuilder.GameplayMapScale:0.##} " +
+                "scale and placed furnished " +
                 "House_01_OriginalScale_Right at x1 scale with a 3m gap.");
+        }
+
+        private static HousePrototypeBuilder.Palette LoadGeneratedMapPalette()
+        {
+            Material LoadMaterial(string path)
+            {
+                Material material = AssetDatabase.LoadAssetAtPath<Material>(path);
+                if (material == null)
+                    throw new MissingReferenceException($"Missing map material: {path}");
+                return material;
+            }
+
+            return new HousePrototypeBuilder.Palette(
+                LoadMaterial("Assets/Materials/Map_Floor_Wood.mat"),
+                LoadMaterial("Assets/Materials/Map_Floor_Tile.mat"),
+                LoadMaterial(MapWallMaterialPath),
+                LoadMaterial("Assets/Materials/Map_Trim.mat"),
+                LoadMaterial("Assets/Materials/Map_Furniture_Wood.mat"),
+                LoadMaterial("Assets/Materials/Map_Furniture_Fabric.mat"),
+                LoadMaterial("Assets/Materials/Map_Bedding.mat"),
+                LoadMaterial("Assets/Materials/Map_Ceramic.mat"),
+                LoadMaterial("Assets/Materials/Map_Metal.mat"),
+                LoadMaterial("Assets/Materials/Map_Window.mat"));
         }
 
         /// <summary>
@@ -285,6 +450,45 @@ namespace GhostHunter.EditorTools
             }
 
             return catalog;
+        }
+
+        /// <summary>MIG-6 프리팹이 없어도 현재 에셋 설정으로 정규화된 임시 원본을 만든다.</summary>
+        private static FurnitureCatalog BuildTransientFurnitureCatalog(
+            HousePrototypeBuilder.Palette palette,
+            Transform stagingRoot)
+        {
+            var catalog = new FurnitureCatalog();
+            FurnitureDefinition lightDefinition = LoadRequiredAsset<FurnitureDefinition>(LightDefinitionPath);
+            FurnitureDefinition heavyDefinition = LoadRequiredAsset<FurnitureDefinition>(HeavyDefinitionPath);
+            FurnitureThrowSettings throwSettings = LoadRequiredAsset<FurnitureThrowSettings>(ThrowSettingsPath);
+            Material outlineMaterial = LoadRequiredAsset<Material>(OutlineMaterialPath);
+            var physics = new HousePrototypeBuilder.PhysicsAssets(
+                lightDefinition,
+                heavyDefinition,
+                throwSettings,
+                outlineMaterial);
+
+            foreach ((string key, GameObject source) in
+                     HousePrototypeBuilder.BuildFurnitureSources(palette, physics, stagingRoot))
+            {
+                catalog.Register(key, source);
+            }
+
+            foreach ((string key, GameObject source) in
+                     HousePrototypeBuilder.BuildDoorSources(palette, stagingRoot))
+            {
+                catalog.Register(key, source);
+            }
+
+            return catalog;
+        }
+
+        private static T LoadRequiredAsset<T>(string path) where T : Object
+        {
+            T asset = AssetDatabase.LoadAssetAtPath<T>(path);
+            if (asset == null)
+                throw new MissingReferenceException($"필수 에셋을 찾지 못했습니다: {path}");
+            return asset;
         }
 
         /// <summary>
@@ -340,11 +544,17 @@ namespace GhostHunter.EditorTools
         {
             var paths = new List<string>();
 
-            foreach (string guid in AssetDatabase.FindAssets("t:Prefab", new[] { FurniturePrefabFolder }))
-                paths.Add(AssetDatabase.GUIDToAssetPath(guid));
+            if (AssetDatabase.IsValidFolder(FurniturePrefabFolder))
+            {
+                foreach (string guid in AssetDatabase.FindAssets("t:Prefab", new[] { FurniturePrefabFolder }))
+                    paths.Add(AssetDatabase.GUIDToAssetPath(guid));
+            }
 
-            foreach (string guid in AssetDatabase.FindAssets("t:Prefab", new[] { MapPrefabFolder }))
-                paths.Add(AssetDatabase.GUIDToAssetPath(guid));
+            if (AssetDatabase.IsValidFolder(MapPrefabFolder))
+            {
+                foreach (string guid in AssetDatabase.FindAssets("t:Prefab", new[] { MapPrefabFolder }))
+                    paths.Add(AssetDatabase.GUIDToAssetPath(guid));
+            }
 
             return paths;
         }
@@ -409,7 +619,7 @@ namespace GhostHunter.EditorTools
                 AssetDatabase.CreateFolder(parent, child);
         }
 
-        private static void EnsureGameplayLayers()
+        internal static void EnsureGameplayLayers()
         {
             Object tagManagerAsset = AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/TagManager.asset")[0];
             var serialized = new SerializedObject(tagManagerAsset);
@@ -417,6 +627,7 @@ namespace GhostHunter.EditorTools
 
             SetLayerIfMissing(layers, GameLayers.PlayerName, 8);
             SetLayerIfMissing(layers, GameLayers.FurnitureName, 9);
+            SetLayerIfMissing(layers, GameLayers.GhostPrototypeName, 10);
             serialized.ApplyModifiedPropertiesWithoutUndo();
         }
 
@@ -573,6 +784,8 @@ namespace GhostHunter.EditorTools
 
             SetObjectReference(motor, "_settings", moveSettings);
             SetObjectReference(motor, "_input", input);
+            SetObjectReference(motor, "_cameraPivot", cameraPivot.transform);
+            SetObjectReference(motor, "_visualBody", body.transform);
 
             SetObjectReference(look, "_settings", moveSettings);
             SetObjectReference(look, "_input", input);
@@ -832,6 +1045,39 @@ namespace GhostHunter.EditorTools
             return points;
         }
 
+        private static Transform[] RepositionPlayerSpawns(Transform spawnRoot)
+        {
+            Vector3[] positions = HousePrototypeBuilder.PlayerSpawnPositions();
+            Transform[] points = FindPlayerSpawns(spawnRoot);
+
+            for (int i = 0; i < positions.Length; i++)
+            {
+                points[i].SetPositionAndRotation(positions[i], Quaternion.identity);
+            }
+
+            PlayerSpawnRegistry registry = spawnRoot.GetComponent<PlayerSpawnRegistry>();
+            if (registry == null)
+                throw new MissingComponentException(nameof(PlayerSpawnRegistry));
+
+            SetObjectArray(registry, "_spawnPoints", points);
+            return points;
+        }
+
+        private static Transform[] FindPlayerSpawns(Transform spawnRoot)
+        {
+            Vector3[] positions = HousePrototypeBuilder.PlayerSpawnPositions();
+            var points = new Transform[positions.Length];
+
+            for (int i = 0; i < positions.Length; i++)
+            {
+                points[i] = spawnRoot.Find($"PlayerSpawn_{i}");
+                if (points[i] == null)
+                    throw new MissingReferenceException($"PlayerSpawn_{i} 를 찾지 못했습니다.");
+            }
+
+            return points;
+        }
+
         /// <summary>
         /// 던져서 어질러진 가구를 R 로 되돌리는 개발용 도구. 참조는 여기서 직접 꽂아
         /// 런타임 탐색(FindObjectsByType)을 피한다.
@@ -977,6 +1223,10 @@ namespace GhostHunter.EditorTools
             }
 
             ValidateNetworkPrefabIdentity();
+            SanitySystemSetup.ValidateInstallation();
+            SanityPostProcessingSetup.ValidateInstallation();
+            SanityTestbedSetup.ValidateInstallation();
+            GhostPrototypeSetup.ValidateInstallation();
         }
 
         /// <summary>

@@ -9,8 +9,8 @@
 Assets/
 ├── Scenes/            Bootstrap, Title, Lobby, Game, Result
 ├── Scripts/           런타임 C# (§2)
-├── Prefabs/           Player, Furniture_*, UI_*
-├── Settings/          URP RP Asset · Renderer, Gameplay SO, Scenes SO
+├── Prefabs/           Player, Furniture_*, Ghost/Ghost_Prototype, UI_*
+├── Settings/          URP RP Asset · Renderer, Gameplay SO, Scenes SO, PostProcessing Volume 프로필
 ├── Materials/         M_*
 ├── Shaders/           SH_*
 ├── Tests/             EditMode / PlayMode 테스트 어셈블리
@@ -34,6 +34,8 @@ Assets/Scripts/
 │   ├── Player/        이동·시점·스폰
 │   ├── Interaction/   타겟팅·그랩·문
 │   ├── Furniture/     가구 오브젝트·부양·발사·아웃라인
+│   ├── Ghost/         귀신 프로토타입 상태·탐지·추격·스폰 서비스
+│   ├── Sanity/        개인 정신력·팀 평균·감소 누적·디버프 상태
 │   └── Map/           방 슬롯 배정·프리셋
 ├── Networking/    연결·세션 관리 (트랜스포트 구현은 모른다)
 ├── UI/            뷰·프리젠터. Gameplay를 참조하되 그 반대는 금지
@@ -79,7 +81,7 @@ DebugTools ──▶ 전부 (개발 전용, 아무도 DebugTools를 참조하지
 | `GhostHunter.Data` | `Scripts/Data` | Core |
 | `GhostHunter.Gameplay` | `Scripts/Gameplay` | Core, Data, Unity.Netcode.Runtime, Unity.InputSystem, UniTask |
 | `GhostHunter.Networking` | `Scripts/Networking` | Core, Data, Gameplay, Unity.Netcode.Runtime, UniTask |
-| `GhostHunter.UI` | `Scripts/UI` | Core, Data, Gameplay, Unity.Netcode.Runtime, UnityEngine.UI, UniTask |
+| `GhostHunter.UI` | `Scripts/UI` | Core, Data, Gameplay, Unity.Netcode.Runtime, UnityEngine.UI, Unity.RenderPipelines.Core.Runtime, UniTask |
 | `GhostHunter.Systems` | `Scripts/Systems` | Core, Data, Gameplay, Networking, Unity.Netcode.Runtime, UnityEngine.UI, FacepunchTransport, UniTask |
 | `GhostHunter.DebugTools` | `Scripts/DebugTools` | Core, Gameplay, Unity.Netcode.Runtime, Unity.InputSystem |
 | `GhostHunter.Editor` | `Scripts/Editor` | 런타임 7개 + 에디터/패키지 참조 (Editor 플랫폼 한정) |
@@ -207,12 +209,20 @@ Player 프리팹 (NetworkObject, 플레이어당 1개 스폰)
 ├─ ClientNetworkTransform   소유자 권위 위치/회전 복제
 ├─ PlayerVisuals            원격 플레이어 몸통 표시, 로컬은 숨김
 ├─ FurnitureTargeter        카메라 레이캐스트 → 현재 조준 대상 (로컬 전용)
-└─ GrabController           투척 준비/2인 잡기 입력, Grab/Release RPC 송신
+├─ GrabController           투척 준비/2인 잡기 입력, Grab/Release RPC 송신
+└─ SanityNetworkState       서버 권위 개인 정신력·생존·어둠 노출 복제
 
 Game 씬 서비스
-├─ GameInstaller            IPlayerSpawnRegistry + ILocalPlayerContext 등록
+├─ GameInstaller            Player·Ghost·Sanity Game 씬 서비스 등록
 ├─ PlayerSpawnRegistry      clientId별 시작 위치
-└─ LocalPlayerContext       로컬 소유 플레이어의 Targeter/Grab/Interactor 참조
+├─ LocalPlayerContext       로컬 소유 플레이어의 Targeter/Grab/Interactor 참조
+├─ GhostPrototypeSpawner    F1 HUD의 Host 전용 귀신 동적 스폰·제거·어택 강제·강제 진정·청소 진행도 스텁
+└─ SanityTeamService        생존 플레이어 팀 평균·F1 정신력 연동 검증
+
+Ghost_Prototype 프리팹 (서버 동적 스폰 NetworkObject)
+├─ CharacterController      서버 배회·추격 이동·벽 충돌 (NavMesh 없음)
+├─ NetworkTransform         서버 권위 위치·Y 회전 복제
+└─ GhostPrototypeController 팀 평균 정신력으로 5상태+강제 진정 전이, 원뿔 시야·소리 탐지, 추격·7초 수색, 잡힘→사망
 
 Furniture (씬 배치 NetworkObject, 프리팹 인스턴스)
 ├─ Rigidbody (서버만 non-kinematic)
@@ -230,6 +240,7 @@ Door (씬 배치 NetworkObject)
 UI (씬별, 로컬 전용)
 ├─ CrosshairUI              조준 대상 유무에 따른 상태 변화
 ├─ ChargeGaugeUI            투척 준비 게이지, 1인 준비/2인 잡기 표시
+├─ SanityHudUI              Game 후면 World Space 모니터의 4인 개인 수치·팀 평균 퍼센트
 ├─ TitleMenuController      방 생성 / 방 코드 참가 / 설정 / 종료
 └─ LobbyScreenController    방 코드·멤버 목록·준비·시작
 ```
@@ -256,6 +267,8 @@ UI (씬별, 로컬 전용)
 | `PlayerMoveSettings` | 이동 속도, 가속, 점프 높이, 중력 배수, 마우스 감도 |
 | `FurnitureThrowSettings` | 부양 거리/강성/댐핑, 차지 시간, 1인/2인 발사 속도, 최대 사거리 |
 | `FurnitureDefinition` | 가구 종류별 질량, 무게 등급(1인/2인), 기본 프리팹 참조 |
+| `GhostPrototypeSettings` | 팀 평균 임계값(80/60/30), 상태 지속시간, §7.3 어택 확률표, 시야·소리·추격·수색 수치. **정신력 값 필드도 활동도 필드도 없다** |
+| `SanitySystemSettings` | 시작 100%, 감소 시간·양, 디버프 임계값·속삭임 간격 |
 | `SceneNameSO` | 씬 참조 목록 (문자열 대신) |
 
 경로: `Assets/Settings/Gameplay/`, `Assets/Settings/Scenes/`
@@ -286,4 +299,4 @@ UI (씬별, 로컬 전용)
 
 관련: [networking.md](networking.md) · [steam.md](steam.md) · [decisions/](decisions/README.md)
 
-최종 갱신: 2026-08-21
+최종 갱신: 2026-08-30

@@ -1,0 +1,65 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 929a6f2932ae2cd4cb19b1f5690cd099, type: 3}
+  m_Name: GhostPrototypeSettings_Default
+  m_EditorClassIdentifier: GhostHunter.Gameplay::GhostHunter.Gameplay.Ghost.GhostPrototypeSettings
+  _activeTeamSanity: 80
+  _attackTeamSanity: 60
+  _highRiskTeamSanity: 30
+  _warningDuration: 5
+  _attackMinDuration: 30
+  _attackMaxDuration: 90
+  _attackEarlyEndTeamSanity: 70
+  _calmingDuration: 30
+  _suppressionDuration: 10
+  _attackRollInterval: 10
+  _attackChance51To60: 0.2
+  _attackChance41To50: 0.4
+  _attackChance31To40: 0.6
+  _attackChance0To30: 0.8
+  _cleaningActivateProgress: 40
+  _cleaningBoostDuration: 90
+  _visionDistance: 15
+  _visionAngle: 120
+  _nearDetectRadius: 3
+  _ghostEyeHeight: 1.6
+  _targetCenterHeight: 1
+  _runSpeedThreshold: 6
+  _walkSpeedThreshold: 1.2
+  _runHearingRadius: 12
+  _walkHearingRadius: 6
+  _searchDuration: 7
+  _roamSpeed: 1.6
+  _chaseSpeed: 3.4
+  _repathInterval: 0.5
+  _reachDistance: 0.6
+  _catchRadius: 1.4
+  _catchCooldown: 4
+  _gravity: 12
+  _doorOpenRange: 2.2
+  _phenomenaIdleInterval: 24
+  _phenomenaActiveInterval: 10
+  _phenomenaHighRiskInterval: 6
+  _phenomenonRadius: 6
+  _shakeTorque: 12
+  _shakeShoveSpeed: 1.4
+  _shakeDuration: 1
+  _smallPropMaxSize: 0.45
+  _dropSpeed: 2.5
+  _apparitionSeconds: 1.8
+  _lightFlickerSeconds: 1.6
+  _soundPhenomenaEnabled: 0
+  _phenomenonWitnessDistance: 12
+  _phenomenonWitnessAngle: 70
+  _phenomenonWitnessEyeHeight: 1.5
+  _hidingSpotCheckRadius: 2.5
+  _hidingSpotCheckChance: 0.3

@@ -23,6 +23,10 @@ Assets/Tests/
 │   ├── FurnitureLaunchDirectionTests.cs   발사각 보정 (순수 계산)
 │   ├── ServicesTests.cs                   서비스 로케이터 계약
 │   ├── ProjectWiringTests.cs              레이어·씬 목록·네트워크 프리팹 식별자
+│   ├── GhostPrototypeStateMachineTests.cs 귀신 5상태·강제 진정 전이·10초 어택 판정(팀 평균 기반)
+│   ├── GhostVisionTests.cs                원뿔 시야 각도·거리 판정, 시야 표시 메시 생성
+│   ├── GhostHouseBoundsTests.cs            집 내부 X/Z 활동 경계 판정·좌표 보정
+│   ├── SanityStateTests.cs                정신력 증감·누적·중복·평균·디버프
 │   ├── PlayerSpawnRegistryTests.cs        스폰 지점 빈자리 선택
 │   └── MapGeneratorTests.cs               맵 생성 도구 + 자체 검증 함수
 └── PlayMode/
@@ -163,8 +167,16 @@ $PROJ  = "C:\MainScreen\Dev\GitDirectory\GhostHunter"
 이것은 **이 저장소의 문제가 아니다.** 스크립트 한 개짜리 새 프로젝트를 만들어도 같은 결과가
 나온다(대조군 확인). 따라서:
 
-- 우리 SO를 읽어야 하는 EditMode 테스트는 **파일 존재는 단언하고, 역직렬화가 실패하면
-  `Assert.Ignore`로 건너뛴다.** 에셋을 지운 실수는 계속 잡히고, 환경 한계만 비켜 간다.
+- 우리 SO·`MonoBehaviour`에 기대는 EditMode 테스트는 **파일·프리팹 존재는 단언하고,
+  역직렬화나 `GetComponent`가 실패하면 `Assert.Ignore`로 건너뛴다.** 에셋을 지운 실수는 계속
+  잡히고, 환경 한계만 비켜 간다. `ProjectWiringTests`의 `LoadCatalogOrIgnore()`와
+  `GetProjectComponentOrIgnore<T>()`가 그 형태다.
+- **패키지 어셈블리로 되는 검사는 `Assert.Ignore` 호출보다 앞에 둔다.** Ghost 프리팹 테스트는
+  `NetworkObject`의 `GlobalObjectIdHash`를 먼저 단언하고 컨트롤러 확인을 마지막에 둔다 —
+  해시가 깨지면 batchmode 에서도 스킵되지 않고 그대로 실패한다.
+- 그래서 batchmode EditMode 는 현재 **93건 중 88 통과 / 5 스킵 / 0 실패**가 정상이다
+  (SceneNameSO 3건 + Player 정신력 배선 1건 + Ghost_Prototype 컨트롤러 배선 1건).
+  에디터 Test Runner 에서는 93/93 통과한다.
 - **씬 생성 도구를 `-executeMethod`로 batchmode 에서 돌리지 않는다.**
   `LoadOrCreateAsset`이 기존 설정 에셋을 못 찾아 새로 만들어 버린다.
   생성 도구는 MUST 에디터 메뉴에서 실행한다 → [../conventions/unity-assets.md §1.1](../conventions/unity-assets.md)
@@ -184,12 +196,12 @@ $PROJ  = "C:\MainScreen\Dev\GitDirectory\GhostHunter"
 
 ## 7. 현재 상태
 
-> 2026-08-21 기준. batchmode(`-runTests`)로 실행한 결과다.
+> 2026-08-31 기준. Unity MCP로 열린 에디터의 Test Runner를 실행한 결과다.
 
 | 항목 | 상태 |
 | --- | --- |
 | 테스트 어셈블리 | ✅ EditMode / PlayMode 2개 |
-| EditMode 테스트 | **38건 — 35 통과 · 3 건너뜀**(§5.3) |
+| EditMode 테스트 | **119건 — 119 통과** (귀신 상태 기계·시야 기하·프리팹 배선·집 내부 활동 경계·굴착 입력·걷기/달리기 소리 반경 배선 포함) |
 | PlayMode 테스트 | **12건 — 12 통과** |
 | **런타임 스모크 테스트** | `Assets/Scripts/DebugTools/PrototypeRuntimeSmoke.cs` — 존치 (§7.1) |
 | CI | ❌ 없음 → roadmap 백로그 |
@@ -214,8 +226,11 @@ $PROJ  = "C:\MainScreen\Dev\GitDirectory\GhostHunter"
 [../architecture/decisions/ADR-0011](../architecture/decisions/ADR-0011-local-transport-path.md)에서
 **Accepted** 로 확정됐다 — 로컬 UTP 를 남기고 릴리스는 `TransportModeBuildGuard`가 막는다.
 
+PlayMode 테스트는 개발용 Local Host의 기본 포트 `7777`과 충돌하지 않도록 테스트 전용 포트
+`17777`을 사용한다.
+
 ---
 
 관련: [development-loop.md](development-loop.md)
 
-최종 갱신: 2026-08-21
+최종 갱신: 2026-08-31

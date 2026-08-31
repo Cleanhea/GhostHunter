@@ -29,7 +29,7 @@ namespace GhostHunter.EditorTools
         /// 그래서 배율은 트랜스폼 스케일이 아니라 <b>좌표에만</b> 곱한다. 아래 상수 중
         /// MapScale 이 붙은 것이 "평면 좌표", 붙지 않은 것이 "사람 기준 치수"다.
         /// </summary>
-        internal const float GameplayMapScale = 2f;
+        internal const float GameplayMapScale = 1.5f;
         internal const float OriginalMapScale = 1f;
         internal const float SideBySideGap = 3f;
 
@@ -46,7 +46,7 @@ namespace GhostHunter.EditorTools
         private const float FrontDoorWidth = 1.5f;
 
         // ── 평면 좌표: 전부 "벽 중심선" 기준이고 배율이 곱해져 있다.
-        //    도면 실측 외곽 12.8 x 10.4m → 실제 25.6 x 20.8m.
+        //    도면 실측 외곽 12.8 x 10.4m → 게임플레이 평면 폭 19.2m.
         private static float OuterWest => -6.4f * MapScale;
         private static float OuterEast => 6.4f * MapScale;
         private static float OuterNorth => 5.2f * MapScale;
@@ -214,16 +214,22 @@ namespace GhostHunter.EditorTools
             if (catalog == null)
                 throw new ArgumentNullException(nameof(catalog));
 
-            float centerX = 6.4f * GameplayMapScale
-                + SideBySideGap
-                + 6.4f * OriginalMapScale;
             return CreateAtScale(
                 palette,
                 catalog,
                 OriginalMapScale,
                 "House_01_OriginalScale_Right",
-                new Vector3(centerX, 0f, 0f),
+                OriginalScaleHousePosition(),
                 true);
+        }
+
+        /// <summary>게임플레이 집과 동쪽 비교용 집 사이의 외벽 간격을 일정하게 유지한다.</summary>
+        internal static Vector3 OriginalScaleHousePosition()
+        {
+            float centerX = 6.4f * GameplayMapScale
+                + SideBySideGap
+                + 6.4f * OriginalMapScale;
+            return new Vector3(centerX, 0f, 0f);
         }
 
         /// <param name="furnish">
@@ -847,6 +853,7 @@ namespace GhostHunter.EditorTools
         private static float RoomWestFace => -SlotHalfX;
         private static float RoomEastFace => SlotHalfX;
         private static float RoomNorthFace => SlotHalfZ;
+        private static float RoomSouthFace => -SlotHalfZ;
 
         /// <summary>침대 머리맡이 북쪽 벽에 붙는 z. 헤드보드가 프레임보다 0.01 더 튀어나온다.</summary>
         private static float BedHeadZ => RoomNorthFace - 1.01f - WallGap;
@@ -883,16 +890,11 @@ namespace GhostHunter.EditorTools
                 90f,
                 items);
 
-            // 서랍장(옷장과 책상 사이)과 책장: 도면에는 없지만 방이 도면의 배율배라 벽이 비어
-            // 남는다. 09-map-generation "도면과 달라진 점"에서 채우기로 한 여백이다.
-            catalog.Place("Dresser_1.2x0.5", At(RoomWestFace + 0.25f + WallGap, 0.7f), -90f, items);
-            catalog.Place("Bookshelf_0.9x0.3", At(-1.6f, RoomNorthFace - WallGap - 0.15f), 0f, items);
-
             // 바닥 Spawn Point 자리(상자·쓰레기통·빨래바구니)와 책상 위 Spawn Point 자리(컵·책).
-            // 상자만 남쪽 벽까지 내려가는데, 두 문 사이 가운데 띠라 문짝이 지나가지 않는다.
-            catalog.Place("Crate_0.6", At(1f, -3f), 0f, items);
-            catalog.Place("TrashBin_0.3", At(-3.5f, -2.15f), 0f, items);
-            catalog.Place("LaundryBasket_0.5x0.4", At(-2.9f, -2.2f), 0f, items);
+            // 남쪽 소품은 두 문 사이의 공통 안전 띠 안에 모아 어느 슬롯에서도 문짝을 피한다.
+            catalog.Place("Crate_0.6", At(1f, RoomSouthFace + 0.36f), 0f, items);
+            catalog.Place("TrashBin_0.3", At(0.2f, RoomSouthFace + 0.21f), 0f, items);
+            catalog.Place("LaundryBasket_0.5x0.4", At(-0.5f, RoomSouthFace + 0.26f), 0f, items);
             catalog.Place(
                 "Book_Stack_0.22",
                 At(westCabinetX, deskZ - 0.25f),
@@ -957,21 +959,22 @@ namespace GhostHunter.EditorTools
                 At(RoomWestFace + 0.25f + WallGap, RoomNorthFace - 0.9f),
                 -90f,
                 items);
-            catalog.Place("Wardrobe_1.5x0.6", At(RoomWestFace + 0.3f + WallGap, 0.6f), -90f, items);
-
-            // 책장(동쪽 벽)과 수납함(서쪽 벽 아래): 넓어진 방의 남쪽 절반을 채운다.
-            // 둘 다 원본은 폭이 X 축이라 벽에 붙이려면 90도 눕힌다.
-            catalog.Place("Bookshelf_0.9x0.3", At(RoomEastFace - WallGap - 0.169f, -1f), 90f, items);
+            float dresserZ = RoomNorthFace - 0.9f;
+            float wardrobeZ = dresserZ - 0.6f - ItemGap - 0.75f;
             catalog.Place(
-                "StorageChest_0.9x0.45",
-                At(RoomWestFace + WallGap + 0.225f, -1.5f),
-                90f,
+                "Wardrobe_1.5x0.6",
+                At(RoomWestFace + 0.3f + WallGap, wardrobeZ),
+                -90f,
                 items);
 
             // 바닥·화장대 위·협탁 위 Spawn Point 자리.
-            catalog.Place("Crate_0.6", At(0.5f, -3f), 0f, items);
-            catalog.Place("LaundryBasket_0.5x0.4", At(-2.2f, -2.2f), 0f, items);
-            catalog.Place("TrashBin_0.3", At(-0.45f, 3.3f), 0f, items);
+            catalog.Place("Crate_0.6", At(0.5f, RoomSouthFace + 0.36f), 0f, items);
+            catalog.Place("LaundryBasket_0.5x0.4", At(-0.4f, RoomSouthFace + 0.26f), 0f, items);
+            catalog.Place(
+                "TrashBin_0.3",
+                At(-0.45f, RoomNorthFace - WallGap - 0.15f),
+                0f,
+                items);
             catalog.Place(
                 "CosmeticBox_0.25",
                 At(vanityX - 0.3f, vanityZ + 0.06f),
@@ -1006,7 +1009,12 @@ namespace GhostHunter.EditorTools
                 items);
 
             // 장난감 수납함: 서쪽 벽, 침대 발치 아래.
-            catalog.Place("ToyChest_0.9x0.45", At(RoomWestFace + 0.45f + WallGap, 1f), 0f, items);
+            float toyChestZ = BedHeadZ - 1f - ItemGap - 0.225f;
+            catalog.Place(
+                "ToyChest_0.9x0.45",
+                At(RoomWestFace + 0.45f + WallGap, toyChestZ),
+                0f,
+                items);
 
             // 책상 + 의자: 북동쪽 모서리. 의자는 책상을 보고 앉는다.
             float deskX = RoomEastFace - WallGap - 0.5f;
@@ -1018,17 +1026,10 @@ namespace GhostHunter.EditorTools
             catalog.Place("Bookshelf_0.9x0.3", At(RoomEastFace - WallGap - 0.169f, 0.9f), 90f, items);
             catalog.Place("Dresser_0.8x0.45", At(RoomEastFace - WallGap - 0.225f, -1f), 90f, items);
 
-            // 옷장(북쪽 벽)과 협탁(침대 머리맡): 넓어진 방에서 비는 북쪽 벽을 채운다.
-            // 옷장은 벽 가운데 창(폭 1.45m)을 가리지 않도록 책상 쪽으로 붙인다.
-            catalog.Place("Wardrobe_1.2x0.6", At(1.5f, RoomNorthFace - WallGap - 0.3f), 0f, items);
-            float nightstandX = -2.25f;
-            float nightstandZ = RoomNorthFace - WallGap - 0.2f;
-            catalog.Place("Nightstand_0.45x0.4", At(nightstandX, nightstandZ), 0f, items);
-
             // 바닥·책상 위 Spawn Point 자리. 상자는 두 문 사이 가운데 띠에 둔다.
-            catalog.Place("Crate_0.45", At(1.5f, -3.1f), 0f, items);
-            catalog.Place("LaundryBasket_0.5x0.4", At(-2.5f, -2.2f), 0f, items);
-            catalog.Place("TrashBin_0.3", At(2.55f, 2.6f), 0f, items);
+            catalog.Place("Crate_0.45", At(0.9f, RoomSouthFace + 0.285f), 0f, items);
+            catalog.Place("LaundryBasket_0.5x0.4", At(-0.6f, RoomSouthFace + 0.26f), 0f, items);
+            catalog.Place("TrashBin_0.3", At(0.05f, RoomSouthFace + 0.21f), 0f, items);
             catalog.Place(
                 "Book_Stack_0.22",
                 At(deskX - 0.29f, deskZ + 0.01f),

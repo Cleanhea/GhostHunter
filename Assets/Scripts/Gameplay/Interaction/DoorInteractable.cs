@@ -65,6 +65,30 @@ namespace GhostHunter.Gameplay.Interaction
             RequestToggleServerRpc();
         }
 
+        /// <summary>
+        /// 서버가 문을 직접 연다. 귀신이 추격·수색 중 앞을 막은 방문을 여는 용도(§9.4).
+        /// 플레이어 상호작용이 아니라 서버 AI가 부르는 경로라 거리·소유권 검증이 없다.
+        /// </summary>
+        public void ServerForceOpen()
+        {
+            if (IsSpawned && IsServer)
+                _isOpen.Value = true;
+        }
+
+        /// <summary>서버가 문을 직접 닫는다. 귀신 초자연현상 '문 열고 닫기'(§6.5 #4) 용도.</summary>
+        public void ServerForceClose()
+        {
+            if (IsSpawned && IsServer)
+                _isOpen.Value = false;
+        }
+
+        /// <summary>서버가 문 상태를 뒤집는다. 귀신 초자연현상 '문 열고 닫기'(§6.5 #4) 용도.</summary>
+        public void ServerForceToggle()
+        {
+            if (IsSpawned && IsServer)
+                _isOpen.Value = !_isOpen.Value;
+        }
+
         /// <summary>문은 아무도 소유하지 않으므로 소유권 대신 거리로 검증한다.</summary>
         [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
         private void RequestToggleServerRpc(RpcParams rpcParams = default)

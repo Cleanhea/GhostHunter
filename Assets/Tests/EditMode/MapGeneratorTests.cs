@@ -22,6 +22,12 @@ namespace GhostHunter.Tests.EditMode
     /// </summary>
     public sealed class MapGeneratorTests
     {
+        [Test]
+        public void 게임플레이_집의_평면_배율은_1_5다()
+        {
+            Assert.AreEqual(1.5f, HousePrototypeBuilder.GameplayMapScale);
+        }
+
         private readonly List<Object> _created = new();
 
         private HousePrototypeBuilder.Palette _palette;

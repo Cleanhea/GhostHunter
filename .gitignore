@@ -106,3 +106,7 @@ InitTestScene*.unity*
 
 # Auto-generated scenes by play mode tests
 /[Aa]ssets/[Ii]nit[Tt]est[Ss]cene*.unity*
+
+# Local AI-assistant settings
+/.codex/config.toml
+/.claude/settings.local.json
