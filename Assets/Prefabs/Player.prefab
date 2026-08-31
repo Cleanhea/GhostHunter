@@ -101,7 +101,7 @@ GameObject:
   - component: {fileID: 8770587850628464876}
   - component: {fileID: 431433331754987499}
   - component: {fileID: 1254349970061536263}
-  - component: {fileID: 8744747597287285152}
+  - component: {fileID: 1582763835122116769}
   m_Layer: 0
   m_Name: PlayerCamera
   m_TagString: MainCamera
@@ -183,7 +183,7 @@ AudioListener:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2818059173742381971}
   m_Enabled: 0
---- !u!114 &8744747597287285152
+--- !u!114 &1582763835122116769
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -279,8 +279,7 @@ GameObject:
   - component: {fileID: 2281164775239638963}
   - component: {fileID: 6650919084466105846}
   - component: {fileID: 3886323098072392360}
-  - component: {fileID: 8833313201178154099}
-  - component: {fileID: 4753372825136575210}
+  - component: {fileID: 648880312144743003}
   m_Layer: 8
   m_Name: Player
   m_TagString: Untagged
@@ -325,7 +324,7 @@ MonoBehaviour:
   SynchronizeTransform: 1
   m_InScenePlaced: 0
   ActiveSceneSynchronization: 0
-  SceneMigrationSynchronization: 0
+  SceneMigrationSynchronization: 1
   SpawnWithObservers: 1
   DontDestroyWithOwner: 0
   AutoObjectParentSync: 1
@@ -342,7 +341,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 3fe253e4750572b45b1eb9cf35de37b6, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: GhostHunter.Runtime::GhostHunter.Player.ClientNetworkTransform
+  m_EditorClassIdentifier: GhostHunter.Gameplay::GhostHunter.Gameplay.Player.ClientNetworkTransform
   ShowTopMostFoldoutHeaderGroup: 1
   NetworkTransformExpanded: 0
   AutoOwnerAuthorityTickOffset: 1
@@ -413,7 +412,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 69e4d77ae1d486746b0cee14454668fb, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: GhostHunter.Runtime::GhostHunter.Player.PlayerInputReader
+  m_EditorClassIdentifier: GhostHunter.Gameplay::GhostHunter.Gameplay.Player.PlayerInputReader
   ShowTopMostFoldoutHeaderGroup: 1
   _inputActions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
 --- !u!114 &4683534020677742345
@@ -427,7 +426,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 9aa297221cfb21f47b522210f4b037c1, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: GhostHunter.Runtime::GhostHunter.Player.PlayerMotor
+  m_EditorClassIdentifier: GhostHunter.Gameplay::GhostHunter.Gameplay.Player.PlayerMotor
   ShowTopMostFoldoutHeaderGroup: 1
   _settings: {fileID: 11400000, guid: c743ebe0249220247931c73c5459236b, type: 2}
   _input: {fileID: 841358848952369473}
@@ -444,7 +443,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 78a67c5e8cdc2d842a001d14aaa8f842, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: GhostHunter.Runtime::GhostHunter.Player.PlayerLook
+  m_EditorClassIdentifier: GhostHunter.Gameplay::GhostHunter.Gameplay.Player.PlayerLook
   ShowTopMostFoldoutHeaderGroup: 1
   _settings: {fileID: 11400000, guid: c743ebe0249220247931c73c5459236b, type: 2}
   _input: {fileID: 841358848952369473}
@@ -462,7 +461,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 0fb1fc8e705db074e83832fa2924a9d3, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: GhostHunter.Runtime::GhostHunter.Player.PlayerVisuals
+  m_EditorClassIdentifier: GhostHunter.Gameplay::GhostHunter.Gameplay.Player.PlayerVisuals
   ShowTopMostFoldoutHeaderGroup: 1
   _bodyRenderers:
   - {fileID: 7161874102891873379}
@@ -477,7 +476,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 9b45066bf26c6224caa99a82643f7b0a, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: GhostHunter.Runtime::GhostHunter.Interaction.FurnitureTargeter
+  m_EditorClassIdentifier: GhostHunter.Gameplay::GhostHunter.Gameplay.Interaction.FurnitureTargeter
   ShowTopMostFoldoutHeaderGroup: 1
   _camera: {fileID: 431433331754987499}
   _settings: {fileID: 11400000, guid: b2f6c92bc99521440bce15945c031212, type: 2}
@@ -492,7 +491,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 07711f6b42409e44884f29805b2f4f34, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: GhostHunter.Runtime::GhostHunter.Interaction.GrabController
+  m_EditorClassIdentifier: GhostHunter.Gameplay::GhostHunter.Gameplay.Interaction.GrabController
   ShowTopMostFoldoutHeaderGroup: 1
   _input: {fileID: 841358848952369473}
   _targeter: {fileID: 5809761117319214751}
@@ -511,7 +510,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: a1f8346d2b20c1f43b4a440239f4b1fb, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: GhostHunter.Runtime::GhostHunter.Interaction.PlayerInteractor
+  m_EditorClassIdentifier: GhostHunter.Gameplay::GhostHunter.Gameplay.Interaction.PlayerInteractor
   ShowTopMostFoldoutHeaderGroup: 1
   _input: {fileID: 841358848952369473}
   _camera: {fileID: 431433331754987499}
@@ -527,10 +526,10 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fdddc53e44962d74598b91444a98afd2, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: GhostHunter.Runtime::GhostHunter.Player.PlayerNetworkSpawn
+  m_EditorClassIdentifier: GhostHunter.Gameplay::GhostHunter.Gameplay.Player.PlayerNetworkSpawn
   ShowTopMostFoldoutHeaderGroup: 1
   _motor: {fileID: 4683534020677742345}
---- !u!114 &8833313201178154099
+--- !u!114 &648880312144743003
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -544,17 +543,3 @@ MonoBehaviour:
   m_EditorClassIdentifier: GhostHunter.Gameplay::GhostHunter.Gameplay.Sanity.SanityNetworkState
   ShowTopMostFoldoutHeaderGroup: 1
   _settings: {fileID: 11400000, guid: 6254a0bee414ba1468a1226fdd97d646, type: 2}
---- !u!114 &4753372825136575210
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6853845278674404290}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c8b873b113de1cf49951ffc98e299b83, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: GhostHunter.Gameplay::GhostHunter.Gameplay.Player.MoleBurrowController
-  ShowTopMostFoldoutHeaderGroup: 1
-  _settings: {fileID: 11400000, guid: 1c6aa3b4e4f9f6e40a0168cfc968b97b, type: 2}
