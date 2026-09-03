@@ -50,6 +50,7 @@ GhostHunter — 1인칭 멀티플레이 "가구 던지기" 게임.
 | 귀신 상태·어택·탐지·추격 | `docs/project/ghost-system.md`, `docs/architecture/ghost-prototype.md` |
 | 정신력 | `docs/project/sanity-system.md`, `docs/architecture/sanity-system.md` |
 | 플레이어 스킬(탐지·굴착) | `docs/project/mole-skill-system.md` — **초안. 미결정 15건(MS-1~15)** |
+| 일시정지 메뉴·나가기·연결 끊김 | `docs/project/pause-menu-system.md`, `docs/architecture/pause-menu.md` — **구현됨.** 수동 검증·선행 검증 D-1 대기 |
 | 맵·방 프리셋·스폰 포인트 | `docs/architecture/map-generation.md` |
 | C# 코드 작성 / 리팩터링 | `docs/conventions/code-style.md` |
 | 프리팹·씬·ScriptableObject·에셋 | `docs/conventions/unity-assets.md` |

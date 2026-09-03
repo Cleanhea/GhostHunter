@@ -10,14 +10,19 @@ namespace GhostHunter.Gameplay.Player
         PlayerInteractor Interactor { get; }
         MoleBurrowController BurrowController { get; }
 
+        /// <summary>일시정지 메뉴가 게임플레이 입력을 잠글 때 쓴다.</summary>
+        PlayerInputReader Input { get; }
+
         void Register(FurnitureTargeter targeter);
         void Register(GrabController grabController);
         void Register(PlayerInteractor interactor);
         void Register(MoleBurrowController burrowController);
+        void Register(PlayerInputReader input);
 
         void Unregister(FurnitureTargeter targeter);
         void Unregister(GrabController grabController);
         void Unregister(PlayerInteractor interactor);
         void Unregister(MoleBurrowController burrowController);
+        void Unregister(PlayerInputReader input);
     }
 }

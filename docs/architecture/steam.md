@@ -51,7 +51,7 @@ Package Manager의 git URL로 설치하면 패키지가 **읽기 전용**이 되
 |---|---|
 | [`Systems/Steam/SteamLobbyManager.cs`](../../Assets/Scripts/Systems/Steam/SteamLobbyManager.cs) | Steam 수명주기(Init/RunCallbacks/Shutdown) + 로비 생성·참가·초대 + Facepunch 접속 대상 설정 |
 | [`Networking/ConnectionManager.cs`](../../Assets/Scripts/Networking/ConnectionManager.cs) | StartHost/StartClient, 트랜스포트 전환, 접속 상태 |
-| [`DebugTools/ConnectionHud.cs`](../../Assets/Scripts/DebugTools/ConnectionHud.cs) | 개발용 IMGUI 접속 HUD (F1 토글) |
+| [`DebugTools/ConnectionHud.cs`](../../Assets/Scripts/DebugTools/ConnectionHud.cs) | 개발용 IMGUI 접속 HUD (**Tab** 토글. 밸런스 튜닝 창은 F2) |
 | [`Editor/NetworkRigSetup.cs`](../../Assets/Scripts/Editor/NetworkRigSetup.cs) | Bootstrap 씬의 기존 NetworkRig를 열고 선택 |
 
 ### 역할 분리
@@ -79,6 +79,20 @@ CreateLobbyAsync()
 **순서가 중요하다.** 로비가 먼저 만들어져야 참가자가 "누구에게 P2P 연결할지"를 알 수 있다.
 그래서 `StartHost`는 로비 생성 콜백을 받은 뒤에 일어난다.
 
+### 매치 중 로비를 나가는 경로
+
+`ConnectionManager.Disconnect()` 는 `NetworkManager.Shutdown()` 뒤에 **`LeaveLobby()` 까지 부른다.**
+따라서 매치 중 나가기(일시정지 메뉴의 "타이틀로"·"종료")는 `IConnectionService.Disconnect()` 하나만
+부르면 되고, `ISteamLobbyService.LeaveLobby()` 를 또 부르지 않는다 — `LobbyLeft` 이벤트가 두 번 온다.
+
+`ConnectionManager.HandleClientDisconnected()` 도 **자신이 끊긴 게스트**에 한해 `LeaveLobby()` 를 부른다.
+즉 호스트가 사라지면 게스트의 Steam 로비 퇴장은 이미 처리된다. 남은 것은 **UI 표시와 씬 복귀**이며,
+그 규칙은 [../project/pause-menu-system.md §5](../project/pause-menu-system.md),
+배선은 [pause-menu.md](pause-menu.md) 가 정한다.
+
+> 호스트가 나가면 세션은 끝난다. **호스트 마이그레이션은 범위 밖이다**
+> → [networking.md §2.4](networking.md).
+
 ## 씬 세팅
 
 `Assets/Scenes/Bootstrap.unity`가 아래 리그를 직접 소유한다. 별도 씬에 리그를 추가하지 않는다.
@@ -91,7 +105,7 @@ NetworkRig
 ├─ UnityTransport          (로컬 테스트용, 기본 127.0.0.1:7777)
 ├─ SteamLobbyManager       (AppId 480, 최대 4인, 6자리 방 코드)
 ├─ ConnectionManager       (위 3개 참조가 자동 연결됨)
-└─ ConnectionHud           (F1 토글)
+└─ ConnectionHud           (Tab 토글, 튜닝 창 F2)
 ```
 
 손으로 배선해도 되지만 `ConnectionManager`의 트랜스포트 참조를 빠뜨리기 쉽고,
@@ -221,4 +235,5 @@ Steam이 찾지 못한다. `GhostHunter.app/Contents/MacOS/steam_appid.txt`에 �
 > **로비 가시성·난입 정책은 결정 대기 중이다** → [ADR-0012](decisions/ADR-0012-room-code-and-lobby-visibility.md).
 > 현재 `_friendsOnly = true`로 두면 6자리 방 코드 참가가 동작하지 않는다(LobbyList 검색은 공개 로비만 반환).
 
-최종 갱신: 2026-08-20
+최종 갱신: 2026-09-04 (매치 중 로비 이탈 경로 명시 — `Disconnect()` 가 `LeaveLobby()` 를 이미 부른다.
+개발 HUD 키 표기를 실제 값 Tab/F2 로 정정. 이전: 2026-08-20)

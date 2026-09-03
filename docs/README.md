@@ -20,6 +20,7 @@ docs/
 │   ├── sanity-system.md            개인·팀 정신력·증감·디버프·플레이/모니터 UI
 │   ├── ghost-system.md             귀신 공통 상태·정신력 연동·어택·탐지·추격 규칙
 │   ├── mole-skill-system.md        두더지 스킬(탐지·굴착) 공통 규칙·종료 조건·쿨타임 — 초안
+│   ├── pause-menu-system.md        일시정지 메뉴·호스트 연결 끊김 규칙 — 구현됨, 수동 검증 대기
 │   └── roadmap.md                  마일스톤 & 태스크 보드
 ├── architecture/                   어떻게 구성되는가
 │   ├── overview.md                 폴더·어셈블리·씬·런타임 구조
@@ -31,6 +32,7 @@ docs/
 │   ├── ghost-prototype.md           귀신 P1 상태·탐지·추격·HUD 스폰
 │   ├── sanity-system.md             정신력 네트워크·집계·연동 API
 │   ├── map-generation.md           맵 생성 시스템 (House / Room Preset / Spawn Point)
+│   ├── pause-menu.md                일시정지 메뉴·연결 끊김 배선·권위·검증 — 구현됨, 수동 검증 대기
 │   └── decisions/                  ADR (기술 결정 기록)
 ├── conventions/                    어떻게 쓰는가
 │   ├── code-style.md               C# / Unity 코딩 규약
@@ -52,6 +54,7 @@ docs/
 | [project/sanity-system.md](project/sanity-system.md) | 개인·팀 정신력은 어떻게 계산·증감·표현되는가 | 정신력 규칙·UI·피드백 변경 |
 | [project/ghost-system.md](project/ghost-system.md) | 귀신은 어떤 상태를 가지고 언제 어택하는가 | 귀신 공통 규칙·수치·판정 변경 |
 | [project/mole-skill-system.md](project/mole-skill-system.md) | 플레이어는 어떤 스킬을 언제 쓰고 어떻게 끝나는가 | 스킬 규칙·수치·연출 변경 |
+| [project/pause-menu-system.md](project/pause-menu-system.md) | 매치를 어떻게 떠나고, 끊기면 무엇을 보는가 | 일시정지 메뉴·나가기·끊김 규칙 변경 |
 | [project/roadmap.md](project/roadmap.md) | 지금 무엇을 하고 있고 다음은 무엇인가 | 태스크 시작/완료 시 |
 | [architecture/overview.md](architecture/overview.md) | 코드와 에셋은 어디에 어떻게 놓이는가 | 폴더·어셈블리·씬 추가 |
 | [architecture/networking.md](architecture/networking.md) | 무엇을 서버가 정하고 무엇을 동기화하는가 | 네트워크 객체·RPC 추가 |
@@ -61,6 +64,7 @@ docs/
 | [architecture/furniture-physics.md](architecture/furniture-physics.md) | 던져지는 대상은 어떻게 생겼는가 | 가구 물리·아웃라인 변경 |
 | [architecture/sanity-system.md](architecture/sanity-system.md) | 정신력은 어디서 확정·복제·집계되는가 | 정신력 코드·배선·연동 변경 |
 | [architecture/map-generation.md](architecture/map-generation.md) | 집·방·스폰 포인트는 어떻게 만들어지는가 | 맵 생성 규칙 변경 |
+| [architecture/pause-menu.md](architecture/pause-menu.md) | 메뉴·끊김 처리는 어떤 서비스를 거치고 무엇을 검증하는가 | 세션 종료 경로·메뉴 배선 변경 |
 | [architecture/decisions/](architecture/decisions/README.md) | 왜 이렇게 골랐는가 | 되돌리기 비싼 선택 발생 시 |
 | [conventions/code-style.md](conventions/code-style.md) | C# 코드를 어떻게 쓰는가 | 규약 합의 변경 |
 | [conventions/unity-assets.md](conventions/unity-assets.md) | 에셋 이름·구조·설정은 | 에셋 파이프라인 변경 |
@@ -92,6 +96,7 @@ docs/
 | project/sanity-system.md | 🟡 v0.5 규칙·코어·플레이 HUD 구현 / 상세 모니터 UI·실제 연출·콘텐츠 연결 TBD |
 | project/ghost-system.md | 🟡 공통 상태·정신력 구간·어택·탐지·추격 규칙 확정 / 15개 미결정(G-1~15), 구현은 P1 임시값 |
 | project/mole-skill-system.md | 🟡 **초안 + 굴착 프로토타입 구현** — 탐지는 여전히 미구현(작업 시스템 선행 필요). 굴착은 사용자 확정값(R키·높이 4m·이동 불가·어디서든 가능 등)으로 동작, 탐지 키·쿨타임·공통 판정 조건은 여전히 미정(MS-1~3 등) |
+| project/pause-menu-system.md | 🟢 **규칙 확정 + 구현 완료.** PM-1~15 전부 확정. 설정 화면 **내용**(PM-6)만 설정 시스템 기획서로 이월 / 수동 검증 대기 |
 | project/roadmap.md | 🟢 M0~M7 + 마이그레이션 보드, M8 기획 부분 진행 |
 | architecture/overview.md | 🟢 씬·서비스·스크립트 레이어와 asmdef 구조 반영됨 |
 | architecture/networking.md | 🟢 규약 확정 |
@@ -102,6 +107,7 @@ docs/
 | architecture/ghost-prototype.md | 🟢 팀 평균 정신력 기반 5상태·어택 판정·탐지·추격·사망 구현, 자동 테스트 통과 / 은신처·드릴 카·초자연현상·NavMesh·수동 플레이 검증 TBD |
 | architecture/sanity-system.md | 🟢 코어 P1·World Space 4인 숫자 모니터 구현 / 실제 연출·콘텐츠 연결 TBD |
 | architecture/map-generation.md | 🟢 House_01 구현됨 / 콘텐츠 배치 미구현 |
+| architecture/pause-menu.md | 🟢 **구현됨.** EditMode 141/142·PlayMode 12/12 통과 / **수동 검증(§10.4~10.6)과 선행 검증 D-1(클라이언트 씬 동기화 모드) 미수행** |
 | architecture/decisions/ | 🟡 ADR-0001~0011 확정 / ADR-0012 Proposed |
 | conventions/* | 🟢 규약 확정 |
 | workflow/unity-mcp.md | 🟢 설치·연결·씬 편집 검증됨 |
@@ -109,4 +115,4 @@ docs/
 
 ---
 
-최종 갱신: 2026-08-31
+최종 갱신: 2026-09-04 (일시정지 메뉴 기획·설계 문서 2건 추가, 확정 15건 반영, 구현 완료 — 수동 검증 대기)

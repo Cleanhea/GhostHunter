@@ -17,11 +17,11 @@ namespace GhostHunter.EditorTools
     /// </summary>
     public static class MenuScenesSetup
     {
-        private static readonly Color BackgroundColor = new(0.05f, 0.06f, 0.09f);
-        private static readonly Color PanelColor = new(0.09f, 0.11f, 0.16f, 0.92f);
-        private static readonly Color ButtonColor = new(0.16f, 0.2f, 0.3f);
-        private static readonly Color TitleColor = new(0.92f, 0.95f, 1f);
-        private static readonly Color StatusColor = new(0.65f, 0.7f, 0.78f);
+        internal static readonly Color BackgroundColor = new(0.05f, 0.06f, 0.09f);
+        internal static readonly Color PanelColor = new(0.09f, 0.11f, 0.16f, 0.92f);
+        internal static readonly Color ButtonColor = new(0.16f, 0.2f, 0.3f);
+        internal static readonly Color TitleColor = new(0.92f, 0.95f, 1f);
+        internal static readonly Color StatusColor = new(0.65f, 0.7f, 0.78f);
 
         [MenuItem("GhostHunter/메인메뉴·로비 씬 생성", priority = 2)]
         public static void SetupMenuScenes()
@@ -70,6 +70,12 @@ namespace GhostHunter.EditorTools
             Button quitButton = CreateButton(canvas, "QuitButton", "게임 종료", 30,
                 new Vector2(0.5f, 0.5f), new Vector2(0f, -150f), new Vector2(380f, 70f), out _);
 
+            // 매치에서만 빠져나온 게스트는 Steam 로비 멤버로 남는다. 그 로비로 돌아가는 진입점이다
+            // → docs/project/pause-menu-system.md §4.4 (PM-14). 로비에 없으면 컨트롤러가 숨긴다.
+            Button returnToLobbyButton = CreateButton(canvas, "ReturnToLobbyButton", "로비로 돌아가기", 26,
+                new Vector2(0.5f, 0.5f), new Vector2(0f, -235f), new Vector2(380f, 62f), out _);
+            returnToLobbyButton.gameObject.SetActive(false);
+
             Text statusText = CreateText(canvas, "StatusText", "", 22, FontStyle.Normal, StatusColor,
                 TextAnchor.MiddleCenter, new Vector2(0.5f, 0f), new Vector2(0f, 50f), new Vector2(1400f, 60f));
 
@@ -100,6 +106,7 @@ namespace GhostHunter.EditorTools
             PrototypeSceneSetup.SetObjectReference(controller, "_joinRoomButton", joinButton);
             PrototypeSceneSetup.SetObjectReference(controller, "_settingsButton", settingsButton);
             PrototypeSceneSetup.SetObjectReference(controller, "_quitButton", quitButton);
+            PrototypeSceneSetup.SetObjectReference(controller, "_returnToLobbyButton", returnToLobbyButton);
             PrototypeSceneSetup.SetObjectReference(controller, "_joinPanel", joinPanel);
             PrototypeSceneSetup.SetObjectReference(controller, "_roomCodeInput", roomCodeInput);
             PrototypeSceneSetup.SetObjectReference(controller, "_joinConfirmButton", joinConfirmButton);
@@ -240,7 +247,7 @@ namespace GhostHunter.EditorTools
             cameraObject.AddComponent<AudioListener>();
         }
 
-        private static void CreateEventSystem()
+        internal static GameObject CreateEventSystem()
         {
             var eventSystemObject = new GameObject("EventSystem");
             eventSystemObject.AddComponent<EventSystem>();
@@ -248,9 +255,10 @@ namespace GhostHunter.EditorTools
             // 프로젝트가 신규 Input System 전용이므로 StandaloneInputModule 은 예외를 던진다.
             // 액션 에셋을 비워 두면 모듈이 런타임에 기본 UI 액션을 스스로 만든다.
             eventSystemObject.AddComponent<InputSystemUIInputModule>();
+            return eventSystemObject;
         }
 
-        private static GameObject CreateCanvas(string name)
+        internal static GameObject CreateCanvas(string name)
         {
             var canvasObject = new GameObject(name, typeof(RectTransform));
             canvasObject.layer = LayerMask.NameToLayer("UI");
@@ -267,7 +275,7 @@ namespace GhostHunter.EditorTools
             return canvasObject;
         }
 
-        private static GameObject CreateUiObject(string name, Transform parent)
+        internal static GameObject CreateUiObject(string name, Transform parent)
         {
             var uiObject = new GameObject(name, typeof(RectTransform));
             uiObject.layer = LayerMask.NameToLayer("UI");
@@ -275,7 +283,7 @@ namespace GhostHunter.EditorTools
             return uiObject;
         }
 
-        private static void StretchFull(GameObject uiObject)
+        internal static void StretchFull(GameObject uiObject)
         {
             var rect = uiObject.GetComponent<RectTransform>();
             rect.anchorMin = Vector2.zero;
@@ -284,7 +292,7 @@ namespace GhostHunter.EditorTools
             rect.offsetMax = Vector2.zero;
         }
 
-        private static GameObject CreatePanel(
+        internal static GameObject CreatePanel(
             Transform parent,
             string name,
             Vector2 anchor,
@@ -304,7 +312,7 @@ namespace GhostHunter.EditorTools
             return panel;
         }
 
-        private static Text CreateText(
+        internal static Text CreateText(
             Transform parent,
             string name,
             string content,
@@ -327,7 +335,7 @@ namespace GhostHunter.EditorTools
             return text;
         }
 
-        private static void ConfigureText(
+        internal static void ConfigureText(
             Text text,
             string content,
             int fontSize,
@@ -348,7 +356,7 @@ namespace GhostHunter.EditorTools
             text.raycastTarget = false;
         }
 
-        private static Button CreateButton(
+        internal static Button CreateButton(
             Transform parent,
             string name,
             string label,

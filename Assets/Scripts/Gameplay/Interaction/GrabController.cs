@@ -132,6 +132,18 @@ namespace GhostHunter.Gameplay.Interaction
                 _camera.transform.forward);
         }
 
+        /// <summary>
+        /// 입력과 무관하게 지금 잡고 있는(또는 요청 중인) 가구를 놓는다.
+        /// 일시정지 메뉴가 입력을 잠그기 <b>전에</b> 부른다 — 잠근 뒤에는
+        /// <c>AttackReleasedThisFrame</c> 이 영영 오지 않아 가구가 계속 떠 있는다
+        /// → docs/architecture/pause-menu.md §6.5 (PM-15).
+        /// </summary>
+        public void ForceRelease()
+        {
+            _testHoldLatched = false;
+            ReleaseGrab();
+        }
+
         private void ReleaseGrab()
         {
             ulong objectId = IsHolding ? _heldObjectId.Value : _requestedObjectId;

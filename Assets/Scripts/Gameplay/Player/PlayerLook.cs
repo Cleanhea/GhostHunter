@@ -1,7 +1,6 @@
 using GhostHunter.Core;
 using Unity.Netcode;
 using UnityEngine;
-using UnityEngine.InputSystem;
 
 namespace GhostHunter.Gameplay.Player
 {
@@ -63,10 +62,9 @@ namespace GhostHunter.Gameplay.Player
             if (_settings == null || _input == null || _cameraPivot == null)
                 return;
 
-            Keyboard keyboard = Keyboard.current;
-            if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame)
-                SetCursorLocked(Cursor.lockState != CursorLockMode.Locked);
-
+            // ESC 는 일시정지 메뉴가 가져갔고, 커서 잠금도 그 메뉴가 관리한다
+            // → docs/project/pause-menu-system.md §3.5 (PM-3 해소안 A).
+            // 여기서는 커서가 풀린 동안 시점이 돌지 않게 막기만 한다.
             if (Cursor.lockState != CursorLockMode.Locked)
                 return;
 
@@ -77,6 +75,10 @@ namespace GhostHunter.Gameplay.Player
             _cameraPivot.localRotation = Quaternion.Euler(_pitch, 0f, 0f);
         }
 
+        /// <summary>
+        /// 스폰·디스폰 시의 초기 잠금·해제만 여기서 한다. 플레이 중의 커서 전환은
+        /// 일시정지 메뉴가 담당한다 → docs/architecture/pause-menu.md §6.1
+        /// </summary>
         private static void SetCursorLocked(bool locked)
         {
             Cursor.lockState = locked ? CursorLockMode.Locked : CursorLockMode.None;

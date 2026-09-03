@@ -26,6 +26,10 @@
 > 4. 필요 시 F1 HUD에서 귀신 P1을 반복 플레이 테스트하고 임시 수치를 조정
 > 5. (2026-08-31 추가) D-13 / D-14 결정 → 두더지 스킬 구현 착수 가능
 >    ([mole-skill-system.md](mole-skill-system.md) 초안의 MS-1~15)
+> 6. (2026-09-04 갱신) **일시정지 메뉴 구현 완료.** 자동 테스트는 통과했다.
+>    사용자가 해 줄 일: **① 에디터에서 직접 플레이해 §10.4~§10.5 수동 검증**,
+>    **② 선행 검증 D-1**(클라이언트 씬 동기화 모드 — §5 백로그. 참이면 게스트 경로가 무너진다)
+>    → [pause-menu.md §10](../architecture/pause-menu.md)
 
 ### 1.1 M8 귀신·정신력 통합 TODO
 
@@ -107,6 +111,8 @@
 | D-12 | 청소·이사 작업 중 귀신 출현·어택 처리 | [ghost-system.md §13 G-11](ghost-system.md) → M8 예외 처리 |
 | D-13 | 두더지 스킬의 **사용 키·공통 판정 조건·쿨타임 수치** (MS-1·MS-2·MS-3) | [mole-skill-system.md §9](mole-skill-system.md) → 스킬 구현 착수 전체 |
 | D-14 | **청소·이사 작업 시스템**(얼룩·이동 대상 가구·진행도)의 정의 | 탐지 스킬(MS-5), 귀신 청소 40% 트리거([G-1](ghost-system.md)), 게임 루프(D-4) |
+| ~~D-15~~ | ~~일시정지 메뉴·연결 끊김 처리의 미결정 13건~~ | **대부분 해결 (2026-09-04, 사용자 확정 11건)** — 전부 잠금·경고 없음·해소안 A·전원 종료·게스트 로비 유지·설정 stub·종료 확인 대화상자·끊김 모달+확인 버튼·문구 통일·`Result` 미경유·호스트 종료 동일 정리 → [pause-menu-system.md §9](pause-menu-system.md) |
+| ~~D-16~~ | ~~일시정지 메뉴 잔여 4건 (PM-10·12·14·15)~~ | ✅ 해결 (2026-09-04) — 메뉴 표시 없음 · **홀드 중 열면 발사** · `Title` 로비 복귀 진입점 · 열기 제한 없음 → [pause-menu-system.md §9](pause-menu-system.md) |
 
 ---
 
@@ -224,6 +230,8 @@
 
 | 태스크 | 이유 | 우선순위 |
 | --- | --- | --- |
+| **클라이언트 씬 동기화 모드 확인** — 코드가 `SetClientSynchronizationMode` 를 호출하지 않아 NGO 기본값 `Single` 로 동작한다. [networking.md §3.5](../architecture/networking.md)의 "Additive" 서술과 어긋나고, Single 이면 게스트 동기화 시 **`Bootstrap` 이 언로드**될 수 있다 | 게스트의 서비스·씬 전환 전부가 여기에 걸린다. Local 2인(UTP)으로 재현 가능 → [pause-menu.md §5.5·§10.1](../architecture/pause-menu.md) | **높음 — 일시정지 메뉴 선행** |
+| ~~일시정지 메뉴 · 연결 끊김 처리 구현~~ | — | ✅ **완료 (2026-09-04)** — 수동 검증만 남음 → [pause-menu.md §10](../architecture/pause-menu.md) |
 | Steam App ID 발급 후 480 교체 | 480은 개발 전용 공용 ID | 출시 전 필수 |
 | `Assets/TutorialInfo/`, `Readme.asset`, `SampleScene` 정리 | Unity 템플릿 잔재 | 낮음 |
 | 빌드 자동화 스크립트 (`Scripts/Editor/BuildPipeline`) | 반복 빌드 비용 절감 | 낮음 |
@@ -279,7 +287,20 @@
 | 2026-08-31 | 초자연현상 목격 → 정신력 연결 (M8-GS-2, G-6 해결) | 사용자 확정(종류 불문 목격 시 적용, 감소량 15 — `SanitySystemSettings.GhostEventDecrease` 10→15). `GhostPrototypeController.ServerCheckPhenomenonWitnessed` 신규 — 현상 발생마다 생존·비굴착 플레이어 전원의 목격 여부(거리 `PhenomenonWitnessDistance` 12m·각도 `PhenomenonWitnessAngle` 70°·가림, `GhostVision.IsInsideCone` 재사용, 서버는 카메라 피치를 모르므로 요만 판정)를 확인해 `SanityNetworkState.ServerApplyGhostEventWitnessed()` 호출. `GhostPrototypeSettings`·`SanitySystemSettings` 두 기본 에셋을 `manage_scriptable_object` 로 갱신(YAML 손편집 없음). 값 변경으로 깨진 기존 테스트 2건(`SanityStateTests`) 수정 — 디버프 경계 테스트는 감소량에 결합되지 않도록 `TickDarkness` 기반으로 재작성. EditMode 115/115 통과 → [ghost-prototype.md §4·§5](../architecture/ghost-prototype.md), [sanity-system.md §4.2](sanity-system.md) |
 | 2026-08-31 | 일반 은신처 임시 구현 (G-8 판정 시점만) | 사용자 확정: "수색 중 은신처 최초 접근 시 1회만" 30%[임시] 검사, **주기·재검사 여부는 여전히 미정**. `HidingSpot`(신규, `Ghost/HidingSpot.cs`) — 정식 가구가 아직 없어 종류를 구분하지 않고 순수 상자 하나로 통일, `DrillCarSafeZone`과 같은 정적 레지스트리 패턴. `GhostPrototypeController` — `TryDetectPlayer`/`TryCatch` 양쪽에서 은신처 안의 플레이어를 제외, `Pursuit.Search` 중 `ServerTickHidingSpots`가 반경(`HidingSpotCheckRadius` 2.5m) 안 미확인 은신처를 발견 즉시 1회 소모하며 30%(`HidingSpotCheckChance`) 판정 → 성공 시 `ServerMarkDead()`. 씬 배치는 `GhostPrototypeSetup.InstallHidingSpots`가 방 바닥 앵커(`Bedroom_01_A_Floor` 등 4개)에서 위치·크기를 역산해 `HidingSpots_Temp`에 침실1·침실2·거실·창고 4개 생성, `ValidateInstallation()`에 존재 검사 추가. EditMode 118/118 통과(신규 `HidingSpotTests` 3건 — 정적 레지스트리는 Play Mode 전용 생명주기라 EditMode 검증 대상 아님, `DrillCarSafeZone`과 동일 관례), PlayMode 12/12 회귀 없음. **알려진 한계**: 기존 귀신 배회 경계 버그로 침실 은신처 2개는 경계 가장자리에 걸림(경계 자체는 이 작업 범위 밖) → [ghost-prototype.md §4·§6](../architecture/ghost-prototype.md), [ghost-system.md §9.5·§13 G-8](ghost-system.md) |
 | 2026-08-31 | 걷기 소리 탐지 반경 6m 확정 (G-4 부분 해결) | `GhostPrototypeSettings.RunSpeedThreshold` 4.5→6m/s로 조정해 걷기 5m/s는 `WalkHearingRadius` 6m, 달리기 7m/s는 `RunHearingRadius` 12m로 분리. 웅크리기는 기존 명시적 무음 유지. 기본 에셋은 Unity MCP `manage_scriptable_object`로 저장했고 EditMode 119/119 통과. 달리기 반경·어택 외 상태 적용 여부는 G-4 잔여 |
+| 2026-09-04 | 엎드리기 + 침대 밑 은신 | **엎드리기(Z 토글)** 3번째 자세 — `PlayerStance`/`PlayerPosture`(순수, EditMode) 분리, `_isProne` owner-authoritative `NetworkVariable`, 캡슐 0.5m·카메라 0.35m·이동 1.4m/s, 자세 올릴 때 `CanOccupyHeight` 머리 공간 검사, 점프 불가, 엎드려 이동도 귀신 소리 탐지 제외. **침대 밑 은신** — 침대 3종을 다리로 ~0.8m 띄우고 자식 `UnderBedHide`(`BedHideZone`) 추가(`CreateBed` 수정 + 기존 프리팹은 `GlobalObjectIdHash` 보존 제자리 편집). 서버가 플레이어별 `BedHideEvaluator`를 어택 틱마다 굴려 판정: 엎드림+Idle 침대 밑+안 쫓김+시야 밖이 `BedHideConcealSeconds`(1s [임시]) 이어지면 성립 → 탐지·잡힘·수색 훔쳐보기 전부 제외. **들어가는 걸 봤으면 추격 유지 + 침대 밑에서도 잡힘**(수색 중에도 `TryCatch` 호출), 놓친 뒤에야 성립(사용자 확정 2026-09-04). EditMode 134/135(신규 14건 통과, 남은 1건은 선재 실패 `Player_굴착_액션은_R키에...`). 옷장·책상 밑은 미구현 → [player-controller.md](../architecture/player-controller.md), [ghost-prototype.md](../architecture/ghost-prototype.md), [ghost-system.md §9.5·§13 G-8](ghost-system.md) |
+| 2026-09-04 | 밸런스 튜닝 창 (F2, 별도) | `TuningHud`(`Assets/Scripts/DebugTools/`) — `PlayerMoveSettings`(16)·`GhostPrototypeSettings`(52)·`MoleBurrowSettings`(6)·`FurnitureThrowSettings`(16)·`SanitySystemSettings`(12), 총 102개 `[SerializeField]` 값을 런타임 리플렉션으로 노출. **접속 HUD(Tab)와 독립된 이동식 `GUILayout.Window`**, 기본 키 `F2`(`ConnectionHud._tuningToggleKey`). 가독성: SO별 접이식 → 그 안에서 `[Header]` 그룹별 접이식(귀신은 11개 그룹, 최대 12줄) + 상단 이름 필터(가로질러 검색). 세션 시작 시 씬 컴포넌트의 `_settings` 에서 SO 를 찾아 붙잡음(배선 없음), `[Range]`→슬라이더 · 편집 후 `OnValidate` 재호출로 상호 의존 클램프 · `이 설정/전체 되돌리기`. SO 에 필드를 더하면 자동 노출. EditMode 회귀 없음(134/135) → [ghost-prototype.md §7](../architecture/ghost-prototype.md) |
+
+| 2026-09-04 | 일시정지 메뉴 · 연결 끊김 처리 **기획·설계 문서화** (코드 변경 없음) | 사용자 확정 4건(ESC 진입 · `timeScale`=1 유지 · 메뉴 4항목 순서 · "호스트와 연결이 끊겼습니다.")을 기준으로 [pause-menu-system.md](pause-menu-system.md)(기획, PM-1~13 미결정)와 [pause-menu.md](../architecture/pause-menu.md)(구현 설계 — 서비스·권위·배선·검증)를 신규 작성. `gdd.md` 조작키·UI 표와 부록 A #16, `player-controller.md` ESC 충돌 해소안, `networking.md` 씬 전환 제약을 함께 갱신. **코드 확인에서 3건 발견** — ① 세션 중 게스트는 `ISceneFlow.Load` 가 거부된다 ② 게스트의 `Game` 씬을 `SceneFlowController` 가 추적하지 않아 나갈 때 안 내려간다 ③ `SetClientSynchronizationMode` 미호출로 동기화 모드가 문서와 달리 `Single` 이다(§5 백로그로 승격). 구현은 D-15 결정 대기 |
+
+| 2026-09-04 | 일시정지 메뉴 **미결정 11건 사용자 확정** (문서만) | 메뉴 중 **조작 전부 잠금**(PM-1) · 안전지대 경고 없음(PM-2) · **ESC 해소안 A**(PM-3 — `PlayerLook` 의 ESC 커서 토글 제거, 메뉴가 커서 관리, `Player/Pause` 신설 + `UI/Cancel` 로 닫기) · 호스트 "타이틀로"→**게스트 전원 강제 종료**(PM-4) · 게스트는 **Steam 로비에 남음**(PM-5) · 설정은 **stub**(PM-6) · 종료는 **확인 대화상자**(PM-7) · 끊김은 **모달+확인 버튼, 자동 이동 없음**(PM-8) · **사유 불문 문구 통일**(PM-9) · **`Result` 미경유**(PM-11) · 호스트 "종료"도 같은 정리(PM-13). 파생 요구 2건 기록 — `IConnectionService` 가 **세션 종료와 로비 퇴장을 분리**해야 하고(PM-5), `SceneFlowController` 가 게스트의 `Game` 씬을 추적해야 한다(§5.4). 신설 미결정 **PM-14·PM-15** → D-16 |
+
+| 2026-09-04 | 일시정지 메뉴 **잔여 4건 확정 → 기획 완료** (문서만) | 다른 플레이어에게 **메뉴 상태 표시 없음**(PM-12 — 복제 상태를 만들지 않는다) · 홀드 중 메뉴를 열면 **발사**(PM-15, 좌클릭 뗀 판정) · `Title` 에 **로비 복귀 진입점**(PM-14 — 로비 소속일 때만 표시, 재접속 로직은 `LobbyController` 에 이미 있음) · **열기 제한 없음**(PM-10 — 사망·어택·굴착·홀드 중 전부 허용). **구현 함정 1건 발견**: `GrabController.ReleaseGrab()` 은 `AttackReleasedThisFrame` 프레임에만 불리므로, 입력을 잠그기만 하면 가구가 발사되지 않고 계속 떠 있는다 — 잠그기 **전에** 해제를 명시 호출해야 한다(공개 API 필요) → [pause-menu.md §6.5](../architecture/pause-menu.md) |
+
+| 2026-09-04 | **일시정지 메뉴 · 연결 끊김 처리 구현** | `PauseMenuController`(신규, 상태기계 Closed/Menu/ConfirmQuit/Disconnected) · `Player/Pause` 액션(ESC·게임패드 Start) 신설 · `PlayerInputReader.SetGameplayInputLocked`(값을 0으로, **`CrouchHeld` 는 동결** — 맵을 끄면 메뉴를 여는 것만으로 일어선다) · `GrabController.ForceRelease()`(잠그기 **전에** 호출해야 발사된다) · `PlayerLook` 의 ESC 커서 토글 제거(PM-3 A안) · `IConnectionService.Disconnect(bool leaveLobby)` + `SessionEnded`(게스트는 로비 유지, 호스트는 퇴장) · `ConnectionManager` 가 `OnTransportFailure` 도 구독 · `SceneFlowController` 가 `sceneLoaded` 로 **게스트의 NGO Game 씬을 받아들인다**(§5.4 A안) · `MainMenuController` 로비 복귀 버튼(로비 소속일 때만) · 설치 도구 `PauseMenuSetup`(Game 씬 **덧붙이기** + Title 버튼 추가, 재생성 아님) · `GhostHunter.UI` → `Unity.InputSystem` 참조 추가. EditMode **141/142**(신규 6건 통과, 잔여 1건은 선재 실패 `Player_굴착_액션은_R키에...`), PlayMode **12/12** 회귀 없음. **수동 검증과 선행 검증 D-1 은 미수행** → [pause-menu.md](../architecture/pause-menu.md), [pause-menu-system.md](pause-menu-system.md) |
+
+| 2026-09-04 | 개발 HUD 부활 기능 | `SanityState.Revive()`(생존 상태만 복구 — 정신력 값·시체 목격 기록 유지, 어둠 누적만 0으로) → `SanityNetworkState.ServerRevive()` → `ISanityDebug.ReviveLocalPlayer`/`ReviveTeam` → Tab HUD 버튼 `부활`·`팀 전원 부활`. 사망(`ServerMarkDead`)의 짝이 없어 죽으면 되돌릴 방법이 없던 문제를 해소. EditMode 신규 5건 포함 **146/147** 통과(잔여 1건은 선재 실패). **게임 규칙으로서의 부활(동료가 되살리는 메커니즘)은 여전히 미정** — 이 API 의 게임플레이 호출부는 없다 → [sanity-system.md](../architecture/sanity-system.md) |
 
 ---
 
-최종 갱신: 2026-08-31 (걷기 소리 탐지 반경 6m 확정 — G-4 부분 해결. 달리기 반경·어택 외 상태 적용 여부는 잔여)
+최종 갱신: 2026-09-04 (개발 HUD 부활 기능 추가 · 일시정지 메뉴 구현 완료 — 수동 검증·D-1 대기.
+이전: 일시정지 메뉴 기획 완료 · 엎드리기 + 침대 밑 은신 · 밸런스 튜닝 창(F2))

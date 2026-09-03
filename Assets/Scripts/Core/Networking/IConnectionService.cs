@@ -21,11 +21,23 @@ namespace GhostHunter.Core.Networking
 
         event Action<string> StatusChanged;
 
+        /// <summary>
+        /// 이쪽에서 요청하지 않았는데 세션이 끝났을 때 발생한다 — 호스트 이탈, 타임아웃,
+        /// 트랜스포트 실패, 강퇴. 사유는 구분하지 않는다(문구 통일).
+        /// 스스로 <see cref="Disconnect"/> 를 부른 경우에는 발생하지 않는다.
+        /// </summary>
+        event Action SessionEnded;
+
         void SetTransportMode(TransportMode mode);
         void StartHost();
         void StartHostInGameScene(SceneId scene);
         void ConnectToSteamHost(ulong hostSteamId);
         void StartLocalClient();
-        void Disconnect();
+
+        /// <summary>
+        /// 세션을 끝낸다. <paramref name="leaveLobby"/> 가 false 면 Netcode 세션만 닫고
+        /// Steam 로비 멤버로는 남는다 — 게스트가 매치에서만 빠질 때 쓴다.
+        /// </summary>
+        void Disconnect(bool leaveLobby = true);
     }
 }

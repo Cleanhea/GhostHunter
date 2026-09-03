@@ -22,6 +22,10 @@ namespace GhostHunter.UI
         [SerializeField] private Button _settingsButton;
         [SerializeField] private Button _quitButton;
 
+        [Tooltip("매치에서만 빠져나온 게스트가 남아 있는 Steam 로비로 돌아가는 버튼. " +
+                 "로비에 속해 있을 때만 보인다.")]
+        [SerializeField] private Button _returnToLobbyButton;
+
         [Header("방 참가 패널")]
         [SerializeField] private GameObject _joinPanel;
         [SerializeField] private InputField _roomCodeInput;
@@ -55,7 +59,11 @@ namespace GhostHunter.UI
             _joinCancelButton.onClick.AddListener(HandleJoinCancelClicked);
             _roomCodeInput.onValueChanged.AddListener(HandleRoomCodeChanged);
 
+            if (_returnToLobbyButton != null)
+                _returnToLobbyButton.onClick.AddListener(HandleReturnToLobbyClicked);
+
             _joinPanel.SetActive(false);
+            RefreshReturnToLobby();
 
             if (_lobby == null)
             {
@@ -68,6 +76,9 @@ namespace GhostHunter.UI
             _lobby.StatusChanged += HandleStatus;
             _lobby.HostLobbyReady += HandleEnteredLobby;
             _lobby.JoinTargetResolved += HandleJoinTargetResolved;
+            _lobby.LobbyLeft += RefreshReturnToLobby;
+
+            RefreshReturnToLobby();
 
             SetStatus(_lobby.IsSteamReady
                 ? $"Steam: {_lobby.LocalName}"
@@ -82,6 +93,7 @@ namespace GhostHunter.UI
             _lobby.StatusChanged -= HandleStatus;
             _lobby.HostLobbyReady -= HandleEnteredLobby;
             _lobby.JoinTargetResolved -= HandleJoinTargetResolved;
+            _lobby.LobbyLeft -= RefreshReturnToLobby;
         }
 
         private void HandleCreateRoomClicked() => CreateRoomAsync().Forget();
@@ -172,6 +184,30 @@ namespace GhostHunter.UI
             SetStatus("설정은 아직 미구현입니다.");
         }
 
+        /// <summary>
+        /// 매치에서만 빠져나온 게스트는 Steam 로비 멤버로 남아 있다. 로비 씬으로 돌아가면
+        /// LobbyController 가 호스트의 시작 신호를 보고 다시 접속한다
+        /// → docs/project/pause-menu-system.md §4.4 (PM-14)
+        /// </summary>
+        private void HandleReturnToLobbyClicked()
+        {
+            if (_navigating || _lobby == null || !_lobby.IsInLobby)
+                return;
+
+            _navigating = true;
+            _sceneFlow?.Load(SceneId.Lobby);
+        }
+
+        /// <summary>로비에 속해 있을 때만 복귀 버튼을 보인다.</summary>
+        private void RefreshReturnToLobby()
+        {
+            if (_returnToLobbyButton == null)
+                return;
+
+            bool inLobby = _lobby != null && _lobby.IsInLobby;
+            _returnToLobbyButton.gameObject.SetActive(inLobby);
+        }
+
         private void HandleQuitClicked()
         {
 #if UNITY_EDITOR
@@ -208,6 +244,9 @@ namespace GhostHunter.UI
             _joinRoomButton.interactable = interactable;
             _settingsButton.interactable = interactable;
             _quitButton.interactable = interactable;
+
+            if (_returnToLobbyButton != null)
+                _returnToLobbyButton.interactable = interactable;
         }
 
         private void HandleStatus(string message) => SetStatus(message);

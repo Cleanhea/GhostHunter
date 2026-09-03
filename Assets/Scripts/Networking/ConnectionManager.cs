@@ -51,10 +51,16 @@ namespace GhostHunter.Networking
         /// <summary>사람이 읽는 진행 상황. 개발용 HUD가 그대로 표시한다.</summary>
         public event Action<string> StatusChanged;
 
+        /// <summary>요청하지 않은 세션 종료. 일시정지 메뉴 UI가 끊김 모달을 띄우는 신호다.</summary>
+        public event Action SessionEnded;
+
         private NetworkManager Net => _networkManager != null ? _networkManager : NetworkManager.Singleton;
 
         private ISteamLobbyService _lobby;
         private ISceneFlow _sceneFlow;
+
+        /// <summary>이쪽에서 Disconnect 를 부른 동안에는 SessionEnded 를 올리지 않는다.</summary>
+        private bool _shutdownRequested;
 
         private void Awake()
         {
@@ -85,6 +91,7 @@ namespace GhostHunter.Networking
             {
                 net.OnClientConnectedCallback += HandleClientConnected;
                 net.OnClientDisconnectCallback += HandleClientDisconnected;
+                net.OnTransportFailure += HandleTransportFailure;
             }
             else
             {
@@ -105,6 +112,7 @@ namespace GhostHunter.Networking
             {
                 _networkManager.OnClientConnectedCallback -= HandleClientConnected;
                 _networkManager.OnClientDisconnectCallback -= HandleClientDisconnected;
+                _networkManager.OnTransportFailure -= HandleTransportFailure;
             }
         }
 
@@ -299,16 +307,33 @@ namespace GhostHunter.Networking
                 SetStatus("StartClient 실패.");
         }
 
-        public void Disconnect()
+        /// <summary>
+        /// 세션을 끝낸다. 게스트가 매치에서만 빠질 때는 <paramref name="leaveLobby"/> 를 false 로
+        /// 넘겨 Steam 로비 멤버로 남긴다 — 타이틀에서 그 로비로 다시 들어갈 수 있다.
+        /// 이 경로로 끝난 세션은 <see cref="SessionEnded"/> 를 올리지 않는다(요청한 종료이므로).
+        /// </summary>
+        public void Disconnect(bool leaveLobby = true)
         {
             NetworkManager net = Net;
 
-            if (net != null && (net.IsServer || net.IsClient))
-                net.Shutdown();
+            _shutdownRequested = true;
 
-            _lobby?.LeaveLobby();
+            try
+            {
+                if (net != null && (net.IsServer || net.IsClient))
+                    net.Shutdown();
+            }
+            finally
+            {
+                _shutdownRequested = false;
+            }
 
-            SetStatus("연결을 끊었습니다.");
+            if (leaveLobby)
+                _lobby?.LeaveLobby();
+
+            SetStatus(leaveLobby
+                ? "연결을 끊었습니다."
+                : "세션에서 나왔습니다. 로비에는 남아 있습니다.");
         }
 
         #endregion
@@ -395,16 +420,43 @@ namespace GhostHunter.Networking
 
             if (selfDisconnected && !net.IsServer)
             {
+                // 사유는 로그에만 남긴다. 사용자에게는 종류를 구분하지 않고 한 문구만 보인다
+                // → docs/project/pause-menu-system.md §5.3
                 string reason = string.IsNullOrEmpty(net.DisconnectReason)
                     ? "(사유 없음)"
                     : net.DisconnectReason;
 
                 SetStatus($"서버와의 연결이 끊겼습니다. {reason}");
+
+                // 호스트가 사라진 로비에 남을 이유가 없다. 자발적 이탈(Disconnect)과 달리
+                // 여기서는 로비도 함께 나간다.
                 _lobby?.LeaveLobby();
+                RaiseSessionEnded();
                 return;
             }
 
             SetStatus($"클라이언트 연결 해제: {clientId}");
+        }
+
+        /// <summary>트랜스포트 자체가 죽은 경우. 클라이언트에게는 호스트 이탈과 같은 결과다.</summary>
+        private void HandleTransportFailure()
+        {
+            SetStatus("트랜스포트 오류로 세션이 종료되었습니다.");
+
+            NetworkManager net = Net;
+            if (net != null && net.IsServer)
+                return;
+
+            _lobby?.LeaveLobby();
+            RaiseSessionEnded();
+        }
+
+        private void RaiseSessionEnded()
+        {
+            if (_shutdownRequested)
+                return;
+
+            SessionEnded?.Invoke();
         }
 
         private void ApplyCommandLineOverride()

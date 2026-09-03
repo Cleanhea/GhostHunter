@@ -38,6 +38,10 @@ namespace GhostHunter.Systems.SceneFlow
                 return;
             }
 
+            // 게스트의 Game 씬은 NGO 클라이언트 동기화가 올린다 — 이 컨트롤러를 거치지 않으므로
+            // 그대로 두면 Current 가 Lobby 로 남고, 나중에 그 씬을 내리지 못한다.
+            SceneManager.sceneLoaded += HandleSceneLoadedExternally;
+
             // 에디터에서 Bootstrap 과 작업 중인 씬을 함께 열어둔 경우, 그 씬을 Title 로 덮지 않는다.
             if (SceneManager.sceneCount > 1)
             {
@@ -46,6 +50,40 @@ namespace GhostHunter.Systems.SceneFlow
             }
 
             Load(_firstScene);
+        }
+
+        private void OnDestroy()
+        {
+            SceneManager.sceneLoaded -= HandleSceneLoadedExternally;
+        }
+
+        /// <summary>
+        /// 이 컨트롤러가 올리지 않은 게임플레이 씬을 현재 씬으로 받아들인다.
+        /// 실제로 이 경로를 타는 것은 <b>게스트가 NGO 씬 동기화로 들어가는 Game 씬</b> 하나다.
+        /// 받아들이지 않으면 세션을 떠날 때 그 씬이 화면에 남는다.
+        /// </summary>
+        private void HandleSceneLoadedExternally(Scene scene, LoadSceneMode mode)
+        {
+            // 우리가 시작한 전환은 LoadAsync 가 직접 처리한다.
+            if (IsLoading || _scenes == null || !scene.IsValid())
+                return;
+
+            if (!_scenes.TryResolve(scene.name, out SceneId id) || id == SceneId.Bootstrap)
+                return;
+
+            if (id == Current && _currentScene == scene)
+                return;
+
+            _currentScene = scene;
+            _currentLoadedByNgo = true;
+            Current = id;
+            SceneManager.SetActiveScene(scene);
+
+            Debug.Log(
+                $"{nameof(SceneFlowController)}: 외부(NGO 동기화)에서 올라온 {id} 씬을 현재 씬으로 받아들였다.",
+                this);
+
+            SceneChanged?.Invoke(id);
         }
 
         public void Load(SceneId scene)

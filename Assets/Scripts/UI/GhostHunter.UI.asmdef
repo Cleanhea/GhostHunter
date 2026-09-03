@@ -6,6 +6,7 @@
         "GhostHunter.Data",
         "GhostHunter.Gameplay",
         "Unity.Netcode.Runtime",
+        "Unity.InputSystem",
         "UnityEngine.UI",
         "Unity.RenderPipelines.Core.Runtime",
         "UniTask"

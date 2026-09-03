@@ -157,7 +157,13 @@ private readonly NetworkVariable<bool> _isOpen =
 - 세션 중에는 MUST `NetworkManager.Singleton.SceneManager.LoadScene(...)`.
 - 비네트워크 구간의 씬 전환도 MUST `ISceneFlow`를 경유한다. 어떤 코드도 `SceneManager`를 직접 부르지 않는다
   → [ADR-0004](decisions/ADR-0004-multi-scene-additive.md)
-- 클라이언트 동기화 모드는 `LoadSceneMode.Additive`다.
+- 클라이언트 동기화 모드는 `LoadSceneMode.Additive`**여야 한다.**
+  > ⚠️ **미검증 — 코드가 이 서술을 뒷받침하지 않는다(2026-09-04 확인).** 저장소 어디에서도
+  > `NetworkSceneManager.SetClientSynchronizationMode(...)` 를 부르지 않으므로 NGO 기본값
+  > **`LoadSceneMode.Single`** 로 동작한다. Single 모드는 클라이언트 동기화 시 이미 로드된 씬을
+  > 전부 언로드하므로 **게스트의 `Bootstrap` 이 내려갈 수 있다**(= `NetworkRig`·`Services` 소실).
+  > Local 2인(UTP)으로 재현·확인한 뒤, 모드를 명시 호출하거나 이 서술을 고친다
+  > → [pause-menu.md §5.5](pause-menu.md), [../project/roadmap.md §5](../project/roadmap.md)
 - **NGO가 올린 씬은 MUST `NetworkManager.SceneManager.UnloadScene`으로 내린다.** 로컬로 올린 씬은 각 피어가 직접 내린다.
 - additive 전환 중 이전/다음 씬이 공존하므로 `SceneFlowController`가 이전 씬의 `EventSystem`과
   `AudioListener`를 로드 전에 비활성화한다. 전환 시작 실패 시 원상 복구한다.
@@ -170,6 +176,25 @@ private readonly NetworkVariable<bool> _isOpen =
 
 - 로비 씬에서 바로 `StartHost` 하면 플레이어가 스폰 지점 없는 씬에 스폰된다.
 - 신호를 먼저 보내면 게스트가 **세션 없는 호스트**에 접속한다.
+
+### 3.6.1 세션 종료 순서 (MUST)
+
+시작의 역순이다. **세션을 먼저 끊고, 그 다음 씬을 전환한다.**
+
+```
+IConnectionService.Disconnect() → (한 프레임 양보) → ISceneFlow.Load(Title)
+```
+
+- 세션이 살아 있는 동안 **게스트의 `ISceneFlow.Load` 는 거부된다** — `SceneFlowController` 가
+  `useNgo && !IsServer` 를 걸러 경고만 남긴다.
+- 세션이 살아 있는 동안 **호스트의 `ISceneFlow.Load` 는 NGO 경로를 타서 게스트까지 끌고 간다.**
+  혼자 나가려는 의도라면 반드시 `Disconnect()` 가 먼저다.
+- `ConnectionManager.Disconnect()` 는 `NetworkManager.Shutdown()` 뒤에 `ISteamLobbyService.LeaveLobby()`
+  까지 부른다. 호출부가 로비 퇴장을 또 부르지 않는다.
+
+연결이 끊겼을 때 플레이어에게 무엇을 보여주고 어디로 보낼지는
+[pause-menu.md](pause-menu.md) 와 [../project/pause-menu-system.md §5](../project/pause-menu-system.md) 가 정한다.
+UI 는 `NetworkManager` 콜백을 직접 구독하지 않고 **`IConnectionService` 를 통해서만** 세션 종료를 안다.
 
 ### 3.7 소유권
 
@@ -248,10 +273,12 @@ Facepunch 고유 `targetSteamId` 설정은 `ISteamLobbyService.TrySetConnectionT
 - [ ] Host(서버+클라 동시)에서도 정상 동작하는가
 - [ ] 게임 로직이 `FacepunchTransport`/`SteamClient`를 직접 참조하지 않는가
 - [ ] 씬 전환이 `ISceneFlow`를 경유하는가
+- [ ] 세션을 떠나는 경로가 §3.6.1 순서(끊기 → 전환)를 지키는가
 - [ ] Steam 미실행·로비 이탈·호스트 종료 상황을 처리하는가
 
 ---
 
-관련: [overview.md](overview.md) · [steam.md](steam.md) · [../conventions/code-style.md](../conventions/code-style.md)
+관련: [overview.md](overview.md) · [steam.md](steam.md) · [pause-menu.md](pause-menu.md) ·
+[../conventions/code-style.md](../conventions/code-style.md)
 
-최종 갱신: 2026-08-20
+최종 갱신: 2026-09-04 (§3.6.1 세션 종료 순서 신설, §3.5 클라이언트 동기화 모드 서술이 코드와 어긋남을 ⚠️ 표시. 이전: 2026-08-20)

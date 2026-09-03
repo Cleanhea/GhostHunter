@@ -10,6 +10,7 @@ namespace GhostHunter.Gameplay.Player
         public GrabController GrabController { get; private set; }
         public PlayerInteractor Interactor { get; private set; }
         public MoleBurrowController BurrowController { get; private set; }
+        public PlayerInputReader Input { get; private set; }
 
         public void Register(FurnitureTargeter targeter)
         {
@@ -43,6 +44,14 @@ namespace GhostHunter.Gameplay.Player
             BurrowController = burrowController;
         }
 
+        public void Register(PlayerInputReader input)
+        {
+            if (!CanRegister(Input, input))
+                return;
+
+            Input = input;
+        }
+
         public void Unregister(FurnitureTargeter targeter)
         {
             if (Targeter == targeter)
@@ -65,6 +74,12 @@ namespace GhostHunter.Gameplay.Player
         {
             if (BurrowController == burrowController)
                 BurrowController = null;
+        }
+
+        public void Unregister(PlayerInputReader input)
+        {
+            if (Input == input)
+                Input = null;
         }
 
         private static bool CanRegister<T>(T current, T incoming) where T : Component

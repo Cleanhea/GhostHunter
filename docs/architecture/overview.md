@@ -81,7 +81,7 @@ DebugTools ──▶ 전부 (개발 전용, 아무도 DebugTools를 참조하지
 | `GhostHunter.Data` | `Scripts/Data` | Core |
 | `GhostHunter.Gameplay` | `Scripts/Gameplay` | Core, Data, Unity.Netcode.Runtime, Unity.InputSystem, UniTask |
 | `GhostHunter.Networking` | `Scripts/Networking` | Core, Data, Gameplay, Unity.Netcode.Runtime, UniTask |
-| `GhostHunter.UI` | `Scripts/UI` | Core, Data, Gameplay, Unity.Netcode.Runtime, UnityEngine.UI, Unity.RenderPipelines.Core.Runtime, UniTask |
+| `GhostHunter.UI` | `Scripts/UI` | Core, Data, Gameplay, Unity.Netcode.Runtime, **Unity.InputSystem**, UnityEngine.UI, Unity.RenderPipelines.Core.Runtime, UniTask |
 | `GhostHunter.Systems` | `Scripts/Systems` | Core, Data, Gameplay, Networking, Unity.Netcode.Runtime, UnityEngine.UI, FacepunchTransport, UniTask |
 | `GhostHunter.DebugTools` | `Scripts/DebugTools` | Core, Gameplay, Unity.Netcode.Runtime, Unity.InputSystem |
 | `GhostHunter.Editor` | `Scripts/Editor` | 런타임 7개 + 에디터/패키지 참조 (Editor 플랫폼 한정) |
@@ -241,7 +241,8 @@ UI (씬별, 로컬 전용)
 ├─ CrosshairUI              조준 대상 유무에 따른 상태 변화
 ├─ ChargeGaugeUI            투척 준비 게이지, 1인 준비/2인 잡기 표시
 ├─ SanityHudUI              Game 후면 World Space 모니터의 4인 개인 수치·팀 평균 퍼센트
-├─ TitleMenuController      방 생성 / 방 코드 참가 / 설정 / 종료
+├─ PauseMenuController      Game 씬 ESC 메뉴 — 계속하기/설정(stub)/타이틀로/종료, 끊김 모달
+├─ TitleMenuController      방 생성 / 방 코드 참가 / 설정 / 종료 / 로비로 돌아가기
 └─ LobbyScreenController    방 코드·멤버 목록·준비·시작
 ```
 
@@ -292,6 +293,7 @@ UI (씬별, 로컬 전용)
 | 항목 | 상태 |
 | --- | --- |
 | `Result` 씬 내용 | TBD — 승패 조건 확정 후 |
+| 클라이언트 씬 동기화 모드(`Single`/`Additive`) | **미검증** — [networking.md §3.5](networking.md), [pause-menu.md §5.5](pause-menu.md) |
 | 세이브/영속 데이터 방식 | TBD |
 | 오디오 시스템 | TBD |
 
@@ -299,4 +301,4 @@ UI (씬별, 로컬 전용)
 
 관련: [networking.md](networking.md) · [steam.md](steam.md) · [decisions/](decisions/README.md)
 
-최종 갱신: 2026-08-30
+최종 갱신: 2026-09-04 (일시정지 메뉴 구현 — `GhostHunter.UI` 가 `Unity.InputSystem` 참조, `PauseMenuController` 추가. 이전: 2026-08-30)

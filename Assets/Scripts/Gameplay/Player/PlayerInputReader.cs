@@ -1,3 +1,4 @@
+using GhostHunter.Core;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -7,6 +8,10 @@ namespace GhostHunter.Gameplay.Player
     /// <summary>
     /// 프로젝트의 InputActionAsset을 로컬 플레이어별로 복제한다. 원격 플레이어가 공유 에셋을
     /// 활성화해 내 입력을 읽는 일을 막기 위해 소유자에서만 런타임 복제본을 켠다.
+    ///
+    /// 일시정지 메뉴가 열린 동안에는 <see cref="SetGameplayInputLocked"/> 로 모든 게임플레이
+    /// 입력을 0으로 만든다. 자세(웅크리기)만은 마지막 값으로 얼려서 메뉴를 여는 것만으로
+    /// 플레이어가 일어서지 않게 한다.
     /// </summary>
     [DefaultExecutionOrder(-200)]
     [DisallowMultipleComponent]
@@ -25,6 +30,7 @@ namespace GhostHunter.Gameplay.Player
         private InputAction _burrowAction;
         private InputAction _proneAction;
         private bool _jumpQueued;
+        private bool _inputLocked;
 
         public Vector2 Move { get; private set; }
         public Vector2 Look { get; private set; }
@@ -35,6 +41,9 @@ namespace GhostHunter.Gameplay.Player
 
         /// <summary>달리기 입력(기본 Left Shift). 유지하는 동안 참.</summary>
         public bool SprintHeld { get; private set; }
+
+        /// <summary>일시정지 메뉴가 게임플레이 입력을 잠갔는가 → docs/project/pause-menu-system.md §3.4</summary>
+        public bool IsGameplayInputLocked => _inputLocked;
 
         /// <summary>
         /// 굴착 스킬 토글 입력(§5.3) — 한 번 누르면 진입, 진입/유지 중 다시 누르면 즉시 종료.
@@ -47,6 +56,8 @@ namespace GhostHunter.Gameplay.Player
         /// 침대 밑으로 기어 들어가는 3번째 자세다 → player-controller.md.
         /// </summary>
         public bool PronePressedThisFrame { get; private set; }
+
+        private ILocalPlayerContext _localPlayer;
 
         public override void OnNetworkSpawn()
         {
@@ -74,10 +85,17 @@ namespace GhostHunter.Gameplay.Player
             _burrowAction = _runtimeActions.FindAction("Player/Burrow", true);
             _proneAction = _runtimeActions.FindAction("Player/Prone", true);
             _runtimeActions.Enable();
+
+            // 일시정지 메뉴가 로컬 플레이어의 입력을 잠글 수 있도록 자신을 알린다.
+            _localPlayer = Services.Get<ILocalPlayerContext>();
+            _localPlayer.Register(this);
         }
 
         public override void OnNetworkDespawn()
         {
+            _localPlayer?.Unregister(this);
+            _localPlayer = null;
+
             if (_runtimeActions == null)
                 return;
 
@@ -86,12 +104,57 @@ namespace GhostHunter.Gameplay.Player
             _runtimeActions = null;
             CrouchHeld = false;
             SprintHeld = false;
+            _inputLocked = false;
+        }
+
+        /// <summary>
+        /// 게임플레이 입력을 잠그거나 푼다. 잠긴 동안 이동·시점·상호작용·던지기·스킬 입력은
+        /// 전부 0이 되고, 대기 중이던 점프도 버린다. 자세는 마지막 값으로 얼린다.
+        ///
+        /// 잠금은 로컬 입력 단계에서만 일어나며 서버에 보고되지 않는다 — 캐릭터는 잠긴 동안에도
+        /// 중력·충돌·귀신 판정을 그대로 받는다.
+        /// </summary>
+        public void SetGameplayInputLocked(bool locked)
+        {
+            if (_inputLocked == locked)
+                return;
+
+            _inputLocked = locked;
+
+            if (!locked)
+                return;
+
+            Move = Vector2.zero;
+            Look = Vector2.zero;
+            AttackPressedThisFrame = false;
+            AttackReleasedThisFrame = false;
+            InteractPressedThisFrame = false;
+            BurrowPressedThisFrame = false;
+            PronePressedThisFrame = false;
+            SprintHeld = false;
+            _jumpQueued = false;
         }
 
         private void Update()
         {
             if (_runtimeActions == null)
                 return;
+
+            if (_inputLocked)
+            {
+                // 잠긴 동안에는 액션을 읽지 않는다. CrouchHeld 는 마지막 값 그대로 두어
+                // 메뉴를 여는 것만으로 자세가 바뀌지 않게 한다.
+                Move = Vector2.zero;
+                Look = Vector2.zero;
+                AttackPressedThisFrame = false;
+                AttackReleasedThisFrame = false;
+                InteractPressedThisFrame = false;
+                BurrowPressedThisFrame = false;
+                PronePressedThisFrame = false;
+                SprintHeld = false;
+                _jumpQueued = false;
+                return;
+            }
 
             Move = _moveAction.ReadValue<Vector2>();
             Look = _lookAction.ReadValue<Vector2>();
