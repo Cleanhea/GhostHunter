@@ -19,6 +19,13 @@ namespace GhostHunter.Gameplay.Player
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Owner);
 
+        // 엎드리기는 웅크리기와 같은 소유자 권위 패턴이다(ADR-0008 이동 예외의 연장). 서버(귀신)가
+        // 침대 밑 은신 판정에 이 값을 읽으므로 Everyone 읽기로 복제한다 — IsBurrowed 와 동일.
+        private readonly NetworkVariable<bool> _isProne = new(
+            false,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Owner);
+
         private readonly Collider[] _standOverlapResults = new Collider[StandOverlapCapacity];
 
         private CharacterController _controller;
@@ -27,6 +34,12 @@ namespace GhostHunter.Gameplay.Player
         private Vector3 _standingBodyScale;
 
         public bool IsCrouching => _isCrouching.Value;
+
+        /// <summary>엎드려 있는가. 귀신의 소리 탐지와 침대 밑 은신 판정이 읽는다.</summary>
+        public bool IsProne => _isProne.Value;
+
+        /// <summary>두 자세 bool 에서 정한 현재 자세 — 엎드리기 &gt; 웅크리기 &gt; 서기.</summary>
+        public PlayerStance Stance => PlayerPosture.Resolve(_isProne.Value, _isCrouching.Value);
 
         /// <summary>
         /// true인 동안 입력 기반 이동(<see cref="TickMovement"/>)을 완전히 건너뛴다.
@@ -60,7 +73,10 @@ namespace GhostHunter.Gameplay.Player
         public override void OnNetworkSpawn()
         {
             if (IsOwner)
+            {
                 _isCrouching.Value = false;
+                _isProne.Value = false;
+            }
 
             ApplyPosture(0f, true);
         }
@@ -87,7 +103,7 @@ namespace GhostHunter.Gameplay.Player
 
                 if (!MovementLocked)
                 {
-                    UpdateCrouchRequest();
+                    UpdatePostureRequest();
                     TickMovement(deltaTime);
                 }
             }
@@ -95,8 +111,35 @@ namespace GhostHunter.Gameplay.Player
             ApplyPosture(deltaTime, false);
         }
 
-        private void UpdateCrouchRequest()
+        private void UpdatePostureRequest()
         {
+            // 엎드리기(Z 토글)가 웅크리기보다 우선한다. 엎드린 상태에서 일어서려면 목표 자세
+            // 높이만큼 머리 위 공간이 있어야 한다 — 침대 밑에서는 기어 나와야 일어설 수 있다.
+            if (_input.PronePressedThisFrame)
+            {
+                if (_isProne.Value)
+                {
+                    float targetHeight = _input.CrouchHeld
+                        ? _settings.CrouchHeight
+                        : _settings.StandingHeight;
+                    if (CanOccupyHeight(targetHeight))
+                    {
+                        _isProne.Value = false;
+                        _isCrouching.Value = _input.CrouchHeld;
+                    }
+                }
+                else
+                {
+                    _isProne.Value = true;
+                    _isCrouching.Value = false;
+                }
+
+                return;
+            }
+
+            if (_isProne.Value)
+                return;
+
             if (_input.CrouchHeld)
             {
                 if (!_isCrouching.Value)
@@ -104,7 +147,7 @@ namespace GhostHunter.Gameplay.Player
                 return;
             }
 
-            if (_isCrouching.Value && CanStand())
+            if (_isCrouching.Value && CanOccupyHeight(_settings.StandingHeight))
                 _isCrouching.Value = false;
         }
 
@@ -114,7 +157,8 @@ namespace GhostHunter.Gameplay.Player
             if (grounded && _verticalVelocity < 0f)
                 _verticalVelocity = -2f;
 
-            if (grounded && _input.ConsumeJump())
+            // 엎드린 채로는 점프하지 않는다 — 입력은 소모해 일어선 직후 튀지 않게 한다.
+            if (grounded && _input.ConsumeJump() && !IsProne)
                 _verticalVelocity = Mathf.Sqrt(_settings.JumpHeight * -2f * _settings.Gravity);
 
             _verticalVelocity += _settings.Gravity * deltaTime;
@@ -129,25 +173,18 @@ namespace GhostHunter.Gameplay.Player
             _controller.Move(velocity * deltaTime);
         }
 
-        /// <summary>웅크리기 > 달리기 > 걷기 순으로 이동 속도를 정한다. 웅크리는 중에는 달리지 못한다.</summary>
+        /// <summary>엎드리기 > 웅크리기 > 달리기 > 걷기 순으로 이동 속도를 정한다.</summary>
         private float ResolveMoveSpeed()
         {
-            if (IsCrouching)
-                return _settings.CrouchMoveSpeed;
-
-            return _input.SprintHeld
-                ? _settings.MoveSpeed * _settings.SprintMultiplier
-                : _settings.MoveSpeed;
+            return PlayerPosture.MoveSpeed(Stance, _input.SprintHeld, _settings);
         }
 
         private void ApplyPosture(float deltaTime, bool immediate)
         {
-            float targetHeight = IsCrouching
-                ? _settings.CrouchHeight
-                : _settings.StandingHeight;
-            float targetCameraHeight = CameraHeightOverride ?? (IsCrouching
-                ? _settings.CrouchCameraHeight
-                : _settings.StandingCameraHeight);
+            PlayerStance stance = Stance;
+            float targetHeight = PlayerPosture.CapsuleHeight(stance, _settings);
+            float targetCameraHeight = CameraHeightOverride
+                ?? PlayerPosture.CameraHeight(stance, _settings);
 
             float height = immediate
                 ? targetHeight
@@ -188,10 +225,12 @@ namespace GhostHunter.Gameplay.Player
             _visualBody.localScale = bodyScale;
         }
 
-        private bool CanStand()
+        /// <summary>주어진 캡슐 높이로 몸을 세울 만한 공간이 머리 위에 있는가.
+        /// 엎드리기·웅크리기에서 자세를 올릴 때 천장·침대 슬랫에 막히는지 검사한다.</summary>
+        private bool CanOccupyHeight(float targetHeight)
         {
             float radius = Mathf.Max(0.01f, _controller.radius);
-            float halfHeight = Mathf.Max(_settings.StandingHeight * 0.5f, radius);
+            float halfHeight = Mathf.Max(targetHeight * 0.5f, radius);
             Vector3 localCenter = _controller.center;
             localCenter.y = halfHeight;
             Vector3 worldCenter = transform.TransformPoint(localCenter);

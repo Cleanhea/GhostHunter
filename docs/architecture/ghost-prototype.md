@@ -88,6 +88,20 @@ Game/GhostPrototypeSystem/GhostPrototypeSpawner  (Game 씬 서비스, Host 전�
   보지 않는다. **G-8의 주기·재검사 여부는 여전히 미정** — "최초 접근 시 1회"만 임시로 확정했다.
   `HidingSpots_Temp`(씬 고정, `NetworkObject` 아님)를 `GhostHunter > 귀신 프로토타입 설치`가
   방 바닥 앵커(`Bedroom_01_A_Floor` 등)에서 위치를 역산해 설치한다.
+- **엎드려 침대 밑 은신(§9.5 · 사용자 확정 2026-09-04)** — 침대 프리팹 3종을 다리로 띄워 밑을
+  ~0.8m 비우고(`HousePrototypeBuilder.CreateBed`), 자식 `UnderBedHide`(`BedHideZone`)를 달았다.
+  엎드린(`Z`) 플레이어가 이 상자 안(부모 침대가 `Idle`일 때만)에 들어가면 **은신 후보**가 되고,
+  서버가 플레이어별 `BedHideEvaluator`를 어택 틱마다 굴려 성립 여부를 정한다.
+  - 성립 조건: `엎드림 + Idle 침대 밑` + `귀신이 이 플레이어를 추격/수색 중이 아님` + `원뿔 시야에
+    안 걸림` 이 `BedHideConcealSeconds`(1s [임시]) 이상 이어짐.
+  - **들어가는 걸 봤다**(= 그 순간 귀신의 추격/수색 대상) → 성립 안 됨. 추격은 그대로 유지되고,
+    귀신이 침대까지 쫓아와 **침대 밑에서도 잡는다**(`TryDetectPlayer`/`TryCatch`가 `IsBedHidden`이
+    아닌 한 정상 판정, 수색 중에도 `TryCatch` 호출). 귀신이 놓쳐 배회로 돌아간 뒤 계속 숨어 있으면
+    그제서야 성립한다.
+  - 성립하면 시야·소리 탐지·잡힘에서 완전히 빠지고, **수색 훔쳐보기 대상도 아니다**(일반
+    은신처 `HidingSpot`의 30% 검사보다 강하다 — 사용자 확정). 엎드리기를 풀거나 상자에서
+    나가면 즉시 풀린다.
+  - 엎드려 이동도 `IsAudible`에서 웅크리기와 함께 소리 탐지 제외.
 
 아직 포함하지 않음:
 
@@ -195,7 +209,8 @@ NGO·씬에 의존하지 않는 순수 로직이다. `SanityState` 와 같은 �
 
 | 대상 | 경로·오브젝트 |
 | --- | --- |
-| 런타임 코드 | `Assets/Scripts/Gameplay/Ghost/` (`GhostHunter.Gameplay.Ghost`), 현상은 `Interaction/GhostDrawer.cs`, 세이프 존은 `Ghost/DrillCarSafeZone.cs`, 은신처는 `Ghost/HidingSpot.cs` |
+| 런타임 코드 | `Assets/Scripts/Gameplay/Ghost/` (`GhostHunter.Gameplay.Ghost`), 현상은 `Interaction/GhostDrawer.cs`, 세이프 존은 `Ghost/DrillCarSafeZone.cs`, 은신처는 `Ghost/HidingSpot.cs`, 침대 밑 은신은 `Ghost/BedHideZone.cs` + `Ghost/BedHideEvaluator.cs`(순수 로직, EditMode 검증) |
+| 침대 밑 은신(프리팹) | `Assets/Prefabs/Furniture/{SingleBed_1.0x2.0,SingleBed_1.1x2.0,DoubleBed_1.6x2.0}` 자식 `UnderBedHide` 에 `BedHideZone`. `CreateBed` 가 다리·밑 공간·상자를 만든다. 기존 프리팹은 `GlobalObjectIdHash` 보존을 위해 씬 인스턴스 참조를 깨지 않는 **제자리 편집**으로 갱신했다(다리 아웃라인 셸은 생략 — 다음 전체 생성 때 `CreateBed` 가 채운다) |
 | 설정 | `Assets/Settings/Gameplay/GhostPrototypeSettings_Default.asset` |
 | 귀신 프리팹 | `Assets/Prefabs/Ghost/Ghost_Prototype.prefab` (NetworkObject·NetworkTransform·CharacterController·GhostPrototypeController·**GhostPhenomenaPlayer**·GhostPrototypeSceneMarker + Body/StateLight/VisionCone) |
 | 네트워크 프리팹 등록 | `Assets/DefaultNetworkPrefabs.asset` — 동적 스폰이라 MUST 등록 |
@@ -224,8 +239,19 @@ Phenomena        : DRAWEROPEN  (다음 6.1s)   ← 평상시·활동 중에만
 Pursuit          : CHASE                     ← 어택 중에만
 ```
 
-HUD 는 접이식 섹션(`▶/▼`)이다 — `연결·세션` / `정신력` / `귀신 프로토타입`, 그 안에
-`초자연현상` 하위 섹션. Steam·세션 요약 두 줄과 마지막 상태 줄만 항상 보인다.
+HUD 는 접이식 섹션(`▶/▼`)이다 — `연결·세션` / `정신력` / `귀신 프로토타입` / `튜닝 창 열기`,
+그 안에 `초자연현상` 하위 섹션. Steam·세션 요약 두 줄과 마지막 상태 줄만 항상 보인다.
+
+**밸런스 튜닝 창(`TuningHud`) — 접속 HUD 와 별개의 이동식 창, 기본 키 `F2`.** 접속 HUD 가 꺼져
+있어도 열린다(HUD 하단 `튜닝 창 열기` 버튼으로도 토글). `GhostPrototypeSettings`·`PlayerMoveSettings`·
+`MoleBurrowSettings`·`FurnitureThrowSettings`·`SanitySystemSettings` 의 `[SerializeField]` 필드를 런타임
+리플렉션으로 전부 노출한다 — SO 별 접이식, 그 안에서 다시 `[Header]` 그룹별 접이식(예: 귀신 →
+`Vision detection` · `Hearing detection` · `Chase / search AI` …). 맨 위 `필터` 입력칸으로 전체를
+가로질러 이름 검색(필터 중엔 그룹이 자동으로 펼쳐진다). `[Range]` 는 슬라이더, 나머지 숫자는
+`−/+`+입력칸, bool 은 토글. 세션이 시작되면 씬의 컴포넌트(`GhostPrototypeController._settings` 등)에서
+SO 를 찾아 붙잡는다 — 별도 배선 없음. 값을 바꾸면 그 플레이에 즉시 반영되고, `이 설정 되돌리기`/
+`전체 되돌리기` 로 창이 SO 를 처음 붙잡은 시점 값으로 복원한다. SO 에 필드를 추가하면 자동으로
+나타나므로 목록 관리가 필요 없다.
 
 버튼(Host 전용, `귀신` 섹션): `귀신 스폰`/`귀신 제거` · `내 위치에 스폰`(Host 로컬 플레이어
 현재 위치에 바로 스폰, 배회 경계 밖이면 안으로 보정) · `본체 보이기`(§3.3 무시하고 본체 렌더
@@ -312,6 +338,21 @@ HUD 는 접이식 섹션(`▶/▼`)이다 — `연결·세션` / `정신력` / `
 - 재컴파일 오류 0건, EditMode **119/119 통과**
 - 달리기 반경과 어택 외 상태 적용 여부는 G-4 잔여
 
+2026-09-04 · 엎드려 침대 밑 은신(§9.5, 사용자 확정) · Unity 6000.3.20f1 Editor + MCP:
+
+- 재컴파일 오류 0건, EditMode **134/135** — 신규 `GhostBedHideEvaluatorTests` 7건 · `BedHideZoneTests`
+  3건 · `PlayerPostureTests` 4건 전부 통과. 남은 1건은 선재 실패(`Player_굴착_액션은_R키에...`,
+  `main`에서도 red — 이 작업과 무관)
+- 침대 프리팹 3종: `CreateBed` 를 다리·밑 공간·`UnderBedHide`로 고치고, **기존 프리팹 3개는
+  `GlobalObjectIdHash` 를 보존하는 제자리 편집**(`PrefabUtility.LoadPrefabContents` → 부품 재배치 +
+  다리 4개 + `BedHideZone` 자식 추가 → `SaveAsPrefabAsset`)으로 갱신 — 씬 인스턴스가 소스 해시를
+  박아 두고 있어(CLAUDE.md §5) 전체 재굽기는 씬 재생성을 부른다. `GlobalObjectIdHash` 3종 모두
+  변화 없음(`1240186799`/`1231260593`/`2484376307` 유지), `m_InScenePlaced` 0 유지, 다른 프리팹 무변경
+- `GhostHunter > 침대 프리팹만 다시 굽기 (엎드려 숨기)` 메뉴 추가 — 다만 전체 재굽기와 같은
+  `SaveAsPrefabAsset` 경로라 해시가 바뀌므로, 정식 갱신은 전체 생성(`프로토타입 게임 생성`) 때 함께
+- **아직 안 한 검증(수동)**: 플레이에서 Z로 엎드려 침대 밑에 실제로 들어가지는지, 완전히 숨으면
+  어택 중 안 잡히는지, 들어가는 걸 귀신이 봤을 때 침대 밑까지 쫓아와 잡는지, 놓친 뒤 1s면 안전해지는지
+
 아직 하지 않은 검증(수동/후속):
 
 - **은신처 실사용** — 어택 중 은신처에 들어가면 시야·소리로 안 잡히는지, 수색 중 귀신이
@@ -333,4 +374,4 @@ HUD 는 접이식 섹션(`▶/▼`)이다 — `연결·세션` / `정신력` / `
 [networking.md](networking.md) · [overview.md](overview.md) · [testing.md](../workflow/testing.md) ·
 [roadmap.md](../project/roadmap.md)
 
-최종 갱신: 2026-08-31 (걷기 소리 탐지 반경 6m 확정, G-4 부분 해결. 이전: 일반 은신처 임시 구현 — 방마다 상자 하나, 최초 접근 시 1회 30% 검사(G-8 판정 시점만). 초자연현상 목격 → 정신력 −15 연결(G-6 해결), 선정 루프 + 6종 현상 구현. 드릴 카 세이프 존 임시 구현(현관 앞 상자))
+최종 갱신: 2026-09-04 (엎드려 침대 밑 은신 — `BedHideZone`/`BedHideEvaluator`, 침대 프리팹 3종 제자리 편집, "들어가는 걸 봤으면 그대로 추격+침대 밑에서도 잡힘 / 완전히 숨으면 훔쳐보기 없이 100% 안전". 이전: 걷기 소리 탐지 반경 6m 확정, G-4 부분 해결. 일반 은신처 임시 구현. 초자연현상 목격 → 정신력 −15 연결(G-6). 드릴 카 세이프 존 임시 구현)

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using GhostHunter.Core;
 using GhostHunter.Gameplay.Furniture;
+using GhostHunter.Gameplay.Ghost;
 using GhostHunter.Gameplay.Interaction;
 using GhostHunter.Gameplay.Map;
 using Unity.Netcode;
@@ -1545,6 +1546,11 @@ namespace GhostHunter.EditorTools
         {
             ValidateFootprint(libraryRoot, "SingleBed_1.0x2.0", "Frame", 1f, 2f);
             ValidateFootprint(libraryRoot, "DoubleBed_1.6x2.0", "Frame", 1.6f, 2f);
+
+            // 침대는 밑을 비우고 UnderBedHide 은신 공간을 달고 나와야 한다(엎드려 숨기 기능).
+            RequireBedHideZone(libraryRoot, "SingleBed_1.0x2.0");
+            RequireBedHideZone(libraryRoot, "SingleBed_1.1x2.0");
+            RequireBedHideZone(libraryRoot, "DoubleBed_1.6x2.0");
             ValidateFootprint(libraryRoot, "Wardrobe_1.2x0.6", "Body", 1.2f, 0.6f);
             ValidateFootprint(libraryRoot, "Wardrobe_1.5x0.6", "Body", 1.5f, 0.6f);
             ValidateFootprint(libraryRoot, "Dresser_1.2x0.5", "Body", 1.2f, 0.5f);
@@ -1571,6 +1577,18 @@ namespace GhostHunter.EditorTools
         private static float FaceZ(Transform wall, float direction)
         {
             return wall.position.z + direction * wall.lossyScale.z * 0.5f;
+        }
+
+        private static void RequireBedHideZone(Transform libraryRoot, string bedName)
+        {
+            Transform bed = RequireDescendant(libraryRoot, bedName);
+            var zone = bed.GetComponentInChildren<BedHideZone>(true);
+            if (zone == null)
+            {
+                throw new InvalidOperationException(
+                    $"{bedName} 에 침대 밑 은신 공간(BedHideZone)이 없습니다. " +
+                    "CreateBed 가 UnderBedHide 자식을 붙이는지 확인하세요.");
+            }
         }
 
         private static void ValidateFootprint(
@@ -1818,6 +1836,18 @@ namespace GhostHunter.EditorTools
             return Mathf.Abs(left - right) <= 0.01f;
         }
 
+        /// <summary>침대 밑 은신 공간의 바닥부터 슬랫 아래까지의 높이(m). 엎드린 플레이어
+        /// 캡슐(<c>PlayerMoveSettings.ProneHeight</c> 기준, CharacterController 최소 높이 포함)이
+        /// 여유 있게 들어갈 만큼 띄운다 — 줄이면 <c>UnderBedHide</c> 상자에 들어가도 캡슐이
+        /// 슬랫에 걸린다.</summary>
+        private const float BedUnderClearance = 0.8f;
+
+        /// <summary>
+        /// 침대는 다리로 띄워 밑을 <see cref="BedUnderClearance"/> 만큼 비운다 — 엎드리면 기어
+        /// 들어갈 수 있고, 그 안에서 완전히 숨으면 귀신 탐지가 끊긴다(player-controller.md,
+        /// ghost-system.md §9.5). <c>Frame</c> 은 이름·평면 치수를 그대로 둔다
+        /// (<see cref="ValidateFootprint"/> 가 (width, length) 로 검사한다).
+        /// </summary>
         private static Transform CreateBed(
             string name,
             Vector3 position,
@@ -1827,16 +1857,43 @@ namespace GhostHunter.EditorTools
             Palette palette,
             Transform parent)
         {
+            const float slatThickness = 0.16f;
+            const float legThickness = 0.09f;
+            const float mattressThickness = 0.22f;
+
+            float slatCenterY = BedUnderClearance + slatThickness * 0.5f;
+            float mattressCenterY = BedUnderClearance + slatThickness + mattressThickness * 0.5f;
+            float mattressTop = BedUnderClearance + slatThickness + mattressThickness;
+
             Transform root = CreateGroup(name, parent);
             root.SetPositionAndRotation(position, Quaternion.Euler(0f, rotationY, 0f));
-            CreateLocalCube("Frame", new Vector3(0f, 0.22f, 0f),
-                new Vector3(width, 0.28f, length), palette.Wood, root);
-            CreateLocalCube("Mattress", new Vector3(0f, 0.42f, -0.02f),
-                new Vector3(width * 0.92f, 0.22f, length * 0.9f), palette.Bedding, root);
-            CreateLocalCube("Headboard", new Vector3(0f, 0.72f, length * 0.48f),
-                new Vector3(width + 0.08f, 0.95f, 0.1f), palette.Wood, root);
-            CreateLocalCube("Pillow", new Vector3(0f, 0.58f, length * 0.3f),
+
+            // 네 모서리 다리 — 밑을 비운다. 콜라이더를 남겨 컴파운드 리지드바디에 포함시킨다.
+            float legX = width * 0.5f - legThickness * 0.5f - 0.02f;
+            float legZ = length * 0.5f - legThickness * 0.5f - 0.02f;
+            var legScale = new Vector3(legThickness, BedUnderClearance, legThickness);
+            CreateLocalCube("Leg_NW", new Vector3(-legX, BedUnderClearance * 0.5f, legZ), legScale, palette.Wood, root);
+            CreateLocalCube("Leg_NE", new Vector3(legX, BedUnderClearance * 0.5f, legZ), legScale, palette.Wood, root);
+            CreateLocalCube("Leg_SW", new Vector3(-legX, BedUnderClearance * 0.5f, -legZ), legScale, palette.Wood, root);
+            CreateLocalCube("Leg_SE", new Vector3(legX, BedUnderClearance * 0.5f, -legZ), legScale, palette.Wood, root);
+
+            CreateLocalCube("Frame", new Vector3(0f, slatCenterY, 0f),
+                new Vector3(width, slatThickness, length), palette.Wood, root);
+            CreateLocalCube("Mattress", new Vector3(0f, mattressCenterY, -0.02f),
+                new Vector3(width * 0.92f, mattressThickness, length * 0.9f), palette.Bedding, root);
+            CreateLocalCube("Headboard", new Vector3(0f, mattressTop + 0.18f, length * 0.48f),
+                new Vector3(width + 0.08f, mattressThickness + 0.9f, 0.1f), palette.Wood, root);
+            CreateLocalCube("Pillow", new Vector3(0f, mattressTop + 0.08f, length * 0.3f),
                 new Vector3(width * 0.68f, 0.16f, 0.35f), palette.Ceramic, root);
+
+            // 침대 밑 은신 공간 — 침대의 자식이라 침대와 함께 움직인다. 서버(귀신)만 질의한다.
+            Transform hide = CreateGroup("UnderBedHide", root);
+            hide.localPosition = new Vector3(0f, 0.35f, 0f);
+            hide.localRotation = Quaternion.identity;
+            var zone = hide.gameObject.AddComponent<BedHideZone>();
+            PrototypeSceneSetup.SetVector3(zone, "_size",
+                new Vector3(width * 0.9f, 0.9f, length * 0.9f));
+
             return root;
         }
 

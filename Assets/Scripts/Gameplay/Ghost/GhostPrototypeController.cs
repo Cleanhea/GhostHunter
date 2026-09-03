@@ -97,6 +97,9 @@ namespace GhostHunter.Gameplay.Ghost
         private SanityNetworkState _target;
         private Vector3 _lastKnownPosition;
         private readonly HashSet<HidingSpot> _checkedHidingSpots = new();
+
+        // 플레이어별 '침대 밑 은신' 성립 판정(§9.5, 사용자 확정 2026-09-03). 어택 중에만 돈다.
+        private readonly Dictionary<ulong, BedHideEvaluator> _bedHide = new();
         private float _searchRemaining;
         private float _repathRemaining;
         private float _catchCooldownRemaining;
@@ -201,6 +204,7 @@ namespace GhostHunter.Gameplay.Ghost
             _previousPlayerPositions.Clear();
             _playerSpeeds.Clear();
             _checkedHidingSpots.Clear();
+            _bedHide.Clear();
 
             if (_generatedConeMesh != null)
             {
@@ -285,7 +289,10 @@ namespace GhostHunter.Gameplay.Ghost
             {
                 _phase.Value = current;
                 if (current != GhostPhase.Attack)
+                {
                     ResetPursuit();
+                    _bedHide.Clear();
+                }
             }
 
             if (_catchCooldownRemaining > 0f)
@@ -634,6 +641,9 @@ namespace GhostHunter.Gameplay.Ghost
 
         private void ServerTickAttack(float deltaTime, int playerCount)
         {
+            // 이전 틱의 추격 상태로 침대 밑 은신 성립 여부를 먼저 갱신한다(TryDetectPlayer 가 이 결과를 읽는다).
+            EvaluateBedHide(playerCount, deltaTime);
+
             _repathRemaining -= deltaTime;
             bool detected = TryDetectPlayer(playerCount, out SanityNetworkState seen);
 
@@ -660,6 +670,9 @@ namespace GhostHunter.Gameplay.Ghost
                 case Pursuit.Search:
                     _searchRemaining -= deltaTime;
                     MoveToward(_lastKnownPosition, _settings.ChaseSpeed, deltaTime);
+                    // 들어가는 걸 본 침대 밑 대상은 은신이 성립하기 전까지 수색 중에도 잡는다
+                    // (IsBedHidden 이면 TryCatch 가 건너뛴다).
+                    TryCatch();
                     ServerTickHidingSpots(playerCount);
                     if (_searchRemaining <= 0f)
                         ResetPursuit();
@@ -813,6 +826,11 @@ namespace GhostHunter.Gameplay.Ghost
                 if (player.IsBurrowed)
                     continue;
 
+                // 침대 밑 은신이 성립하면(들어가는 걸 귀신이 못 봤다) 완전히 탐지에서 빠진다
+                // (§9.5, 사용자 확정 2026-09-03). 성립 전에는 아래 일반 판정을 그대로 받는다.
+                if (IsBedHidden(player))
+                    continue;
+
                 // 귀신은 집 밖 플레이어를 탐지·추격하지 않는다(기획서 §3.1·§11.1).
                 if (!IsInsideHouseBounds(player.transform.position))
                     continue;
@@ -857,10 +875,76 @@ namespace GhostHunter.Gameplay.Ghost
             return detected != null;
         }
 
+        /// <summary>
+        /// 어택 틱마다 플레이어별 '침대 밑 은신' 성립 여부를 갱신한다(§9.5, 사용자 확정 2026-09-03).
+        /// 이전 틱의 추격 상태(<see cref="_pursuit"/>·<see cref="_target"/>)를 보고 판정하므로
+        /// <see cref="TryDetectPlayer"/> 보다 먼저 부른다.
+        /// </summary>
+        private void EvaluateBedHide(int playerCount, float deltaTime)
+        {
+            for (int i = 0; i < playerCount; i++)
+            {
+                SanityNetworkState player = _players[i];
+                if (player == null || !player.IsSpawned)
+                    continue;
+
+                ulong id = player.OwnerClientId;
+                if (!_bedHide.TryGetValue(id, out BedHideEvaluator evaluator))
+                {
+                    evaluator = new BedHideEvaluator();
+                    _bedHide[id] = evaluator;
+                }
+
+                if (!player.HasSanity)
+                {
+                    evaluator.Reset();
+                    continue;
+                }
+
+                bool eligible = player.IsProne
+                    && BedHideZone.Contains(player.transform.position);
+
+                // 들어가는 걸 귀신이 봤다 = 지금도 이 플레이어를 쫓거나 마지막 위치로 수색 중이다.
+                // 놓쳐서 배회로 돌아가면(_pursuit == Roam) 그제서야 성립할 수 있다.
+                bool chased = _pursuit != Pursuit.Roam && _target == player;
+                bool visible = eligible && !chased && IsVisibleInVisionCone(player);
+
+                evaluator.Tick(deltaTime, eligible, chased, visible, _settings.BedHideConcealSeconds);
+            }
+        }
+
+        /// <summary>침대 밑 은신이 성립해 귀신의 탐지·잡힘·수색 훔쳐보기에서 완전히 빠지는가.</summary>
+        private bool IsBedHidden(SanityNetworkState player)
+        {
+            return player != null
+                && _bedHide.TryGetValue(player.OwnerClientId, out BedHideEvaluator evaluator)
+                && evaluator.Granted;
+        }
+
+        /// <summary>귀신 원뿔 시야 + 시야선에만 걸리는지(근거리·소리 무시). 침대 밑 은신 판정 전용.</summary>
+        private bool IsVisibleInVisionCone(SanityNetworkState player)
+        {
+            Vector3 eye = transform.position + Vector3.up * _settings.GhostEyeHeight;
+            Vector3 center = player.transform.position + Vector3.up * _settings.TargetCenterHeight;
+            Vector3 toTarget = center - eye;
+            float distance = toTarget.magnitude;
+
+            bool inCone = GhostVision.IsInsideCone(
+                transform.forward,
+                toTarget,
+                _settings.VisionAngle,
+                distance,
+                _settings.VisionDistance);
+
+            return inCone && HasLineOfSight(eye, center, player.transform);
+        }
+
         private bool IsAudible(SanityNetworkState player, float distance)
         {
             // 기획서 §8.3: 웅크려 이동하면 속력과 무관하게 소리 탐지에서 제외한다.
+            // 엎드려 기어서 이동하는 것도 소리를 내지 않는 것으로 친다(P1 확장, player-controller.md).
             if (player.IsCrouching
+                || player.IsProne
                 || !_playerSpeeds.TryGetValue(player.OwnerClientId, out float speed))
             {
                 return false;
@@ -930,6 +1014,11 @@ namespace GhostHunter.Gameplay.Ghost
 
             // 은신처 안이면 일반적으로 잡히지 않는다(§9.5) — 수색 중 명시적 검사만 통한다.
             if (HidingSpot.Contains(_target.transform.position))
+                return;
+
+            // 침대 밑 은신이 성립했으면 잡지 않는다. 성립 전(들어가는 걸 봤을 때)에는
+            // 침대 밑까지 쫓아와 그대로 잡는다(사용자 확정 2026-09-03).
+            if (IsBedHidden(_target))
                 return;
 
             Vector3 delta = _target.transform.position - transform.position;

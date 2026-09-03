@@ -23,6 +23,7 @@ namespace GhostHunter.Gameplay.Player
         private InputAction _crouchAction;
         private InputAction _sprintAction;
         private InputAction _burrowAction;
+        private InputAction _proneAction;
         private bool _jumpQueued;
 
         public Vector2 Move { get; private set; }
@@ -40,6 +41,12 @@ namespace GhostHunter.Gameplay.Player
         /// 키는 사용자 확정 R이며 Interact(E)와 분리된다 → 두더지 스킬 시스템 기획서(mole-skill-system.md).
         /// </summary>
         public bool BurrowPressedThisFrame { get; private set; }
+
+        /// <summary>
+        /// 엎드리기 토글 입력(Z) — 한 번 누르면 엎드리고, 다시 누르면 머리 위 공간이 있을 때 일어선다.
+        /// 침대 밑으로 기어 들어가는 3번째 자세다 → player-controller.md.
+        /// </summary>
+        public bool PronePressedThisFrame { get; private set; }
 
         public override void OnNetworkSpawn()
         {
@@ -65,6 +72,7 @@ namespace GhostHunter.Gameplay.Player
             _crouchAction = _runtimeActions.FindAction("Player/Crouch", true);
             _sprintAction = _runtimeActions.FindAction("Player/Sprint", true);
             _burrowAction = _runtimeActions.FindAction("Player/Burrow", true);
+            _proneAction = _runtimeActions.FindAction("Player/Prone", true);
             _runtimeActions.Enable();
         }
 
@@ -96,6 +104,7 @@ namespace GhostHunter.Gameplay.Player
             // Interaction 의 phase 가 아니라 컨트롤이 눌린 순간을 보므로 탭이 씹히지 않는다.
             InteractPressedThisFrame = _interactAction.WasPressedThisFrame();
             BurrowPressedThisFrame = _burrowAction.WasPressedThisFrame();
+            PronePressedThisFrame = _proneAction.WasPressedThisFrame();
 
             if (_jumpAction.WasPressedThisFrame())
                 _jumpQueued = true;

@@ -137,6 +137,12 @@ namespace GhostHunter.Gameplay.Ghost
         [Tooltip("[임시] 은신처를 발견했을 때 실제로 안을 들여다볼 확률(§9.5 원문 30%).")]
         [SerializeField, Range(0f, 1f)] private float _hidingSpotCheckChance = 0.3f;
 
+        [Header("Bed hiding (§9.5 · 엎드려 침대 밑 — 사용자 확정 2026-09-03)")]
+        [Tooltip("엎드려 침대 밑에 들어간 뒤, 귀신에게 안 쫓기고 시야에도 안 걸린 상태가 이 시간(초) " +
+            "이상 이어지면 '완전히 숨은' 것으로 쳐서 탐지·잡힘·수색 훔쳐보기에서 전부 빠진다. " +
+            "들어가는 걸 귀신이 봤으면(추격/수색 대상이면) 타이머가 돌지 않는다.")]
+        [SerializeField, Min(0f)] private float _bedHideConcealSeconds = 1f;
+
         public int ActiveTeamSanity => _activeTeamSanity;
         public int AttackTeamSanity => _attackTeamSanity;
         public int HighRiskTeamSanity => _highRiskTeamSanity;
@@ -184,6 +190,7 @@ namespace GhostHunter.Gameplay.Ghost
         public float PhenomenonWitnessEyeHeight => _phenomenonWitnessEyeHeight;
         public float HidingSpotCheckRadius => _hidingSpotCheckRadius;
         public float HidingSpotCheckChance => _hidingSpotCheckChance;
+        public float BedHideConcealSeconds => _bedHideConcealSeconds;
 
         /// <summary>기획서 §7.3 의 팀 평균 정신력별 10초당 어택 확률.</summary>
         public float AttackChanceForTeamSanity(int teamSanity)

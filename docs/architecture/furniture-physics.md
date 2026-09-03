@@ -22,6 +22,15 @@
 가구 치수·질량·컴포넌트를 바꿀 때는 **프리팹을 고친다.** 씬 인스턴스를 하나씩 고치면
 같은 가구가 자리마다 달라진다.
 
+> **침대는 다리로 띄운다.** `SingleBed_1.0x2.0` · `SingleBed_1.1x2.0` · `DoubleBed_1.6x2.0` 은
+> 네 모서리 다리로 밑을 **약 0.8m 비우고**, 자식 `UnderBedHide` 에 `BedHideZone`(순수 판정 컴포넌트,
+> 콜라이더 없음)을 단다 — 엎드린 플레이어가 기어 들어가 숨는 공간이다
+> ([ghost-prototype.md](ghost-prototype.md), [player-controller.md](player-controller.md)).
+> `Frame` 파츠는 이름·평면 치수(w × l)를 유지한다(생성 검증 `ValidateFootprint`·`RequireBedHideZone`).
+> 기존 프리팹 3개는 씬 인스턴스가 소스 해시를 참조하므로(CLAUDE.md §5) 전체 재굽기가 아니라
+> `GlobalObjectIdHash` 를 보존하는 **제자리 편집**으로 갱신했다 — 다리 아웃라인 셸은 다음 전체
+> 생성 때 `CreateBed` 가 채운다.
+
 ### 가구 라이브러리에서 복사해 배치한다
 
 생성 도구(`GhostHunter > 프로토타입 게임 생성`)는 **방을 비운 채로** 집을 만든다.
@@ -201,4 +210,4 @@ heavy는 혼자 던지면 `heavySoloMultiplier`만큼 약해진다 ([05-throw-sy
 
 ---
 
-최종 갱신: 2026-08-23
+최종 갱신: 2026-09-04 (침대 3종을 다리로 띄우고 `UnderBedHide`/`BedHideZone` 추가 — 엎드려 침대 밑 은신. 이전: 2026-08-23)

@@ -38,6 +38,12 @@ namespace GhostHunter.Gameplay.Sanity
         public bool IsCrouching => _playerMotor != null && _playerMotor.IsCrouching;
 
         /// <summary>
+        /// 엎드려 있는지(player-controller.md). 귀신은 이 값을 <see cref="IsCrouching"/> 과 같이
+        /// 소리 탐지 제외에 쓰고, 침대 밑 은신(<c>BedHideEvaluator</c>) 후보 판정에도 읽는다.
+        /// </summary>
+        public bool IsProne => _playerMotor != null && _playerMotor.IsProne;
+
+        /// <summary>
         /// 굴착 스킬로 땅속에 숨어 있는지(두더지 스킬 시스템 기획서 §5.2). 귀신의 탐지 판정이
         /// 이 값을 보고 완전히 건너뛴다 — <see cref="IsCrouching"/> 과 같은 Owner-authoritative
         /// 패턴이라 서버에서도 신뢰할 수 있다.

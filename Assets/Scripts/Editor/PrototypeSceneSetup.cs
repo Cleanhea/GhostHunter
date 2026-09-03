@@ -398,6 +398,69 @@ namespace GhostHunter.EditorTools
                 "House_01_OriginalScale_Right at x1 scale with a 3m gap.");
         }
 
+        /// <summary>
+        /// Game 씬을 건드리지 않고 <b>침대 프리팹 3종만</b> 현재 빌더(<see cref="HousePrototypeBuilder"/>)
+        /// 코드로 다시 굽는다. 엎드려 침대 밑에 숨는 기능 때문에 침대 구조(다리·밑 공간·UnderBedHide)가
+        /// 바뀌어서, 방에 손으로 놓은 가구를 지우는 전체 재생성('프로토타입 게임 생성') 없이 침대만
+        /// 갱신하는 경로다. 경로가 그대로라 프리팹 GUID 는 유지되고(씬 인스턴스 참조 안 깨짐),
+        /// <see cref="SavePrefab"/> 의 ForceUpdate 임포트가 <c>GlobalObjectIdHash</c> 를 에셋 기준으로
+        /// 다시 잡는다(CLAUDE.md §5 / unity-assets.md §5.2). 침대 외 가구·문은 건드리지 않는다.
+        /// </summary>
+        [MenuItem("GhostHunter/침대 프리팹만 다시 굽기 (엎드려 숨기)", priority = 2)]
+        public static void RebakeBedPrefabsOnly()
+        {
+            if (EditorApplication.isPlayingOrWillChangePlaymode)
+                throw new InvalidOperationException("Play Mode 를 먼저 종료하세요.");
+
+            EnsureFolders();
+
+            HousePrototypeBuilder.Palette palette = LoadGeneratedMapPalette();
+            var physics = new HousePrototypeBuilder.PhysicsAssets(
+                LoadRequiredAsset<FurnitureDefinition>(LightDefinitionPath),
+                LoadRequiredAsset<FurnitureDefinition>(HeavyDefinitionPath),
+                LoadRequiredAsset<FurnitureThrowSettings>(ThrowSettingsPath),
+                LoadRequiredAsset<Material>(OutlineMaterialPath));
+
+            var bedKeys = new HashSet<string>
+            {
+                "SingleBed_1.0x2.0",
+                "SingleBed_1.1x2.0",
+                "DoubleBed_1.6x2.0",
+            };
+
+            var staging = new GameObject("__BedPrefabStaging");
+            int baked = 0;
+            try
+            {
+                foreach ((string key, GameObject source) in
+                         HousePrototypeBuilder.BuildFurnitureSources(palette, physics, staging.transform))
+                {
+                    if (!bedKeys.Contains(key))
+                    {
+                        Object.DestroyImmediate(source);
+                        continue;
+                    }
+
+                    source.transform.SetParent(null, true);
+                    source.transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
+                    SavePrefab(source, $"{FurniturePrefabFolder}/{key}.prefab");
+                    baked++;
+                }
+            }
+            finally
+            {
+                Object.DestroyImmediate(staging);
+            }
+
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+            FlushNetworkPrefabIdentity();
+
+            Debug.Log(
+                $"[PrototypeSceneSetup] 침대 프리팹 {baked}종을 다시 구웠습니다. Game 씬·다른 가구는 건드리지 않았습니다.\n" +
+                "씬에 이미 놓인 침대 인스턴스는 프리팹 변경(다리·밑 공간·UnderBedHide)을 자동으로 물려받습니다.");
+        }
+
         private static HousePrototypeBuilder.Palette LoadGeneratedMapPalette()
         {
             Material LoadMaterial(string path)
@@ -1192,6 +1255,18 @@ namespace GhostHunter.EditorTools
                 throw new MissingFieldException(target.GetType().Name, propertyName);
 
             property.floatValue = value;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+            EditorUtility.SetDirty(target);
+        }
+
+        internal static void SetVector3(Object target, string propertyName, Vector3 value)
+        {
+            var serialized = new SerializedObject(target);
+            SerializedProperty property = serialized.FindProperty(propertyName);
+            if (property == null)
+                throw new MissingFieldException(target.GetType().Name, propertyName);
+
+            property.vector3Value = value;
             serialized.ApplyModifiedPropertiesWithoutUndo();
             EditorUtility.SetDirty(target);
         }
