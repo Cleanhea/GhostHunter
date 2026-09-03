@@ -67,12 +67,40 @@ namespace GhostHunter.Gameplay.Sanity
             return IsAlive && amount > 0 && SetValue(Value + amount);
         }
 
+        /// <summary>디버그 HUD 전용: 개인 정신력을 지정 값으로 즉시 맞춘다. 사망 상태에서는 무시한다.</summary>
+        public bool SetTo(int value)
+        {
+            if (!IsAlive)
+                return false;
+
+            Value = Mathf.Clamp(value, _settings.MinimumSanity, _settings.MaximumSanity);
+            return true;
+        }
+
         public bool MarkDead()
         {
             if (!IsAlive)
                 return false;
 
             IsAlive = false;
+            return true;
+        }
+
+        /// <summary>
+        /// 사망한 플레이어를 다시 생존으로 되돌린다. 정신력 값과 목격한 시체 기록은 그대로 둔다 —
+        /// 죽기 직전 상태로 돌아오는 것이지 스테이지를 다시 시작하는 것이 아니다
+        /// (그건 <see cref="ResetForStage"/>).
+        /// </summary>
+        public bool Revive()
+        {
+            if (IsAlive)
+                return false;
+
+            IsAlive = true;
+
+            // 죽어 있는 동안 TickDarkness 가 멈춰 있었으므로 누적분이 남아 있다.
+            // 그대로 두면 부활 직후 남은 조각이 즉시 1틱을 깎는다.
+            DarknessExposureSeconds = 0f;
             return true;
         }
 

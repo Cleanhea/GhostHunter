@@ -34,6 +34,8 @@ namespace GhostHunter.Gameplay.Sanity
         private MoleBurrowController _burrowController;
 
         public int Sanity => _sanity.Value;
+        public int MinimumSanity => _settings != null ? _settings.MinimumSanity : 0;
+        public int MaximumSanity => _settings != null ? _settings.MaximumSanity : 100;
         public bool HasSanity => _isAlive.Value;
         public bool IsCrouching => _playerMotor != null && _playerMotor.IsCrouching;
 
@@ -151,10 +153,35 @@ namespace GhostHunter.Gameplay.Sanity
             return ApplyServerMutation(_serverState != null && _serverState.Restore(amount));
         }
 
+        /// <summary>디버그 HUD 슬라이더 전용: 개인 정신력을 지정 값으로 즉시 맞추고 복제한다.</summary>
+        public bool ServerSetSanity(int value)
+        {
+            if (!CanMutateOnServer() || !_serverState.SetTo(value))
+                return false;
+
+            _sanity.Value = _serverState.Value;
+            return true;
+        }
+
         /// <summary>사망한 플레이어를 팀 평균과 정신력 디버프 대상에서 제외한다.</summary>
         public bool ServerMarkDead()
         {
             if (!CanMutateOnServer() || !_serverState.MarkDead())
+                return false;
+
+            _isDarknessExposed.Value = false;
+            PublishServerState();
+            return true;
+        }
+
+        /// <summary>
+        /// 사망한 플레이어를 다시 생존으로 되돌려 팀 평균과 디버프 대상에 넣는다.
+        /// 정신력 값은 죽을 때 그대로다 — 100으로 되돌리려면 <see cref="ServerResetForStage"/>.
+        /// 어둠 노출은 꺼진 채로 시작하며, 다음 판정이 다시 켜 준다.
+        /// </summary>
+        public bool ServerRevive()
+        {
+            if (!CanMutateOnServer() || !_serverState.Revive())
                 return false;
 
             _isDarknessExposed.Value = false;

@@ -92,6 +92,29 @@ namespace GhostHunter.Tests.EditMode
         }
 
         [Test]
+        public void 디버그_설정은_정신력을_지정_값으로_맞추고_범위_밖은_Clamp한다()
+        {
+            Assert.IsTrue(_state.SetTo(42));
+            Assert.AreEqual(42, _state.Value);
+
+            Assert.IsTrue(_state.SetTo(999));
+            Assert.AreEqual(_settings.MaximumSanity, _state.Value);
+
+            Assert.IsTrue(_state.SetTo(-5));
+            Assert.AreEqual(_settings.MinimumSanity, _state.Value);
+        }
+
+        [Test]
+        public void 디버그_설정은_사망_상태에서_무시된다()
+        {
+            _state.SetTo(30);
+            Assert.IsTrue(_state.MarkDead());
+
+            Assert.IsFalse(_state.SetTo(90));
+            Assert.AreEqual(30, _state.Value);
+        }
+
+        [Test]
         public void 사망하면_정신력_변경과_디버프가_비활성화된다()
         {
             for (int i = 0; i < 10; i++)
@@ -141,6 +164,71 @@ namespace GhostHunter.Tests.EditMode
 
             Assert.IsTrue(_state.WitnessCorpse(44));
             Assert.AreEqual(80, _state.Value);
+        }
+
+        [Test]
+        public void 부활은_사망_상태에서만_적용된다()
+        {
+            Assert.IsFalse(_state.Revive(), "생존 중인데 부활이 적용됐습니다.");
+
+            Assert.IsTrue(_state.MarkDead());
+            Assert.IsTrue(_state.Revive());
+            Assert.IsTrue(_state.IsAlive);
+
+            Assert.IsFalse(_state.Revive(), "이미 되살아났는데 또 적용됐습니다.");
+        }
+
+        [Test]
+        public void 부활은_정신력_값을_되돌리지_않는다()
+        {
+            ReduceSanityTo(40);
+            int beforeDeath = _state.Value;
+
+            Assert.IsTrue(_state.MarkDead());
+            Assert.IsTrue(_state.Revive());
+
+            Assert.AreEqual(beforeDeath, _state.Value,
+                "부활은 죽기 직전 정신력을 유지한다. 100으로 되돌리는 것은 스테이지 리셋이다.");
+        }
+
+        [Test]
+        public void 부활은_시체_목격_기록을_유지한다()
+        {
+            Assert.IsTrue(_state.WitnessCorpse(7));
+            Assert.IsTrue(_state.MarkDead());
+            Assert.IsTrue(_state.Revive());
+
+            Assert.IsFalse(_state.WitnessCorpse(7),
+                "이미 본 시체인데 부활 후 다시 감소했습니다.");
+        }
+
+        [Test]
+        public void 부활_직후에는_어둠_누적이_남아_있지_않다()
+        {
+            // 감소 직전까지 누적시킨 뒤 죽는다. 부활하자마자 그 조각이 1틱을 깎으면 안 된다.
+            _state.TickDarkness(_settings.DarknessInterval * 0.9f, true);
+            Assert.IsTrue(_state.MarkDead());
+            Assert.IsTrue(_state.Revive());
+
+            int afterRevive = _state.Value;
+            Assert.IsFalse(
+                _state.TickDarkness(_settings.DarknessInterval * 0.2f, true),
+                "부활 직후 남은 어둠 누적으로 정신력이 깎였습니다.");
+            Assert.AreEqual(afterRevive, _state.Value);
+        }
+
+        [Test]
+        public void 사망_중에는_정신력이_변하지_않는다()
+        {
+            ReduceSanityTo(60);
+            Assert.IsTrue(_state.MarkDead());
+            int atDeath = _state.Value;
+
+            Assert.IsFalse(_state.ApplyGhostEvent());
+            Assert.IsFalse(_state.Restore(20));
+            Assert.IsFalse(_state.TickDarkness(_settings.DarknessInterval * 3f, true));
+
+            Assert.AreEqual(atDeath, _state.Value);
         }
 
         [TestCase(199, 2, 100)]

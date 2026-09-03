@@ -41,6 +41,12 @@ namespace GhostHunter.Gameplay.Sanity
 
         public string LastStatus => _lastStatus;
 
+        public int SanityMinimum =>
+            TryGetLocalState(out SanityNetworkState state) ? state.MinimumSanity : 0;
+
+        public int SanityMaximum =>
+            TryGetLocalState(out SanityNetworkState state) ? state.MaximumSanity : 100;
+
         public void Register(SanityNetworkState state)
         {
             if (state == null || _states.Contains(state))
@@ -198,6 +204,61 @@ namespace GhostHunter.Gameplay.Sanity
                 : "정신력 회복 적용 없음.";
         }
 
+        public bool TryGetLocalSanity(out int sanity)
+        {
+            if (TryGetLocalState(out SanityNetworkState state) && state.HasSanity)
+            {
+                sanity = state.Sanity;
+                return true;
+            }
+
+            sanity = 0;
+            return false;
+        }
+
+        public void SetLocalSanity(int value)
+        {
+            if (!TryGetControllableLocalState(out SanityNetworkState state))
+                return;
+
+            _lastStatus = state.ServerSetSanity(value)
+                ? $"정신력을 {state.Sanity}%로 설정했습니다."
+                : "정신력 설정 적용 없음 (사망 상태).";
+        }
+
+        public bool TryGetTeamSanity(out int roundedAverage)
+        {
+            return TryGetTeamAverage(out _, out roundedAverage, out _);
+        }
+
+        public void SetTeamSanity(int value)
+        {
+            NetworkManager network = NetworkManager.Singleton;
+            if (network == null || !network.IsServer)
+            {
+                _lastStatus = "팀 정신력 제어 실패: 호스트(서버)가 필요합니다.";
+                return;
+            }
+
+            int appliedCount = 0;
+            for (int i = _states.Count - 1; i >= 0; i--)
+            {
+                SanityNetworkState state = _states[i];
+                if (state == null)
+                {
+                    _states.RemoveAt(i);
+                    continue;
+                }
+
+                if (state.IsSpawned && state.ServerSetSanity(value))
+                    appliedCount++;
+            }
+
+            _lastStatus = appliedCount > 0
+                ? $"팀 {appliedCount}명의 정신력을 {value}%로 설정했습니다."
+                : "팀 정신력 설정 대상이 없습니다 (전원 사망·미접속).";
+        }
+
         public void MarkLocalPlayerDead()
         {
             if (!TryGetControllableLocalState(out SanityNetworkState state))
@@ -206,6 +267,44 @@ namespace GhostHunter.Gameplay.Sanity
             _lastStatus = state.ServerMarkDead()
                 ? "플레이어 사망 처리: 팀 평균에서 제외."
                 : "사망 처리 적용 없음.";
+        }
+
+        public void ReviveLocalPlayer()
+        {
+            if (!TryGetControllableLocalState(out SanityNetworkState state))
+                return;
+
+            _lastStatus = state.ServerRevive()
+                ? "플레이어 부활: 팀 평균에 다시 포함."
+                : "부활 적용 없음 (이미 생존 중).";
+        }
+
+        public void ReviveTeam()
+        {
+            NetworkManager network = NetworkManager.Singleton;
+            if (network == null || !network.IsServer)
+            {
+                _lastStatus = "팀 부활 실패: 호스트(서버)가 필요합니다.";
+                return;
+            }
+
+            int revivedCount = 0;
+            for (int i = _states.Count - 1; i >= 0; i--)
+            {
+                SanityNetworkState state = _states[i];
+                if (state == null)
+                {
+                    _states.RemoveAt(i);
+                    continue;
+                }
+
+                if (state.IsSpawned && state.ServerRevive())
+                    revivedCount++;
+            }
+
+            _lastStatus = revivedCount > 0
+                ? $"팀 {revivedCount}명을 부활시켰습니다."
+                : "부활 대상이 없습니다 (전원 생존 중이거나 미접속).";
         }
 
         public void ResetLocalPlayerForStage()

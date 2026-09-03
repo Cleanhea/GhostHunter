@@ -48,14 +48,25 @@ Game/SanitySystem/SanityTeamService
 - 생존·접속 중인 플레이어 팀 평균과 일반 반올림 정수
 - 20·10·5 이하 누적 디버프 상태와 숨·심장 1회 트리거 이벤트
 - 사망 시 개인 수치 비활성화, 팀 평균 제외, `-%` 디버그 표시
+- **부활** — 생존 상태만 되돌리고 정신력 값·시체 목격 기록은 유지한다. 어둠 누적은 0으로 비운다
+  (죽어 있는 동안 멈춰 있던 조각이 부활 직후 1틱을 깎는 것을 막는다).
+  개인 부활과 팀 전원 부활 두 가지를 개발 HUD(Tab)에 노출한다
 - 귀신 프로토타입 F1 HUD의 팀 평균 정신력 표시 — 정신력 값의 출처를 이 시스템 하나로 통일
 - 개인 정신력 20 이하에서 켜지는 카메라 테두리 연출(비네트+필름 그레인+색수차)
 - 집 서쪽 테스트베드 — 서버 가시 판정으로 시체 2구·귀신 이벤트 1개를 실제로 목격해 보는 공간
 - Game 후면 World Space 모니터의 최대 4인 개인 슬롯·팀 평균 정수 퍼센트 표시
 - 미접속 플레이어 슬롯의 흑백 비활성 표시
-- F1 HUD의 모든 입력 경로와 상태 표시
+- 개발 HUD(Tab)의 모든 입력 경로와 상태 표시
+- 개발 HUD 정신력 슬라이더 — 설정 에셋 범위(0~100) 안에서 개인 정신력(`SetLocalSanity`)과
+  팀 전체 정신력(`SetTeamSanity`, 호스트가 연결된 전 플레이어에 일괄 적용)을 즉시 설정(서버 권위)
+- 개발 HUD 부활 버튼 — `부활`(로컬 1명) / `팀 전원 부활`(호스트가 사망자 전원에 적용).
+  둘 다 서버 권위이며 `ISanityDebug.ReviveLocalPlayer` / `ReviveTeam` 을 거친다
 
 아직 포함하지 않음:
+
+- **게임 규칙으로서의 부활** — 살아 있는 동료가 시체를 되살리는가, 조건·시간·비용은 무엇인가.
+  현재 `ServerRevive()` 는 **개발 HUD 전용**이며 게임플레이 호출부가 없다. 규칙은 미정이다
+  ([../project/sanity-system.md](../project/sanity-system.md), [../project/gdd.md §2](../project/gdd.md) D-4)
 
 - 헤드라이트 입력과 드릴 카 안전 구역 판정
 - 실제 귀신 이벤트·시체·아이템·사망 시스템에서의 API 호출
@@ -95,9 +106,14 @@ Game/SanitySystem/SanityTeamService
 | `ServerApplyCorpseWitnessed(ulong)` | 서버가 시체 최초 가시 판정을 확정했을 때 |
 | `ServerRestoreSanity(int)` | 정신력 아이템 사용을 서버가 승인했을 때 |
 | `ServerMarkDead()` | 사망 판정 확정 시 |
+| `ServerRevive()` | 부활 판정 확정 시 — **현재 호출부는 개발 HUD(Tab)뿐이다** |
 
 `SanityNetworkState`는 `SanityChanged`, `DebuffsChanged`, `BreathingHeartbeatTriggered` 이벤트를 제공한다.
 실제 로컬 피드백 컴포넌트는 이 이벤트를 구독하고 `OnNetworkDespawn`에서 반드시 해제해야 한다.
+
+`ServerSetSanity(int)`은 개발 HUD 슬라이더 전용이다 — 값을 설정 에셋 범위로 Clamp해 즉시 복제한다.
+호스트는 `SanityTeamService.SetTeamSanity(int)`로 등록된 전 플레이어 상태에 이를 일괄 호출할 수 있다.
+실제 시스템은 위 목록의 `Server…` API만 사용한다.
 
 ## 4. 팀 평균
 
@@ -121,7 +137,7 @@ Player NetworkObject가 Despawn되며 목록에서 제거된다.
 | 귀신 소비자 | `Game/GhostPrototypeSystem`의 `GhostPrototypeSpawner` — `Awake`에서 `Services.TryGet`으로 선택 의존 |
 | 카메라 연출 | `Game/SanityCameraNoise`의 `Volume` + `SanityCameraNoise`, 프로필 `Assets/Settings/PostProcessing/PP_SanityCameraNoise.asset` |
 | 테스트베드 | `Game/SanityTestbed` — `Assets/Scripts/Gameplay/Sanity/SanityWitnessProp.cs` |
-| 개발 UI | `Bootstrap/NetworkRig/ConnectionHud` — F1 |
+| 개발 UI | `Bootstrap/NetworkRig/ConnectionHud` — Tab (정신력 슬라이더: 내 정신력·팀 전체) |
 
 `GhostHunter > 정신력 시스템 설치` 메뉴가 설정, Player 프리팹 컴포넌트, Game 씬 서비스,
 인스톨러 배선과 World Space 모니터를 반복 설치·검증한다. 검증은 기존 화면 고정 HUD와 게이지 제거,
@@ -235,4 +251,6 @@ PlayMode **12/12** 통과. Local Host 1명에서 귀신 HUD의 `팀 정신력`�
 관련: [정신력 시스템 기획서](../project/sanity-system.md) · [networking.md](networking.md) ·
 [ghost-prototype.md](ghost-prototype.md) · [testing.md](../workflow/testing.md)
 
-최종 갱신: 2026-08-31 (귀신 이벤트 목격 감소량 10 → 15 확정, G-6 해결 반영 — 실제 귀신 목격 판정은 [ghost-prototype.md §4](ghost-prototype.md))
+최종 갱신: 2026-09-04 (부활 API `ServerRevive()` 와 개발 HUD 부활 버튼 2종 추가 — 정신력 값은 유지하고
+생존 상태만 되돌린다. **게임 규칙으로서의 부활은 여전히 미정이며 게임플레이 호출부가 없다.**
+이전: 귀신 이벤트 목격 감소량 10 → 15 확정, G-6 해결 반영)

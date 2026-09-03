@@ -25,11 +25,16 @@ namespace GhostHunter.DebugTools
         [Tooltip("HUD 표시를 켜고 끄는 키.")]
         [SerializeField] private Key _toggleKey = Key.Tab;
 
+        [Tooltip("밸런스 튜닝 창(별도)을 켜고 끄는 키.")]
+        [SerializeField] private Key _tuningToggleKey = Key.F2;
+
         private string _lastStatus = "대기 중";
         private IConnectionService _connection;
         private ISteamLobbyService _lobby;
         private ISanityDebug _sanityDebug;
         private IGhostDebug _ghostDebug;
+
+        private readonly TuningHud _tuning = new();
 
         private Vector2 _scroll;
         private bool _showConnection = true;
@@ -77,9 +82,14 @@ namespace GhostHunter.DebugTools
             // 프로젝트가 신규 Input System 전용(activeInputHandler=1)이라 레거시 Input 클래스는
             // 런타임에 예외를 던진다. Keyboard.current 로 직접 읽는다.
             Keyboard keyboard = Keyboard.current;
+            if (keyboard == null)
+                return;
 
-            if (keyboard != null && keyboard[_toggleKey].wasPressedThisFrame)
+            if (keyboard[_toggleKey].wasPressedThisFrame)
                 _visible = !_visible;
+
+            if (keyboard[_tuningToggleKey].wasPressedThisFrame)
+                _tuning.ToggleVisible();
         }
 
         private void HandleStatus(string message) => _lastStatus = message;
@@ -89,15 +99,20 @@ namespace GhostHunter.DebugTools
 
         private void OnGUI()
         {
+            EnsureStyles();
+
+            // 튜닝 창은 접속 HUD(Tab)와 독립이다 — HUD가 꺼져 있어도 F2로 열 수 있다.
+            _tuning.DrawWindow();
+
             if (!_visible)
                 return;
-
-            EnsureStyles();
 
             float height = Mathf.Min(760f, Screen.height - 20f);
             GUILayout.BeginArea(new Rect(10, 10, 380, height), GUIContent.none, _boxStyle);
 
-            GUILayout.Label($"<b>GhostHunter 접속 HUD</b>   ({_toggleKey})", _richLabelStyle);
+            GUILayout.Label(
+                $"<b>GhostHunter 접속 HUD</b>   ({_toggleKey})   ·   튜닝 창 {_tuningToggleKey}",
+                _richLabelStyle);
             DrawStatusLines();
 
             GUILayout.Space(4);
@@ -114,6 +129,13 @@ namespace GhostHunter.DebugTools
             _showGhost = SectionHeader(SectionTitle("귀신 프로토타입", _ghostDebug != null), _showGhost);
             if (_showGhost)
                 DrawGhostBody();
+
+            if (GUILayout.Button(
+                    (_tuning.Visible ? "▼" : "▶") + $"  튜닝 창 (밸런스 값) — {_tuningToggleKey}",
+                    _headerStyle))
+            {
+                _tuning.ToggleVisible();
+            }
 
             GUILayout.EndScrollView();
 
@@ -242,6 +264,9 @@ namespace GhostHunter.DebugTools
             GUILayout.Label(_sanityDebug.StatusSummary, GUI.skin.textArea);
 
             GUI.enabled = _sanityDebug.CanControl;
+
+            DrawSanitySliders();
+
             GUILayout.BeginHorizontal();
             if (GUILayout.Button("어둠 ON/OFF"))
                 _sanityDebug.ToggleLocalDarkness();
@@ -261,12 +286,54 @@ namespace GhostHunter.DebugTools
             GUILayout.BeginHorizontal();
             if (GUILayout.Button("사망 처리"))
                 _sanityDebug.MarkLocalPlayerDead();
+            if (GUILayout.Button("부활"))
+                _sanityDebug.ReviveLocalPlayer();
+            GUILayout.EndHorizontal();
+
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("팀 전원 부활"))
+                _sanityDebug.ReviveTeam();
             if (GUILayout.Button("스테이지 리셋"))
                 _sanityDebug.ResetLocalPlayerForStage();
             GUILayout.EndHorizontal();
             GUI.enabled = true;
 
             GUILayout.Label(_sanityDebug.LastStatus, GUI.skin.label);
+        }
+
+        /// <summary>
+        /// 개인 정신력과 팀 전체 정신력을 0~100 사이 임의 값으로 바로 맞추는 슬라이더 두 줄.
+        /// 팀 줄은 호스트(서버)에서 연결된 모든 플레이어에 일괄 적용한다.
+        /// </summary>
+        private void DrawSanitySliders()
+        {
+            int min = _sanityDebug.SanityMinimum;
+            int max = _sanityDebug.SanityMaximum;
+
+            float mine = _sanityDebug.TryGetLocalSanity(out int localSanity) ? localSanity : min;
+            if (SanitySliderRow("내 정신력", mine, min, max, out int myTarget))
+                _sanityDebug.SetLocalSanity(myTarget);
+
+            float team = _sanityDebug.TryGetTeamSanity(out int teamAverage) ? teamAverage : min;
+            if (SanitySliderRow("팀 전체", team, min, max, out int teamTarget))
+                _sanityDebug.SetTeamSanity(teamTarget);
+        }
+
+        /// <summary>슬라이더 한 줄. 이번 프레임에 드래그로 값이 바뀌었으면 true 와 정수 목표값을 돌려준다.</summary>
+        private static bool SanitySliderRow(string label, float current, int min, int max, out int target)
+        {
+            GUILayout.BeginHorizontal();
+            GUILayout.Label(label, GUILayout.Width(66));
+
+            GUI.changed = false;
+            float slid = GUILayout.HorizontalSlider(current, min, max, GUILayout.MinWidth(150));
+            bool draggedThisFrame = GUI.changed;
+
+            GUILayout.Label($"{Mathf.RoundToInt(slid)}%", GUILayout.Width(38));
+            GUILayout.EndHorizontal();
+
+            target = Mathf.RoundToInt(slid);
+            return draggedThisFrame && target != Mathf.RoundToInt(current);
         }
 
         private void DrawGhostBody()
