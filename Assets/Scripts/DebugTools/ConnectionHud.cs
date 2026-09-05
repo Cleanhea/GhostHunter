@@ -2,6 +2,7 @@ using GhostHunter.Core;
 using GhostHunter.Core.Networking;
 using GhostHunter.Core.Steam;
 using GhostHunter.Gameplay.Ghost;
+using GhostHunter.Gameplay.Player;
 using GhostHunter.Gameplay.Sanity;
 using Unity.Netcode;
 using UnityEngine;
@@ -33,6 +34,7 @@ namespace GhostHunter.DebugTools
         private ISteamLobbyService _lobby;
         private ISanityDebug _sanityDebug;
         private IGhostDebug _ghostDebug;
+        private ILocalPlayerContext _localPlayer;
 
         private readonly TuningHud _tuning = new();
 
@@ -41,6 +43,7 @@ namespace GhostHunter.DebugTools
         private bool _showSanity;
         private bool _showGhost = true;
         private bool _showPhenomena;
+        private bool _showSkill;
 
         private GUIStyle _boxStyle;
         private GUIStyle _richLabelStyle;
@@ -129,6 +132,12 @@ namespace GhostHunter.DebugTools
             _showGhost = SectionHeader(SectionTitle("귀신 프로토타입", _ghostDebug != null), _showGhost);
             if (_showGhost)
                 DrawGhostBody();
+
+            _showSkill = SectionHeader(
+                SectionTitle("두더지 스킬", LocalBurrow != null || LocalDetection != null),
+                _showSkill);
+            if (_showSkill)
+                DrawSkillBody();
 
             if (GUILayout.Button(
                     (_tuning.Visible ? "▼" : "▶") + $"  튜닝 창 (밸런스 값) — {_tuningToggleKey}",
@@ -336,6 +345,100 @@ namespace GhostHunter.DebugTools
             return draggedThisFrame && target != Mathf.RoundToInt(current);
         }
 
+        /// <summary>로컬 소유자의 굴착 컨트롤러. 세션 시작 전이거나 스폰 전이면 null 이다.</summary>
+        private IMoleSkillDebug LocalBurrow
+        {
+            get
+            {
+                MoleBurrowController controller = _localPlayer?.BurrowController;
+
+                // Unity 의 == 오버로드(파괴된 객체를 null 로 보는 것)는 인터페이스로 올리는 순간
+                // 사라진다. 구체 타입인 채로 먼저 걸러야 씬을 내린 뒤 죽은 참조를 붙잡지 않는다.
+                return controller != null ? controller : null;
+            }
+        }
+
+        /// <summary>로컬 소유자의 탐지 디버그 창구. 세션 시작 전에는 null 이다.</summary>
+        private IMoleSkillDebug LocalDetection
+        {
+            get
+            {
+                DetectionSkillController controller = _localPlayer?.DetectionController;
+                return controller != null ? controller : null;
+            }
+        }
+
+        /// <summary>
+        /// 굴착 상태·강제 조작 + <b>수치 조절</b>. 수치 줄은 튜닝 창(F2)의 렌더러를 그대로 불러
+        /// 같은 SO 를 만진다 — 5초 유지·10초 쿨타임을 매번 기다리지 않고 값을 굴려 볼 수 있도록
+        /// 상태 버튼과 한자리에 뒀다.
+        /// </summary>
+        private void DrawSkillBody()
+        {
+            IMoleSkillDebug burrow = LocalBurrow;
+
+            GUILayout.Label("<b>굴착</b>   ·   T   ·   기획서 §5", _richLabelStyle);
+
+            if (burrow == null)
+            {
+                GUILayout.Label("로컬 플레이어가 아직 스폰되지 않았습니다. Host 로 세션을 시작하세요.");
+            }
+            else
+            {
+                GUILayout.Label(burrow.StatusSummary, GUI.skin.textArea);
+
+                GUI.enabled = burrow.CanControl;
+                GUILayout.BeginHorizontal();
+                if (GUILayout.Button("굴착 시작"))
+                    burrow.ForceStart();
+                if (GUILayout.Button("즉시 종료"))
+                    burrow.ForceEnd();
+                if (GUILayout.Button("쿨타임 리셋"))
+                    burrow.ResetCooldown();
+                GUILayout.EndHorizontal();
+                GUI.enabled = true;
+            }
+
+            GUILayout.Space(3);
+            GUILayout.Label("수치 — 즉시 적용 · 튜닝 창(F2)과 같은 값", GUI.skin.label);
+
+            if (!_tuning.DrawInline("굴착"))
+                GUILayout.Label("세션을 시작하면 MoleBurrowSettings 를 읽어 옵니다.");
+
+            GUILayout.Space(5);
+            GUILayout.Label("<b>탐지</b>   ·   Q   ·   기획서 §4", _richLabelStyle);
+
+            IMoleSkillDebug detection = LocalDetection;
+            if (detection == null)
+            {
+                GUILayout.Label("로컬 플레이어가 아직 스폰되지 않았습니다. Host 로 세션을 시작하세요.");
+            }
+            else
+            {
+                GUILayout.Label(detection.StatusSummary, GUI.skin.textArea);
+
+                GUI.enabled = detection.CanControl;
+                GUILayout.BeginHorizontal();
+                if (GUILayout.Button("탐지 시작"))
+                    detection.ForceStart();
+                if (GUILayout.Button("즉시 종료"))
+                    detection.ForceEnd();
+                if (GUILayout.Button("쿨타임 리셋"))
+                    detection.ResetCooldown();
+                GUILayout.EndHorizontal();
+                GUI.enabled = true;
+            }
+
+            GUILayout.Space(3);
+            GUILayout.Label("수치 — 즉시 적용 · 튜닝 창(F2)과 같은 값", GUI.skin.label);
+            if (!_tuning.DrawInline("탐지"))
+                GUILayout.Label("세션을 시작하면 DetectionSkillSettings 를 읽어 옵니다.");
+
+            GUILayout.Space(3);
+            GUILayout.Label("대상은 DetectionTargetMarker 가 붙고 활성화된 오브젝트만 표시합니다. " +
+                "작업 시스템의 판정 기준은 MS-5로 남아 있습니다.", GUI.skin.label);
+        }
+
         private void DrawGhostBody()
         {
             if (_ghostDebug == null)
@@ -437,6 +540,7 @@ namespace GhostHunter.DebugTools
         {
             Services.TryGet(out _sanityDebug);
             Services.TryGet(out _ghostDebug);
+            Services.TryGet(out _localPlayer);
         }
     }
 }

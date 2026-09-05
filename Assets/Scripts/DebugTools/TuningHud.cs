@@ -19,6 +19,9 @@ namespace GhostHunter.DebugTools
     /// 슬라이더(<see cref="RangeAttribute"/>) / 입력칸+−+ / 토글(bool). 값 목록을 손으로 관리하지
     /// 않으므로 SO 에 `[SerializeField]` 필드를 더하면 자동으로 나타난다(`[HideInInspector]` 제외).
     ///
+    /// <para><see cref="DrawInline"/> 은 같은 값 줄을 접속 HUD 의 섹션 안에 평면으로 그린다 —
+    /// 스킬 수치처럼 상태·제어 버튼과 붙여 놓아야 쓸모 있는 것들을 위한 것이다.</para>
+    ///
     /// <para>SO 인스턴스는 세션이 시작되면 씬의 컴포넌트(<c>PlayerMotor._settings</c> 등)에서 찾아
     /// 온다 — 별도 배선이 필요 없다. 수정은 그 플레이 세션 동안 즉시 적용되고, 에디터에서는 SO
     /// 인스턴스가 되돌려지지 않으므로 이후 플레이에도 남는다(디스크 영구 반영은 인스펙터). 빌드에서는
@@ -64,6 +67,7 @@ namespace GhostHunter.DebugTools
             ("이동 · 시점  (PlayerMoveSettings)", "이동", typeof(PlayerMotor)),
             ("귀신  (GhostPrototypeSettings)", "귀신", typeof(GhostPrototypeController)),
             ("굴착 스킬  (MoleBurrowSettings)", "굴착", typeof(MoleBurrowController)),
+            ("탐지 스킬  (DetectionSkillSettings)", "탐지", typeof(DetectionSkillController)),
             ("가구 투척  (FurnitureThrowSettings)", "투척", typeof(FurnitureGrabTarget)),
             ("정신력  (SanitySystemSettings)", "정신력", typeof(SanityNetworkState)),
         };
@@ -140,6 +144,35 @@ namespace GhostHunter.DebugTools
             GUILayout.EndScrollView();
 
             GUI.DragWindow(new Rect(0, 0, 100000, 22));
+        }
+
+        /// <summary>
+        /// 접속 HUD(Tab)의 섹션 안에 설정 하나의 값 줄만 평면으로 그린다. 창(F2)과 <b>같은 SO
+        /// 인스턴스·같은 입력 버퍼</b>를 쓰므로 어느 쪽에서 바꾸든 결과가 같고, SO 에
+        /// <c>[SerializeField]</c> 를 더하면 양쪽에 동시에 나타난다.
+        /// </summary>
+        /// <param name="shortTitle"><see cref="Sources"/> 의 짧은 이름(예: "굴착").</param>
+        /// <param name="labelWidth">HUD 폭이 창보다 좁아 라벨을 줄인다.</param>
+        /// <returns>대상 SO 를 아직 못 찾았으면 false — 세션이 시작되기 전이다.</returns>
+        public bool DrawInline(string shortTitle, float labelWidth = 132f)
+        {
+            ResolveTargets();
+
+            Target target = _targets.Find(x => x.ShortTitle == shortTitle);
+            if (target == null)
+                return false;
+
+            foreach (Group g in target.Groups)
+            {
+                GUILayout.Label(Shorten(g.Name), GUI.skin.label);
+                foreach (Row row in g.Rows)
+                    DrawRow(target, row, labelWidth);
+            }
+
+            if (GUILayout.Button("이 수치 되돌리기 (세션 시작값)"))
+                RestoreSnapshot(target);
+
+            return true;
         }
 
         private void DrawFoldout(Target t)
@@ -307,10 +340,10 @@ namespace GhostHunter.DebugTools
             return target;
         }
 
-        private void DrawRow(Target t, Row row)
+        private void DrawRow(Target t, Row row, float labelWidth = 190f)
         {
             GUILayout.BeginHorizontal();
-            GUILayout.Label(row.Label, GUILayout.Width(190));
+            GUILayout.Label(row.Label, GUILayout.Width(labelWidth));
 
             object current = row.Field.GetValue(t.So);
 

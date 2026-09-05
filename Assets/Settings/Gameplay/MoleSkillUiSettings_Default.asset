@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 78b6119f98ffc46429b3618ce8f9a872, type: 3}
+  m_Name: MoleSkillUiSettings_Default
+  m_EditorClassIdentifier: GhostHunter.Gameplay::GhostHunter.Gameplay.Player.MoleSkillUiSettings
+  _indicatorSize: 80
+  _rightMargin: 24
+  _topMargin: 24
+  _verticalSpacing: 12
+  _backgroundColor: {r: 0.34901962, g: 0.34901962, b: 0.34901962, a: 0.7019608}
+  _castingColor: {r: 0.47058824, g: 0.7764706, b: 0.39215687, a: 1}
+  _cooldownColor: {r: 1, g: 1, b: 1, a: 1}
+  _textureResolution: 128
+  _ringThicknessRatio: 0.12
+  _iconInsetRatio: 0.2
+  _referenceResolution: {x: 1920, y: 1080}
