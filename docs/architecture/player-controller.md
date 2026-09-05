@@ -39,9 +39,25 @@
 | `Attack` | 마우스 좌클릭 (**Hold 아님, press/release 둘 다 필요**) | 가구 잡기/던지기 |
 | `Interact` | E | 문 여닫기 (조준선 2.5m 안의 문) |
 | `Crouch` | C (홀드) | 웅크리기 |
-| `Burrow` | R | 굴착 스킬 토글 |
+| `Burrow` | **T** | 굴착 스킬 토글 — **확정(2026-09-05)**. 기획서의 E는 `Interact`(E)와 겹쳐 채택하지 않았다 → [mole-skill-system.md §3.5](../project/mole-skill-system.md) |
+| `Detect` | **Q** | 탐지 스킬 — 소유자 화면에서만 5초 동안 활성 마커를 표시하고 종료 후 10초 대기 |
 | `Prone` | Z (토글) | 엎드리기 — 침대 밑으로 기어 들어가는 3번째 자세 |
 | **`Pause`** | **ESC** / 게임패드 Start | **일시정지 메뉴 열기.** 닫기는 기존 `UI/Cancel`(`*/{Cancel}`) 이 받는다 (아래 참조) |
+
+> **`Burrow` 는 T 로 확정됐다(2026-09-05).** 커밋 `e851cff` 가 E→R(Interact 충돌 회피),
+> 커밋 `0aad69e` 가 R→T 로 옮겼고, 실제 바인딩인 T 를 그대로 채택했다.
+> `ProjectWiringTests`의 굴착 키 단언도 현재 확정값 T에 맞춰져 있다.
+>
+> **입력 잠금은 두 가지고 서로 독립이다.**
+> `SetGameplayInputLocked` 는 일시정지 메뉴용으로 **시점까지 전부** 0으로 만들고,
+> `SetSkillInputLocked` 는 굴착용으로 **`Look` 과 `Burrow` 만 남긴다**(2026-09-05 구현).
+> 겹치면 메뉴 쪽이 이긴다. 어느 쪽이든 `CrouchHeld` 는 마지막 값으로 얼려, 잠기는 것만으로
+> 자세가 바뀌지 않게 한다. 굴착은 시전 시작에 걸고 **정상 종료·시전 취소·디스폰 세 경로 모두**
+> 에서 푼다 → [mole-skill-system.md §5.5.1](../project/mole-skill-system.md).
+>
+> **탐지 스킬은 `Q`로 배선됐다**(`Player/Detect`). 판정·시각 표시·공통 UI 구현은
+> [mole-skill-system.md §4·§6](../project/mole-skill-system.md)에 따른다. 탐지 결과는
+> 순수 로컬이라 `NetworkVariable`·RPC를 사용하지 않는다.
 
 > **주의:** `Attack` 액션은 홀드 방식이므로 Interaction을 `Press`(Trigger Behavior: `Press And Release`)로 두고 `started`/`canceled` 콜백을 각각 잡는다. `Hold` Interaction을 붙이면 최소 유지 시간 임계값이 생겨 짧은 탭이 씹힌다.
 
@@ -140,6 +156,8 @@ Player (root)          ← 요(Y) 회전. ClientNetworkTransform이 복제
 이 값들(과 귀신·굴착·투척·정신력 설정 전부)을 `[Header]` 그룹별 슬라이더/입력칸으로 실시간
 조정**할 수 있다 (`Assets/Scripts/DebugTools/TuningHud.cs` — SO의 `[SerializeField]` 필드를 리플렉션으로
 자동 노출, 필터 검색 지원). 접속 HUD(Tab)와 별개 창이다.
+**굴착 수치만은 접속 HUD 의 `두더지 스킬` 섹션에도 같은 줄이 펼쳐져 있다** — 상태·강제 조작 버튼과
+같은 자리에서 바꿔 보라는 뜻이고, 두 곳이 같은 SO 를 만진다(`TuningHud.DrawInline`).
 
 이동 속도 결정 순서: **엎드리기 > 웅크리기 > 달리기 > 걷기** (`PlayerMotor.ResolveMoveSpeed` →
 순수 규칙은 `PlayerPosture`). 엎드리거나 웅크리는 동안에는 `Sprint` 입력을 무시한다.

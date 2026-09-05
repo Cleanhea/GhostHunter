@@ -13,6 +13,7 @@ Assets/
 ├── Settings/          URP RP Asset · Renderer, Gameplay SO, Scenes SO, PostProcessing Volume 프로필
 ├── Materials/         M_*
 ├── Shaders/           SH_*
+├── Sprite/            UI 스프라이트 — Skill_icon/(두더지 스킬 아이콘 4종)
 ├── Tests/             EditMode / PlayMode 테스트 어셈블리
 └── InputSystem_Actions.inputactions
 ```
@@ -31,7 +32,7 @@ Assets/Scripts/
 │   └── Steam/      ISteamLobbyService · 로비 DTO (Steamworks 타입을 노출하지 않는다)
 ├── Data/          ScriptableObject 정의 + SceneReference / SceneNameSO (런타임 로직 없음)
 ├── Gameplay/      실제 게임 로직
-│   ├── Player/        이동·시점·스폰
+│   ├── Player/        이동·시점·스폰·두더지 스킬(탐지·굴착)
 │   ├── Interaction/   타겟팅·그랩·문
 │   ├── Furniture/     가구 오브젝트·부양·발사·아웃라인
 │   ├── Ghost/         귀신 프로토타입 상태·탐지·추격·스폰 서비스
@@ -210,6 +211,9 @@ Player 프리팹 (NetworkObject, 플레이어당 1개 스폰)
 ├─ PlayerVisuals            원격 플레이어 몸통 표시, 로컬은 숨김
 ├─ FurnitureTargeter        카메라 레이캐스트 → 현재 조준 대상 (로컬 전용)
 ├─ GrabController           투척 준비/2인 잡기 입력, Grab/Release RPC 송신
+├─ DetectionSkillController 탐지 상태 머신. 로컬 소유자만 실행, NetworkVariable/RPC 없음
+├─ DetectionTargetMarker    작업 시스템이 활성화한 대상 마커(이동 가구/얼룩 enum)
+├─ MoleBurrowController     굴착 상태·이동 잠금·매몰 상태
 └─ SanityNetworkState       서버 권위 개인 정신력·생존·어둠 노출 복제
 
 Game 씬 서비스
@@ -242,6 +246,7 @@ UI (씬별, 로컬 전용)
 ├─ ChargeGaugeUI            투척 준비 게이지, 1인 준비/2인 잡기 표시
 ├─ SanityHudUI              Game 후면 World Space 모니터의 4인 개인 수치·팀 평균 퍼센트
 ├─ PauseMenuController      Game 씬 ESC 메뉴 — 계속하기/설정(stub)/타이틀로/종료, 끊김 모달
+├─ MoleSkillHud             탐지·굴착 공통 우측 상단 원형 게이지 + 탐지 시전 파란빛 오버레이(로컬 읽기 전용 상태)
 ├─ TitleMenuController      방 생성 / 방 코드 참가 / 설정 / 종료 / 로비로 돌아가기
 └─ LobbyScreenController    방 코드·멤버 목록·준비·시작
 ```
@@ -270,6 +275,8 @@ UI (씬별, 로컬 전용)
 | `FurnitureDefinition` | 가구 종류별 질량, 무게 등급(1인/2인), 기본 프리팹 참조 |
 | `GhostPrototypeSettings` | 팀 평균 임계값(80/60/30), 상태 지속시간, §7.3 어택 확률표, 시야·소리·추격·수색 수치. **정신력 값 필드도 활동도 필드도 없다** |
 | `SanitySystemSettings` | 시작 100%, 감소 시간·양, 디버프 임계값·속삭임 간격 |
+| `DetectionSkillSettings` | 탐지 시전 임시 구간, 5초 표시, 10초 쿨타임, 시전 화면 파란빛 색·최대 불투명도, 가구/얼룩 색, 렌더링 모드, 사망 취소 정책 |
+| `MoleSkillUiSettings` | 원형 게이지 크기·여백·간격, 배경/시전/쿨타임 색, 런타임 텍스처 해상도 |
 | `SceneNameSO` | 씬 참조 목록 (문자열 대신) |
 
 경로: `Assets/Settings/Gameplay/`, `Assets/Settings/Scenes/`

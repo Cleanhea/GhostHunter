@@ -183,6 +183,11 @@ NGO·씬에 의존하지 않는 순수 로직이다. `SanityState` 와 같은 �
 이동은 **NavMesh 없이** `CharacterController.Move` 직접 조향이다(overview.md §5). 박스형 프로토타입
 집에서는 충분하고, 정식 길찾기는 이후 과제다. 귀신 프리팹 전체는 `GhostPrototype` 레이어다.
 
+> ⚠️ **다층 맵에서는 이 방식이 성립하지 않는다.** 배회 상자는 X/Z 경계만 보고 Y를 고려하지 않아
+> 계단을 오르내릴 수 없다. 맵 생성 기획서 v0.3 이 2~3층 대저택을 확정했으므로, 층간 이동은
+> **다층 맵의 선행 조건**이다 → [roadmap.md §1.2 MAP-11](../project/roadmap.md) ·
+> [map-generation.md §10.3](map-generation.md)
+
 귀신은 유령이라 **`Physics.IgnoreLayerCollision` 으로 `GhostPrototype` ↔ `Player`·`Furniture` 충돌을
 끈다**(`IgnoreLevelActorCollisions()`, 스폰 시 idempotent). 플레이어·가구는 귀신을 그대로
 통과하고, 귀신은 `Default`(벽·바닥)와는 계속 충돌해 이동이 정상적으로 미끄러진다. 물건 흔들기가
@@ -239,12 +244,26 @@ Phenomena        : DRAWEROPEN  (다음 6.1s)   ← 평상시·활동 중에만
 Pursuit          : CHASE                     ← 어택 중에만
 ```
 
-HUD 는 접이식 섹션(`▶/▼`)이다 — `연결·세션` / `정신력` / `귀신 프로토타입` / `튜닝 창 열기`,
-그 안에 `초자연현상` 하위 섹션. Steam·세션 요약 두 줄과 마지막 상태 줄만 항상 보인다.
+HUD 는 접이식 섹션(`▶/▼`)이다 — `연결·세션` / `정신력` / `귀신 프로토타입` / **`두더지 스킬`** /
+`튜닝 창 열기`, 귀신 안에 `초자연현상` 하위 섹션. Steam·세션 요약 두 줄과 마지막 상태 줄만 항상 보인다.
+
+**굴착 은신 무효 판정 (`BurrowExposureTracker`, 2026-09-05)** — `EvaluateBurrowExposure` 가
+어택 틱마다(`EvaluateBedHide` 바로 뒤, `TryDetectPlayer` 앞) 플레이어별로 돈다. **매몰이 시작된
+순간** `_pursuit != Roam && _target == player` 를 한 번 보고, 참이면 그 굴착이 끝날 때까지
+`IsBurrowExposed` 가 참이 된다. `TryDetectPlayer` 와 `TryCatch` 둘 다 이 값을 보고 땅속을
+무시할지 정한다 → [mole-skill-system.md §5.2.1](../project/mole-skill-system.md).
+
+**`두더지 스킬` 섹션 (2026-09-05 추가)** — 굴착의 상태(대기/시전/매몰과 남은 시간)·쿨타임을 한 줄로
+보여 주고 `굴착 시작`·`즉시 종료`·`쿨타임 리셋` 로 강제 조작한다(`IMoleSkillDebug`, 로컬 소유자 전용).
+**그 아래에 `MoleBurrowSettings` 의 값 줄을 그대로 펼쳐 둔다** — 튜닝 창(`TuningHud.DrawInline`)의
+렌더러를 불러 쓰므로 F2 창과 **같은 SO·같은 버퍼**이고, 어느 쪽에서 바꾸든 결과가 같다.
+5초 유지·10초 쿨타임을 매번 기다리지 않고 값을 굴려 보라고 상태 버튼과 한자리에 뒀다.
+탐지 스킬도 같은 섹션에서 상태·강제 조작·`DetectionSkillSettings` 수치를 보여 준다. 실제
+표시는 `DetectionTargetMarker`가 활성화된 오브젝트만 대상으로 하며 작업 시스템 판정은 MS-5다.
 
 **밸런스 튜닝 창(`TuningHud`) — 접속 HUD 와 별개의 이동식 창, 기본 키 `F2`.** 접속 HUD 가 꺼져
 있어도 열린다(HUD 하단 `튜닝 창 열기` 버튼으로도 토글). `GhostPrototypeSettings`·`PlayerMoveSettings`·
-`MoleBurrowSettings`·`FurnitureThrowSettings`·`SanitySystemSettings` 의 `[SerializeField]` 필드를 런타임
+`MoleBurrowSettings`·`DetectionSkillSettings`·`FurnitureThrowSettings`·`SanitySystemSettings` 의 `[SerializeField]` 필드를 런타임
 리플렉션으로 전부 노출한다 — SO 별 접이식, 그 안에서 다시 `[Header]` 그룹별 접이식(예: 귀신 →
 `Vision detection` · `Hearing detection` · `Chase / search AI` …). 맨 위 `필터` 입력칸으로 전체를
 가로질러 이름 검색(필터 중엔 그룹이 자동으로 펼쳐진다). `[Range]` 는 슬라이더, 나머지 숫자는
