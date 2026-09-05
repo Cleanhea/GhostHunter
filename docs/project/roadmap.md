@@ -12,6 +12,7 @@
 | M0~M6 | 프로토타입 | 던지기 메커닉 검증 | 아래 §3 | **완료** (실기 검증 항목 제외) |
 | **MIG** | **아키텍처 정비** | 본 프로젝트 구조로 이관 | §2 전 항목 | **거의 완료** — MIG-11(결정 대기)·MIG-10(버전 고정) 외 전부 |
 | M7 | 가구 간 물리 + 정리 | 연쇄 충돌이 두 클라이언트에서 자연스럽게 | §3 M7 | 대기 |
+| **MAP** | **맵 생성 v0.3** | 3층 대저택(20×16m ×2 + 다락 14×10m) + 계단·Work Room·Spawn Point | [map-generation.md](../architecture/map-generation.md) §9 체크리스트 통과 | **진행 중 (2026-09-05)** — MAP-1 오른쪽 그레이박스 1차 생성, 체감 검증 대기 (아래 §1.2) |
 | M8 | **게임 설계** | 루프·승패·유령 세부 규칙 확정 | [gdd.md §1·§2](gdd.md) TBD 해소 + [ghost-system.md §13](ghost-system.md) 잔여 결정 | **부분 진행 — 귀신 공통 규칙 기획 확정, 유령 P1 + 정신력 코어 구현. 루프·승패 미정** |
 | M9 | 실기 검증 | Steam 2PC 전 경로 통과 | [PB-08](../workflow/playbooks.md) 전항 | 대기 |
 | M10 | 게임플레이 완성 | 승패 조건까지 동작 | 매치 시작→종료 완주 | 대기 |
@@ -30,6 +31,11 @@
 >    사용자가 해 줄 일: **① 에디터에서 직접 플레이해 §10.4~§10.5 수동 검증**,
 >    **② 선행 검증 D-1**(클라이언트 씬 동기화 모드 — §5 백로그. 참이면 게스트 경로가 무너진다)
 >    → [pause-menu.md §10](../architecture/pause-menu.md)
+> 7. (2026-09-05) **맵 생성 기획서 v0.3 반영 + 결정 4건 완료.** D-17·D-18·D-19·D-20 해결 —
+>    규모 20×16m ×2층 + 다락 14×10m / `MapScale` 1.0 / 소형 오브젝트 미리 배치 / 라운드별 개별 매치.
+>    층별 도면 3장도 실측값으로 반영했다. **MAP-1 그레이박스는 지금 착수할 수 있다.**
+>    사용자가 해 줄 일: **① 씬 재생성 승인**(생성 도구 재실행은 `Game` 씬을 새로 만든다),
+>    ② D-21 오픈 보이드 처리 방침 → [map-generation.md §12](../architecture/map-generation.md) · 위 §1.2 MAP 보드
 
 ### 1.1 M8 귀신·정신력 통합 TODO
 
@@ -50,6 +56,54 @@
 | M8-GS-8 | Steam 2PC에서 귀신·정신력 상태와 개인/팀 HUD 동기화를 검증한다. | M8-GS-7, M9 환경 | 대기 |
 | M8-GS-9 | Unity Editor 재시작 후 Local Host 기본 UDP 7777 점유가 재발하는지 확인하고, 재발하면 `UnityTransport` 종료 수명주기를 진단한다. | — | 대기 |
 | M8-GS-10 | 스폰된 귀신을 Scene 뷰에서 식별할 수 있도록 전용 레이어와 Gizmo 표식을 둔다. | — | ✅ **완료 (2026-08-30)** — `GhostPrototype` 레이어(10)·파란 Scene Gizmo 추가, 플레이어 카메라 culling mask는 변경하지 않음 |
+
+
+### 1.2 MAP 맵 생성 v0.3 TODO
+
+> 2026-09-05 [맵 생성 시스템 기획서 v0.3](../architecture/map-generation.md) 반영에서 나온 작업이다.
+> **MAP-1(그레이박스)이 나머지 전부의 선행이다.** 크기·동선이 확정되지 않은 채로 방 프리셋이나
+> Spawn Point 를 만들면 두 번 만들게 된다.
+>
+> ⚠️ 전체 `GhostHunter > 프로토타입 게임 생성`은 `Game` 씬을 **처음부터 다시 만든다**(CLAUDE.md §6).
+> MAP-1은 기존 두 집을 보존하는 전용 메뉴 `GhostHunter > 맵 v0.3 그레이박스 오른쪽에 추가`로 분리했다.
+>
+> **추가 도면:** [HousePlanB·C 비교·층별 치수](../architecture/map-generation.md#house-plan-bc)를 참고한다.
+> 파일명과 이미지 내부 B/C 제목이 반대다. 추가안 채택은 MG-20(TBD)이며, 아래 MAP-1·2·5는 기존 확정 규모 기준이다.
+> MAP-15의 B/C 씬은 비교용으로만 덧붙이고 기존 A안·게임플레이 배선을 바꾸지 않는다.
+
+| # | TODO | 선행 조건 | 상태 |
+| --- | --- | --- | --- |
+| MAP-1 | **그레이박스 제작** — 20×16m 2개 층 + 14×10m 다락을 빈 상자로 세우고 크기·동선만 본다 | ✅ MG-2 · ✅ MG-3 | **1차 생성 완료 / 체감 검증 대기 (2026-09-05)** — `Game/House_01_V03_Graybox_Right`, 방 7+8+6=21. 기존 두 집 오른쪽 실제 외곽 3m. 계단·오픈 보이드는 TBD 표식만 유지 |
+| MAP-2 | `HousePrototypeBuilder` 에 **Floor 개념 도입** — 층별 좌표 원점·바닥 슬래브 적층·층별 그룹. **`MapScale` 을 1.0 으로 내리고 도면 실측값을 그대로 쓴다** | MAP-1 | 대기 |
+| MAP-3 | **계단 A·B 생성** — 폭 **2.2m** 확정(도면), 세 층 북쪽 중앙에 정렬된 수직 코어 | MG-7(경사·계단참) | 대기 |
+| MAP-4 | **Room Slot 카테고리화** — `RoomSlotAssigner` 가 카테고리별 풀에서 뽑도록. 현재는 침실 전용 단일 풀 | MAP-2 | 대기 |
+| MAP-5 | **카테고리별 프리셋 제작** — 침실 최소 5종(2층 슬롯 4개, 현재 3종), 욕실·거실·주방 등. **기존 A·B·C 는 4.2×4.0 슬롯에 맞춰 원본 구성으로 되돌린다** | MG-13 | 대기 |
+| MAP-6 | **Spawn Point 시스템** — 후보 지점 정의 + 타입별 개수 랜덤 선택. **미리 배치 방식 확정** — 보관 자리에 두고 뽑힌 것만 옮긴다(`RoomPreset.ApplyTo` 패턴) | ✅ MG-14 · MG-9 | 대기 |
+| MAP-7 | **Work Room 선정** — **1~2층 15개 방 중 6~8개**, 층별 분포 제한 | ✅ MG-5 · MG-6 · **D-14**(청소·이사 작업 시스템 정의) | 대기 |
+| MAP-8 | **동선 검증** — 층간 이동·순환 경로·주요 동선 차단 검사 | **MG-11**(판정 방법) | 대기 |
+| MAP-9 | **스페셜 공간 해금** — 다락·지하실 잠금 + 열쇠. 다락 도면에 **비밀 보관실**(2.4×1.8m)이 있다 | MG-15 · MG-17 · MG-18(지하 도면 없음) | 대기 |
+| MAP-10 | **라운드별 맵** — 원룸 / 작은 2층집 / 대저택 / 인형공장. **라운드마다 개별 매치**(매치 1 = 맵 1) | ✅ MG-4 · **D-4**(게임 루프) | 대기 |
+| MAP-11 | **귀신 AI 층간 이동** — 지금 귀신은 집 내부 상자 하나의 X/Z 안에서만 움직인다(NavMesh 없음, Y 미고려). 2~3층이 되면 계단을 오르내리지 못한다 | MAP-2 · MAP-3 | 대기 — **다층 맵의 선행 조건** → [ghost-prototype.md](../architecture/ghost-prototype.md) |
+| MAP-13 | **오픈 보이드** — 2층 갤러리 홀 한가운데가 1층으로 뚫려 있다. 난간·낙하·층간 시야/소리 판정 | D-21 | 대기 — **다층 설계의 핵심** |
+| MAP-12 | **굴착 도약 높이 재검증** — 기준이 "2층을 바로 올라갈 정도"인데 현재 4m 는 단층 기준 임시값이다 | MAP-2 | 대기 → [mole-skill-system.md §5.4](mole-skill-system.md) |
+| MAP-14 | **HousePlanB·C 도면 컨텍스트 반영** — 파일명/도면 제목 대응, 층별 치수·배치 비교, 미확정 항목과 이미지 인덱스 연결 | 도면 2장 수령 | **완료 (2026-09-05)** — 도면 직접 대조, 관련 링크 11건 유효·diff 검사 통과. 문서 작업이며 규모 변경·씬 생성은 별도 |
+| MAP-15 | **B·C 대저택 실내 프로토타입** — 기존 Game 씬에 `House_Prototype_PlanB/C`를 덧붙이고 도면 치수 방·실내 벽·현관·창문·임시 조명·실제 계단 A/B·난간·기존 Furniture 프리팹을 배치. 앞마당·연결 바닥, 상부 계단 개구부·가구/벽/문/계단 통로 검증과 NGO 해시 갱신 포함 | MAP-14 · 기존 `House_01`/원본/그레이박스 보존 | **코드 구현 (2026-09-05) / 에디터 메뉴 실행·씬 저장·수동 Play 검증 대기** — `PlanVariantPrototypeSetup` + `PlanVariantPrototypeSettings` 추가. B/C 채택(MG-20)과 최종 계단 수치(MG-7)는 닫지 않음 |
+
+### 1.3 MS 두더지 스킬 TODO
+
+> 2026-09-05 [두더지 스킬 기획서 1.0](mole-skill-system.md) 반영 + 사용자 확정 3건에서 나온 작업이다.
+> **MS-A~C 는 결정이 끝났고, MS-D·MS-F도 코드 스캐폴드까지 구현됐다.** 작업 시스템(D-14)은
+> 여전히 실제 대상 판정을 막고 있으므로 탐지는 `DetectionTargetMarker` 기반으로만 연결했다.
+
+| # | TODO | 선행 조건 | 상태 |
+| --- | --- | --- | --- |
+| ~~MS-A~~ | ~~`ProjectWiringTests` 의 `Player/Burrow` R키 단언을 T로~~ | ✅ D-22 | ✅ **완료 (2026-09-05)** — `Player_굴착_액션은_T키에_바인딩되어_있다`. E(Interact 충돌)·R(거쳐 간 값)이 남아 있지 않은지도 함께 단언. **선재 red 해소** |
+| ~~MS-G~~ | ~~개발 HUD 에서 스킬 수치를 직접 조절~~ | — | ✅ **완료 (2026-09-05)** — Hub `Tab` 에 `두더지 스킬` 섹션. 상태·강제 조작(`IMoleSkillDebug`) + `MoleBurrowSettings` 값 줄(`TuningHud.DrawInline`) |
+| ~~MS-B~~ | ~~굴착 중 조작 전부 잠금~~ | ✅ D-24 | ✅ **완료 (2026-09-05)** — `PlayerInputReader.SetSkillInputLocked` 신설. 일시정지 잠금과 독립이고 겹치면 메뉴가 이긴다. `Look`·`Burrow` 만 허용, `CrouchHeld` 는 동결. 시전 시작에 걸고 정상 종료·취소·디스폰 세 경로에서 푼다 → [mole-skill-system.md §5.5.1](mole-skill-system.md) |
+| ~~MS-C~~ | ~~감지 상태에서 시전하면 땅속에서도 감지~~ | ✅ D-23 | ✅ **완료 (2026-09-05)** — `BurrowExposureTracker`(순수) + `GhostPrototypeController.EvaluateBurrowExposure`. 매몰 시작 순간에 한 번 판정하고 그 굴착 내내 유지, **탐지·포획 양쪽** 적용. **`TryCatch` 가 굴착을 안 봐서 안전하게 숨은 플레이어가 수색 중 잡히던 틈새도 함께 수정** → [mole-skill-system.md §5.2.1](mole-skill-system.md) |
+| MS-D | **공통 스킬 UI** — 우측 상단 원형 게이지(시전 `#78c664` / 쿨타임 `#FFFFFF`, 배경 `#595959` 70%) | ✅ 없음 | **코드 구현 (2026-09-05)** — `MoleSkillHud` + `IMoleSkillStatus`로 탐지·굴착 동시 표시, 아이콘 4종·색·배경·링 감소와 탐지 시전 중 로컬 파란빛 오버레이를 연결했다. `Game` 씬·`Player` 프리팹·아이콘 배선은 정적 확인됐고 수동 Play 검증 대기. ⚠️ 탐지 아이콘 파일명에 `ICON_` 뒤 **공백**이 있다 → [mole-skill-system §6.3](mole-skill-system.md) |
+| MS-E | **중복 시전 방지** — §3.4 판정 2를 명시적으로 둘 것인가 | — | **사실상 성립** — 상태 머신이 `Idle` 일 때만 시전을 받고 매몰 중 재입력은 §5.3대로 즉시 종료다. 명시 판정은 굴착 플로우차트가 오면 정리 → [mole-skill-system.md §3.4](mole-skill-system.md) |
+| MS-F | **탐지 스킬 전체** — `Player/Detect`(Q), 5초 표시, 쿨타임 10초, 색 구분 표시 | **D-14**(청소·이사 작업 시스템)의 실제 대상 판정 | **부분 구현 (2026-09-05)** — Q 입력·판정 3개·시전/활성/쿨타임·색상별 활성 마커·로컬 표시·시전 파란빛 오버레이를 연결했다. **벽 투시는 없다**(`ZTest LEqual`, 2026-09-05 확정 번복). 손·레이저 포인터 애니메이션은 MS-14, 작업 시스템의 판정은 MS-5로 남고, 수동 Play 검증 대기 |
 
 ---
 
@@ -91,7 +145,7 @@
 | MIG-2 | **씬 재편** — `Bootstrap`·`Result` 신규, `MainMenu`→`Title`, `Prototype`→`Game`, 호출부를 `ISceneFlow`로 이관 | `Assets/Scenes/**` | MIG-1 ✅ | **완료 (2026-08-20)** — 플레이 검증됨 |
 | MIG-3 | `NetworkRig` 프리팹 언팩 + `NetworkRigBootstrap` 제거, `static Instance` 6건 → `Services` | `Bootstrap.unity`, `ConnectionManager` 외 | MIG-2 ✅ | **완료 (2026-08-20)** — Local Host 플레이 검증됨 |
 | MIG-5 | **asmdef 레이어 분리** + 폴더 이동 | asmdef 8개 | MIG-3 ✅ | **완료 (2026-08-20)** — 8개 DLL 컴파일·Bootstrap 배선 검증됨 |
-| MIG-6 | 가구·문 프리팹화 + 생성 도구 전환 | `Assets/Prefabs/{Furniture,Map}/**`, `HousePrototypeBuilder` | MIG-2 ✅ | **코드 완료 (2026-08-21)** — 배치 로직은 테스트로 검증됨. **에디터에서 생성 도구 재실행 필요** |
+| MIG-6 | 가구·문 프리팹화 + 생성 도구 전환 | `Assets/Prefabs/{Furniture,Map}/**`, `HousePrototypeBuilder` | MIG-2 ✅ | **완료 (2026-08-31)** — 코드 2026-08-21, 실제 굽기는 커밋 `015f874` (가구 33종·문 3종, `Game.unity` 에 `PrefabInstance` 108건) |
 | MIG-7 | 테스트 어셈블리 + 스모크 테스트 이관 | `Assets/Tests/**` | MIG-5 ✅ | **완료 (2026-08-21)** — EditMode 21 통과·3 건너뜀, PlayMode 12 통과 |
 | MIG-8 | 레거시 RPC 속성 → `[Rpc(SendTo.…)]` | `GrabController` 3 · `FurnitureLauncher` 1 · `PlayerNetworkSpawn` 1 | — | **완료 (2026-08-20)** — 컴파일 검증됨 |
 | MIG-11 | 로비 정책 반영 — `gh_game` 키, 가시성, 난입, 접속 승인 검증 | `SteamLobbyManager`, `ConnectionManager` | [ADR-0012](../architecture/decisions/ADR-0012-room-code-and-lobby-visibility.md) 확정 | **부분 완료 (2026-08-21)** — `gh_game` 키·스폰 점유 검사 완료. 가시성·난입·접속 승인은 **D-2/D-3 결정 대기** |
@@ -109,10 +163,18 @@
 | ~~D-10~~ | ~~어택 타임의 수치·발동·종료·안전 규칙~~ | ✅ 해결 — 팀 평균 80/60/30 구간, 10초 주기 확률 판정, 어택 30~90초, 자연 진정 30초, 강제 진정 10초 → [ghost-system.md](ghost-system.md). 활동도(0~100) 존치 여부만 G-5로 남음 |
 | D-11 | 시야 거리·각도, 달리기·걷기 소리 탐지 거리, 다중 플레이어 타깃 선정·변경 규칙 | 탐지 **방식**은 확정(원뿔 시야 + 이동 소리, 웅크리기 무음) / **수치 대기** → [ghost-system.md §13 G-3·G-4](ghost-system.md) |
 | D-12 | 청소·이사 작업 중 귀신 출현·어택 처리 | [ghost-system.md §13 G-11](ghost-system.md) → M8 예외 처리 |
-| D-13 | 두더지 스킬의 **사용 키·공통 판정 조건·쿨타임 수치** (MS-1·MS-2·MS-3) | [mole-skill-system.md §9](mole-skill-system.md) → 스킬 구현 착수 전체 |
+| D-13 | 두 스킬이 재사용 대기를 **공유하는지 독립인지** (MS-3 잔여) | **수치는 둘 다 10초로 확정** (탐지=플로우차트 / 굴착=사용자 2026-09-05). 수치가 같아 실질 차이는 "굴착 쿨타임 동안 탐지도 막히는가" 하나다 → [mole-skill-system.md §3.3](mole-skill-system.md) |
+| ~~D-22~~ | ~~굴착의 최종 입력 키 (MS-16)~~ | ✅ **해결 (2026-09-05)** — **T.** 기획서의 E는 `Interact`(문 여닫기) 충돌로 채택하지 않는다. 바인딩은 이미 T이므로 **테스트의 R 단언만 고치면 red 해소** → [mole-skill-system.md §3.5](mole-skill-system.md) |
+| ~~D-23~~ | ~~굴착 은신이 깨지는 예외 (MS-17)~~ | ✅ **해결 (2026-09-05)** — **채택.** 귀신에게 이미 감지된 상태에서 시전하면 땅속에서도 감지된다. 굴착은 "들키기 전에 미리 숨는" 스킬이 된다 → [mole-skill-system.md §5.2.1](mole-skill-system.md) |
+| ~~D-24~~ | ~~굴착 중 조작 제한 범위 (MS-18)~~ | ✅ **해결 (2026-09-05)** — **전부 제한.** 시야 회전과 스킬 키(T) 재입력만 허용 → [mole-skill-system.md §5.5.1](mole-skill-system.md) |
 | D-14 | **청소·이사 작업 시스템**(얼룩·이동 대상 가구·진행도)의 정의 | 탐지 스킬(MS-5), 귀신 청소 40% 트리거([G-1](ghost-system.md)), 게임 루프(D-4) |
 | ~~D-15~~ | ~~일시정지 메뉴·연결 끊김 처리의 미결정 13건~~ | **대부분 해결 (2026-09-04, 사용자 확정 11건)** — 전부 잠금·경고 없음·해소안 A·전원 종료·게스트 로비 유지·설정 stub·종료 확인 대화상자·끊김 모달+확인 버튼·문구 통일·`Result` 미경유·호스트 종료 동일 정리 → [pause-menu-system.md §9](pause-menu-system.md) |
 | ~~D-16~~ | ~~일시정지 메뉴 잔여 4건 (PM-10·12·14·15)~~ | ✅ 해결 (2026-09-04) — 메뉴 표시 없음 · **홀드 중 열면 발사** · `Title` 로비 복귀 진입점 · 열기 제한 없음 → [pause-menu-system.md §9](pause-menu-system.md) |
+| ~~D-17~~ | ~~맵 규모~~ | ✅ **해결 (2026-09-05)** — 한 층 **20×16m ×2개 층 + 다락 14×10m**. 방은 부풀리지 않는다: `MapScale` **1.0**, 침실 슬롯 도면값 **4.2×4.0m**(현재 5.7×5.4 에서 축소) → [MG-2](../architecture/map-generation.md) |
+| ~~D-18~~ | ~~v0.3 층별 도면 3장~~ | ✅ **해결 (2026-09-05)** — `docs/images/house1~3floor.png` 수령, 층별 실측값을 [map-generation.md §2](../architecture/map-generation.md) 에 표로 반영 |
+| ~~D-19~~ | ~~소형 오브젝트 생성 방식~~ | ✅ **해결 (2026-09-05)** — **후보 지점에 미리 배치.** 런타임 스폰 없음 → [ADR-0009](../architecture/decisions/ADR-0009-scene-placed-level-objects.md) 유지 |
+| ~~D-20~~ | ~~라운드 구성~~ | ✅ **해결 (2026-09-05)** — **라운드마다 개별 매치.** 매치 하나 = 맵 하나 |
+| D-21 | **오픈 보이드 처리** — 2층 갤러리 홀 한가운데가 1층 중앙 홀로 뚫려 있다. 던진 가구가 층을 넘어 떨어지고 시야·소리도 층을 넘는다 | [MG-16](../architecture/map-generation.md) → MAP-2·MAP-11 |
 
 ---
 
@@ -285,6 +347,11 @@
 | 2026-08-31 | 귀신 초자연현상 튜닝 + 이동/조준 정비 | (1) F1 HUD 접이식 정리 + `내 위치에 스폰`·`본체 보이기`(NetworkVariable) 토글. (2) 귀신 CharacterController 가 `Physics.IgnoreLayerCollision` 으로 Player·Furniture 통과 — 흔들기 방해 제거. (3) 흔들기 재작성: 반경 6m 내 Idle 가구 전체를 사인파 각속도(진폭 `ShakeTorque` 12, 9Hz)로 동시에 흔듦. (4) 떨어뜨리기 재작성: '작은 물건' 기준을 Light 등급 + 렌더러 바운즈 ≤ `SmallPropMaxSize`(0.45m)로 정의, 반경 내 전부를 질량 무관 `DropSpeed`(2.5m/s)로 튕김. (5) 좌클릭 가구 조준 `maxTargetDistance` 12→2m. (6) **달리기 구현** — `Sprint`(Left Shift) 입력, `PlayerMoveSettings.sprintMultiplier` 1.4× (5→7 m/s), 웅크림 중엔 무효 (`PlayerMotor.ResolveMoveSpeed`). EditMode 115/115. **미결: 귀신 `RunSpeedThreshold`(4.5) < 걷기(5)라 걷기/달리기 소리 구분 안 됨 → G-4 재튜닝 필요** |
 | 2026-08-31 | 드릴 카 세이프 존 임시 구현 | 정식 드릴 카 없이 `DrillCarSafeZone`(순수 MonoBehaviour + 정적 레지스트리, 씬 고정 상자) 하나를 현관 앞에 둔다 — 설치 도구가 `House_01` 현관문 남쪽으로 역산 배치(`Game/DrillCarSafeZone_Temp`, 4.5×3×5, 스케일 1). 서버 `TryDetectPlayer`/`TryCatch` 가 `DrillCarSafeZone.Contains` 로 그 안의 플레이어를 탐지·잡힘에서 제외. 다른 플레이어 어택·귀신 상태·타이머는 불변. §11.1 세부(전원 이탈 타이머·재진입 처리)는 미구현. `ValidateInstallation()` 에 존재 검사 추가. EditMode 115/115 → [ghost-prototype.md](../architecture/ghost-prototype.md) |
 | 2026-08-31 | 초자연현상 목격 → 정신력 연결 (M8-GS-2, G-6 해결) | 사용자 확정(종류 불문 목격 시 적용, 감소량 15 — `SanitySystemSettings.GhostEventDecrease` 10→15). `GhostPrototypeController.ServerCheckPhenomenonWitnessed` 신규 — 현상 발생마다 생존·비굴착 플레이어 전원의 목격 여부(거리 `PhenomenonWitnessDistance` 12m·각도 `PhenomenonWitnessAngle` 70°·가림, `GhostVision.IsInsideCone` 재사용, 서버는 카메라 피치를 모르므로 요만 판정)를 확인해 `SanityNetworkState.ServerApplyGhostEventWitnessed()` 호출. `GhostPrototypeSettings`·`SanitySystemSettings` 두 기본 에셋을 `manage_scriptable_object` 로 갱신(YAML 손편집 없음). 값 변경으로 깨진 기존 테스트 2건(`SanityStateTests`) 수정 — 디버프 경계 테스트는 감소량에 결합되지 않도록 `TickDarkness` 기반으로 재작성. EditMode 115/115 통과 → [ghost-prototype.md §4·§5](../architecture/ghost-prototype.md), [sanity-system.md §4.2](sanity-system.md) |
+| 2026-09-05 | 스킬 아이콘 4종 + UI 화면 레퍼런스 수령 (문서만) | `Assets/Sprite/Skill_icon/` 에 `ICON_ detection_on/off.png`·`ICON_excavation_on/off.png`, `docs/images/skill_icon_reference1~2.png` 에 원형 아이콘의 실제 화면 크기·대비 레퍼런스 2장. [mole-skill-system.md](mole-skill-system.md) §6.3 갱신 + **§6.4 화면 레퍼런스 신설**(기존 "그 외 연출"은 §6.5). **탐지 아이콘 두 개는 파일명에 `ICON_` 뒤 공백이 있다** — 원문 1.0 표기 그대로라 오타가 아니고, 굴착 쪽과 규칙이 달라 경로로 부를 때 주의해야 한다. 이로써 **MS-D(공통 스킬 UI)를 막던 선행 조건이 전부 풀렸다** — 규격·색·쿨타임 10초·에셋이 다 갖춰졌고 남은 건 크기·여백 수치(MS-21)와 구현뿐이다. 미전달 이미지는 `굴착 스킬 플로우` 하나만 남는다 |
+| 2026-09-05 | **굴착 확정 규칙 2건 구현** (MS-B·MS-C) | **① 조작 전부 잠금**(§5.5.1) — `PlayerInputReader.SetSkillInputLocked` 신설. 일시정지 메뉴의 전면 잠금과 **독립된 두 번째 잠금**으로, `Look`·`Burrow` 만 살리고 이동·점프·던지기·상호작용·엎드리기를 막는다(`CrouchHeld` 는 동결). 겹치면 메뉴가 이긴다. `MoleBurrowController` 가 시전 시작에 걸고 **정상 종료·시전 취소·디스폰 세 경로 모두**에서 푼다. **② 감지 상태 매몰 시 은신 무효**(§5.2.1) — `BurrowExposureTracker`(순수 클래스, `BedHideEvaluator` 관례) + `GhostPrototypeController.EvaluateBurrowExposure`. **매몰이 시작된 순간** `_pursuit != Roam && _target == player`(침대 밑과 같은 "귀신이 봤다" 기준)를 한 번 판정하고 그 굴착이 끝날 때까지 유지 — 들어간 뒤 놓쳐도 안전해지지 않는다. `TryDetectPlayer` 와 `TryCatch` **양쪽**에 적용. **버그 동반 수정**: `TryCatch` 가 굴착을 전혀 보지 않아, 탐지에서 빠진 뒤에도 수색(7초) 동안 남는 `_target` 이 **안전하게 숨은 플레이어를 땅속에서 잡을 수 있었다.** 검증: EditMode **162/162**(신규 13 — `GhostBurrowExposureTests` 8 · `MoleSkillWiringTests` 5), PlayMode **12/12**. **수동 Play 검증은 미수행** → [mole-skill-system.md §5.2.1·§5.5.1](mole-skill-system.md), [ghost-system.md §9.5](ghost-system.md) |
+| 2026-09-05 | **굴착 쿨타임 10초 확정 + 개발 HUD 스킬 섹션** | 사용자 확정 **굴착 재사용 대기 10초** — 두 스킬 모두 10초가 되어 MS-3 의 수치 부분이 닫혔다(공유/독립만 D-13 잔여). 확인해 보니 `MoleBurrowSettings_Default.asset` 의 `_cooldownSeconds` 는 **이미 10** 이었고 문서가 "3초 임의값"이라고 잘못 적어 온 것이라 **에셋 변경은 없다**. **개발 HUD(Tab)에 `두더지 스킬` 섹션 신설** — 굴착 상태(대기/시전/매몰·남은 시간)·쿨타임 표시 + `굴착 시작`·`즉시 종료`·`쿨타임 리셋`(`IMoleSkillDebug` 신규, `MoleBurrowController` 가 명시적 구현, `ILocalPlayerContext.BurrowController` 로 접근 — 플레이어마다 스폰되므로 설치자 바인딩 불가). 그 아래 `MoleBurrowSettings` 값 줄을 **튜닝 창 렌더러 재사용**(`TuningHud.DrawInline` 신규)으로 펼쳐 F2 창과 같은 SO 를 만진다. `ProjectWiringTests` 의 굴착 R키 단언을 **T** 로 고쳐 **선재 red 해소**. 검증: 복제 프로젝트 batchmode 컴파일 clean(코드 0), EditMode `Player_굴착_액션은_T키에_바인딩되어_있다` **Passed**. MS-A 완료 → [mole-skill-system.md §8](mole-skill-system.md), [ghost-prototype.md](../architecture/ghost-prototype.md) |
+| 2026-09-05 | 두더지 스킬 **탐지 플로우차트 + 결정 3건** (문서만) | `docs/images/DetectSkillFlow.png` 수령 — 플로우차트가 **사용 가능 판정 3개**(생존 / 그 스킬이 사용 중이 아닌가 / 재사용 대기 == 0, 실패 시 입력 무시)와 **탐지 재사용 대기 10초**를 정의해 MS-2·MS-3 을 부분 해소했다. 사용자 확정 3건: **① 굴착 키 T**(기획서 E 는 `Interact` 충돌로 미채택 — 바인딩은 이미 T라 테스트만 고치면 red 해소) **② 귀신에게 이미 감지된 상태에서 굴착하면 땅속에서도 감지**(현재 구현과 정반대 — 굴착이 "들키기 전에 미리 숨는" 스킬이 되고 침대 밑 은신과 규칙이 같아진다) **③ 굴착 중 조작 전부 제한**(시야 회전·스킬 키 재입력만 허용 — 현재는 이동만 잠금). MS-16·17·18 해결, ②·③은 **규칙 확정 / 구현 대기**. **로드맵 §1.3 MS 보드 신설**(MS-A~F), D-22·23·24 로 정정 후 해결(앞서 쓴 D-20·D-21 이 기존 라운드 구성·오픈 보이드와 번호가 겹쳤다), D-13 축소 → [mole-skill-system.md](mole-skill-system.md) |
+| 2026-09-05 | 두더지 스킬 기획서 **1.0** 반영 | 기존 문서는 원문 **0.1 초안** 기준이었다. 1.0이 추가한 **탐지 입력 키 Q**(MS-1 해소)·시전 연출(레이저 포인터→화면 파란빛, 연출 중 카운트다운 정지)·표시 색(가구 `#f9f871`·얼룩 `#fc84b8`)·**시전자 카메라 전용**(MS-6 해소)·굴착 4m 확정·**공통 스킬 UI 전체**(우측 상단 원형 게이지, 시전 `#78c664` / 쿨타임 `#FFFFFF`, 배경 `#595959` 70%, 아이콘 4종 + Flaticon 크레딧)를 반영. **원문과 구현이 어긋나는 3건을 신설** — MS-16(굴착 키 E/R/**T** 3중 불일치, `ProjectWiringTests` red) · MS-17(이미 감지된 상태에서 시전 시 감지 — 구현과 정반대) · MS-18(조작 제한이 이동만 걸려 있음). D-22·D-23 신설(당시 D-20·D-21 로 표기, 번호 충돌로 정정), D-13 축소. 이미지 8장(플로우차트 2·UI 예시 4·아이콘 4)은 **미전달** → [mole-skill-system.md](mole-skill-system.md) |
 | 2026-08-31 | 일반 은신처 임시 구현 (G-8 판정 시점만) | 사용자 확정: "수색 중 은신처 최초 접근 시 1회만" 30%[임시] 검사, **주기·재검사 여부는 여전히 미정**. `HidingSpot`(신규, `Ghost/HidingSpot.cs`) — 정식 가구가 아직 없어 종류를 구분하지 않고 순수 상자 하나로 통일, `DrillCarSafeZone`과 같은 정적 레지스트리 패턴. `GhostPrototypeController` — `TryDetectPlayer`/`TryCatch` 양쪽에서 은신처 안의 플레이어를 제외, `Pursuit.Search` 중 `ServerTickHidingSpots`가 반경(`HidingSpotCheckRadius` 2.5m) 안 미확인 은신처를 발견 즉시 1회 소모하며 30%(`HidingSpotCheckChance`) 판정 → 성공 시 `ServerMarkDead()`. 씬 배치는 `GhostPrototypeSetup.InstallHidingSpots`가 방 바닥 앵커(`Bedroom_01_A_Floor` 등 4개)에서 위치·크기를 역산해 `HidingSpots_Temp`에 침실1·침실2·거실·창고 4개 생성, `ValidateInstallation()`에 존재 검사 추가. EditMode 118/118 통과(신규 `HidingSpotTests` 3건 — 정적 레지스트리는 Play Mode 전용 생명주기라 EditMode 검증 대상 아님, `DrillCarSafeZone`과 동일 관례), PlayMode 12/12 회귀 없음. **알려진 한계**: 기존 귀신 배회 경계 버그로 침실 은신처 2개는 경계 가장자리에 걸림(경계 자체는 이 작업 범위 밖) → [ghost-prototype.md §4·§6](../architecture/ghost-prototype.md), [ghost-system.md §9.5·§13 G-8](ghost-system.md) |
 | 2026-08-31 | 걷기 소리 탐지 반경 6m 확정 (G-4 부분 해결) | `GhostPrototypeSettings.RunSpeedThreshold` 4.5→6m/s로 조정해 걷기 5m/s는 `WalkHearingRadius` 6m, 달리기 7m/s는 `RunHearingRadius` 12m로 분리. 웅크리기는 기존 명시적 무음 유지. 기본 에셋은 Unity MCP `manage_scriptable_object`로 저장했고 EditMode 119/119 통과. 달리기 반경·어택 외 상태 적용 여부는 G-4 잔여 |
 | 2026-09-04 | 엎드리기 + 침대 밑 은신 | **엎드리기(Z 토글)** 3번째 자세 — `PlayerStance`/`PlayerPosture`(순수, EditMode) 분리, `_isProne` owner-authoritative `NetworkVariable`, 캡슐 0.5m·카메라 0.35m·이동 1.4m/s, 자세 올릴 때 `CanOccupyHeight` 머리 공간 검사, 점프 불가, 엎드려 이동도 귀신 소리 탐지 제외. **침대 밑 은신** — 침대 3종을 다리로 ~0.8m 띄우고 자식 `UnderBedHide`(`BedHideZone`) 추가(`CreateBed` 수정 + 기존 프리팹은 `GlobalObjectIdHash` 보존 제자리 편집). 서버가 플레이어별 `BedHideEvaluator`를 어택 틱마다 굴려 판정: 엎드림+Idle 침대 밑+안 쫓김+시야 밖이 `BedHideConcealSeconds`(1s [임시]) 이어지면 성립 → 탐지·잡힘·수색 훔쳐보기 전부 제외. **들어가는 걸 봤으면 추격 유지 + 침대 밑에서도 잡힘**(수색 중에도 `TryCatch` 호출), 놓친 뒤에야 성립(사용자 확정 2026-09-04). EditMode 134/135(신규 14건 통과, 남은 1건은 선재 실패 `Player_굴착_액션은_R키에...`). 옷장·책상 밑은 미구현 → [player-controller.md](../architecture/player-controller.md), [ghost-prototype.md](../architecture/ghost-prototype.md), [ghost-system.md §9.5·§13 G-8](ghost-system.md) |
@@ -300,7 +367,18 @@
 
 | 2026-09-04 | 개발 HUD 부활 기능 | `SanityState.Revive()`(생존 상태만 복구 — 정신력 값·시체 목격 기록 유지, 어둠 누적만 0으로) → `SanityNetworkState.ServerRevive()` → `ISanityDebug.ReviveLocalPlayer`/`ReviveTeam` → Tab HUD 버튼 `부활`·`팀 전원 부활`. 사망(`ServerMarkDead`)의 짝이 없어 죽으면 되돌릴 방법이 없던 문제를 해소. EditMode 신규 5건 포함 **146/147** 통과(잔여 1건은 선재 실패). **게임 규칙으로서의 부활(동료가 되살리는 메커니즘)은 여전히 미정** — 이 API 의 게임플레이 호출부는 없다 → [sanity-system.md](../architecture/sanity-system.md) |
 
+| 2026-09-05 | **맵 생성 기획서 v0.3 반영** (문서만, 코드 변경 없음) | v0.3 원문(Floor 개념·계단 A/B·추격 동선 유지·Work Room·생성 순서 16단계·충돌 규칙 10개·체크리스트 14항)과 2026-09-05 피드백(맵 축소 대신 청소 가구 수로 조절 · 프로토타입 ×2 · 다락/지하 열쇠 해금 · 라운드별 맵 4종)을 [map-generation.md](../architecture/map-generation.md) 에 반영. **원문 대비 실측 검산에서 모순 2건 발견** — ① "프로토타입 ×2"(침실 슬롯 7.6×7.2m)로는 §3.1 의 층당 8~9개 공간이 20×16m 에 들어가지 않는다(침실 4개만 219㎡) ② §3.1 공간 목록은 21~23개인데 §6.1 은 전체 방을 12~15개로 잡는다. 미결정 **MG-1~15** 신설, 로드맵에 **MAP 마일스톤 + MAP-1~12**(귀신 층간 이동·굴착 도약 재검증 포함), 결정 대기 **D-17~D-20** 추가. `gdd.md` §6 을 현재 구현/v0.3 목표로 분리하고 부록 A #17·#18 추가. **MIG-6 상태 정정** — "생성 도구 재실행 필요"로 남아 있었으나 커밋 `015f874`(2026-08-31)에서 이미 구워졌다(가구 33·문 3, 씬에 `PrefabInstance` 108건) |
+
+| 2026-09-05 | **맵 v0.3 결정 4건 + 층별 도면 반영** (문서만) | 사용자 확정: **① 규모** — 한 층 20×16m ×2개 층 + 다락 14×10m, 방은 부풀리지 않음. 도면이 실측이라 **`MapScale` = 1.0** 이고 침실 슬롯은 **4.2×4.0m**(현재 5.7×5.4 에서 45% 축소 — 던지기 무대가 방에서 중앙 홀 6.8×6.8·갤러리 홀 8.4×6.4 로 옮겨 간다). **② 소형 오브젝트는 미리 배치**(런타임 스폰 없음, ADR-0009 유지). **③ 라운드마다 개별 매치.** **④ 층별 도면 3장 수령** → `docs/images/house1~3floor.png`, 층별 방 치수·계단 위치를 표로 옮겨 적음. **도면에서 새로 확인된 것** — 계단 A·B 폭 **2.2m** 로 세 층 정렬(MG-7 부분 해결) · 침실 4.2×4.0 이 프리셋 A·B·C 를 모두 담아 **MG-8 해결** · 방 개수 실측 21개인데 **1~2층만 15개**라 §6.1 "12~15개"와 맞음(**MG-5 해결**) · 본문에 없던 **비밀 보관실**(다락 2.4×1.8)·**현관**·앞마당 · **2층 갤러리 홀 중앙이 1층으로 뚫린 오픈 보이드**(MG-16 / D-21 신설 — 층간 낙하·시야·소리). 미결정 MG-16~19 추가, MAP-13 추가, **MAP-1 그레이박스 착수 가능** |
+
+| 2026-09-05 | **MAP-1 오른쪽 그레이박스 1차 생성** | 기존 `House_01`·`House_01_OriginalScale_Right`를 보존하고 `House_01_V03_Graybox_Right`를 실제 외곽 3m 동쪽(x=38.58)에 추가. Floor 3개(20×16, 20×16, 14×10), 방 footprint 7+8+6=21과 고정 홀을 시각화. `MansionGrayboxBuilder`·덧붙이기 전용 멱등 메뉴·EditMode 테스트 2건 추가. `MapGeneratorTests` **11/11**, PlayMode **12/12** 통과. 전체 EditMode **148/149**(1건은 선재 실패 `Player/Burrow` R키 배선). 계단·오픈 보이드는 MG-7·MG-16/D-21을 닫지 않는 TBD 표식이며 체감 검증 대기 |
+| **2026-09-05** | **탐지 벽 투시 철회** | 사용자 확정 번복 — 탐지 표시가 **벽 뒤까지 보이지 않는다.** `DetectionHighlight.shader` 를 `ZTest Always` → **`ZTest LEqual` + `Offset -1,-1`**(같은 지오메트리라 z-fighting 방지, `ZWrite` 는 계속 off). 기획서 원문의 "맵 내에 존재하는 모든"은 **사거리·시야각 제한이 없다**는 뜻으로만 한정하고, 가림은 적용한다. 탐지는 대상을 찾아 주는 스킬이 아니라 **눈앞의 것을 구분해 주는** 스킬이 되어 §2.4 기획 의도(작업을 오래 헤매지 않도록)의 강도가 약해진다 — 플레이 검증에서 다시 볼 것. MS-4 의 투시 항목이 닫혔다. **함께 1.0 이 못 돌린 EditMode 를 복제 batchmode 로 실행해 버그 1건 수정** — `DetectionSkillStateMachine` 의 시간 비교가 float 오차에 취약해 쿨타임을 나눠 태우면 한 프레임 더 잠겼다(`TimeEpsilon` 1e-4 도입). **165/172 passed · 1 failed · 6 skipped**, 탐지 신규 테스트 전부 통과. 실패 1건과 skip 6건은 복제 환경의 에셋 임포트 문제로 원본 재확인 필요 → [mole-skill-system.md §4.5](mole-skill-system.md) |
+| **2026-09-05** | **탐지 시전 파란빛 연출 부분 구현** | `DetectionSkillSettings`에 시전 화면 색·최대 불투명도를 설정값으로 노출하고, `MoleSkillHud`가 `Casting` 상태에서만 전체 화면 로컬 오버레이를 펄스로 그린다. 시전 중간에 가장 밝고 활성 5초 카운트가 시작되기 직전에 사라진다. 기본 `#40a0ff`·0.35·0.5초는 MS-14 임시값. 현재 프리미티브 Player에는 손·주머니·레이저 포인터 모델/애니메이션 에셋이 없어 해당 동작은 미연결이며 수동 Play 검증 대기 → [mole-skill-system.md §4.4·§6.5](mole-skill-system.md) |
+| **2026-09-05** | **HousePlanB·C 도면 컨텍스트 보완 (MAP-14, 문서만)** | 이미지 내부 제목 기준으로 규모·방 치수·층별 배치를 대조하고 파일명 B/C 역전 대응, 비교표·이미지 첨부 목록·인덱스 링크를 정리했다. 기존 "치수만 다르고 배치·보이드가 동일" 서술을 수정하고 B·C안의 미표기 계단 폭·층고·보이드 범위를 확인 필요로 남겼다. 새 대안의 채택은 MG-20(TBD); 기존 MG-2와 씬은 유지 → [map-generation.md §2](../architecture/map-generation.md#house-plan-bc) |
+| **2026-09-05** | **B·C 대저택 실내 프로토타입 생성기 (MAP-15)** | `PlanVariantPrototypeSetup`(Editor 메뉴)와 `PlanVariantPrototypeSettings`(SO)를 추가했다. B안=`HousePlanC.png` 30×24m/다락20×14m, C안=`HousePlanB.png` 40×32m/다락28×20m을 각각 7/8/6 방으로 만들고, 실내 벽·문 개구부·현관·창문·임시 조명·가구 프리팹·시각 12단+경사 콜라이더 계단 A/B·난간(각 층 연결)을 생성한다. 앞마당과 기존 맵 방향 연결 바닥도 프로토타입 소유로 추가한다. 상부 슬래브는 계단 개구부를 잘라 내며 2층 갤러리는 `[TEMP]` solid floor로 유지(MG-16). 방·치수·가구/벽/문/계단 여유·Player 프로필·경사·Rigidbody 소유 검증과 기존 NGO 해시 갱신을 메뉴에 연결했다. **코드 컴파일만 완료, Unity Editor 메뉴 실행·Game 씬 저장·수동 Play 이동은 대기** — 기존 A안·MG-2·MG-7·MG-16·MG-20은 유지. 에디터 잠금을 피한 복제본 EditMode batchmode 시도는 Licensing Client 초기화에서 종료되어 테스트 XML/케이스 0건 |
+| **2026-09-05** | **탐지 스킬 + 공통 스킬 UI 구현** | `Player/Detect`(Q) 액션, 생존→미사용→쿨타임 0 판정, 시전 임시 0.5초→활성 5초→종료 후 10초 쿨타임, 활성 마커 색상 표시와 `ZTest Always` 셰이더를 추가했다(**투시는 같은 날 위 행에서 철회**). `MoleSkillHud`가 `IMoleSkillStatus`로 탐지·굴착을 동시에 표시하고, `MoleSkillSetup`이 아이콘 Single 재임포트·SO·Player 프리팹·Game 씬·[TEMP] 마커를 멱등 배선한다. 작업 시스템 대상 판정은 MS-5로 유지한다. 복제 batchmode 컴파일/EditMode는 Unity Licensing 및 오프라인 Git 패키지 의존성으로 완료하지 못했고 수동 Play 검증도 대기다. 새 TBD는 MS-19~MS-21 → [mole-skill-system.md §8~9](mole-skill-system.md) |
+
 ---
 
-최종 갱신: 2026-09-04 (개발 HUD 부활 기능 추가 · 일시정지 메뉴 구현 완료 — 수동 검증·D-1 대기.
-이전: 일시정지 메뉴 기획 완료 · 엎드리기 + 침대 밑 은신 · 밸런스 튜닝 창(F2))
+최종 갱신: 2026-09-05 (MAP-15 B·C 대저택 실내 프로토타입 생성기 코드 추가 —
+에디터 메뉴 실행·씬 저장·수동 Play 검증 대기. MAP-14 HousePlanB·C 도면 컨텍스트 보완, MAP-1 오른쪽 그레이박스 1차 생성 및 탐지 스킬·공통 UI 코드 구현 포함)

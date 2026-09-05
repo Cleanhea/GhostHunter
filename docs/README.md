@@ -19,7 +19,7 @@ docs/
 │   ├── gdd.md                      게임 디자인 문서
 │   ├── sanity-system.md            개인·팀 정신력·증감·디버프·플레이/모니터 UI
 │   ├── ghost-system.md             귀신 공통 상태·정신력 연동·어택·탐지·추격 규칙
-│   ├── mole-skill-system.md        두더지 스킬(탐지·굴착) 공통 규칙·종료 조건·쿨타임 — 초안
+│   ├── mole-skill-system.md        두더지 스킬(탐지·굴착) 공통 규칙·판정·쿨타임·UI — 저장소 반영 1.2
 │   ├── pause-menu-system.md        일시정지 메뉴·호스트 연결 끊김 규칙 — 구현됨, 수동 검증 대기
 │   └── roadmap.md                  마일스톤 & 태스크 보드
 ├── architecture/                   어떻게 구성되는가
@@ -31,7 +31,7 @@ docs/
 │   ├── furniture-physics.md        가구 오브젝트·물리·아웃라인
 │   ├── ghost-prototype.md           귀신 P1 상태·탐지·추격·HUD 스폰
 │   ├── sanity-system.md             정신력 네트워크·집계·연동 API
-│   ├── map-generation.md           맵 생성 시스템 (House / Room Preset / Spawn Point)
+│   ├── map-generation.md           맵 생성 시스템 v0.3 (House / Floor / Room Preset / Spawn Point / Work Room)
 │   ├── pause-menu.md                일시정지 메뉴·연결 끊김 배선·권위·검증 — 구현됨, 수동 검증 대기
 │   └── decisions/                  ADR (기술 결정 기록)
 ├── conventions/                    어떻게 쓰는가
@@ -63,7 +63,7 @@ docs/
 | [architecture/throw-system.md](architecture/throw-system.md) | 잡기·부양·발사는 어떤 상태로 도는가 | 던지기 규칙·수치 변경 |
 | [architecture/furniture-physics.md](architecture/furniture-physics.md) | 던져지는 대상은 어떻게 생겼는가 | 가구 물리·아웃라인 변경 |
 | [architecture/sanity-system.md](architecture/sanity-system.md) | 정신력은 어디서 확정·복제·집계되는가 | 정신력 코드·배선·연동 변경 |
-| [architecture/map-generation.md](architecture/map-generation.md) | 집·방·스폰 포인트는 어떻게 만들어지는가 | 맵 생성 규칙 변경 |
+| [architecture/map-generation.md](architecture/map-generation.md) | 집·층·방·스폰 포인트는 어떻게 만들어지는가 — [HousePlanB·C 도면 비교](architecture/map-generation.md#house-plan-bc) | 맵 생성 규칙 변경, 기획서 개정·도면 추가 |
 | [architecture/pause-menu.md](architecture/pause-menu.md) | 메뉴·끊김 처리는 어떤 서비스를 거치고 무엇을 검증하는가 | 세션 종료 경로·메뉴 배선 변경 |
 | [architecture/decisions/](architecture/decisions/README.md) | 왜 이렇게 골랐는가 | 되돌리기 비싼 선택 발생 시 |
 | [conventions/code-style.md](conventions/code-style.md) | C# 코드를 어떻게 쓰는가 | 규약 합의 변경 |
@@ -95,7 +95,7 @@ docs/
 | project/gdd.md | 🟡 던지기·유령·정신력 방향 확정, 승패·루프·유령 세부 규칙 TBD |
 | project/sanity-system.md | 🟡 v0.5 규칙·코어·플레이 HUD 구현 / 상세 모니터 UI·실제 연출·콘텐츠 연결 TBD |
 | project/ghost-system.md | 🟡 공통 상태·정신력 구간·어택·탐지·추격 규칙 확정 / 15개 미결정(G-1~15), 구현은 P1 임시값 |
-| project/mole-skill-system.md | 🟡 **초안 + 굴착 프로토타입 구현** — 탐지는 여전히 미구현(작업 시스템 선행 필요). 굴착은 사용자 확정값(R키·높이 4m·이동 불가·어디서든 가능 등)으로 동작, 탐지 키·쿨타임·공통 판정 조건은 여전히 미정(MS-1~3 등) |
+| project/mole-skill-system.md | 🟢 **굴착: 기획서 1.0 규칙 구현 완료** (2026-09-05) — 키 T · 유지 5초 · 쿨타임 10초 · 조작 전부 잠금 · 감지 상태 매몰 시 은신 무효. 🟡 **탐지·공통 UI 코드 스캐폴드 + 시전 파란빛 오버레이 부분 구현** — Q·활성 판정·5초·10초·색상별 활성 마커·탐지/굴착 동시 게이지. **벽 투시는 없다**(시야에 보이는 표면만, 2026-09-05 확정). `Game` 씬·`Player` 프리팹·아이콘 배선은 정적 확인됐고 수동 Play 검증 대기, 손·레이저 포인터 애니메이션과 작업 시스템의 실제 대상 정의는 MS-14·MS-5. 마지막 완료 복제 batchmode EditMode **165/172**(탐지 신규 전부 통과 — 상태 머신 float 오차 버그 1건을 잡아 수정), 최신 재시도는 Licensing/오프라인 Git 패키지 단계에서 테스트 XML 전에 차단. 실패 1·skip 6은 복제 환경의 에셋 임포트 문제 |
 | project/pause-menu-system.md | 🟢 **규칙 확정 + 구현 완료.** PM-1~15 전부 확정. 설정 화면 **내용**(PM-6)만 설정 시스템 기획서로 이월 / 수동 검증 대기 |
 | project/roadmap.md | 🟢 M0~M7 + 마이그레이션 보드, M8 기획 부분 진행 |
 | architecture/overview.md | 🟢 씬·서비스·스크립트 레이어와 asmdef 구조 반영됨 |
@@ -106,7 +106,7 @@ docs/
 | architecture/furniture-physics.md | 🟢 구현됨 |
 | architecture/ghost-prototype.md | 🟢 팀 평균 정신력 기반 5상태·어택 판정·탐지·추격·사망 구현, 자동 테스트 통과 / 은신처·드릴 카·초자연현상·NavMesh·수동 플레이 검증 TBD |
 | architecture/sanity-system.md | 🟢 코어 P1·World Space 4인 숫자 모니터 구현 / 실제 연출·콘텐츠 연결 TBD |
-| architecture/map-generation.md | 🟢 House_01 구현됨 / 콘텐츠 배치 미구현 |
+| architecture/map-generation.md | 🟡 **v0.3 + 층별 도면 반영, 규모 확정(2026-09-05).** [HousePlanB·C 추가 도면 비교](architecture/map-generation.md#house-plan-bc) 반영 — 파일명과 이미지 내부 B/C 제목이 반대, 채택 여부는 MG-20(TBD)이며 기존 확정 규모 유지. 기존 게임 맵은 단층 / **오른쪽 MAP-1 Floor·방 footprint 1차 생성, 체감 검증 대기. B/C 실내·가구·실제 계단 생성기 코드 추가(MAP-15), 메뉴 실행·씬 저장·수동 Play 대기. 실제 게임 계단·Spawn Point·Work Room은 미구현** |
 | architecture/pause-menu.md | 🟢 **구현됨.** EditMode 141/142·PlayMode 12/12 통과 / **수동 검증(§10.4~10.6)과 선행 검증 D-1(클라이언트 씬 동기화 모드) 미수행** |
 | architecture/decisions/ | 🟡 ADR-0001~0011 확정 / ADR-0012 Proposed |
 | conventions/* | 🟢 규약 확정 |
@@ -115,4 +115,4 @@ docs/
 
 ---
 
-최종 갱신: 2026-09-04 (일시정지 메뉴 기획·설계 문서 2건 추가, 확정 15건 반영, 구현 완료 — 수동 검증 대기)
+최종 갱신: 2026-09-05 (HousePlanB·C 비교 컨텍스트 연결 + MAP-15 B/C 실내 프로토타입 생성기 코드 추가. 맵 v0.3 층별 도면 3장 + 규모 대안 2장, 기존 규모·라운드·생성 방식 확정 유지; 에디터 실행·씬 저장·수동 Play 대기)

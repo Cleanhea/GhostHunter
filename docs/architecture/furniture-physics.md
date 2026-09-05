@@ -45,7 +45,7 @@
   손으로 한 배치와 겹쳐서 시작하자마자 물리가 폭발한다.
 - **침실 2칸은 손대지 않는다.** 세션이 시작되면 방 프리셋이 옮겨 오므로 손으로 놓은 가구와
   겹친다. 침실 배치를 바꾸려면 `Room_Presets`의 프리셋을 고친다
-  ([09-map-generation.md](map-generation.md#구현-현황-20260816)).
+  ([map-generation.md §10.1](map-generation.md#101-구현-현황-2026-09-05)).
 
 ```
 House_01/PhysicsFurniture/<가구>   [layer: Furniture]   ← 프리팹 인스턴스. 루트에만 물리·네트워크 컴포넌트

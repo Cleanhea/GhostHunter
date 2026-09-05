@@ -28,9 +28,13 @@ GhostHunter — 1인칭 멀티플레이 "가구 던지기" 게임.
 아직 `TBD`인 항목이 있으면 임의로 정하지 말고 사용자에게 확인한다.**
 
 > **⚠️ 아키텍처 정비 마무리 단계.** 씬 구조·서비스 수명·8개 asmdef 레이어·테스트 어셈블리·
-> 가구/문 프리팹화까지 코드 작업은 끝났다. 남은 것은 로비 정책(MIG-11, 결정 대기)과
-> **가구 프리팹을 실제로 굽는 생성 도구 재실행**이다 →
+> 가구/문 프리팹화(굽기까지 완료, 커밋 `015f874`)가 끝났다. 남은 것은 로비 정책(MIG-11, 결정 대기)이다 →
 > [docs/project/roadmap.md §2](docs/project/roadmap.md)
+>
+> **⚠️ 다음 큰 작업은 맵 v0.3(3층 대저택)이다.** 기획 반영·층별 도면·규모 결정이 끝났고,
+> **MAP-1 오른쪽 그레이박스 1차 생성까지 완료됐고, B/C 비교용 실내·계단·가구 생성기(MAP-15) 코드도 추가됐다.**
+> B/C 메뉴 실행·씬 저장·체감 확인 후 MAP-2로 진행한다. 착수 전
+> [roadmap.md §1.2 MAP](docs/project/roadmap.md)과 [map-generation.md §2·§12](docs/architecture/map-generation.md)를 읽는다.
 
 ---
 
@@ -51,7 +55,7 @@ GhostHunter — 1인칭 멀티플레이 "가구 던지기" 게임.
 | 정신력 | `docs/project/sanity-system.md`, `docs/architecture/sanity-system.md` |
 | 플레이어 스킬(탐지·굴착) | `docs/project/mole-skill-system.md` — **초안. 미결정 15건(MS-1~15)** |
 | 일시정지 메뉴·나가기·연결 끊김 | `docs/project/pause-menu-system.md`, `docs/architecture/pause-menu.md` — **구현됨.** 수동 검증·선행 검증 D-1 대기 |
-| 맵·방 프리셋·스폰 포인트 | `docs/architecture/map-generation.md` |
+| 맵·방 프리셋·스폰 포인트 | `docs/architecture/map-generation.md` — **기획서 v0.3 + HousePlanB·C 비교·MAP-15 생성기 코드 반영됨. 미결정 MG-1~20** |
 | C# 코드 작성 / 리팩터링 | `docs/conventions/code-style.md` |
 | 프리팹·씬·ScriptableObject·에셋 | `docs/conventions/unity-assets.md` |
 | 커밋·브랜치·PR | `docs/conventions/git.md` |
@@ -109,6 +113,10 @@ GhostHunter — 1인칭 멀티플레이 "가구 던지기" 게임.
 - **맵은 `HousePrototypeBuilder.MapScale`(현재 ×1.5)로 평면(X·Z)만 넓힌다.** 배율은 **좌표에만** 곱한다 —
   트랜스폼 스케일을 쓰면 개구부 폭과 벽 높이까지 늘어난다. 벽 높이·두께·문 폭·창 크기·붙박이·계단·가구·
   플레이어·투척 수치는 배율을 받지 않는다. **씬의 어떤 오브젝트도 스케일이 1이 아니면 안 된다.**
+- **맵 v0.3 확정 (2026-09-05): 한 층 20×16m × 2개 층 + 다락 14×10m, `MapScale` = 1.0.**
+  층별 도면이 실측이라 배율을 곱하지 않는다. 침실 슬롯은 **4.2×4.0m**(현재 5.7×5.4에서 축소).
+  MAP-2 착수 전까지는 **현재 씬의 ×1.5 단층 구조를 그대로 둔다** —
+  → [docs/architecture/map-generation.md §2](docs/architecture/map-generation.md) · [roadmap §1.2 MAP](docs/project/roadmap.md)
 - **침실 2칸은 프리셋이 자동으로 채운다.** `Room_Presets` A·B·C 중 둘을 서버가 중복 없이 뽑아
   `House_01/RoomSlots`로 **옮긴다**(스폰이 아니다 — 중첩 `NetworkObject` 방지).
   침실에 손으로 가구를 놓지 않는다. 프리셋 가구는 방 남쪽 1.11m 띠를 비워야 한다.
@@ -136,7 +144,7 @@ Assets/
 │              런타임 7개 + Editor 1개 asmdef로 분리됨
 ├─ Prefabs/    Player, Furniture/(가구 33종), Map/(문 3종), UI_*
 ├─ Settings/   URP 에셋, Gameplay SO, PostProcessing/(정신력 노이즈 Volume 프로필)
-├─ Materials/  Shaders/  Tests/(미생성)
+├─ Materials/  Shaders/  Sprite/(UI 스프라이트 — Skill_icon/)  Tests/
 ```
 
 - 폴더명이 `Debug`가 아니라 **`DebugTools`**인 이유: `GhostHunter.Debug` 네임스페이스는
@@ -187,6 +195,8 @@ HUD 로 바꾼 모드는 저장하지 않는다. 저장하면 릴리스 빌드�
 > ⚠️ **씬 생성 도구를 함부로 재실행하지 않는다.** `GhostHunter > 프로토타입 게임 생성`은
 > `Game` 씬을 **처음부터 다시 만든다.** 방에 손으로 배치한 가구가 사라진다(도구는 방을 비운 채 집을 만든다).
 > 재실행은 씬을 통째로 버려도 될 때만 한다.
+> MAP-1 검증용 `GhostHunter > 맵 v0.3 그레이박스 오른쪽에 추가`는 예외로, 기존 두 집을 보존하고
+> `House_01_V03_Graybox_Right`가 없을 때만 새 루트를 추가한다. 이미 있으면 덮어쓰지 않고 검증만 한다.
 
 상세: [docs/architecture/steam.md](docs/architecture/steam.md)
 

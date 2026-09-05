@@ -100,5 +100,6 @@ GhostHunter의 현재 상태는 **둘 다 아니다.** `HousePrototypeBuilder`�
 ## 재검토 조건
 
 - 맵이 런타임 절차 생성으로 바뀌어 "씬에 미리 배치"가 성립하지 않게 될 때
-  (현재 [../map-generation.md](../map-generation.md)의 방 프리셋 시스템은 **미리 배치 + 이동**이므로 해당 없음)
+  (현재 [../map-generation.md](../map-generation.md)의 방 프리셋 시스템은 **미리 배치 + 이동**이므로 해당 없음.
+  **2026-09-05 결정**으로 v0.3 Spawn Point 소형 오브젝트도 같은 방식을 쓴다 — 런타임 스폰하지 않는다)
 - 가구 수가 씬 로드 시간·메모리에 부담이 될 만큼 늘어날 때
