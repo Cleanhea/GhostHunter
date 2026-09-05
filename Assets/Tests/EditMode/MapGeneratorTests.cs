@@ -180,6 +180,44 @@ namespace GhostHunter.Tests.EditMode
         }
 
         /// <summary>
+        /// MAP-1은 기존 두 집을 바꾸지 않고 별도 루트에 확정된 외곽·방 치수만 보여 준다.
+        /// 계단 상세와 오픈 보이드는 아직 TBD라 실제 게임플레이 배선 대상이 아니다.
+        /// </summary>
+        [Test]
+        public void 맵_v03_그레이박스가_확정_치수와_21개_방을_지킨다()
+        {
+            Transform graybox = TrackRoot(
+                MansionGrayboxBuilder.Create(_palette, new Vector3(40f, 0f, 0f)));
+
+            Assert.DoesNotThrow(() => MansionGrayboxBuilder.Validate(graybox));
+            Assert.AreEqual(1f, MansionGrayboxBuilder.MapScale);
+            Assert.AreEqual(20f, MansionGrayboxBuilder.MainFloorWidth);
+            Assert.AreEqual(16f, MansionGrayboxBuilder.MainFloorDepth);
+            Assert.AreEqual(14f, MansionGrayboxBuilder.AtticWidth);
+            Assert.AreEqual(10f, MansionGrayboxBuilder.AtticDepth);
+            Assert.IsNotNull(graybox.Find("Floor_02/TBD_Placeholders/OpenVoid_Extent_TBD"));
+            Assert.IsNull(graybox.GetComponentInChildren<Unity.Netcode.NetworkObject>(true));
+        }
+
+        [Test]
+        public void 맵_v03_그레이박스는_기존_두_집_오른쪽에서_3m_이상_떨어진다()
+        {
+            Transform gameplay = TrackRoot(HousePrototypeBuilder.Create(_palette, _catalog));
+            Transform original =
+                TrackRoot(HousePrototypeBuilder.CreateOriginalScaleHouseRight(_palette, _catalog));
+            Transform[] preserved = { gameplay, original };
+
+            Physics.SyncTransforms();
+            Vector3 position = MansionGrayboxBuilder.RightSidePosition(preserved);
+            Transform graybox = TrackRoot(MansionGrayboxBuilder.Create(_palette, position));
+            Physics.SyncTransforms();
+
+            Assert.DoesNotThrow(
+                () => MansionGrayboxBuilder.ValidateRightSidePlacement(graybox, preserved));
+            Assert.Greater(position.x, original.position.x);
+        }
+
+        /// <summary>
         /// 맵 배율은 <b>좌표에만</b> 곱한다. 트랜스폼 스케일을 쓰면 개구부 폭과 벽 높이까지 늘어난다
         /// → CLAUDE.md §3.5
         /// </summary>

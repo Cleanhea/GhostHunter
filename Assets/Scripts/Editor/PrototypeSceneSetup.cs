@@ -399,6 +399,93 @@ namespace GhostHunter.EditorTools
         }
 
         /// <summary>
+        /// 기존 Game 씬 루트와 런타임 배선은 그대로 두고, 맵 v0.3 MAP-1 검증용 빈 그레이박스를
+        /// 현재 두 집의 실제 Collider 외곽에서 오른쪽으로 3m 띄워 추가한다.
+        /// 이미 생성된 루트가 있으면 지우거나 덮어쓰지 않고 검증·선택만 한다.
+        /// </summary>
+        [MenuItem("GhostHunter/맵 v0.3 그레이박스 오른쪽에 추가", priority = 2)]
+        public static void AddV03MansionGrayboxRight()
+        {
+            if (EditorApplication.isPlayingOrWillChangePlaymode)
+                throw new InvalidOperationException("Exit Play Mode before changing the Game scene.");
+
+            Scene scene = SceneManager.GetActiveScene();
+            if (scene.path != ScenePath)
+            {
+                throw new InvalidOperationException(
+                    $"Open {ScenePath} before placing the v0.3 graybox. " +
+                    $"The active scene is '{scene.path}'.");
+            }
+
+            Transform gameplayHouse = null;
+            Transform originalScaleHouse = null;
+            Transform existingGraybox = null;
+            foreach (GameObject root in scene.GetRootGameObjects())
+            {
+                switch (root.name)
+                {
+                    case "House_01":
+                        gameplayHouse = root.transform;
+                        break;
+                    case "House_01_OriginalScale_Right":
+                        originalScaleHouse = root.transform;
+                        break;
+                    case MansionGrayboxBuilder.RootName:
+                        existingGraybox = root.transform;
+                        break;
+                }
+            }
+
+            if (gameplayHouse == null || originalScaleHouse == null)
+            {
+                throw new MissingReferenceException(
+                    "기존 House_01과 House_01_OriginalScale_Right를 모두 찾은 뒤 실행하세요.");
+            }
+
+            Transform[] preservedMapRoots = { gameplayHouse, originalScaleHouse };
+            if (existingGraybox != null)
+            {
+                MansionGrayboxBuilder.Validate(existingGraybox);
+                MansionGrayboxBuilder.ValidateRightSidePlacement(existingGraybox, preservedMapRoots);
+                Selection.activeTransform = existingGraybox;
+                SceneView.lastActiveSceneView?.FrameSelected();
+                Debug.Log(
+                    $"[PrototypeSceneSetup] {MansionGrayboxBuilder.RootName}이 이미 있어 " +
+                    "덮어쓰지 않고 검증·선택만 했습니다. 씬은 저장하지 않았습니다.");
+                return;
+            }
+
+            Vector3 position = MansionGrayboxBuilder.RightSidePosition(preservedMapRoots);
+            Transform graybox = null;
+            try
+            {
+                graybox = MansionGrayboxBuilder.Create(LoadGeneratedMapPalette(), position);
+                MansionGrayboxBuilder.Validate(graybox);
+                MansionGrayboxBuilder.ValidateRightSidePlacement(graybox, preservedMapRoots);
+                Undo.RegisterCreatedObjectUndo(graybox.gameObject, "Add map v0.3 graybox right");
+            }
+            catch
+            {
+                if (graybox != null)
+                    Object.DestroyImmediate(graybox.gameObject);
+                throw;
+            }
+
+            EditorSceneManager.MarkSceneDirty(scene);
+            if (!EditorSceneManager.SaveScene(scene))
+                throw new InvalidOperationException($"{ScenePath} 저장에 실패했습니다.");
+
+            Selection.activeTransform = graybox;
+            SceneView.lastActiveSceneView?.FrameSelected();
+
+            Debug.Log(
+                $"[PrototypeSceneSetup] 기존 두 집을 보존하고 {MansionGrayboxBuilder.RootName}을 " +
+                $"x={position.x:0.00}m에 추가해 {ScenePath}에 저장했습니다. " +
+                $"층간 {MansionGrayboxBuilder.PreviewFloorPitch:0.0}m는 MAP-1 임시 시각화 값이며, " +
+                "계단과 오픈 보이드는 TBD 위치 표식만 있습니다.");
+        }
+
+        /// <summary>
         /// Game 씬을 건드리지 않고 <b>침대 프리팹 3종만</b> 현재 빌더(<see cref="HousePrototypeBuilder"/>)
         /// 코드로 다시 굽는다. 엎드려 침대 밑에 숨는 기능 때문에 침대 구조(다리·밑 공간·UnderBedHide)가
         /// 바뀌어서, 방에 손으로 놓은 가구를 지우는 전체 재생성('프로토타입 게임 생성') 없이 침대만
@@ -988,6 +1075,15 @@ namespace GhostHunter.EditorTools
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene);
             ValidateScenePlacedNetworkObjects(scene);
+        }
+
+        /// <summary>
+        /// 별도 에디터 생성기가 Game 씬에 in-scene Furniture 프리팹을 추가한 뒤에도
+        /// 기존 NGO 식별자 갱신 경로를 그대로 재사용할 수 있게 하는 내부 진입점이다.
+        /// </summary>
+        internal static void RefreshScenePlacedNetworkObjectsForGeneratedPrototype()
+        {
+            RefreshScenePlacedNetworkObjects();
         }
 
         private static List<NetworkObject> FindSceneNetworkObjects(Scene scene)
