@@ -4,8 +4,8 @@ namespace GhostHunter.Gameplay.Player
 {
     /// <summary>
     /// 굴착 스킬(두더지 스킬 시스템 기획서 §5)의 튜닝 값.
-    /// **프로토타입 값이다.** 시전 시간·쿨타임은 기획 미결정(MS-3·MS-10)이라 임의로 채웠다 —
-    /// 최종 권위는 이 에셋이며, 문서가 아니다 → docs/project/mole-skill-system.md
+    /// **프로토타입 값이다.** 시전 시간은 기획 미결정(MS-10)이라 임의로 채웠고,
+    /// 재사용 대기는 사용자 확정값 10초다 — 최종 권위는 이 에셋이다.
     /// </summary>
     [CreateAssetMenu(
         fileName = "MoleBurrowSettings_Default",
@@ -19,7 +19,7 @@ namespace GhostHunter.Gameplay.Player
         [Tooltip("땅속에 머무를 수 있는 최대 시간(초). §5.3 — 5초.")]
         [SerializeField, Min(0.1f)] private float _maxBurrowDuration = 5f;
 
-        [Tooltip("종료 후 재사용 대기 시간(초). 기획 미결정(MS-3) — 임의값.")]
+        [Tooltip("종료 후 재사용 대기 시간(초). 사용자 확정값 10초.")]
         [SerializeField, Min(0f)] private float _cooldownSeconds = 10f;
 
         [Header("연출")]

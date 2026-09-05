@@ -20,7 +20,7 @@ namespace GhostHunter.Gameplay.Player
     ///
     /// <para><b>이 프로토타입의 명시적 범위(사용자 확정, 2026-08-31):</b></para>
     /// <list type="bullet">
-    /// <item>입력: R(<c>Player/Burrow</c>) — Interact(E)와 분리된다(사용자 확정, MS-1의 굴착 부분 해소).</item>
+    /// <item>입력: T(<c>Player/Burrow</c>) — Interact(E)와 분리된다(사용자 확정 2026-09-05, MS-16 해소).</item>
     /// <item>굴착 가능 위치: 제한 없음(§5.5 MS-7 해소 — 어디서든 가능).</item>
     /// <item>땅속 이동: 불가(제자리 고정, MS-8 해소).</item>
     /// <item>카메라: 시전 시작과 동시에 로컬 높이를 <see cref="MoleBurrowSettings.BurrowedCameraHeight"/>
@@ -30,14 +30,23 @@ namespace GhostHunter.Gameplay.Player
     /// <item>도약 방향: 수직 고정(MS-9 해소).</item>
     /// <item>도약 높이: 4m 고정, 속도는 <see cref="MoleBurrowSettings"/> 의 중력으로 역산(MS-9 부분 해소).</item>
     /// <item>시전 시간: 임의값(<see cref="MoleBurrowSettings.EnterCastSeconds"/>, MS-10 임시).</item>
-    /// <item>추격·포착 중 진입: 허용(MS-10 해소 — 진입을 막지 않는다).</item>
+    /// <item>재사용 대기: 10초(사용자 확정 2026-09-05, MS-3 수치 부분 해소).</item>
+    /// <item>추격·포착 중 진입: 진입 자체는 허용.</item>
     /// </list>
-    /// 재사용 대기 시간(MS-3)과 상시 노출 안 되는 원문 §3.4 공통 판정 조건(MS-2)은 여전히 TBD라
-    /// 쿨타임은 임의값을 넣어 두었을 뿐이다.
+    ///
+    /// <para><b>조작 제한(§5.5.1, 2026-09-05 구현).</b> 시전을 시작하는 순간
+    /// <see cref="PlayerInputReader.SetSkillInputLocked"/> 로 <b>시야 회전과 굴착 키를 뺀 모든
+    /// 입력</b>을 막는다. <see cref="PlayerMotor.MovementLocked"/> 도 함께 세워 둔다 — 입력이
+    /// 0이어도 모터 쪽에서 한 번 더 막아야 잔여 속도나 다른 경로의 이동이 새지 않는다.</para>
+    ///
+    /// <para><b>은신이 깨지는 경우(§5.2.1, 2026-09-05 구현).</b> 땅속은 원래 완전 은신이지만
+    /// <b>귀신에게 이미 감지된 상태에서 매몰되면 땅속에서도 계속 감지·포획된다.</b> 판정은
+    /// 서버(귀신)가 <see cref="Ghost.BurrowExposureTracker"/> 로 하며, 이 컴포넌트는
+    /// <see cref="IsBurrowed"/> 만 정직하게 복제한다. 손전등 예외는 손전등 시스템이 없어 미구현이다.</para>
     /// </summary>
     [DisallowMultipleComponent]
     [RequireComponent(typeof(PlayerMotor))]
-    public sealed class MoleBurrowController : NetworkBehaviour
+    public sealed class MoleBurrowController : NetworkBehaviour, IMoleSkillDebug, IMoleSkillStatus
     {
         private enum State
         {
@@ -73,6 +82,26 @@ namespace GhostHunter.Gameplay.Player
         /// </summary>
         public bool IsActive => _state != State.Idle;
 
+        /// <summary>공통 스킬 UI가 읽는 굴착 단계.</summary>
+        public MoleSkillPhase Phase => _state switch
+        {
+            State.Entering => MoleSkillPhase.Casting,
+            State.Buried => MoleSkillPhase.Active,
+            _ => _cooldownRemaining > 0f ? MoleSkillPhase.Cooldown : MoleSkillPhase.Idle,
+        };
+
+        /// <summary>현재 시전·매몰·쿨타임 단계의 남은 시간.</summary>
+        public float PhaseRemainingSeconds => _state switch
+        {
+            State.Entering => _timer,
+            State.Buried => _timer,
+            _ => _cooldownRemaining,
+        };
+
+        public float ActiveDurationSeconds => _settings != null ? _settings.MaxBurrowDuration : 0f;
+        public float CooldownRemainingSeconds => _cooldownRemaining;
+        public float CooldownDurationSeconds => _settings != null ? _settings.CooldownSeconds : 0f;
+
         private void Awake()
         {
             _motor = GetComponent<PlayerMotor>();
@@ -105,6 +134,10 @@ namespace GhostHunter.Gameplay.Player
 
             if (_motor != null)
                 _motor.MovementLocked = false;
+
+            // 굴착 중 디스폰되면 잠금이 남는다 — 입력 리더가 먼저 정리됐을 수 있으니 null 검사.
+            if (_input != null)
+                _input.SetSkillInputLocked(false);
 
             _localPlayer?.Unregister(this);
             _localPlayer = null;
@@ -164,6 +197,9 @@ namespace GhostHunter.Gameplay.Player
             _state = State.Entering;
             _timer = _settings.EnterCastSeconds;
             _motor.MovementLocked = true;
+            // §5.5.1 — 시야 회전과 굴착 키만 남기고 나머지 조작을 막는다. 시전 시작부터 건다:
+            // 0.3초 동안 던지거나 문을 열 수 있으면 "땅을 파는 중"이 아니다.
+            _input.SetSkillInputLocked(true);
             // 시전 시작과 동시에 낮아지기 시작한다 — 매몰 완료를 기다리지 않는다(연출 요청).
             _motor.CameraHeightOverride = _settings.BurrowedCameraHeight;
         }
@@ -184,6 +220,7 @@ namespace GhostHunter.Gameplay.Player
             _isBurrowed.Value = false;
             _motor.MovementLocked = false;
             _motor.CameraHeightOverride = null;
+            _input.SetSkillInputLocked(false);
 
             if (applyLaunch)
                 _motor.ApplyVerticalLaunch(_settings.ComputePopLaunchSpeed());
@@ -197,6 +234,7 @@ namespace GhostHunter.Gameplay.Player
         {
             _motor.MovementLocked = false;
             _motor.CameraHeightOverride = null;
+            _input.SetSkillInputLocked(false);
             _state = State.Idle;
         }
 
@@ -211,6 +249,76 @@ namespace GhostHunter.Gameplay.Player
             Transform body = _motor != null ? _motor.VisualBody : null;
             if (body != null)
                 body.gameObject.SetActive(!hidden);
+        }
+
+        // ── 개발 HUD(Tab) 전용 ─────────────────────────────────────────────
+        // 상태를 강제로 바꾸기만 한다. 수치는 MoleBurrowSettings 에셋이 권위이고 HUD 가 직접 만진다.
+
+        bool IMoleSkillDebug.CanControl =>
+            IsSpawned && IsOwner && _settings != null && _input != null && _motor != null;
+
+        string IMoleSkillDebug.StatusSummary
+        {
+            get
+            {
+                if (!IsSpawned || !IsOwner)
+                    return "로컬 소유자의 굴착이 아닙니다.";
+
+                if (_settings == null)
+                    return "설정 에셋이 배선되지 않았습니다.";
+
+                string phase = _state switch
+                {
+                    State.Entering => $"시전 중  {_timer:0.0}s 남음",
+                    State.Buried => $"매몰 중  {_timer:0.0}s 남음",
+                    _ => "대기(Idle)",
+                };
+
+                string cooldown = _cooldownRemaining > 0f
+                    ? $"쿨타임 {_cooldownRemaining:0.0}s / {_settings.CooldownSeconds:0.#}s"
+                    : "쿨타임 준비됨";
+
+                bool alive = _sanity == null || _sanity.HasSanity;
+                return alive
+                    ? $"{phase}   ·   {cooldown}"
+                    : $"{phase}   ·   {cooldown}   ·   사망 — 사용 불가(§3.1)";
+            }
+        }
+
+        void IMoleSkillDebug.ForceStart()
+        {
+            if (!IsSpawned || !IsOwner || _settings == null || _input == null || _motor == null
+                || _state != State.Idle)
+                return;
+
+            // 쿨타임만 건너뛴다. 사망 게이팅(§3.1)은 그대로 둬야 규칙을 확인할 수 있다.
+            if (_sanity != null && !_sanity.HasSanity)
+                return;
+
+            _cooldownRemaining = 0f;
+            StartEntering();
+        }
+
+        void IMoleSkillDebug.ForceEnd()
+        {
+            if (!IsSpawned || !IsOwner)
+                return;
+
+            switch (_state)
+            {
+                case State.Buried:
+                    Pop(applyLaunch: true);
+                    break;
+                case State.Entering:
+                    Cancel();
+                    break;
+            }
+        }
+
+        void IMoleSkillDebug.ResetCooldown()
+        {
+            if (IsSpawned && IsOwner)
+                _cooldownRemaining = 0f;
         }
     }
 }

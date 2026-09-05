@@ -294,7 +294,7 @@ namespace GhostHunter.Tests.EditMode
         }
 
         [Test]
-        public void Player_굴착_액션은_R키에_바인딩되어_있다()
+        public void Player_굴착_액션은_T키에_바인딩되어_있다()
         {
             var actions = AssetDatabase.LoadAssetAtPath<InputActionAsset>(PlayerInputActionsPath);
             Assert.IsNotNull(actions, $"{PlayerInputActionsPath} 를 찾지 못했습니다.");
@@ -302,16 +302,22 @@ namespace GhostHunter.Tests.EditMode
             InputAction burrow = actions.FindAction("Player/Burrow", false);
             Assert.IsNotNull(burrow, "Player/Burrow 액션이 없습니다.");
 
-            bool hasKeyboardR = false;
+            // 굴착 키는 T 로 확정됐다(사용자 2026-09-05, MS-16). 기획서 1.0 의 E 는 Interact(문
+            // 여닫기)와 물리 키가 겹쳐 채택하지 않았다 — E 가 다시 들어오면 같은 프레임에 문
+            // 토글과 굴착이 함께 발동한다. R 은 그 사이에 거쳐 간 값이라 남아 있으면 안 된다.
+            bool hasKeyboardT = false;
             bool hasKeyboardE = false;
+            bool hasKeyboardR = false;
             foreach (InputBinding binding in burrow.bindings)
             {
-                hasKeyboardR |= binding.path == "<Keyboard>/r";
+                hasKeyboardT |= binding.path == "<Keyboard>/t";
                 hasKeyboardE |= binding.path == "<Keyboard>/e";
+                hasKeyboardR |= binding.path == "<Keyboard>/r";
             }
 
-            Assert.IsTrue(hasKeyboardR, "Player/Burrow 액션에 R키가 바인딩되지 않았습니다.");
-            Assert.IsFalse(hasKeyboardE, "Player/Burrow 액션에 이전 E키 바인딩이 남아 있습니다.");
+            Assert.IsTrue(hasKeyboardT, "Player/Burrow 액션에 T키가 바인딩되지 않았습니다.");
+            Assert.IsFalse(hasKeyboardE, "Player/Burrow 액션에 E키 바인딩이 남아 있습니다 (Interact 와 충돌).");
+            Assert.IsFalse(hasKeyboardR, "Player/Burrow 액션에 이전 R키 바인딩이 남아 있습니다.");
         }
 
         [Test]

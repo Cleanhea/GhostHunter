@@ -97,6 +97,15 @@
                     "initialStateCheck": false
                 },
                 {
+                    "name": "Detect",
+                    "type": "Button",
+                    "id": "a6c1e5d7-2f8b-4c93-9d04-7e1a5b3c8f20",
+                    "expectedControlType": "Button",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
                     "name": "Prone",
                     "type": "Button",
                     "id": "b1c9d4e2-3a7f-4c81-9e26-5f0a8d3b6c14",
@@ -509,6 +518,17 @@
                     "processors": "",
                     "groups": "",
                     "action": "Burrow",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "b7d2f6e8-3a9c-4d05-8f1b-6c2e7a4d9f30",
+                    "path": "<Keyboard>/q",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "Keyboard&Mouse",
+                    "action": "Detect",
                     "isComposite": false,
                     "isPartOfComposite": false
                 },

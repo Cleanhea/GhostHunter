@@ -100,6 +100,10 @@ namespace GhostHunter.Gameplay.Ghost
 
         // 플레이어별 '침대 밑 은신' 성립 판정(§9.5, 사용자 확정 2026-09-03). 어택 중에만 돈다.
         private readonly Dictionary<ulong, BedHideEvaluator> _bedHide = new();
+
+        // 플레이어별 '굴착 은신 무효' 판정(두더지 스킬 §5.2.1, 사용자 확정 2026-09-05).
+        // 감지된 상태에서 매몰하면 땅속에서도 계속 감지된다. 어택 중에만 돈다.
+        private readonly Dictionary<ulong, BurrowExposureTracker> _burrowExposure = new();
         private float _searchRemaining;
         private float _repathRemaining;
         private float _catchCooldownRemaining;
@@ -205,6 +209,7 @@ namespace GhostHunter.Gameplay.Ghost
             _playerSpeeds.Clear();
             _checkedHidingSpots.Clear();
             _bedHide.Clear();
+            _burrowExposure.Clear();
 
             if (_generatedConeMesh != null)
             {
@@ -292,6 +297,7 @@ namespace GhostHunter.Gameplay.Ghost
                 {
                     ResetPursuit();
                     _bedHide.Clear();
+                    _burrowExposure.Clear();
                 }
             }
 
@@ -641,8 +647,9 @@ namespace GhostHunter.Gameplay.Ghost
 
         private void ServerTickAttack(float deltaTime, int playerCount)
         {
-            // 이전 틱의 추격 상태로 침대 밑 은신 성립 여부를 먼저 갱신한다(TryDetectPlayer 가 이 결과를 읽는다).
+            // 이전 틱의 추격 상태로 은신 성립 여부를 먼저 갱신한다(TryDetectPlayer 가 이 결과를 읽는다).
             EvaluateBedHide(playerCount, deltaTime);
+            EvaluateBurrowExposure(playerCount);
 
             _repathRemaining -= deltaTime;
             bool detected = TryDetectPlayer(playerCount, out SanityNetworkState seen);
@@ -822,8 +829,9 @@ namespace GhostHunter.Gameplay.Ghost
                 if (player == null || !player.IsSpawned || !player.HasSanity)
                     continue;
 
-                // 두더지 스킬 시스템 기획서 §5.2 — 굴착으로 땅속에 있는 동안은 완전히 탐지되지 않는다.
-                if (player.IsBurrowed)
+                // 두더지 스킬 시스템 기획서 §5.2 — 굴착으로 땅속에 있는 동안은 탐지되지 않는다.
+                // 단 §5.2.1(사용자 확정 2026-09-05): 감지된 상태에서 들어갔으면 땅속에서도 감지된다.
+                if (player.IsBurrowed && !IsBurrowExposed(player))
                     continue;
 
                 // 침대 밑 은신이 성립하면(들어가는 걸 귀신이 못 봤다) 완전히 탐지에서 빠진다
@@ -911,6 +919,49 @@ namespace GhostHunter.Gameplay.Ghost
 
                 evaluator.Tick(deltaTime, eligible, chased, visible, _settings.BedHideConcealSeconds);
             }
+        }
+
+        /// <summary>
+        /// 어택 틱마다 플레이어별 '굴착 은신 무효' 여부를 갱신한다
+        /// (두더지 스킬 기획서 §5.2.1, 사용자 확정 2026-09-05).
+        /// <see cref="EvaluateBedHide"/> 와 같은 이유로 <see cref="TryDetectPlayer"/> 보다 먼저 부른다.
+        /// </summary>
+        private void EvaluateBurrowExposure(int playerCount)
+        {
+            for (int i = 0; i < playerCount; i++)
+            {
+                SanityNetworkState player = _players[i];
+                if (player == null || !player.IsSpawned)
+                    continue;
+
+                ulong id = player.OwnerClientId;
+                if (!_burrowExposure.TryGetValue(id, out BurrowExposureTracker tracker))
+                {
+                    tracker = new BurrowExposureTracker();
+                    _burrowExposure[id] = tracker;
+                }
+
+                if (!player.HasSanity)
+                {
+                    tracker.Reset();
+                    continue;
+                }
+
+                // 침대 밑과 같은 기준의 "귀신이 봤다" — 쫓는 중이거나 마지막 위치를 수색 중이다.
+                bool chased = _pursuit != Pursuit.Roam && _target == player;
+                tracker.Tick(player.IsBurrowed, chased);
+            }
+        }
+
+        /// <summary>
+        /// 땅속에 있지만 <b>감지된 채로 들어가서</b> 은신이 무효인가(§5.2.1).
+        /// 참이면 탐지·포획 판정에서 땅속이 아닌 것처럼 다룬다.
+        /// </summary>
+        private bool IsBurrowExposed(SanityNetworkState player)
+        {
+            return player != null
+                && _burrowExposure.TryGetValue(player.OwnerClientId, out BurrowExposureTracker tracker)
+                && tracker.Exposed;
         }
 
         /// <summary>침대 밑 은신이 성립해 귀신의 탐지·잡힘·수색 훔쳐보기에서 완전히 빠지는가.</summary>
@@ -1019,6 +1070,11 @@ namespace GhostHunter.Gameplay.Ghost
             // 침대 밑 은신이 성립했으면 잡지 않는다. 성립 전(들어가는 걸 봤을 때)에는
             // 침대 밑까지 쫓아와 그대로 잡는다(사용자 확정 2026-09-03).
             if (IsBedHidden(_target))
+                return;
+
+            // 땅속도 같다(§5.2·§5.2.1) — 감지되지 않은 채 숨었으면 못 잡고, 감지된 채로 들어갔으면
+            // 그대로 잡는다. 탐지에서 빠져도 _target 은 수색 동안 남으므로 여기서 따로 봐야 한다.
+            if (_target.IsBurrowed && !IsBurrowExposed(_target))
                 return;
 
             Vector3 delta = _target.transform.position - transform.position;
