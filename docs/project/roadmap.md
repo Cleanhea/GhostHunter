@@ -87,7 +87,7 @@
 | MAP-13 | **오픈 보이드** — 2층 갤러리 홀 한가운데가 1층으로 뚫려 있다. 난간·낙하·층간 시야/소리 판정 | D-21 | 대기 — **다층 설계의 핵심** |
 | MAP-12 | **굴착 도약 높이 재검증** — 기준이 "2층을 바로 올라갈 정도"인데 현재 4m 는 단층 기준 임시값이다 | MAP-2 | 대기 → [mole-skill-system.md §5.4](mole-skill-system.md) |
 | MAP-14 | **HousePlanB·C 도면 컨텍스트 반영** — 파일명/도면 제목 대응, 층별 치수·배치 비교, 미확정 항목과 이미지 인덱스 연결 | 도면 2장 수령 | **완료 (2026-09-05)** — 도면 직접 대조, 관련 링크 11건 유효·diff 검사 통과. 문서 작업이며 규모 변경·씬 생성은 별도 |
-| MAP-15 | **B·C 대저택 실내 프로토타입** — 기존 Game 씬에 `House_Prototype_PlanB/C`를 덧붙이고 도면 치수 방·실내 벽·현관·창문·임시 조명·실제 계단 A/B·난간·기존 Furniture 프리팹을 배치. 앞마당·연결 바닥, 상부 계단 개구부·가구/벽/문/계단 통로 검증과 NGO 해시 갱신 포함 | MAP-14 · 기존 `House_01`/원본/그레이박스 보존 | **코드 구현 (2026-09-05) / 에디터 메뉴 실행·씬 저장·수동 Play 검증 대기** — `PlanVariantPrototypeSetup` + `PlanVariantPrototypeSettings` 추가. B/C 채택(MG-20)과 최종 계단 수치(MG-7)는 닫지 않음 |
+| MAP-15 | **B·C 대저택 실내 프로토타입** — 기존 Game 씬에 `House_Prototype_PlanB/C`를 덧붙이고 도면 치수 방·실내 벽·현관·창문·임시 조명·실제 계단 A/B·난간·기존 Furniture 프리팹을 배치. 앞마당·연결 바닥, 상부 계단 개구부·가구/벽/문/계단 통로 검증과 NGO 해시 갱신 포함 | MAP-14 · 기존 `House_01`/원본/그레이박스 보존 | **메뉴 실행·씬 저장 완료 (2026-09-06)** — 원본 도면 방 치수가 만든 여백(층당 36~53%)을 없애는 재설계도 함께 반영해 방+홀 비율 68.5~83.0%. 수동 Play 검증은 대기. B/C 채택(MG-20)과 최종 계단 수치(MG-7)는 닫지 않음 → [map-generation.md §2](../architecture/map-generation.md#house-plan-bc) |
 
 ### 1.3 MS 두더지 스킬 TODO
 
@@ -376,9 +376,13 @@
 | **2026-09-05** | **탐지 시전 파란빛 연출 부분 구현** | `DetectionSkillSettings`에 시전 화면 색·최대 불투명도를 설정값으로 노출하고, `MoleSkillHud`가 `Casting` 상태에서만 전체 화면 로컬 오버레이를 펄스로 그린다. 시전 중간에 가장 밝고 활성 5초 카운트가 시작되기 직전에 사라진다. 기본 `#40a0ff`·0.35·0.5초는 MS-14 임시값. 현재 프리미티브 Player에는 손·주머니·레이저 포인터 모델/애니메이션 에셋이 없어 해당 동작은 미연결이며 수동 Play 검증 대기 → [mole-skill-system.md §4.4·§6.5](mole-skill-system.md) |
 | **2026-09-05** | **HousePlanB·C 도면 컨텍스트 보완 (MAP-14, 문서만)** | 이미지 내부 제목 기준으로 규모·방 치수·층별 배치를 대조하고 파일명 B/C 역전 대응, 비교표·이미지 첨부 목록·인덱스 링크를 정리했다. 기존 "치수만 다르고 배치·보이드가 동일" 서술을 수정하고 B·C안의 미표기 계단 폭·층고·보이드 범위를 확인 필요로 남겼다. 새 대안의 채택은 MG-20(TBD); 기존 MG-2와 씬은 유지 → [map-generation.md §2](../architecture/map-generation.md#house-plan-bc) |
 | **2026-09-05** | **B·C 대저택 실내 프로토타입 생성기 (MAP-15)** | `PlanVariantPrototypeSetup`(Editor 메뉴)와 `PlanVariantPrototypeSettings`(SO)를 추가했다. B안=`HousePlanC.png` 30×24m/다락20×14m, C안=`HousePlanB.png` 40×32m/다락28×20m을 각각 7/8/6 방으로 만들고, 실내 벽·문 개구부·현관·창문·임시 조명·가구 프리팹·시각 12단+경사 콜라이더 계단 A/B·난간(각 층 연결)을 생성한다. 앞마당과 기존 맵 방향 연결 바닥도 프로토타입 소유로 추가한다. 상부 슬래브는 계단 개구부를 잘라 내며 2층 갤러리는 `[TEMP]` solid floor로 유지(MG-16). 방·치수·가구/벽/문/계단 여유·Player 프로필·경사·Rigidbody 소유 검증과 기존 NGO 해시 갱신을 메뉴에 연결했다. **코드 컴파일만 완료, Unity Editor 메뉴 실행·Game 씬 저장·수동 Play 이동은 대기** — 기존 A안·MG-2·MG-7·MG-16·MG-20은 유지. 에디터 잠금을 피한 복제본 EditMode batchmode 시도는 Licensing Client 초기화에서 종료되어 테스트 XML/케이스 0건 |
+| **2026-09-06** | **B·C 실내 여백 정리 재설계 반영 (MAP-15)** | `PlanVariantPrototypeSetup.CreatePlanB/CreatePlanC`의 방 좌표를 원본 도면 값에서 여백 정리 재설계 값으로 교체했다. 같은 날개(같은 X열) 안에 쌓인 방은 외벽↔외벽(또는 외벽↔남측 방 열 경계) 구간을 원래 도면 깊이 비율대로 빈틈없이 나눠 방-방 사이 간격을 0으로 없앴다. Unity MCP로 기존 `House_Prototype_PlanB/C`를 삭제하고 메뉴를 재실행 — 첫 시도는 `ValidateRoomBounds`가 외곽 이탈로 실패했는데(파이썬 사전 계산이 벽 두께 절반만 뺐고, Unity 쪽 검증은 전체를 뺀다는 차이), 좌표를 다시 계산하고 float 안전 여유 0.02m를 더해 통과시켰다. 검증 메뉴로 "가구 79개/79개, 계단 각 4개, 방 각 21개(7/8/6)" 확인, `Game.unity` 저장 완료. 방+홀 면적 비율이 층당 36~53% → 68.5~83.0%로 올라갔다. 부작용으로 침실 열 아래 욕실류 5곳이 침실급(41~82㎡)으로 커진 것은 사용자 확인 후 수용했다. 수동 Play 체감 검증은 대기, MG-2·MG-20은 미결정 그대로 → [map-generation.md §2](../architecture/map-generation.md#house-plan-bc) |
 | **2026-09-05** | **탐지 스킬 + 공통 스킬 UI 구현** | `Player/Detect`(Q) 액션, 생존→미사용→쿨타임 0 판정, 시전 임시 0.5초→활성 5초→종료 후 10초 쿨타임, 활성 마커 색상 표시와 `ZTest Always` 셰이더를 추가했다(**투시는 같은 날 위 행에서 철회**). `MoleSkillHud`가 `IMoleSkillStatus`로 탐지·굴착을 동시에 표시하고, `MoleSkillSetup`이 아이콘 Single 재임포트·SO·Player 프리팹·Game 씬·[TEMP] 마커를 멱등 배선한다. 작업 시스템 대상 판정은 MS-5로 유지한다. 복제 batchmode 컴파일/EditMode는 Unity Licensing 및 오프라인 Git 패키지 의존성으로 완료하지 못했고 수동 Play 검증도 대기다. 새 TBD는 MS-19~MS-21 → [mole-skill-system.md §8~9](mole-skill-system.md) |
 
 ---
 
-최종 갱신: 2026-09-05 (MAP-15 B·C 대저택 실내 프로토타입 생성기 코드 추가 —
+최종 갱신: 2026-09-06 (MAP-15 B·C 실내 여백 정리 재설계 반영 — 메뉴 실행·씬 저장·검증 완료,
+방+홀 비율 68.5~83.0%)
+
+2026-09-05 (MAP-15 B·C 대저택 실내 프로토타입 생성기 코드 추가 —
 에디터 메뉴 실행·씬 저장·수동 Play 검증 대기. MAP-14 HousePlanB·C 도면 컨텍스트 보완, MAP-1 오른쪽 그레이박스 1차 생성 및 탐지 스킬·공통 UI 코드 구현 포함)

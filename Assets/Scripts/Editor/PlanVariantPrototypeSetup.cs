@@ -2353,13 +2353,17 @@ namespace GhostHunter.EditorTools
                         9f,
                         new[]
                         {
-                            Room("Study", "Study", -10.5f, 8.5f, 6f, 5f, RoomKind.Study, DoorSide.East),
-                            Room("Bathroom_SW", "Bathroom", -12f, 4f, 3.5f, 3f, RoomKind.Bathroom, DoorSide.East),
-                            Room("Storage", "Storage", -12f, 0f, 3.5f, 3f, RoomKind.Storage, DoorSide.East),
-                            Room("LivingRoom", "Living Room", -10f, -5.5f, 7f, 6f, RoomKind.Living, DoorSide.East),
-                            Room("Kitchen", "Kitchen", 10f, 4f, 6.5f, 6f, RoomKind.Kitchen, DoorSide.West),
-                            Room("DiningRoom", "Dining Room", 10f, -5.5f, 6f, 5f, RoomKind.Dining, DoorSide.West),
-                            Room("Laundry", "Laundry", 12f, 9.5f, 4.5f, 4.5f, RoomKind.Laundry, DoorSide.West),
+                            // 2026-09-06 재설계: 같은 날개(서/동) 안의 방은 외벽~외벽(또는 외벽~남측
+                            // 방 열)을 원래 도면 깊이 비율대로 빈틈없이 나눠 방-방 사이 간격을 0으로
+                            // 없앴다. 홀 진입 간격은 halve+cap[1.2,3.0] 정책 그대로. 상세 근거는
+                            // docs/architecture/map-generation.md §2 B·C안 참고.
+                            Room("Study", "Study", -10.5000f, 8.3294f, 8.6000f, 6.9412f, RoomKind.Study, DoorSide.East),
+                            Room("Bathroom_SW", "Bathroom", -12.0250f, 2.7765f, 5.5500f, 4.1647f, RoomKind.Bathroom, DoorSide.East),
+                            Room("Storage", "Storage", -12.0250f, -1.3882f, 5.5500f, 4.1647f, RoomKind.Storage, DoorSide.East),
+                            Room("LivingRoom", "Living Room", -10.5000f, -7.6353f, 8.6000f, 8.3294f, RoomKind.Living, DoorSide.East),
+                            Room("Kitchen", "Kitchen", 10.5000f, 0.3806f, 8.6000f, 9.1355f, RoomKind.Kitchen, DoorSide.West),
+                            Room("DiningRoom", "Dining Room", 10.5000f, -7.9935f, 8.6000f, 7.6129f, RoomKind.Dining, DoorSide.West),
+                            Room("Laundry", "Laundry", 10.5000f, 8.3742f, 8.6000f, 6.8516f, RoomKind.Laundry, DoorSide.West),
                         },
                         Room("Entrance", "Main Entrance", 0f, -9.5f, 4f, 3.5f, RoomKind.Entrance, DoorSide.North)),
                     new FloorSpec(
@@ -2372,14 +2376,17 @@ namespace GhostHunter.EditorTools
                         9f,
                         new[]
                         {
-                            Room("Bedroom_01", "Bedroom 1", -10.5f, 7.5f, 6f, 5.5f, RoomKind.Bedroom, DoorSide.East),
-                            Room("Bedroom_02", "Bedroom 2", 10.5f, 7.5f, 6f, 5.5f, RoomKind.Bedroom, DoorSide.West),
-                            Room("Bedroom_03", "Bedroom 3", -10.5f, -1.8f, 6f, 5.5f, RoomKind.Bedroom, DoorSide.East),
-                            Room("Bedroom_04", "Bedroom 4", 10.5f, -1.8f, 6f, 5.5f, RoomKind.Bedroom, DoorSide.West),
-                            Room("Bathroom_01", "Bathroom 1", -11f, -8.5f, 3.5f, 3f, RoomKind.Bathroom, DoorSide.North),
-                            Room("Bathroom_02", "Bathroom 2", 11f, -8.5f, 3.5f, 3f, RoomKind.Bathroom, DoorSide.North),
-                            Room("FamilyRoom", "Family Room", -4f, -8.5f, 7f, 5f, RoomKind.Family, DoorSide.North),
-                            Room("StudyWorkroom", "Study / Workroom", 4f, -8.5f, 7f, 5f, RoomKind.Study, DoorSide.North),
+                            // 2026-09-06 재설계: 침실 2칸(북/남)이 남측 방 열(욕실1·가족실·서재/
+                            // 작업실·욕실2, 깊이 6.21m 통일) 위에서 외벽까지 빈틈없이 이어진다.
+                            // 측면 복도 폭 2.3m(도면 확정값)은 유지.
+                            Room("Bedroom_01", "Bedroom 1", -11.5500f, 7.4250f, 6.5000f, 8.7500f, RoomKind.Bedroom, DoorSide.East),
+                            Room("Bedroom_02", "Bedroom 2", 11.5500f, 7.4250f, 6.5000f, 8.7500f, RoomKind.Bedroom, DoorSide.West),
+                            Room("Bedroom_03", "Bedroom 3", -11.5500f, -1.3250f, 6.5000f, 8.7500f, RoomKind.Bedroom, DoorSide.East),
+                            Room("Bedroom_04", "Bedroom 4", 11.5500f, -1.3250f, 6.5000f, 8.7500f, RoomKind.Bedroom, DoorSide.West),
+                            Room("Bathroom_01", "Bathroom 1", -11.5875f, -8.7500f, 6.4250f, 6.1000f, RoomKind.Bathroom, DoorSide.North),
+                            Room("Bathroom_02", "Bathroom 2", 11.5875f, -8.7500f, 6.4250f, 6.1000f, RoomKind.Bathroom, DoorSide.North),
+                            Room("FamilyRoom", "Family Room", -4.1875f, -8.7500f, 8.3750f, 6.1000f, RoomKind.Family, DoorSide.North),
+                            Room("StudyWorkroom", "Study / Workroom", 4.1875f, -8.7500f, 8.3750f, 6.1000f, RoomKind.Study, DoorSide.North),
                         }),
                     new FloorSpec(
                         2,
@@ -2391,12 +2398,15 @@ namespace GhostHunter.EditorTools
                         6f,
                         new[]
                         {
-                            Room("GuestRoom_01", "Guest Room 1", -6.25f, 4.5f, 5f, 4.5f, RoomKind.Guest, DoorSide.East),
-                            Room("GuestRoom_02", "Guest Room 2", 6.25f, 4.5f, 5f, 4.5f, RoomKind.Guest, DoorSide.West),
-                            Room("Playroom", "Playroom", -6.25f, -1.8f, 5f, 4.5f, RoomKind.Playroom, DoorSide.East),
-                            Room("StorageRoom", "Storage Room", 6.25f, -1.8f, 5f, 4.5f, RoomKind.Storage, DoorSide.West),
-                            Room("SmallBathroom", "Small Bathroom", -1.8f, -5.2f, 3f, 2.5f, RoomKind.Bathroom, DoorSide.North),
-                            Room("SecretStorage", "Secret Storage", 1.8f, -5.2f, 3.5f, 2.5f, RoomKind.SecretStorage, DoorSide.North),
+                            // 2026-09-06 재설계: 게스트룸↔놀이방, 게스트룸↔창고방이 각각 북·남
+                            // 외벽까지 절반씩 나눠 벽을 맞댄다. 홀 방향 벽(x=∓3.75)은 계단 개구부
+                            // 여유가 0.07~0.18m뿐이라 그대로 둔다(MG-7 대기).
+                            Room("GuestRoom_01", "Guest Room 1", -6.7750f, 3.4000f, 6.0500f, 6.8000f, RoomKind.Guest, DoorSide.East),
+                            Room("GuestRoom_02", "Guest Room 2", 6.7750f, 3.4000f, 6.0500f, 6.8000f, RoomKind.Guest, DoorSide.West),
+                            Room("Playroom", "Playroom", -6.7750f, -3.4000f, 6.0500f, 6.8000f, RoomKind.Playroom, DoorSide.East),
+                            Room("StorageRoom", "Storage Room", 6.7750f, -3.4000f, 6.0500f, 6.8000f, RoomKind.Storage, DoorSide.West),
+                            Room("SmallBathroom", "Small Bathroom", -1.9375f, -4.9000f, 3.6250f, 3.8000f, RoomKind.Bathroom, DoorSide.North),
+                            Room("SecretStorage", "Secret Storage", 1.8125f, -4.9000f, 3.8750f, 3.8000f, RoomKind.SecretStorage, DoorSide.North),
                         }),
                 });
         }
@@ -2423,13 +2433,16 @@ namespace GhostHunter.EditorTools
                         12f,
                         new[]
                         {
-                            Room("LivingRoom", "Living Room", -14.5f, 10f, 9f, 7.5f, RoomKind.Living, DoorSide.East),
-                            Room("DiningRoom", "Dining Room", 14f, 10f, 8f, 6f, RoomKind.Dining, DoorSide.West),
-                            Room("Study", "Study", -15f, -0.5f, 7.5f, 6f, RoomKind.Study, DoorSide.East),
-                            Room("Kitchen", "Kitchen", 14f, -0.5f, 8f, 7f, RoomKind.Kitchen, DoorSide.West),
-                            Room("Bathroom_SW", "Bathroom", -16f, -7.5f, 4f, 3.5f, RoomKind.Bathroom, DoorSide.East),
-                            Room("Storage", "Storage", 9f, -10.5f, 4f, 3.5f, RoomKind.Storage, DoorSide.West),
-                            Room("Laundry", "Laundry", 16f, -8.5f, 5.5f, 5f, RoomKind.Laundry, DoorSide.West),
+                            // 2026-09-06 재설계: 서쪽 열(거실→서재→욕실), 동쪽 열(식당→주방→
+                            // [창고|세탁실])이 각각 외벽~외벽을 원래 깊이 비율대로 채운다. 창고·
+                            // 세탁실은 같은 남측 구간을 좌우로 나눠 갖는다. 상세는 map-generation.md.
+                            Room("LivingRoom", "Living Room", -14.1500f, 8.8294f, 11.3000f, 13.9412f, RoomKind.Living, DoorSide.East),
+                            Room("DiningRoom", "Dining Room", 14.1500f, 10.5333f, 11.3000f, 10.5333f, RoomKind.Dining, DoorSide.West),
+                            Room("Study", "Study", -14.3375f, -3.7176f, 10.9250f, 11.1529f, RoomKind.Study, DoorSide.East),
+                            Room("Kitchen", "Kitchen", 14.1500f, -0.8778f, 11.3000f, 12.2889f, RoomKind.Kitchen, DoorSide.West),
+                            Room("Bathroom_SW", "Bathroom", -16.5250f, -12.5471f, 6.5500f, 6.5059f, RoomKind.Bathroom, DoorSide.East),
+                            Room("Storage", "Storage", 9.5625f, -11.4111f, 5.1250f, 8.7778f, RoomKind.Storage, DoorSide.West),
+                            Room("Laundry", "Laundry", 15.9625f, -11.4111f, 7.6750f, 8.7778f, RoomKind.Laundry, DoorSide.West),
                         },
                         Room("Entrance", "Main Entrance", 0f, -13.5f, 5f, 4f, RoomKind.Entrance, DoorSide.North)),
                     new FloorSpec(
@@ -2442,14 +2455,17 @@ namespace GhostHunter.EditorTools
                         12f,
                         new[]
                         {
-                            Room("Bedroom_01", "Bedroom 1", -14f, 9f, 7.5f, 7f, RoomKind.Bedroom, DoorSide.East),
-                            Room("Bedroom_02", "Bedroom 2", -14f, -1.5f, 7.5f, 7f, RoomKind.Bedroom, DoorSide.East),
-                            Room("Bedroom_03", "Bedroom 3", 14f, 9f, 7.5f, 7f, RoomKind.Bedroom, DoorSide.West),
-                            Room("Bedroom_04", "Bedroom 4", 14f, -1.5f, 7.5f, 7f, RoomKind.Bedroom, DoorSide.West),
-                            Room("Bathroom_01", "Bathroom 1", -13.5f, -12f, 4f, 3.5f, RoomKind.Bathroom, DoorSide.North),
-                            Room("Bathroom_02", "Bathroom 2", 13.5f, -12f, 4f, 3.5f, RoomKind.Bathroom, DoorSide.North),
-                            Room("FamilyRoom", "Family Room", -5f, -11.5f, 9f, 6.5f, RoomKind.Family, DoorSide.North),
-                            Room("StudyWorkroom", "Study / Workroom", 5f, -11.5f, 9f, 6.5f, RoomKind.Study, DoorSide.North),
+                            // 2026-09-06 재설계: 침실 2칸(북/남)이 남측 방 열(욕실1·가족실·서재/
+                            // 작업실·욕실2, 깊이 8.71m 통일) 위에서 외벽까지 빈틈없이 이어진다.
+                            // 측면 복도 폭 2.5m(도면 확정값)은 유지.
+                            Room("Bedroom_01", "Bedroom 1", -15.1500f, 10.0500f, 9.3000f, 11.5000f, RoomKind.Bedroom, DoorSide.East),
+                            Room("Bedroom_02", "Bedroom 2", -15.1500f, -1.4500f, 9.3000f, 11.5000f, RoomKind.Bedroom, DoorSide.East),
+                            Room("Bedroom_03", "Bedroom 3", 15.1500f, 10.0500f, 9.3000f, 11.5000f, RoomKind.Bedroom, DoorSide.West),
+                            Room("Bedroom_04", "Bedroom 4", 15.1500f, -1.4500f, 9.3000f, 11.5000f, RoomKind.Bedroom, DoorSide.West),
+                            Room("Bathroom_01", "Bathroom 1", -15.1500f, -11.5000f, 9.3000f, 8.6000f, RoomKind.Bathroom, DoorSide.North),
+                            Room("Bathroom_02", "Bathroom 2", 15.1500f, -11.5000f, 9.3000f, 8.6000f, RoomKind.Bathroom, DoorSide.North),
+                            Room("FamilyRoom", "Family Room", -5.2500f, -11.5000f, 10.5000f, 8.6000f, RoomKind.Family, DoorSide.North),
+                            Room("StudyWorkroom", "Study / Workroom", 5.2500f, -11.5000f, 10.5000f, 8.6000f, RoomKind.Study, DoorSide.North),
                         }),
                     new FloorSpec(
                         2,
@@ -2461,12 +2477,15 @@ namespace GhostHunter.EditorTools
                         8f,
                         new[]
                         {
-                            Room("GuestRoom_01", "Guest Room 1", -9f, 6.2f, 6.5f, 5.5f, RoomKind.Guest, DoorSide.East),
-                            Room("GuestRoom_02", "Guest Room 2", 9f, 6.2f, 6.5f, 5.5f, RoomKind.Guest, DoorSide.West),
-                            Room("Playroom", "Playroom", -9f, -2.5f, 6.5f, 5.5f, RoomKind.Playroom, DoorSide.East),
-                            Room("StorageRoom", "Storage Room", 9f, -2.5f, 6.5f, 5.5f, RoomKind.Storage, DoorSide.West),
-                            Room("SmallBathroom", "Small Bathroom", -2f, -7.8f, 3.5f, 3f, RoomKind.Bathroom, DoorSide.North),
-                            Room("SecretStorage", "Secret Storage", 2f, -7.8f, 4f, 3f, RoomKind.SecretStorage, DoorSide.North),
+                            // 2026-09-06 재설계: 게스트룸↔놀이방, 게스트룸↔창고방이 각각 북·남
+                            // 외벽까지 절반씩 나눠 벽을 맞댄다. 홀 방향 벽(x=∓5.7)은 계단 개구부
+                            // 여유가 0.07~0.18m뿐이라 그대로 둔다(MG-7 대기).
+                            Room("GuestRoom_01", "Guest Room 1", -9.7500f, 4.9000f, 8.1000f, 9.8000f, RoomKind.Guest, DoorSide.East),
+                            Room("GuestRoom_02", "Guest Room 2", 9.7500f, 4.9000f, 8.1000f, 9.8000f, RoomKind.Guest, DoorSide.West),
+                            Room("Playroom", "Playroom", -9.7500f, -4.9000f, 8.1000f, 9.8000f, RoomKind.Playroom, DoorSide.East),
+                            Room("StorageRoom", "Storage Room", 9.7500f, -4.9000f, 8.1000f, 9.8000f, RoomKind.Storage, DoorSide.West),
+                            Room("SmallBathroom", "Small Bathroom", -2.9125f, -6.9000f, 5.5750f, 5.8000f, RoomKind.Bathroom, DoorSide.North),
+                            Room("SecretStorage", "Secret Storage", 2.7875f, -6.9000f, 5.8250f, 5.8000f, RoomKind.SecretStorage, DoorSide.North),
                         }),
                 });
         }
