@@ -27,6 +27,10 @@
 맵 기획서 v0.4에서 **이번 판에 운반할 가구의 종류와 종류별 개수를 선정하는 방식**은 정의됐다(§6.2).
 운반 완료·진행도·승패와의 연결은 아직 TBD다.
 
+**청소 프로토타입(2026-09-12)**: 퀵슬롯 대걸레 장착 후 좌클릭으로 얼룩을 지우며, B안 맵에
+랜덤 배치하고 F1 HUD로 초기화한다. 얼룩 상세 규칙·가구 완료·진행도는 이번에 정하지 않았다.
+→ [cleaning-system.md](cleaning-system.md)
+
 - **한 줄 소개**: TBD
 - **장르**: TBD (협력? 비대칭 대전?)
 - **핵심 판타지**: TBD
@@ -369,7 +373,7 @@ v0.4 변경 이력에는 맵 크기·도면 수정이 있으나 이번 첨부에
 | 12 | 청소·이사 작업 중 귀신 출현·어택을 어떻게 처리하는가? | 작업 지속 여부, 던지기 입력·물리 예외 | **대기** → [ghost-system.md §13 G-11](ghost-system.md) |
 | 13 | 귀신 공통 규칙의 잔여 미결정 14건 (G-1~5·7~15, G-6은 2026-08-31 해결) | 귀신 정식 구현 전반 | **대기** → [ghost-system.md §13](ghost-system.md) |
 | 14 | 두더지 스킬의 잔여 미결정 (MS-2·3·4·5·10~15) — 특히 **굴착 쿨타임 수치(MS-3)** | 스킬 구현 전반 | **대부분 해결**(2026-09-05) — 탐지 키 Q·시전자 전용·판정 3조건·탐지 쿨타임 10초 확정. 사용자 확정으로 **MS-16(굴착 키 T)·MS-17(감지 예외 채택)·MS-18(조작 전부 제한)** 도 해결. 남은 구현은 로드맵 §1.3 MS-A~F → [mole-skill-system.md §9](mole-skill-system.md) |
-| 15 | **청소·이사 작업 시스템** — 얼룩·개별 가구 대상 판정·반출 완료·진행도의 정의 | 탐지 스킬, 귀신 청소 40% 트리거, 게임 루프 | **부분 정의** — 맵 v0.4에 Type·Count 관리 방식 추가. 실제 대상·완료·진행도 연동은 대기 → [map-generation.md §12 MG-22](../architecture/map-generation.md) · [mole-skill-system.md §9 MS-5](mole-skill-system.md) |
+| 15 | **청소·이사 작업 시스템** — 정식 얼룩·개별 가구 대상·반출 완료·진행도 | 탐지 스킬, 귀신 40% 트리거, 게임 루프 | **부분 정의·구현** — 대걸레·좌클릭·랜덤 얼룩·HUD 초기화는 [cleaning-system.md](cleaning-system.md). 정식 얼룩 규칙·가구 완료·진행도는 대기(MG-22/MS-5) |
 | ~~16~~ | ~~일시정지 메뉴·연결 끊김 처리의 미결정 15건 (PM-1~15)~~ | — | ✅ **해결·구현(2026-09-04)** — 자동 테스트 통과, 수동 검증과 D-1 선행 검증 대기. 설정 화면 **내용**(PM-6)만 설정 시스템 기획서로 이월(이번 범위는 stub) → [pause-menu-system.md §9](pause-menu-system.md) |
 | 17 | **맵 생성 v0.4 미결정** — 맵별 작업량·집계·보충 정책(MG-21~23), Work Room 제한 존치(MG-6), 오픈 보이드·열쇠·지하실 도면 등 | Spawn Point·Target Furniture·스페셜 공간 구현 | **부분 해결** — B안 채택(MG-20), 랜덤 가구 1차 설치 완료. Play 검증·잔여 결정 대기 → [map-generation.md §12](../architecture/map-generation.md) |
 | 18 | **게임명** — 기획서 `Holy Moley!` vs 저장소·Unity Product `GhostHunter` | 표기 통일, `ProjectSettings` 변경 | **대기** → [map-generation.md §12 MG-1](../architecture/map-generation.md) |

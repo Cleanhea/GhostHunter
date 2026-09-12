@@ -13,8 +13,9 @@ MonoBehaviour:
   m_Name: QuickSlotItem_Placeholder2
   m_EditorClassIdentifier: GhostHunter.Gameplay::GhostHunter.Gameplay.Player.QuickSlotItemDefinition
   _id: id2
-  _displayName: "\uB354\uBBF8 \uC544\uC774\uD15C 2"
-  _description: "\uC778\uBCA4\uD1A0\uB9AC \uC2DC\uC2A4\uD15C\uC774 \uBD99\uAE30 \uC804\uAE4C\uC9C0\uC758
-    \uD45C\uC2DC\uC6A9 \uB354\uBBF8 \uB370\uC774\uD130\uC785\uB2C8\uB2E4."
+  _displayName: "\uB9E8\uC190"
+  _description: "\uB300\uAC78\uB808\uB97C \uB0B4\uB824\uB193\uACE0 \uAC00\uAD6C\uB97C
+    \uC7A1\uC2B5\uB2C8\uB2E4."
   _icon: {fileID: 0}
+  _isMop: 0
   _placeholderColor: {r: 0.23529412, g: 0.54901963, b: 0.8627451, a: 1}

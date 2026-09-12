@@ -1,6 +1,6 @@
 # 퀵슬롯(라디얼 휠) 구현
 
-> 상태: **더미 스캐폴드 구현 완료 (2026-09-12).** 자동 검증 통과, 수동 Play 검증 대기.
+> 상태: **대걸레 장착·청소 연결 (2026-09-12).** 일반 인벤토리는 미구현. [청소 구현](cleaning-system.md) 참조.
 > 게임 규칙의 권위는 [퀵슬롯 시스템 기획서](../project/quick-slot-system.md)다.
 
 ## 1. 구성 요소
@@ -66,12 +66,12 @@
 `Confirm(index)`은 `index < 0`(데드존)이면 아무 것도 하지 않고, `_loadout.GetSlot(index) ==
 null`(빈 슬롯, QS-2)이어도 아무 것도 하지 않는다 — 둘 다 "장착 상태 불변"으로 귀결된다.
 
-### 4.1 확정은 로컬 상태까지만 (QS-3·QS-6)
+### 4.1 확정은 플레이어 장착 요청으로 전달 (QS-3·QS-6)
 
-`Confirm`은 `_equippedIndex`/`_equippedItem` 필드를 바꾸고 우하단 표시를 갱신할 뿐이다. **RPC도
-`NetworkVariable`도 없다** — `QuickSlotTests.퀵슬롯_휠은_로컬_전용이고_아직_RPC를_쓰지_않는다`가
-회귀를 막는다. 실제 인벤토리 시스템이 붙으면 `[Rpc(SendTo.Server)]` 요청 → 서버 검증 경로를
-추가해야 한다(코드 스타일 §3.4의 서버 권위 원칙).
+`Confirm`은 `ILocalPlayerContext.CleaningController.EquipSlot(index)`으로 선택을 전달한다.
+UI 자체는 로컬 MonoBehaviour이며 RPC를 소유하지 않는다. 플레이어 컴포넌트가 서버에 장착을
+요청하고 소유자에게 결과를 회신한다. UI는 현재 플레이어의 `EquippedSlot`을 읽어 재접속이나
+서버 거부 후에도 표시를 맞춘다. 다른 플레이어에게 장착 모델·선택을 복제하지 않는다.
 
 ### 4.2 시각 구성
 
@@ -99,17 +99,16 @@ null`(빈 슬롯, QS-2)이어도 아무 것도 하지 않는다 — 둘 다 "장
   CanOpen`이 `_localPlayer.Sanity.HasSanity`를 함께 검사한다. 사망 시 열려 있던 휠은 기존
   `CanRemainOpen` → `Close()` 경로로 선택을 취소하고 닫힌다 — 별도 사망 분기가 필요 없었다.
 - **게임패드 미지원**(QS-7). `Player/QuickSlot`은 키보드 바인딩만 갖는다.
-- **아이콘은 전부 자리표시자**(QS-10). `Assets/Settings/Gameplay/QuickSlotItem_Placeholder{1,2}.
-  asset`는 검증용 더미이고, `QuickSlotLoadout_Default.asset`는 4슬롯 중 2개만 채워 빈 슬롯
-  동작을 눈으로 확인할 수 있게 했다.
+- **아이콘은 자리표시자**(QS-10). 현재 0번 슬롯은 `QuickSlotItem_Mop.asset`, 2번은 기존
+  `QuickSlotItem_Placeholder2.asset`를 맨손으로 표시한다. 나머지 두 칸은 비어 있다.
 
 ## 6. 씬·에셋 배선
 
 | 대상 | 경로 | 상태 |
 | --- | --- | --- |
 | 설정 에셋 | `Assets/Settings/Gameplay/QuickSlotUiSettings_Default.asset` | 설치 도구가 생성 |
-| 로드아웃(더미) | `Assets/Settings/Gameplay/QuickSlotLoadout_Default.asset` | 설치 도구가 생성, 4슬롯 중 2개만 채움 |
-| 더미 아이템 2종 | `Assets/Settings/Gameplay/QuickSlotItem_Placeholder{1,2}.asset` | 설치 도구가 생성 |
+| 로드아웃 | `Assets/Settings/Gameplay/QuickSlotLoadout_Default.asset` | 0번 대걸레·2번 맨손, 빈 슬롯 2개 |
+| 아이템 | `QuickSlotItem_Mop.asset`·`QuickSlotItem_Placeholder2.asset` | 청소 설치 도구가 대걸레와 맨손 표시 연결 |
 | HUD 컴포넌트 | `Game` 씬 `PrototypeUI` (기존 `MoleSkillHud`와 같은 오브젝트) | 설치 도구가 `QuickSlotWheelUi` 추가 |
 
 `GhostHunter > 퀵슬롯 HUD 설치` 메뉴는 `PauseMenuSetup`/`MoleSkillSetup`과 같은 멱등 패턴이다 —
@@ -117,6 +116,10 @@ null`(빈 슬롯, QS-2)이어도 아무 것도 하지 않는다 — 둘 다 "장
 다시 만들지 않는다.
 
 ## 7. 검증 상태 (2026-09-12)
+
+청소 연결 후 Local Host에서 Input System의 Tab 누름·마우스 델타·Tab 해제를 주입해
+휠 열림, 맨손 슬롯 확정, 서버 장착 반영, 대걸레 모델 숨김과 휠 잠금 해제를 확인했다.
+아래 표는 초기 휠 구현 당시 검증 이력이며, 현재 결과는 [cleaning-system.md §4](cleaning-system.md)를 본다.
 
 | 항목 | 결과 |
 | --- | --- |

@@ -1,4 +1,5 @@
 using GhostHunter.Core.Player;
+using GhostHunter.Gameplay.Cleaning;
 using GhostHunter.Gameplay.Ghost;
 using GhostHunter.Gameplay.Player;
 using GhostHunter.Gameplay.Sanity;
@@ -14,6 +15,7 @@ namespace GhostHunter.Systems.Installers
         [SerializeField] private PlayerSpawnRegistry _playerSpawns;
         [SerializeField] private SanityTeamService _sanityTeam;
         [SerializeField] private GhostPrototypeSpawner _ghostSpawner;
+        [SerializeField] private CleaningController _cleaning;
 
         private readonly LocalPlayerContext _localPlayer = new();
 
@@ -24,6 +26,8 @@ namespace GhostHunter.Systems.Installers
             Bind<ISanityTeamService>(_sanityTeam);
             Bind<ISanityDebug>(_sanityTeam);
             Bind<IGhostDebug>(_ghostSpawner);
+            if (_cleaning != null)
+                Bind<ICleaningService>(_cleaning);
         }
     }
 }

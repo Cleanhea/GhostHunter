@@ -37,6 +37,7 @@ namespace GhostHunter.Gameplay.Interaction
 
         private ILocalPlayerContext _localPlayer;
         private SanityNetworkState _sanity;
+        private PlayerCleaningController _cleaning;
 
         public override void OnNetworkSpawn()
         {
@@ -44,6 +45,7 @@ namespace GhostHunter.Gameplay.Interaction
 
             // 서버 인스턴스에서도 필요하다(원격 플레이어의 사망 시 강제 해제) — Owner 분기 밖에서 구한다.
             _sanity = GetComponent<SanityNetworkState>();
+            _cleaning = GetComponent<PlayerCleaningController>();
             if (_sanity != null)
                 _sanity.AliveStateChanged += HandleAliveStateChanged;
 
@@ -84,7 +86,8 @@ namespace GhostHunter.Gameplay.Interaction
 
         private void Update()
         {
-            if (!IsOwner || _input == null || _camera == null)
+            if (!IsOwner || _input == null || _camera == null
+                || (_cleaning != null && _cleaning.IsMopEquipped))
                 return;
 
             Keyboard keyboard = Keyboard.current;
@@ -189,6 +192,7 @@ namespace GhostHunter.Gameplay.Interaction
         {
             ulong sender = rpcParams.Receive.SenderClientId;
             if (sender != OwnerClientId
+                || (_cleaning != null && _cleaning.ServerHasMop)
                 || (_sanity != null && !_sanity.HasSanity)
                 || _heldObjectId.Value != NoObjectId
                 || _settings == null

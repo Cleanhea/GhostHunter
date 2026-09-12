@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: QuickSlotLoadout_Default
   m_EditorClassIdentifier: GhostHunter.Gameplay::GhostHunter.Gameplay.Player.QuickSlotLoadout
   _slots:
-  - {fileID: 11400000, guid: 1c6fac800a9e9a740b800841d829750d, type: 2}
+  - {fileID: 11400000, guid: ffa1dbd417a1f2d4399e2af62814fa46, type: 2}
   - {fileID: 0}
   - {fileID: 11400000, guid: 52ce69d432b93dc438100cbc0d640a01, type: 2}
   - {fileID: 0}

@@ -21,7 +21,9 @@ docs/
 │   ├── ghost-system.md             귀신 공통 상태·정신력 연동·어택·탐지·추격 규칙
 │   ├── mole-skill-system.md        두더지 스킬(탐지·굴착) 공통 규칙·판정·쿨타임·UI — 저장소 반영 1.2
 │   ├── pause-menu-system.md        일시정지 메뉴·호스트 연결 끊김 규칙 — 구현됨, 수동 검증 대기
-│   ├── quick-slot-system.md        퀵슬롯(라디얼 휠) 규칙·QS-1~10 확정 — 더미 스캐폴드 구현됨
+│   ├── quick-slot-system.md        퀵슬롯 규칙·대걸레/맨손 장착
+│   ├── cleaning-system.md          대걸레·랜덤 얼룩·HUD 초기화, 상세 룰·진행도 미정
+│   ├── furniture-multidriver-system.md  가구 분해·조립 아이템 — 기획서 1.0 이관, 구현 없음
 │   ├── spectator-system.md         사망 후 능력 제한·자유시점·생존자 관전 — 핵심 요구 확정, 구현 미착수
 │   └── roadmap.md                  마일스톤 & 태스크 보드
 ├── architecture/                   어떻게 구성되는가
@@ -35,7 +37,8 @@ docs/
 │   ├── sanity-system.md             정신력 네트워크·집계·연동 API
 │   ├── map-generation.md           맵 생성 시스템 v0.4 (House / Floor / Room Preset / Spawn Point / Target Furniture Type·Count)
 │   ├── pause-menu.md                일시정지 메뉴·연결 끊김 배선·권위·검증 — 구현됨, 수동 검증 대기
-│   ├── quick-slot.md                퀵슬롯 휠 구현 — 입력 잠금·선택 계산·UI 배선 — 더미 스캐폴드
+│   ├── quick-slot.md                퀵슬롯 휠 구현 — 입력 잠금·선택 계산·장착 전달
+│   ├── cleaning-system.md           서버 얼룩 상태·청소 검증·씬 풀·설치/검증
 │   └── decisions/                  ADR (기술 결정 기록)
 ├── conventions/                    어떻게 쓰는가
 │   ├── code-style.md               C# / Unity 코딩 규약
@@ -46,6 +49,7 @@ docs/
     ├── testing.md                  테스트 전략 & 실행법
     ├── unity-mcp.md                Unity MCP — 에디터 직접 조작 규칙
     ├── spectator-implementation-prompt.md 사망 후 관전 구현 모델용 작업 지시
+    ├── furniture-multidriver-implementation-prompt.md 가구 분해·조립 구현 모델용 작업 지시
     └── playbooks.md                반복 작업 레시피
 ```
 
@@ -60,8 +64,10 @@ docs/
 | [project/mole-skill-system.md](project/mole-skill-system.md) | 플레이어는 어떤 스킬을 언제 쓰고 어떻게 끝나는가 | 스킬 규칙·수치·연출 변경 |
 | [project/pause-menu-system.md](project/pause-menu-system.md) | 매치를 어떻게 떠나고, 끊기면 무엇을 보는가 | 일시정지 메뉴·나가기·끊김 규칙 변경 |
 | [project/quick-slot-system.md](project/quick-slot-system.md) | 퀵슬롯 휠은 언제 열리고 무엇을 담는가 | 퀵슬롯 규칙·슬롯 구성 변경 |
+| [project/furniture-multidriver-system.md](project/furniture-multidriver-system.md) | 큰 가구를 어떻게 분해해서 옮기고 다시 조립하는가 | 분해·조립 규칙, 아이템 내구도, 부품 구성 확정 |
 | [project/spectator-system.md](project/spectator-system.md) | 사망 후 무엇을 할 수 있고 두 관전 모드는 어떻게 전환하는가 | 사망·관전 규칙 확정 및 구현 |
 | [workflow/spectator-implementation-prompt.md](workflow/spectator-implementation-prompt.md) | 구현 모델에 관전 기능 작업을 어떻게 지시하는가 | 관전 기획·구현 전제 변경 |
+| [workflow/furniture-multidriver-implementation-prompt.md](workflow/furniture-multidriver-implementation-prompt.md) | 구현 모델에 가구 분해·조립 작업을 어떻게 지시하는가 | 멀티 드라이버 기획·MD 확정·선례 구현 변경 |
 | [project/roadmap.md](project/roadmap.md) | 지금 무엇을 하고 있고 다음은 무엇인가 | 태스크 시작/완료 시 |
 | [architecture/overview.md](architecture/overview.md) | 코드와 에셋은 어디에 어떻게 놓이는가 | 폴더·어셈블리·씬 추가 |
 | [architecture/networking.md](architecture/networking.md) | 무엇을 서버가 정하고 무엇을 동기화하는가 | 네트워크 객체·RPC 추가 |
@@ -105,7 +111,9 @@ docs/
 | project/ghost-system.md | 🟡 공통 상태·정신력 구간·어택·탐지·추격 규칙 확정 / 15개 미결정(G-1~15), 구현은 P1 임시값 |
 | project/mole-skill-system.md | 🟢 **굴착: 기획서 1.0 규칙 구현 완료** (2026-09-05) — 키 T · 유지 5초 · 쿨타임 10초 · 조작 전부 잠금 · 감지 상태 매몰 시 은신 무효. 🟡 **탐지·공통 UI 코드 스캐폴드 + 시전 파란빛 오버레이 부분 구현** — Q·활성 판정·5초·10초·색상별 활성 마커·탐지/굴착 동시 게이지. **벽 투시는 없다**(시야에 보이는 표면만, 2026-09-05 확정). `Game` 씬·`Player` 프리팹·아이콘 배선은 정적 확인됐고 수동 Play 검증 대기, 손·레이저 포인터 애니메이션과 작업 시스템의 실제 대상 정의는 MS-14·MS-5. 마지막 완료 복제 batchmode EditMode **165/172**(탐지 신규 전부 통과 — 상태 머신 float 오차 버그 1건을 잡아 수정), 최신 재시도는 Licensing/오프라인 Git 패키지 단계에서 테스트 XML 전에 차단. 실패 1·skip 6은 복제 환경의 에셋 임포트 문제 |
 | project/pause-menu-system.md | 🟢 **규칙 확정 + 구현 완료.** PM-1~15 전부 확정. 설정 화면 **내용**(PM-6)만 설정 시스템 기획서로 이월 / 수동 검증 대기 |
-| project/quick-slot-system.md | 🟡 **QS-1~10 확정 + 더미 스캐폴드 구현 완료(2026-09-12).** 실제 인벤토리·아이콘 에셋은 별도 작업 / 수동 Play 검증 대기 |
+| project/quick-slot-system.md | 🟡 **대걸레·맨손 장착 연결(2026-09-12).** 일반 인벤토리·정식 아이콘은 별도 작업 |
+| project/cleaning-system.md | 🟡 **대걸레·좌클릭·랜덤 얼룩·HUD 초기화 구현.** 정식 얼룩 규칙·가구 완료·진행도는 미정 |
+| project/furniture-multidriver-system.md | 🔴 **기획서 1.0 이관만(2026-09-12).** 분해·조립·내구도·연출 규칙은 확정, **코드·씬·에셋 구현 전혀 없음.** 미결정 13건(MD-1~13), 설명 이미지 2장 저장 대기·행동 UI 레퍼런스 1장 미수령 |
 | project/spectator-system.md | 🟡 **사망 후 특수능력 제한 + 자유시점/생존자 관전 핵심 요구 확정(2026-09-12).** 세부 키·속도·전환/정리 정책 일부 TBD / 관전 구현 미착수 |
 | project/roadmap.md | 🟢 M0~M7 + 마이그레이션 보드, M8 기획 부분 진행 |
 | architecture/overview.md | 🟢 씬·서비스·스크립트 레이어와 asmdef 구조 반영됨 |
@@ -118,7 +126,8 @@ docs/
 | architecture/sanity-system.md | 🟢 코어 P1·World Space 4인 숫자 모니터 구현 / 실제 연출·콘텐츠 연결 TBD |
 | architecture/map-generation.md | 🟡 **B안 선택 + 가구 랜덤 배치 1차 구현(2026-09-12, MAP-19).** 임시 4종 16개 설정·서버 재배치·대상 복제·B안 앞마당 시작 위치를 설치했다. 풀 16개·안전 후보 91개 저장 및 설치 내부 seed 0~15 검증 완료. C# 빌드 경고 0·오류 0, 순수 계획 테스트 13/13 통과. **Unity Test Runner·Host/Client Play 검증 대기**. 정식 작업량·운반 완료·계단 세부·열쇠는 TBD → [설치 절차 §10.1.3](architecture/map-generation.md), [ADR-0013](architecture/decisions/ADR-0013-plan-b-random-furniture.md) |
 | architecture/pause-menu.md | 🟢 **구현됨.** EditMode 141/142·PlayMode 12/12 통과 / **수동 검증(§10.4~10.6)과 선행 검증 D-1(클라이언트 씬 동기화 모드) 미수행** |
-| architecture/quick-slot.md | 🟡 **더미 스캐폴드 구현됨(2026-09-12).** EditMode 197/197 통과, 설치 도구 검증됨 / **수동 Play 검증 미수행**, 사망 게이팅·실제 인벤토리는 TBD |
+| architecture/quick-slot.md | 🟡 **대걸레 장착 전달 연결.** 사망 게이팅 구현됨, 일반 인벤토리 대기 |
+| architecture/cleaning-system.md | 🟡 **씬·프리팹 설치/저장 및 Local Host 입력 검증 완료.** 자동 검증 결과·Steam 2PC 잔여 기록 |
 | architecture/decisions/ | 🟡 ADR-0001~0011·0013 확정 / ADR-0012 Proposed |
 | conventions/* | 🟢 규약 확정 |
 | workflow/unity-mcp.md | 🟢 설치·연결·씬 편집 검증됨 |
@@ -126,4 +135,6 @@ docs/
 
 ---
 
-최종 갱신: 2026-09-12 (사망 후 관전 기획서·구현 프롬프트 라우팅 추가. 같은 날 퀵슬롯 더미 스캐폴드 문서와 맵 v0.4·B안 선택·MAP-19 랜덤 가구 코드·검증/설치 안내·ADR-0013 반영.)
+최종 갱신: 2026-09-12 (가구용 멀티 드라이버 기획서 1.0 이관·라우팅 추가 — 구현 없음, 미결정 MD-1~13.
+같은 날 사망 후 관전 기획서·구현 프롬프트 라우팅 추가, 퀵슬롯 더미 스캐폴드 문서와 맵 v0.4·B안 선택·
+MAP-19 랜덤 가구 코드·검증/설치 안내·ADR-0013 반영.)

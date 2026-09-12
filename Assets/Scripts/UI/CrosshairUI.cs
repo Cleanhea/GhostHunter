@@ -70,6 +70,8 @@ namespace GhostHunter.UI
 
         private Color ResolveCrosshairColor()
         {
+            if (_localPlayer.CleaningController != null && _localPlayer.CleaningController.IsMopEquipped)
+                return Color.white;
             FurnitureTargeter targeter = _localPlayer.Targeter;
             if (targeter == null || targeter.CurrentTarget == null)
                 return Color.white;
@@ -106,6 +108,10 @@ namespace GhostHunter.UI
                 : "<b>WASD</b> 이동  ·  <b>Space</b> 점프  ·  <b>마우스</b> 시점  ·  <b>E</b> 문 여닫기\n" +
                   "<b>좌클릭 누름</b> 투척 준비  ·  <b>떼기</b> 밀기/던지기  ·  " +
                   "<b>2인 동시 누름</b> 잡아당기기  ·  <b>R</b> 가구 리셋(호스트)  ·  <b>Esc</b> 커서";
+
+            if (_localPlayer.CleaningController != null && _localPlayer.CleaningController.IsMopEquipped)
+                message = "<b>대걸레</b>  ·  얼룩 조준 후 <b>좌클릭</b>으로 닦기\n"
+                    + "<b>Q</b> 얼룩 탐지  ·  <b>Tab</b> 장비 선택  ·  <b>F1</b> 얼룩 초기화(Host)";
 
             float width = Mathf.Min(620f, Screen.width - 20f);
             GUI.Box(

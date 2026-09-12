@@ -12,6 +12,19 @@ namespace GhostHunter.Gameplay.Player
         public PlayerInteractor Interactor { get; private set; }
         public MoleBurrowController BurrowController { get; private set; }
         public DetectionSkillController DetectionController { get; private set; }
+        public PlayerCleaningController CleaningController { get; private set; }
+
+        public void Register(PlayerCleaningController cleaningController)
+        {
+            if (CanRegister(CleaningController, cleaningController))
+                CleaningController = cleaningController;
+        }
+
+        public void Unregister(PlayerCleaningController cleaningController)
+        {
+            if (CleaningController == cleaningController)
+                CleaningController = null;
+        }
         public PlayerInputReader Input { get; private set; }
         public SanityNetworkState Sanity { get; private set; }
 

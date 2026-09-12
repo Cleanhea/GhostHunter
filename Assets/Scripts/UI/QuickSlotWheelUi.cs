@@ -7,9 +7,7 @@ namespace GhostHunter.UI
 {
     /// <summary>
     /// Tab 홀드형 라디얼 퀵슬롯 휠. <see cref="PlayerInputReader.QuickSlotHeld"/> 동안 열리고,
-    /// 마우스 델타 누적으로 슬롯을 고른 뒤 떼는 순간 확정한다. 아이템/인벤토리 시스템이 아직
-    /// 없어(사용자 확정 2026-09-12) <see cref="_loadout"/>는 더미 데이터이고, 확정은 로컬 상태
-    /// 변경(장착 표시)까지만 한다 — 서버 RPC는 실제 인벤토리가 붙을 때 추가한다.
+    /// 마우스 델타 누적으로 슬롯을 고른 뒤 떼는 순간 플레이어의 장착을 요청한다.
     ///
     /// <para><b>열림 조건</b> — 일시정지 메뉴·굴착 잠금이 없고, 사망하지 않았고, 가구를 잡고
     /// 있지 않을 때만 연다(QS-9, 사용자 확정 + 관전 기획서 SP-2 QS-사망 게이팅, 2026-09-12).
@@ -91,6 +89,14 @@ namespace GhostHunter.UI
                 Services.TryGet(out _localPlayer);
 
             PlayerInputReader input = _localPlayer != null ? _localPlayer.Input : null;
+            PlayerCleaningController cleaning = _localPlayer != null ? _localPlayer.CleaningController : null;
+            int equipped = cleaning != null ? cleaning.EquippedSlot : -1;
+            if (_equippedIndex != equipped)
+            {
+                _equippedIndex = equipped;
+                _equippedItem = _loadout.GetSlot(equipped);
+                UpdateEquippedDisplay();
+            }
 
             if (!_isOpen)
             {
@@ -146,7 +152,8 @@ namespace GhostHunter.UI
         private void Close(PlayerInputReader input)
         {
             _isOpen = false;
-            input?.SetWheelInputLocked(false);
+            if (input != null)
+                input.SetWheelInputLocked(false);
             _wheelRoot.SetActive(false);
         }
 
@@ -158,6 +165,10 @@ namespace GhostHunter.UI
 
             QuickSlotItemDefinition item = _loadout.GetSlot(index);
             if (item == null)
+                return;
+
+            PlayerCleaningController cleaning = _localPlayer != null ? _localPlayer.CleaningController : null;
+            if (cleaning != null && !cleaning.EquipSlot(index))
                 return;
 
             _equippedIndex = index;
@@ -209,6 +220,8 @@ namespace GhostHunter.UI
 
         private void UpdateEquippedDisplay()
         {
+            _equippedHintText.text = _equippedItem != null && _equippedItem.IsMop
+                ? "대걸레 · 좌클릭 청소\nTab 장비 변경" : "Tab 장비 선택";
             if (_equippedItem == null)
             {
                 _equippedIcon.enabled = false;
@@ -429,11 +442,11 @@ namespace GhostHunter.UI
 
             _equippedHintText = CreateText(rootObject.transform, "KeyHint", 14, TextAnchor.LowerCenter);
             RectTransform hintRect = (RectTransform)_equippedHintText.transform;
-            hintRect.anchorMin = new Vector2(0f, 0f);
-            hintRect.anchorMax = new Vector2(1f, 0f);
-            hintRect.pivot = new Vector2(0.5f, 1f);
-            hintRect.anchoredPosition = new Vector2(0f, -4f);
-            hintRect.sizeDelta = new Vector2(0f, 20f);
+            hintRect.anchorMin = new Vector2(0f, 0.5f);
+            hintRect.anchorMax = new Vector2(0f, 0.5f);
+            hintRect.pivot = new Vector2(1f, 0.5f);
+            hintRect.anchoredPosition = new Vector2(-12f, 0f);
+            hintRect.sizeDelta = new Vector2(185f, 42f);
             _equippedHintText.text = "Tab";
         }
 

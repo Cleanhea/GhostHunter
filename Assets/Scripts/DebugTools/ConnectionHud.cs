@@ -6,6 +6,7 @@ using GhostHunter.Gameplay.Player;
 using GhostHunter.Gameplay.Sanity;
 using Unity.Netcode;
 using UnityEngine;
+using GhostHunter.Gameplay.Cleaning;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 
@@ -35,6 +36,7 @@ namespace GhostHunter.DebugTools
         private ISanityDebug _sanityDebug;
         private IGhostDebug _ghostDebug;
         private ILocalPlayerContext _localPlayer;
+        private ICleaningService _cleaning;
 
         private readonly TuningHud _tuning = new();
 
@@ -44,6 +46,7 @@ namespace GhostHunter.DebugTools
         private bool _showGhost = true;
         private bool _showPhenomena;
         private bool _showSkill;
+        private bool _showCleaning = true;
 
         private GUIStyle _boxStyle;
         private GUIStyle _richLabelStyle;
@@ -138,6 +141,10 @@ namespace GhostHunter.DebugTools
                 _showSkill);
             if (_showSkill)
                 DrawSkillBody();
+
+            _showCleaning = SectionHeader(SectionTitle("청소", _cleaning != null), _showCleaning);
+            if (_showCleaning)
+                DrawCleaningBody();
 
             if (GUILayout.Button(
                     (_tuning.Visible ? "▼" : "▶") + $"  튜닝 창 (밸런스 값) — {_tuningToggleKey}",
@@ -534,6 +541,23 @@ namespace GhostHunter.DebugTools
 
         private void HandleSceneLoaded(Scene scene, LoadSceneMode mode) => ResolveSceneServices();
 
+        private void DrawCleaningBody()
+        {
+            if (_cleaning == null)
+            {
+                GUILayout.Label("Game 씬 청소 시스템 대기 중");
+                return;
+            }
+            GUILayout.Label($"남은 얼룩: {_cleaning.DirtyCount}개");
+            GUILayout.Label("Tab → 대걸레 선택 → 얼룩 조준 후 좌클릭");
+            bool previousEnabled = GUI.enabled;
+            GUI.enabled = previousEnabled && _cleaning.CanReset;
+            if (GUILayout.Button("얼룩 초기화 · 랜덤 재배치"))
+                _cleaning.ResetStains();
+            GUI.enabled = previousEnabled;
+            GUILayout.Label(_cleaning.Status);
+        }
+
         private void HandleSceneUnloaded(Scene scene) => ResolveSceneServices();
 
         private void ResolveSceneServices()
@@ -541,6 +565,7 @@ namespace GhostHunter.DebugTools
             Services.TryGet(out _sanityDebug);
             Services.TryGet(out _ghostDebug);
             Services.TryGet(out _localPlayer);
+            Services.TryGet(out _cleaning);
         }
     }
 }

@@ -1,5 +1,9 @@
 # 아키텍처 개요
 
+청소 프로토타입은 `Gameplay/Cleaning`의 씬 얼룩 풀과 `PlayerCleaningController`로 구성한다.
+`GameInstaller`가 `ICleaningService`를 등록하며 UI·디버그 HUD는 해당 계약을 사용한다.
+어셈블리 참조 변경은 없다 → [cleaning-system.md](cleaning-system.md).
+
 > 씬 구조(§4), 의존성 획득(§8), 스크립트 레이어(§2), asmdef 10개(§3)는 현재 프로젝트에 반영됐다.
 > 남은 이관 상태는 [../project/roadmap.md §2](../project/roadmap.md)를 본다.
 

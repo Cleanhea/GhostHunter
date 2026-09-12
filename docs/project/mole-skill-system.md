@@ -79,7 +79,7 @@
 | 가구 잡기·부양·발사 | [../architecture/throw-system.md](../architecture/throw-system.md) |
 | 귀신의 탐지·추격·어택 규칙, 은신처 판정 | [ghost-system.md](ghost-system.md) |
 | 정신력 수치·증감·디버프·UI | [sanity-system.md](sanity-system.md) |
-| 청소·이사 작업(얼룩, 이동 대상 가구)의 정의와 진행도 | **미작성** — 작업 시스템 기획서 |
+| 청소·이사 작업(얼룩, 이동 대상 가구)의 정의와 진행도 | **대걸레 청소 프로토타입 추가.** 실제 얼룩의 탐지 활성 상태 연결. 상세 룰·가구 완료·진행도는 미정 → [cleaning-system.md](cleaning-system.md) |
 | 아이템·장비(레이저 장비의 획득·소지 여부 포함) | **미작성** — 아이템 기획서 |
 
 ### 2.2 표기 기준
@@ -353,11 +353,13 @@ ADR을 대체하지는 않는다** — 위 코드 패턴을 새 소유자 권위
 
 ### 4.6 대상 정의 [TBD]
 
-**개별 가구의 작업 대상 여부와 얼룩을 판정하는 기준은 아직 미정**이다 → MS-5.
+**개별 가구의 작업 대상 여부와 정식 얼룩 규칙은 아직 미정**이다 → MS-5.
+대걸레 청소 프로토타입의 `CleaningStain`은 더러운 동안에만 마커를 활성화한다. 청소·초기화에
+따라 실제 얼룩 탐지가 갱신된다(2026-09-12) → [cleaning-system.md](cleaning-system.md).
 
 - 맵 기획서 **v0.4에 Target Furniture Type·Count 관리 방식이 정의됐다.** 개별 가구 선정·기존 가구의
-  수량 포함 여부·반출 완료·진행도는 미정이며 실제 작업 시스템은 미구현이다
-  → [map-generation.md §6·§12 MG-22](../architecture/map-generation.md). 얼룩(피·구정물)은 정식 콘텐츠로 존재하지 않는다.
+  수량 포함 여부·반출 완료·진행도는 미정이다
+  → [map-generation.md §6·§12 MG-22](../architecture/map-generation.md). 얼룩은 임시 바닥 청소 콘텐츠로 존재하며 정식 종류·생성 규칙은 대기다.
 - **B안 1차 구현(MAP-19, 2026-09-12)**은 별도 씬 풀 16개 [TEMP]를 작업 대상으로 선택하고
   `RandomFurnitureItem`의 서버 복제 상태로 `DetectionTargetMarker.SetTargetActive()`를 제어한다.
   B안 Game 씬 설치는 완료했으며 Unity Test Runner·Host/Client Play 검증은 대기다. 기존 인테리어 포함 여부·반출 완료·청소 진행도는 여전히 MS-5/MG-22다

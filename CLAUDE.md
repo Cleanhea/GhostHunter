@@ -46,6 +46,7 @@ GhostHunter — 1인칭 멀티플레이 "가구 던지기" 게임.
 | 작업 유형 | 필독 문서 |
 | --- | --- |
 | 신규 기능 설계 / 스펙 논의 | `docs/project/overview.md`, `docs/project/gdd.md`, `docs/project/roadmap.md` |
+| 청소·대걸레·얼룩·HUD 초기화 | `docs/project/cleaning-system.md`, `docs/architecture/cleaning-system.md` — 가구 완료·진행도는 미정 유지 |
 | 시스템·폴더·어셈블리·씬 구조 변경 | `docs/architecture/overview.md`, `docs/architecture/decisions/README.md` |
 | 네트워크(RPC·NetworkVariable·동기화) | `docs/architecture/networking.md` |
 | Steam 연동(초기화·로비·연결·빌드) | `docs/architecture/steam.md` |
@@ -57,7 +58,8 @@ GhostHunter — 1인칭 멀티플레이 "가구 던지기" 게임.
 | 정신력 | `docs/project/sanity-system.md`, `docs/architecture/sanity-system.md` |
 | 플레이어 스킬(탐지·굴착) | `docs/project/mole-skill-system.md` — **초안. 미결정 15건(MS-1~15)** |
 | 일시정지 메뉴·나가기·연결 끊김 | `docs/project/pause-menu-system.md`, `docs/architecture/pause-menu.md` — **구현됨.** 수동 검증·선행 검증 D-1 대기 |
-| 퀵슬롯(라디얼 휠) | `docs/project/quick-slot-system.md`, `docs/architecture/quick-slot.md` — **더미 스캐폴드 구현됨.** 실제 인벤토리는 별도 작업, 수동 Play 검증 대기 |
+| 퀵슬롯(라디얼 휠) | `docs/project/quick-slot-system.md`, `docs/architecture/quick-slot.md` — **대걸레·맨손 장착 연결.** 일반 인벤토리는 별도 작업, Local Host 입력 검증 완료 |
+| 가구 분해·조립(멀티 드라이버) | `docs/project/furniture-multidriver-system.md` — **기획서 1.0 이관만. 구현 없음.** 미결정 13건(MD-1~13) 중 6건은 착수 블로커, 이미지 2장 저장 대기. 구현 지시는 `docs/workflow/furniture-multidriver-implementation-prompt.md` |
 | 맵·방 프리셋·스폰 포인트·작업 대상 가구 | `docs/architecture/map-generation.md` — **기획서 v0.4 반영. Type·Count·B/C 비교·작업량 검증, 기존 도면·MAP-15 기록 포함. 미결정은 §12(MG-1~23)** |
 | C# 코드 작성 / 리팩터링 | `docs/conventions/code-style.md` |
 | 프리팹·씬·ScriptableObject·에셋 | `docs/conventions/unity-assets.md` |

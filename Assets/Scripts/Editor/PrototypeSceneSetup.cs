@@ -1420,6 +1420,8 @@ namespace GhostHunter.EditorTools
         {
             var paths = new List<string> { PlayerPrefabPath };
             paths.AddRange(FurniturePrefabPaths());
+            if (AssetDatabase.LoadAssetAtPath<GameObject>(CleaningSetup.StainPrefabPath) != null)
+                paths.Add(CleaningSetup.StainPrefabPath);
             return paths;
         }
 
