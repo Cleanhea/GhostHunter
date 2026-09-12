@@ -1055,6 +1055,14 @@ namespace GhostHunter.EditorTools
         private static void RefreshScenePlacedNetworkObjects()
         {
             Scene scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+            RefreshScenePlacedNetworkObjectsInCurrentScene(scene);
+        }
+
+        /// <summary>이미 저장한 Game 씬의 식별자를 갱신하며 다른 열린 씬은 언로드하지 않는다.</summary>
+        internal static void RefreshScenePlacedNetworkObjectsInCurrentScene(Scene scene)
+        {
+            if (!scene.IsValid() || !scene.isLoaded || scene.path != ScenePath)
+                throw new InvalidOperationException("저장된 Game 씬이 필요합니다.");
 
             MethodInfo onValidate = typeof(NetworkObject).GetMethod(
                 "OnValidate",
@@ -1073,7 +1081,8 @@ namespace GhostHunter.EditorTools
             }
 
             EditorSceneManager.MarkSceneDirty(scene);
-            EditorSceneManager.SaveScene(scene);
+            if (!EditorSceneManager.SaveScene(scene))
+                throw new InvalidOperationException("씬 NetworkObject 식별자 저장에 실패했습니다.");
             ValidateScenePlacedNetworkObjects(scene);
         }
 
@@ -1098,7 +1107,7 @@ namespace GhostHunter.EditorTools
         /// 씬 오브젝트도 프리팹과 같은 이유로 검사한다: 해시가 0이거나 겹치면 NGO 는
         /// 에러 없이 "클라이언트에만 오브젝트가 없는" 식으로 조용히 깨진다.
         /// </summary>
-        private static void ValidateScenePlacedNetworkObjects(Scene scene)
+        internal static void ValidateScenePlacedNetworkObjects(Scene scene)
         {
             var seen = new Dictionary<uint, string>();
 

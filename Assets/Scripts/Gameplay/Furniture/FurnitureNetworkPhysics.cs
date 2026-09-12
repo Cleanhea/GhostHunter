@@ -1,4 +1,5 @@
 using Unity.Netcode;
+using GhostHunter.Gameplay.Map;
 using UnityEngine;
 
 namespace GhostHunter.Gameplay.Furniture
@@ -24,12 +25,14 @@ namespace GhostHunter.Gameplay.Furniture
 
         public override void OnNetworkSpawn()
         {
-            bool simulate = IsServer;
+            RandomFurnitureItem randomItem = GetComponent<RandomFurnitureItem>();
+            bool placed = randomItem == null || randomItem.IsPlaced;
+            bool simulate = IsServer && placed;
             _rigidbody.isKinematic = !simulate;
 
             // Clients do not simulate furniture physics, but their colliders must stay
             // queryable so local targeting raycasts can select and grab furniture.
-            _rigidbody.detectCollisions = true;
+            _rigidbody.detectCollisions = placed;
         }
     }
 }

@@ -46,6 +46,7 @@
 | [0010](ADR-0010-server-authoritative-furniture-physics.md) | 가구 물리는 서버 권위로 시뮬레이션한다 | Accepted | 2026-08-19 |
 | [0011](ADR-0011-local-transport-path.md) | 로컬 UTP 경로를 유지하고 빌드 가드로 릴리스를 보호한다 | Accepted | 2026-08-20 |
 | [0012](ADR-0012-room-code-and-lobby-visibility.md) | 방 코드 6자리 + 로비 가시성·난입 정책 | **Proposed** | 2026-08-19 |
+| [0013](ADR-0013-plan-b-random-furniture.md) | B안 제작 기준 + 씬 가구 풀의 서버 랜덤 배치 | Accepted | 2026-09-12 |
 
 ## 5. 작성 대기
 
@@ -58,4 +59,4 @@
 
 ---
 
-최종 갱신: 2026-08-20
+최종 갱신: 2026-09-12

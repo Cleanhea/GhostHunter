@@ -31,7 +31,7 @@ GhostHunter — 1인칭 멀티플레이 "가구 던지기" 게임.
 > 가구/문 프리팹화(굽기까지 완료, 커밋 `015f874`)가 끝났다. 남은 것은 로비 정책(MIG-11, 결정 대기)이다 →
 > [docs/project/roadmap.md §2](docs/project/roadmap.md)
 >
-> **⚠️ 다음 큰 작업은 맵 v0.3(3층 대저택)이다.** 기획 반영·층별 도면·규모 결정이 끝났고,
+> **⚠️ 다음 큰 작업은 맵 생성 v0.4다.** Type·Count·생성/실패 처리·B/C 비교·작업량 검증을 반영했고,
 > **MAP-1 오른쪽 그레이박스 1차 생성까지 완료됐고, B/C 비교용 실내·계단·가구 생성기(MAP-15) 코드도 추가됐다.**
 > **B/C 메뉴 실행·씬 저장까지 완료했고(2026-09-06), 같은 날개 안 방-방 사이 여백을 없애는
 > 재설계도 반영했다(방+홀 비율 68.5~83.0%).** 수동 체감 확인 후 MAP-2로 진행한다. 착수 전
@@ -50,13 +50,15 @@ GhostHunter — 1인칭 멀티플레이 "가구 던지기" 게임.
 | 네트워크(RPC·NetworkVariable·동기화) | `docs/architecture/networking.md` |
 | Steam 연동(초기화·로비·연결·빌드) | `docs/architecture/steam.md` |
 | 플레이어 이동·시점·입력 | `docs/architecture/player-controller.md` |
+| 사망 처리·자유시점·플레이어 관전 | `docs/project/spectator-system.md`, `docs/architecture/player-controller.md`, `docs/architecture/networking.md` — **핵심 요구 확정 / 관전 구현 미착수.** 구현 지시는 `docs/workflow/spectator-implementation-prompt.md` |
 | 잡기·부양·발사 | `docs/architecture/throw-system.md` |
 | 가구 물리·아웃라인 | `docs/architecture/furniture-physics.md` |
 | 귀신 상태·어택·탐지·추격 | `docs/project/ghost-system.md`, `docs/architecture/ghost-prototype.md` |
 | 정신력 | `docs/project/sanity-system.md`, `docs/architecture/sanity-system.md` |
 | 플레이어 스킬(탐지·굴착) | `docs/project/mole-skill-system.md` — **초안. 미결정 15건(MS-1~15)** |
 | 일시정지 메뉴·나가기·연결 끊김 | `docs/project/pause-menu-system.md`, `docs/architecture/pause-menu.md` — **구현됨.** 수동 검증·선행 검증 D-1 대기 |
-| 맵·방 프리셋·스폰 포인트 | `docs/architecture/map-generation.md` — **기획서 v0.3 + HousePlanB·C 비교·MAP-15 생성기 코드 반영됨. 미결정 MG-1~20** |
+| 퀵슬롯(라디얼 휠) | `docs/project/quick-slot-system.md`, `docs/architecture/quick-slot.md` — **더미 스캐폴드 구현됨.** 실제 인벤토리는 별도 작업, 수동 Play 검증 대기 |
+| 맵·방 프리셋·스폰 포인트·작업 대상 가구 | `docs/architecture/map-generation.md` — **기획서 v0.4 반영. Type·Count·B/C 비교·작업량 검증, 기존 도면·MAP-15 기록 포함. 미결정은 §12(MG-1~23)** |
 | C# 코드 작성 / 리팩터링 | `docs/conventions/code-style.md` |
 | 프리팹·씬·ScriptableObject·에셋 | `docs/conventions/unity-assets.md` |
 | 커밋·브랜치·PR | `docs/conventions/git.md` |
@@ -114,10 +116,16 @@ GhostHunter — 1인칭 멀티플레이 "가구 던지기" 게임.
 - **맵은 `HousePrototypeBuilder.MapScale`(현재 ×1.5)로 평면(X·Z)만 넓힌다.** 배율은 **좌표에만** 곱한다 —
   트랜스폼 스케일을 쓰면 개구부 폭과 벽 높이까지 늘어난다. 벽 높이·두께·문 폭·창 크기·붙박이·계단·가구·
   플레이어·투척 수치는 배율을 받지 않는다. **씬의 어떤 오브젝트도 스케일이 1이 아니면 안 된다.**
-- **맵 v0.3 확정 (2026-09-05): 한 층 20×16m × 2개 층 + 다락 14×10m, `MapScale` = 1.0.**
-  층별 도면이 실측이라 배율을 곱하지 않는다. 침실 슬롯은 **4.2×4.0m**(현재 5.7×5.4에서 축소).
-  MAP-2 착수 전까지는 **현재 씬의 ×1.5 단층 구조를 그대로 둔다** —
+- **현재 제작 기준은 B안 (2026-09-12 사용자 선택, MG-20 해결): 30×24m ×2층 + 다락 20×14m.**
+  도면 파일은 `HousePlanC.png`다. `House_Prototype_PlanB`의 2026-09-06 여백 정리 실내 좌표를 사용하며
+  추가 배율을 곱하지 않는다. 기존 A안 20×16m 결정(MG-2)은 과거 기록으로 보존한다.
+  `PlanBFurnitureSpawnSetup` 설치 메뉴가 가구 풀·후보·서버 생성기와 B안 앞마당 시작 위치를 연결한다.
+  **코드 구현·C# 빌드·Unity 메뉴 실행·씬/설정 저장 완료, Unity Test Runner·Host/Client Play 검증 대기** —
   → [docs/architecture/map-generation.md §2](docs/architecture/map-generation.md) · [roadmap §1.2 MAP](docs/project/roadmap.md)
+- **맵 v0.4 작업량은 Target Furniture Type 수와 Type별 Count로 관리한다.**
+  Sofa 2 / Drawer 3 / Chair 5 / Box 6 = 16은 임시 예시다. 이전 Work Room 수치를 최신 기준으로 쓰지 않는다.
+  첫 구현은 별도 씬 가구 풀을 서버가 재배치하고 대상 마커를 복제한다. 최종 집계·반출 완료는 MG-22,
+  풀 소진 후 정책은 MG-23 대기 → [map-generation.md §10.1.3·§12](docs/architecture/map-generation.md).
 - **침실 2칸은 프리셋이 자동으로 채운다.** `Room_Presets` A·B·C 중 둘을 서버가 중복 없이 뽑아
   `House_01/RoomSlots`로 **옮긴다**(스폰이 아니다 — 중첩 `NetworkObject` 방지).
   침실에 손으로 가구를 놓지 않는다. 프리셋 가구는 방 남쪽 1.11m 띠를 비워야 한다.

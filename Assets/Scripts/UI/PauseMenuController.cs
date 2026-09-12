@@ -293,6 +293,25 @@ namespace GhostHunter.UI
         }
 
         /// <summary>
+        /// 세션이 멈출 때까지 프레임을 넘긴다. 끝내 멈추지 않으면 기다리기를 포기하고 진행한다 —
+        /// 여기서 영원히 대기하면 메뉴가 아무 반응 없는 상태로 남는다.
+        /// </summary>
+        private async UniTask WaitForSessionStoppedAsync()
+        {
+            const int maxFrames = 300;
+
+            for (int i = 0; i < maxFrames && _connection.IsRunning; i++)
+                await UniTask.NextFrame(destroyCancellationToken);
+
+            if (_connection.IsRunning)
+            {
+                Debug.LogError(
+                    $"{nameof(PauseMenuController)}: 세션이 {maxFrames} 프레임 안에 종료되지 않았다. " +
+                    "그대로 씬을 전환한다.", this);
+            }
+        }
+
+        /// <summary>
         /// 세션을 끊는다. 게스트는 Steam 로비에 남아 타이틀에서 다시 들어갈 수 있고,
         /// 호스트는 로비까지 나간다 → pause-menu-system.md §4.4 (PM-4·PM-5)
         /// </summary>
@@ -302,8 +321,10 @@ namespace GhostHunter.UI
             {
                 _connection.Disconnect(leaveLobby: _connection.IsHost);
 
-                // Shutdown 이 반영된 다음 프레임에 씬을 만진다.
-                await UniTask.NextFrame(destroyCancellationToken);
+                // 세션이 완전히 내려간 뒤에 씬을 만진다. 게스트가 붙어 있으면 NGO 는 클라이언트를
+                // 먼저 끊느라 한 프레임으로 끝나지 않는데, 그 사이에 씬을 전환하면 NGO 경로로 빠져
+                // 완료 콜백이 오지 않는 전환에 갇힌다 → docs/architecture/pause-menu.md §5.3
+                await WaitForSessionStoppedAsync();
             }
 
             // 세션이 끝났으니 커서와 입력 잠금을 원래대로 돌린다.

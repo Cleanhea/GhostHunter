@@ -301,7 +301,7 @@ MonoBehaviour:
     Address: 127.0.0.1
     Port: 7777
     WebSocketPath: /
-    ServerListenAddress: 
+    ServerListenAddress: 127.0.0.1
     ClientBindPort: 0
   DebugSimulator:
     PacketDelayMS: 0
@@ -362,6 +362,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: GhostHunter.Runtime::GhostHunter.DebugTools.ConnectionHud
   _visible: 1
   _toggleKey: 94
+  _tuningToggleKey: 95
 --- !u!114 &5221456195027015277
 MonoBehaviour:
   m_ObjectHideFlags: 0

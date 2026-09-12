@@ -21,6 +21,7 @@ Assets/Tests/
 ├── EditMode/
 │   ├── GhostHunter.Tests.EditMode.asmdef
 │   ├── FurnitureLaunchDirectionTests.cs   발사각 보정 (순수 계산)
+│   ├── FurniturePlacementPlannerTests.cs  랜덤 가구 수량·중복·충돌·방 분포·시드·실패 처리 (순수 계산)
 │   ├── ServicesTests.cs                   서비스 로케이터 계약
 │   ├── ProjectWiringTests.cs              레이어·씬 목록·네트워크 프리팹 식별자
 │   ├── GhostPrototypeStateMachineTests.cs 귀신 5상태·강제 진정 전이·10초 어택 판정(팀 평균 기반)

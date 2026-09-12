@@ -74,6 +74,9 @@ namespace GhostHunter.Systems.SceneFlow
             if (id == Current && _currentScene == scene)
                 return;
 
+            Scene previousScene = _currentScene;
+            bool previousLoadedByNgo = _currentLoadedByNgo;
+
             _currentScene = scene;
             _currentLoadedByNgo = true;
             Current = id;
@@ -83,7 +86,41 @@ namespace GhostHunter.Systems.SceneFlow
                 $"{nameof(SceneFlowController)}: 외부(NGO 동기화)에서 올라온 {id} 씬을 현재 씬으로 받아들였다.",
                 this);
 
+            // 게스트는 Lobby(또는 Title)에 서 있는 채로 Game 을 additive 로 받는다. 이전 씬을 내리지
+            // 않으면 EventSystem·AudioListener 가 겹치고 그 씬의 UI 가 게임 위에 그대로 남는다.
+            // NGO 가 올린 씬은 서버가 내리므로, 여기서는 우리가 올린 씬만 내린다.
+            if (!previousLoadedByNgo && previousScene.IsValid() && previousScene.isLoaded
+                && previousScene != scene)
+            {
+                UnloadAdoptedPreviousSceneAsync(previousScene).Forget();
+            }
+
             SceneChanged?.Invoke(id);
+        }
+
+        private async UniTaskVoid UnloadAdoptedPreviousSceneAsync(Scene scene)
+        {
+            string sceneName = scene.name;
+            AsyncOperation operation = SceneManager.UnloadSceneAsync(scene);
+
+            if (operation == null)
+            {
+                Debug.LogWarning(
+                    $"{nameof(SceneFlowController)}: 이전 씬 {sceneName} 을 내리지 못했다.", this);
+                return;
+            }
+
+            try
+            {
+                await operation.ToUniTask(cancellationToken: destroyCancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+
+            Debug.Log(
+                $"{nameof(SceneFlowController)}: NGO 씬을 받아들이며 이전 씬 {sceneName} 을 내렸다.", this);
         }
 
         public void Load(SceneId scene)
@@ -124,8 +161,14 @@ namespace GhostHunter.Systems.SceneFlow
             }
 
             NetworkManager networkManager = NetworkManager.Singleton;
+
+            // ShutdownInProgress 를 보지 않으면, 세션을 끊은 직후(아직 IsListening 이 true 인 프레임)의
+            // 전환이 NGO 경로로 빠진다. NGO 는 씬 로드는 시작해 놓고 셧다운으로 이벤트를 버리므로
+            // OnLoadEventCompleted 가 영원히 오지 않고, 이 전환은 IsLoading 에 박힌 채 끝나지 않는다.
+            // → docs/architecture/pause-menu.md §5.3
             bool useNgo = networkManager != null
                           && networkManager.IsListening
+                          && !networkManager.ShutdownInProgress
                           && networkManager.NetworkConfig.EnableSceneManagement;
 
             if (useNgo && !networkManager.IsServer)

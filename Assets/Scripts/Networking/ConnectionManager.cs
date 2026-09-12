@@ -92,6 +92,8 @@ namespace GhostHunter.Networking
                 net.OnClientConnectedCallback += HandleClientConnected;
                 net.OnClientDisconnectCallback += HandleClientDisconnected;
                 net.OnTransportFailure += HandleTransportFailure;
+                net.OnServerStarted += HandleServerStarted;
+                net.OnClientStarted += HandleClientStarted;
             }
             else
             {
@@ -113,6 +115,8 @@ namespace GhostHunter.Networking
                 _networkManager.OnClientConnectedCallback -= HandleClientConnected;
                 _networkManager.OnClientDisconnectCallback -= HandleClientDisconnected;
                 _networkManager.OnTransportFailure -= HandleTransportFailure;
+                _networkManager.OnServerStarted -= HandleServerStarted;
+                _networkManager.OnClientStarted -= HandleClientStarted;
             }
         }
 
@@ -404,6 +408,42 @@ namespace GhostHunter.Networking
                 return;
 
             ConnectToSteamHost(hostSteamId);
+        }
+
+        /// <summary>
+        /// 게스트가 동기화될 때 자기 씬을 전부 내리지 않게 한다. NGO 기본값 <c>Single</c> 은
+        /// 게스트의 <c>Bootstrap</c> 까지 내려서 <c>NetworkRig</c> 와 <c>Services</c> 등록을
+        /// 통째로 날린다 — 그러면 끊김 모달도 씬 복귀도 성립하지 않는다.
+        /// → docs/architecture/networking.md §3.5
+        /// </summary>
+        private void HandleServerStarted()
+        {
+            NetworkManager net = Net;
+            if (net == null || net.SceneManager == null)
+                return;
+
+            net.SceneManager.SetClientSynchronizationMode(LoadSceneMode.Additive);
+            net.SceneManager.VerifySceneBeforeLoading = VerifySceneBeforeLoading;
+        }
+
+        private void HandleClientStarted()
+        {
+            NetworkManager net = Net;
+            if (net == null || net.SceneManager == null)
+                return;
+
+            net.SceneManager.VerifySceneBeforeLoading = VerifySceneBeforeLoading;
+        }
+
+        /// <summary>
+        /// 이미 올라와 있는 씬은 동기화로 다시 올리지 않는다. Additive 동기화는 서버가 들고 있는
+        /// 씬 목록을 그대로 보내는데, 거기엔 <c>Bootstrap</c> 도 들어 있다. 걸러내지 않으면
+        /// 게스트에 두 번째 <c>Bootstrap</c> 이 올라와 NetworkManager 와 서비스가 중복 등록된다.
+        /// </summary>
+        private static bool VerifySceneBeforeLoading(int sceneIndex, string sceneName, LoadSceneMode loadSceneMode)
+        {
+            Scene existing = SceneManager.GetSceneByName(sceneName);
+            return !existing.IsValid() || !existing.isLoaded;
         }
 
         private void HandleClientConnected(ulong clientId)

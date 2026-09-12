@@ -9,15 +9,19 @@ namespace GhostHunter.Gameplay.Player
     /// 프로젝트의 InputActionAsset을 로컬 플레이어별로 복제한다. 원격 플레이어가 공유 에셋을
     /// 활성화해 내 입력을 읽는 일을 막기 위해 소유자에서만 런타임 복제본을 켠다.
     ///
-    /// <para><b>잠금은 두 가지이고 서로 독립이다.</b></para>
+    /// <para><b>잠금은 세 가지이고 서로 독립이다.</b></para>
     /// <list type="bullet">
     /// <item><see cref="SetGameplayInputLocked"/> — 일시정지 메뉴. <b>전부</b> 0으로 만든다(시점 포함).</item>
     /// <item><see cref="SetSkillInputLocked"/> — 굴착 중(두더지 스킬 기획서 §5.5.1, 사용자 확정
     /// 2026-09-05). <b>시야 회전(Look)과 스킬 키(Burrow)만 남기고</b> 나머지를 전부 막는다 —
     /// 땅속에서 점프·던지기·문 여닫기·자세 전환이 되면 안 된다.</item>
+    /// <item><see cref="SetWheelInputLocked"/> — 퀵슬롯 휠이 열린 동안(사용자 확정 2026-09-12).
+    /// <b>시야 회전(Look)만 0으로</b> 만들고 Attack·Interact·Burrow·Detect·Prone·Jump를 막는다.
+    /// Move·Crouch·Sprint는 살려 둔다(QS-5) — 휠을 연 채 이동할 수 있다. 휠 키(QuickSlot) 자신은
+    /// 이 잠금 중에도 계속 읽혀야 스스로 닫힌다.</item>
     /// </list>
-    /// 둘이 겹치면 메뉴 쪽이 이긴다(더 강한 잠금). 어느 쪽이든 자세(웅크리기)는 마지막 값으로
-    /// 얼려서, 잠기는 것만으로 플레이어가 일어서지 않게 한다.
+    /// 우선순위는 <b>메뉴 &gt; 굴착 &gt; 휠</b>이다 — 겹치면 더 강한 잠금이 이긴다. 어느 쪽이든
+    /// 자세(웅크리기)는 마지막 값으로 얼려서, 잠기는 것만으로 플레이어가 일어서지 않게 한다.
     /// </summary>
     [DefaultExecutionOrder(-200)]
     [DisallowMultipleComponent]
@@ -36,9 +40,11 @@ namespace GhostHunter.Gameplay.Player
         private InputAction _burrowAction;
         private InputAction _detectAction;
         private InputAction _proneAction;
+        private InputAction _quickSlotAction;
         private bool _jumpQueued;
         private bool _inputLocked;
         private bool _skillLocked;
+        private bool _wheelLocked;
 
         public Vector2 Move { get; private set; }
         public Vector2 Look { get; private set; }
@@ -50,11 +56,21 @@ namespace GhostHunter.Gameplay.Player
         /// <summary>달리기 입력(기본 Left Shift). 유지하는 동안 참.</summary>
         public bool SprintHeld { get; private set; }
 
+        /// <summary>
+        /// Look 액션의 가공되지 않은 델타값. <see cref="Look"/>과 달리 어떤 잠금 중에도 0으로
+        /// 바뀌지 않는다 — 퀵슬롯 휠이 자신의 포인터 누적을 계산할 때 이 값을 쓴다(휠이 열린
+        /// 동안 <see cref="Look"/> 자체는 카메라가 돌지 않도록 0이 된다).
+        /// </summary>
+        public Vector2 RawLookDelta { get; private set; }
+
         /// <summary>일시정지 메뉴가 게임플레이 입력을 잠갔는가 → docs/project/pause-menu-system.md §3.4</summary>
         public bool IsGameplayInputLocked => _inputLocked;
 
         /// <summary>굴착 중이라 시점·스킬 키를 뺀 조작이 잠겼는가 → docs/project/mole-skill-system.md §5.5.1</summary>
         public bool IsSkillInputLocked => _skillLocked;
+
+        /// <summary>퀵슬롯 휠이 열려 있어 시점을 뺀 조작이 잠겼는가 → docs/architecture/quick-slot.md</summary>
+        public bool IsWheelInputLocked => _wheelLocked;
 
         /// <summary>
         /// 굴착 스킬 토글 입력(§5.3) — 한 번 누르면 진입, 진입/유지 중 다시 누르면 즉시 종료.
@@ -65,6 +81,15 @@ namespace GhostHunter.Gameplay.Player
 
         /// <summary>탐지 스킬 입력(Q). 실패한 입력은 컨트롤러가 즉시 버린다.</summary>
         public bool DetectPressedThisFrame { get; private set; }
+
+        /// <summary>퀵슬롯 휠 입력(Tab)을 누르고 있는 동안 참.</summary>
+        public bool QuickSlotHeld { get; private set; }
+
+        /// <summary>퀵슬롯 휠 입력을 누른 프레임.</summary>
+        public bool QuickSlotPressedThisFrame { get; private set; }
+
+        /// <summary>퀵슬롯 휠 입력을 뗀 프레임 — 휠이 이 프레임에 선택을 확정한다.</summary>
+        public bool QuickSlotReleasedThisFrame { get; private set; }
 
         /// <summary>
         /// 엎드리기 토글 입력(Z) — 한 번 누르면 엎드리고, 다시 누르면 머리 위 공간이 있을 때 일어선다.
@@ -100,6 +125,7 @@ namespace GhostHunter.Gameplay.Player
             _burrowAction = _runtimeActions.FindAction("Player/Burrow", true);
             _detectAction = _runtimeActions.FindAction("Player/Detect", true);
             _proneAction = _runtimeActions.FindAction("Player/Prone", true);
+            _quickSlotAction = _runtimeActions.FindAction("Player/QuickSlot", true);
             _runtimeActions.Enable();
 
             // 일시정지 메뉴가 로컬 플레이어의 입력을 잠글 수 있도록 자신을 알린다.
@@ -122,8 +148,12 @@ namespace GhostHunter.Gameplay.Player
             SprintHeld = false;
             BurrowPressedThisFrame = false;
             DetectPressedThisFrame = false;
+            QuickSlotHeld = false;
+            QuickSlotPressedThisFrame = false;
+            QuickSlotReleasedThisFrame = false;
             _inputLocked = false;
             _skillLocked = false;
+            _wheelLocked = false;
         }
 
         /// <summary>
@@ -145,7 +175,28 @@ namespace GhostHunter.Gameplay.Player
             ClearBlockedInputs();
         }
 
-        /// <summary>두 잠금이 공통으로 버리는 입력. 시점과 자세 유지 값은 여기서 건드리지 않는다.</summary>
+        /// <summary>
+        /// 퀵슬롯 휠이 열린 동안 조작을 잠그거나 푼다. 잠긴 동안 <b>시야 회전만</b> 0이 되고
+        /// Attack·Interact·Burrow·Detect·Prone·Jump가 막힌다. Move·Crouch·Sprint는 살아 있다(QS-5,
+        /// 사용자 확정 2026-09-12) — 휠을 연 채로 이동할 수 있다. 휠 입력(QuickSlot) 자신은 이
+        /// 잠금의 영향을 받지 않는다 — 그래야 휠이 스스로 닫힌다.
+        ///
+        /// 일시정지 메뉴·굴착 잠금과 독립이며, 셋이 겹치면 메뉴 &gt; 굴착 &gt; 휠 순으로 이긴다.
+        /// </summary>
+        public void SetWheelInputLocked(bool locked)
+        {
+            if (_wheelLocked == locked)
+                return;
+
+            _wheelLocked = locked;
+
+            if (!locked)
+                return;
+
+            ClearWheelBlockedInputs();
+        }
+
+        /// <summary>세 잠금이 공통으로 버리는 입력. 시점과 자세 유지 값은 여기서 건드리지 않는다.</summary>
         private void ClearBlockedInputs()
         {
             Move = Vector2.zero;
@@ -154,6 +205,24 @@ namespace GhostHunter.Gameplay.Player
             InteractPressedThisFrame = false;
             PronePressedThisFrame = false;
             SprintHeld = false;
+            BurrowPressedThisFrame = false;
+            DetectPressedThisFrame = false;
+            QuickSlotHeld = false;
+            QuickSlotPressedThisFrame = false;
+            QuickSlotReleasedThisFrame = false;
+            _jumpQueued = false;
+        }
+
+        /// <summary>
+        /// 휠 잠금 전용 — <see cref="ClearBlockedInputs"/>와 달리 Move·Crouch·Sprint·QuickSlot은
+        /// 건드리지 않는다(QS-5, 휠 자신은 살아 있어야 함).
+        /// </summary>
+        private void ClearWheelBlockedInputs()
+        {
+            AttackPressedThisFrame = false;
+            AttackReleasedThisFrame = false;
+            InteractPressedThisFrame = false;
+            PronePressedThisFrame = false;
             BurrowPressedThisFrame = false;
             DetectPressedThisFrame = false;
             _jumpQueued = false;
@@ -186,6 +255,9 @@ namespace GhostHunter.Gameplay.Player
             if (_runtimeActions == null)
                 return;
 
+            // 어떤 잠금 중에도 계속 갱신된다 — 퀵슬롯 휠이 카메라와 무관하게 자기 포인터를 누적할 때 쓴다.
+            RawLookDelta = _lookAction.ReadValue<Vector2>();
+
             if (_inputLocked)
             {
                 // 잠긴 동안에는 액션을 읽지 않는다. CrouchHeld 는 마지막 값 그대로 두어
@@ -206,8 +278,23 @@ namespace GhostHunter.Gameplay.Player
                 return;
             }
 
+            if (_wheelLocked)
+            {
+                // 퀵슬롯 휠이 열린 동안(QS-5) — 시야 회전만 막고 이동은 살려 둔다.
+                // 휠 입력 자신은 계속 읽어야 스스로 닫힌다.
+                ClearWheelBlockedInputs();
+                Look = Vector2.zero;
+                Move = _moveAction.ReadValue<Vector2>();
+                CrouchHeld = _crouchAction.IsPressed();
+                SprintHeld = _sprintAction.IsPressed();
+                QuickSlotHeld = _quickSlotAction.IsPressed();
+                QuickSlotPressedThisFrame = _quickSlotAction.WasPressedThisFrame();
+                QuickSlotReleasedThisFrame = _quickSlotAction.WasReleasedThisFrame();
+                return;
+            }
+
             Move = _moveAction.ReadValue<Vector2>();
-            Look = _lookAction.ReadValue<Vector2>();
+            Look = RawLookDelta;
             AttackPressedThisFrame = _attackAction.WasPressedThisFrame();
             AttackReleasedThisFrame = _attackAction.WasReleasedThisFrame();
             CrouchHeld = _crouchAction.IsPressed();
@@ -219,6 +306,9 @@ namespace GhostHunter.Gameplay.Player
             BurrowPressedThisFrame = _burrowAction.WasPressedThisFrame();
             DetectPressedThisFrame = _detectAction.WasPressedThisFrame();
             PronePressedThisFrame = _proneAction.WasPressedThisFrame();
+            QuickSlotHeld = _quickSlotAction.IsPressed();
+            QuickSlotPressedThisFrame = _quickSlotAction.WasPressedThisFrame();
+            QuickSlotReleasedThisFrame = _quickSlotAction.WasReleasedThisFrame();
 
             if (_jumpAction.WasPressedThisFrame())
                 _jumpQueued = true;

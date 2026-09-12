@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using GhostHunter.Gameplay.Interaction;
+using GhostHunter.Gameplay.Map;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -34,6 +35,7 @@ namespace GhostHunter.Gameplay.Furniture
 
         private Rigidbody _rigidbody;
         private FurnitureLauncher _launcher;
+        private RandomFurnitureItem _randomItem;
         private float _heldSince;
         private float _launchedAt;
 
@@ -54,6 +56,7 @@ namespace GhostHunter.Gameplay.Furniture
         {
             _rigidbody = GetComponent<Rigidbody>();
             _launcher = GetComponent<FurnitureLauncher>();
+            _randomItem = GetComponent<RandomFurnitureItem>();
         }
 
         public override void OnNetworkSpawn()
@@ -99,6 +102,8 @@ namespace GhostHunter.Gameplay.Furniture
 
         public bool CanGrab(ulong clientId)
         {
+            if (_randomItem != null && !_randomItem.IsPlaced)
+                return false;
             if (_state.Value == FurnitureState.Launched)
                 return false;
 
@@ -122,6 +127,7 @@ namespace GhostHunter.Gameplay.Furniture
             Vector3 direction)
         {
             if (!IsServer
+                || (_randomItem != null && !_randomItem.IsPlaced)
                 || _state.Value == FurnitureState.Launched
                 || _holders.Count >= MaxHolders
                 || ContainsHolder(clientId)

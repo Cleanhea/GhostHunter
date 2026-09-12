@@ -1,0 +1,52 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 83cdfd258edb7994e99367181ebd6d35, type: 3}
+  m_Name: FurnitureSpawnSettings_PlanB
+  m_EditorClassIdentifier: GhostHunter.Gameplay::GhostHunter.Gameplay.Map.FurnitureSpawnSettings
+  _pools:
+  - _poolId: Sofa
+    _spawnType: 0
+    _minimumCount: 2
+    _maximumCount: 2
+    _perRoom: 0
+    _isWorkTarget: 1
+  - _poolId: Drawer
+    _spawnType: 0
+    _minimumCount: 3
+    _maximumCount: 3
+    _perRoom: 0
+    _isWorkTarget: 1
+  - _poolId: Chair
+    _spawnType: 0
+    _minimumCount: 5
+    _maximumCount: 5
+    _perRoom: 0
+    _isWorkTarget: 1
+  - _poolId: Box
+    _spawnType: 0
+    _minimumCount: 6
+    _maximumCount: 6
+    _perRoom: 0
+    _isWorkTarget: 1
+  _minimumTargetTypes: 4
+  _maximumTargetTypes: 4
+  _maximumTargetsPerRoom: 0
+  _useFixedSeed: 0
+  _seed: 1
+  _searchBudget: 20000
+  _obstacleMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  _floorCandidatesPerRoom: 7
+  _candidateSpacing: 1.5
+  _wallInset: 1.5
+  _clearPathWidth: 1.2

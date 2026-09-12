@@ -37,7 +37,7 @@ Assets/Scripts/
 │   ├── Furniture/     가구 오브젝트·부양·발사·아웃라인
 │   ├── Ghost/         귀신 프로토타입 상태·탐지·추격·스폰 서비스
 │   ├── Sanity/        개인 정신력·팀 평균·감소 누적·디버프 상태
-│   └── Map/           방 슬롯 배정·프리셋
+│   └── Map/           방 슬롯·프리셋·랜덤 가구 설정/후보/서버 배치
 ├── Networking/    연결·세션 관리 (트랜스포트 구현은 모른다)
 ├── UI/            뷰·프리젠터. Gameplay를 참조하되 그 반대는 금지
 ├── Systems/       매니저·부트스트랩·씬 로딩 등 횡단 시스템
@@ -237,6 +237,13 @@ Furniture (씬 배치 NetworkObject, 프리팹 인스턴스)
 ├─ FurnitureLauncher        서버 전용. 발사 속도와 보정 각도 계산·적용
 └─ FurnitureOutline         클라이언트 전용. 조준/홀드 상태에 따라 윤곽선 표시
 
+RandomFurniture (B안 설치 메뉴로 Game 씬에 저장 완료)
+├─ FurniturePool            씬 프리팹 인스턴스. NetworkObject를 가진 부모를 두지 않음
+│  └─ RandomFurnitureItem   배치/대상 상태 복제, 미선택 가구 숨김·충돌/잡기 제한·탐지 마커 제어
+├─ SpawnPoints              FurnitureSpawnPoint: 타입·크기·풀·방 지정
+└─ Controller               NetworkObject + FurnitureSpawnController + FurnitureResetter
+                            서버 전체 계획 검증→이동→완료 상태 복제. 클라이언트 재계산 없음
+
 Door (씬 배치 NetworkObject)
 ├─ 키네마틱 Rigidbody (경첩)
 └─ DoorInteractable         열림/닫힘 bool 하나만 복제. 서버 권위, 거리 검증
@@ -273,6 +280,7 @@ UI (씬별, 로컬 전용)
 | `PlayerMoveSettings` | 이동 속도, 가속, 점프 높이, 중력 배수, 마우스 감도 |
 | `FurnitureThrowSettings` | 부양 거리/강성/댐핑, 차지 시간, 1인/2인 발사 속도, 최대 사거리 |
 | `FurnitureDefinition` | 가구 종류별 질량, 무게 등급(1인/2인), 기본 프리팹 참조 |
+| `FurnitureSpawnSettings` | 맵별 풀·Target Type/Count 범위·방 상한·시드·탐색 예산·B안 후보 설치값. 최초 임시 4종 16개 |
 | `GhostPrototypeSettings` | 팀 평균 임계값(80/60/30), 상태 지속시간, §7.3 어택 확률표, 시야·소리·추격·수색 수치. **정신력 값 필드도 활동도 필드도 없다** |
 | `SanitySystemSettings` | 시작 100%, 감소 시간·양, 디버프 임계값·속삭임 간격 |
 | `DetectionSkillSettings` | 탐지 시전 임시 구간, 5초 표시, 10초 쿨타임, 시전 화면 파란빛 색·최대 불투명도, 가구/얼룩 색, 렌더링 모드, 사망 취소 정책 |
@@ -308,4 +316,4 @@ UI (씬별, 로컬 전용)
 
 관련: [networking.md](networking.md) · [steam.md](steam.md) · [decisions/](decisions/README.md)
 
-최종 갱신: 2026-09-04 (일시정지 메뉴 구현 — `GhostHunter.UI` 가 `Unity.InputSystem` 참조, `PauseMenuController` 추가. 이전: 2026-08-30)
+최종 갱신: 2026-09-12 (B안 랜덤 가구 설정·후보·서버 배치 구조와 Game 씬 배선 반영. 풀 16개·후보 91개 저장, 기존 어셈블리 경계 유지.)

@@ -43,17 +43,21 @@
 | `Detect` | **Q** | 탐지 스킬 — 소유자 화면에서만 5초 동안 활성 마커를 표시하고 종료 후 10초 대기 |
 | `Prone` | Z (토글) | 엎드리기 — 침대 밑으로 기어 들어가는 3번째 자세 |
 | **`Pause`** | **ESC** / 게임패드 Start | **일시정지 메뉴 열기.** 닫기는 기존 `UI/Cancel`(`*/{Cancel}`) 이 받는다 (아래 참조) |
+| `QuickSlot` | **Tab** (홀드) | 퀵슬롯(라디얼 휠) 열기 — 사용자 확정 2026-09-12. 뗀 순간 확정한다 → [quick-slot-system.md](../project/quick-slot-system.md) |
 
 > **`Burrow` 는 T 로 확정됐다(2026-09-05).** 커밋 `e851cff` 가 E→R(Interact 충돌 회피),
 > 커밋 `0aad69e` 가 R→T 로 옮겼고, 실제 바인딩인 T 를 그대로 채택했다.
 > `ProjectWiringTests`의 굴착 키 단언도 현재 확정값 T에 맞춰져 있다.
 >
-> **입력 잠금은 두 가지고 서로 독립이다.**
+> **입력 잠금은 세 가지고 서로 독립이다.**
 > `SetGameplayInputLocked` 는 일시정지 메뉴용으로 **시점까지 전부** 0으로 만들고,
-> `SetSkillInputLocked` 는 굴착용으로 **`Look` 과 `Burrow` 만 남긴다**(2026-09-05 구현).
-> 겹치면 메뉴 쪽이 이긴다. 어느 쪽이든 `CrouchHeld` 는 마지막 값으로 얼려, 잠기는 것만으로
-> 자세가 바뀌지 않게 한다. 굴착은 시전 시작에 걸고 **정상 종료·시전 취소·디스폰 세 경로 모두**
-> 에서 푼다 → [mole-skill-system.md §5.5.1](../project/mole-skill-system.md).
+> `SetSkillInputLocked` 는 굴착용으로 **`Look` 과 `Burrow` 만 남기며**(2026-09-05 구현),
+> `SetWheelInputLocked` 는 퀵슬롯 휠용으로 **`Look` 만 0으로 만들고 `Move`·`Crouch`·`Sprint`·
+> `QuickSlot` 은 남긴다**(2026-09-12 구현, QS-5). 겹치면 **메뉴 > 굴착 > 휠** 순으로 더 강한 쪽이
+> 이긴다. 어느 잠금이든 `CrouchHeld` 는 마지막 값으로 얼려, 잠기는 것만으로 자세가 바뀌지 않게
+> 한다. 굴착은 시전 시작에 걸고 **정상 종료·시전 취소·디스폰 세 경로 모두**에서 푼다 →
+> [mole-skill-system.md §5.5.1](../project/mole-skill-system.md). 휠은 열리는 조건이 깨지는
+> 즉시 스스로 닫으며 푼다 → [quick-slot.md](quick-slot.md).
 >
 > **탐지 스킬은 `Q`로 배선됐다**(`Player/Detect`). 판정·시각 표시·공통 UI 구현은
 > [mole-skill-system.md §4·§6](../project/mole-skill-system.md)에 따른다. 탐지 결과는
@@ -181,7 +185,9 @@ Player (root)          ← 요(Y) 회전. ClientNetworkTransform이 복제
 
 ---
 
-최종 갱신: 2026-09-04 (ESC 커서 토글을 제거하고 일시정지 메뉴가 커서를 관리하도록 **해소안 A를 구현**
+최종 갱신: 2026-09-12 (퀵슬롯 휠 `QuickSlot`(Tab) 액션과 세 번째 입력 잠금 `SetWheelInputLocked`
+추가 — 우선순위 메뉴 > 굴착 > 휠 → [quick-slot.md](quick-slot.md). 이전: 2026-09-04 ESC 커서
+토글을 제거하고 일시정지 메뉴가 커서를 관리하도록 **해소안 A를 구현**
 — `Player/Pause` 신설·입력 잠금 포함. 이전: 엎드리기(Z 토글)
 3번째 자세 추가 — `PlayerStance`/`PlayerPosture` 분리, 침대 밑 은신 연동. `Prototype` → `Game` 씬 개명 등
 나머지 낡은 서술은 미정리)

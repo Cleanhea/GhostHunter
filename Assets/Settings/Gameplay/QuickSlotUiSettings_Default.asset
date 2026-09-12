@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7dbd0df3c403fae4a8238b12f78c097a, type: 3}
+  m_Name: QuickSlotUiSettings_Default
+  m_EditorClassIdentifier: GhostHunter.Gameplay::GhostHunter.Gameplay.Player.QuickSlotUiSettings
+  _outerRadius: 220
+  _ringThicknessRatio: 0.35
+  _sensitivity: 0.6
+  _deadZoneRadius: 24
+  _slotBaseColor: {r: 0.15686275, g: 0.15686275, b: 0.15686275, a: 0.78431374}
+  _slotHighlightColor: {r: 0.7764706, g: 0.23529412, b: 0.23529412, a: 0.9019608}
+  _emptySlotColor: {r: 0.078431375, g: 0.078431375, b: 0.078431375, a: 0.54901963}
+  _backgroundDimAlpha: 0.45
+  _titleFontSize: 24
+  _descriptionFontSize: 16
+  _textColor: {r: 1, g: 1, b: 1, a: 1}
+  _textureResolution: 256
+  _referenceResolution: {x: 1920, y: 1080}
