@@ -94,10 +94,10 @@ null`(빈 슬롯, QS-2)이어도 아무 것도 하지 않는다 — 둘 다 "장
 
 ## 5. 알려진 범위 밖 (다음 작업으로 미룸)
 
-- **사망 상태 게이팅 없음(기획과 코드의 차이).** `QuickSlotWheelUi`는 현재 생존 상태를 조회하지 않는다.
-  `ILocalPlayerContext`에는 정신력 참조가 없지만 `ISanityTeamService.TryGetLocalState`는 존재한다.
-  **실제 인벤토리를 기다리지 않고 [관전 작업 SP-IMPL-1](../project/roadmap.md#15-sp-사망-후-관전-todo)에서**
-  열림/유지 조건과 사망 시 선택 취소를 연결한다. 조회 경로는 구현 시 기존 서비스와 비교해 선택한다.
+- ~~**사망 상태 게이팅 없음.**~~ ✅ **해결 (2026-09-12, SP-IMPL-1)** — `ILocalPlayerContext`에
+  `SanityNetworkState Sanity` 참조를 추가했고(`SanityNetworkState`가 자신을 등록), `QuickSlotWheelUi.
+  CanOpen`이 `_localPlayer.Sanity.HasSanity`를 함께 검사한다. 사망 시 열려 있던 휠은 기존
+  `CanRemainOpen` → `Close()` 경로로 선택을 취소하고 닫힌다 — 별도 사망 분기가 필요 없었다.
 - **게임패드 미지원**(QS-7). `Player/QuickSlot`은 키보드 바인딩만 갖는다.
 - **아이콘은 전부 자리표시자**(QS-10). `Assets/Settings/Gameplay/QuickSlotItem_Placeholder{1,2}.
   asset`는 검증용 더미이고, `QuickSlotLoadout_Default.asset`는 4슬롯 중 2개만 채워 빈 슬롯
@@ -135,4 +135,4 @@ null`(빈 슬롯, QS-2)이어도 아무 것도 하지 않는다 — 둘 다 "장
 [player-controller.md](player-controller.md) · [pause-menu.md](pause-menu.md)(입력 잠금 선례) ·
 [../conventions/code-style.md](../conventions/code-style.md)
 
-최종 갱신: 2026-09-12 (더미 스캐폴드 구현·검증 상태 문서화. 사망 게이팅은 관전 SP-IMPL-1에서 처리하도록 후속 연결, 코드 미수정.)
+최종 갱신: 2026-09-12 (사망 게이팅을 관전 SP-IMPL-1로 구현 — `ILocalPlayerContext.Sanity` 추가, `CanOpen` 검사 반영. Unity Test Runner 통과, Host/Client Play 검증 대기.)

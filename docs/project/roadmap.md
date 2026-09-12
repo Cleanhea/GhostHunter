@@ -131,15 +131,17 @@
 
 > 2026-09-12 사용자 요청: 사망 시 특수능력 사용 불가 + 맵을 통과하는 자유시점 + 생존 플레이어 시점 관전.
 > 규칙은 [관전 시스템 기획서](spectator-system.md), 작업 지시는 [구현 프롬프트](../workflow/spectator-implementation-prompt.md)를 따른다.
-> **관전 구현은 미착수다.** 승패·시체 생성과 분리해 진행하며, 미정 세부 규칙은 기획서 §5에서 확인한다.
+> **SP-1~SP-4 확정, SP-IMPL-1~3 코드 구현 완료(2026-09-12).** 승패·시체 생성과 분리해 진행한다.
+> Host/Client Play 수동 검증(SP-IMPL-4)이 남아 있다.
 
 | # | TODO | 선행 조건 | 상태 |
 | --- | --- | --- | --- |
 | SP-DOC | 사망·관전 요구와 기존 코드 차이 기록, 관련 기획서 연결, 구현 프롬프트 작성 | 사용자 요청 | **완료 (2026-09-12, 문서만)** — 추가 링크·코드 경로·diff 검사 통과. 미정 세부 규칙은 §5에 유지 |
-| SP-IMPL-1 | 사망 시 생존 조작·특수능력 차단, 진행 중 상태 정리, 문·가구 서버 요청 생존 검증, 퀵슬롯 사망 게이팅 | §5 SP-2 | 대기 |
-| SP-IMPL-2 | 충돌·중력 없는 로컬 자유 카메라, 수평·수직 이동, 모드 전환 입력 | §5 SP-1·SP-3·SP-4 | 대기 |
-| SP-IMPL-3 | 생존자 1인칭 추종, 상하 시선 동기화, 대상 선택·사망·이탈 처리 | §5 SP-1·SP-4 | 대기 |
-| SP-IMPL-4 | 메뉴·굴착·휠 잠금 충돌, 서버 디버그 부활·리셋·디스폰 복구, 카메라/리스너·멀티플레이 검증 | SP-IMPL-1~3 | 대기 |
+| SP-DECIDE | §5 SP-1~SP-4 미결정 사항 사용자 확정 | SP-DOC | **완료 (2026-09-12)** — 제안대로 확정. [spectator-system.md §5](spectator-system.md#5-결정-사항-2026-09-12-사용자-확정) 참고 |
+| SP-IMPL-1 | 사망 시 생존 조작·특수능력 차단, 진행 중 상태 정리, 문·가구 서버 요청 생존 검증, 퀵슬롯 사망 게이팅 | SP-DECIDE | **완료 (2026-09-12)** — `PlayerInputReader.SetDeathInputLocked`(메뉴 다음 최우선), `GrabController`/`DoorInteractable` 서버 생존 검사, `FurnitureGrabTarget.ServerForceRelease` 자동 호출, `QuickSlotWheelUi.CanOpen` 게이팅. EditMode 통과, Play 미검증 |
+| SP-IMPL-2 | 충돌·중력 없는 로컬 자유 카메라, 수평·수직 이동, 모드 전환 입력 | SP-DECIDE | **완료 (2026-09-12)** — `SpectatorController`(신규) 자유비행. Play 미검증 |
+| SP-IMPL-3 | 생존자 1인칭 추종, 상하 시선 동기화, 대상 선택·사망·이탈 처리 | SP-DECIDE | **완료 (2026-09-12)** — `PlayerLook.Pitch`/`PlayerMotor.CameraLocalHeight` 복제 + `SpectatorTargetSelector`. Play 미검증 |
+| SP-IMPL-4 | 메뉴·굴착·휠 잠금 충돌, 서버 디버그 부활·리셋·디스폰 복구, 카메라/리스너·멀티플레이 검증 | SP-IMPL-1~3 | **대기 — Host/Client Play 수동 검증 필요** (spectator-system.md §6 AC-1~9 ★ 항목) |
 
 ## 2. 현재 스프린트 — MIG: 아키텍처 정비
 
@@ -419,7 +421,9 @@
 
 ---
 
-최종 갱신: 2026-09-12 (사망 후 관전 문서 SP-DOC 완료·구현 SP-IMPL-1~4 추가, 퀵슬롯 사망 게이팅 연계.
+최종 갱신: 2026-09-12 (사망 후 관전 SP-DECIDE 확정 + SP-IMPL-1~3 코드 구현 완료: SpectatorController·
+SpectatorTargetSelector·사망 입력 잠금 우선순위·서버 생존 검사·QS-사망 게이팅. Player 프리팹 배선은
+SpectatorSetup 도구로 완료, EditMode 211·PlayMode 12 통과. SP-IMPL-4 Host/Client Play 검증 대기.
 같은 날 맵 v0.4 문서 동기화 MAP-16 + B안 선택·랜덤 가구 1차 코드 MAP-19.
 Unity 설치·씬 저장 완료, Test Runner·Host/Client Play 검증 대기. MAP-17 정식 작업·MAP-18 체감 검증 계속 대기.
 Work Room 이전 기준을 보류하고 D-14·MG 의존 관계 갱신.)

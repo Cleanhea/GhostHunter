@@ -5,11 +5,12 @@
 | 컴포넌트 | 실행 위치 | 역할 |
 |---|---|---|
 | `PlayerInputReader` | 로컬 소유자만 | Input System 액션 → 값 노출. 다른 로직은 이걸 읽기만 함 |
-| `PlayerLook` | 로컬 소유자만 | 마우스 델타 → 요(몸통 Y 회전) / 피치(카메라 X 회전) |
-| `PlayerMotor` | 로컬 소유자만 | `CharacterController`로 이동·중력·점프 |
+| `PlayerLook` | 로컬 소유자만(피치 복제는 전원) | 마우스 델타 → 요(몸통 Y 회전) / 피치(카메라 X 회전) |
+| `PlayerMotor` | 로컬 소유자만(카메라 높이 복제는 전원) | `CharacterController`로 이동·중력·점프 |
 | `PlayerInteractor` | 로컬 소유자만 | 조준선 끝의 문을 찾아 E 입력을 넘김 |
 | `ClientNetworkTransform` | 전원 | 소유자가 쓰고 나머지가 읽는 트랜스폼 복제 |
 | `PlayerVisuals` | 전원 | 원격 플레이어 몸통 표시, 로컬은 숨김 |
+| `SpectatorController` | 로컬 소유자만 | 사망 후 관전(자유시점·생존자 추종) — `docs/project/spectator-system.md` |
 
 ## 이동 방식: CharacterController
 
@@ -89,12 +90,17 @@
 
 ```
 Player (root)          ← 요(Y) 회전. ClientNetworkTransform이 복제
-└─ CameraPivot         ← 피치(X) 회전. 로컬 전용, 복제 안 함
+└─ CameraPivot         ← 피치(X) 회전. 로컬이 계산, NetworkVariable<float>로 전원에 복제
    └─ Main Camera      ← 로컬 소유자만 enabled = true
 ```
 
 - 피치는 `[-89°, +89°]`로 클램프.
-- 피치는 네트워크로 복제하지 않는다 — 단, **던지기 방향은 피치에 의존**하므로 발사 시 조준 방향 벡터를 RPC 파라미터로 함께 보낸다. 원격 플레이어의 머리 각도를 시각적으로 보여줄 필요가 생기면 그때 `NetworkVariable<float> pitch`를 추가한다.
+- **피치는 네트워크로 복제한다**(`PlayerLook.Pitch`, Owner 쓰기 + Everyone 읽기 — `PlayerMotor`의
+  `IsCrouching`/`IsProne`, `MoleBurrowController`의 `IsBurrowed`와 같은 ADR-0008 이동 권위 예외의
+  연장). 사망 후 관전(`SpectatorController`)이 생존자의 상하 시선을 재현하려고 2026-09-12에
+  추가했다 — 그 전까지는 로컬 전용이었다. 던지기 방향은 여전히 조준 벡터를 RPC 파라미터로
+  직접 보낸다(피치 복제와 별개). `PlayerMotor.CameraLocalHeight`도 같은 방식으로 복제해
+  자세·굴착에 따른 눈높이를 함께 재현한다.
 - 커서: 플레이 중 `Cursor.lockState = CursorLockMode.Locked`. `PlayerLook`은 스폰·디스폰 시에만
   초기 잠금 상태를 관리한다. 플레이 중 ESC를 누르면 일시정지 메뉴가 커서를 해제·표시하고,
   닫으면 다시 잠근다. 커서가 잠기지 않은 동안 `PlayerLook`은 시점 처리를 건너뛴다.
@@ -129,7 +135,7 @@ Player (root)          ← 요(Y) 회전. ClientNetworkTransform이 복제
 
 동기화 설정:
 - Position: X/Y/Z 동기화, 임계값 0.01
-- Rotation: **Y만** 동기화 (피치는 로컬 카메라 전용)
+- Rotation: **Y만** 동기화 (피치는 `PlayerLook`의 별도 `NetworkVariable<float>`로 복제 — 위 참고)
 - Scale: 동기화 끔
 - Interpolate: 켬 (원격 플레이어 끊김 방지)
 

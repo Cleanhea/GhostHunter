@@ -1,3 +1,4 @@
+using GhostHunter.Gameplay.Sanity;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -89,11 +90,17 @@ namespace GhostHunter.Gameplay.Interaction
                 _isOpen.Value = !_isOpen.Value;
         }
 
-        /// <summary>문은 아무도 소유하지 않으므로 소유권 대신 거리로 검증한다.</summary>
+        /// <summary>
+        /// 문은 아무도 소유하지 않으므로 소유권 대신 거리로 검증한다. 사망한 플레이어의 요청은
+        /// 거절한다(관전 기획서 SP-2, 사용자 확정 2026-09-12) — 귀신의 서버 전용
+        /// <see cref="ServerForceOpen"/>/<see cref="ServerForceClose"/>/<see cref="ServerForceToggle"/>
+        /// 는 이 RPC를 거치지 않으므로 영향을 받지 않는다.
+        /// </summary>
         [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
         private void RequestToggleServerRpc(RpcParams rpcParams = default)
         {
-            if (!ServerIsSenderInRange(rpcParams.Receive.SenderClientId))
+            ulong sender = rpcParams.Receive.SenderClientId;
+            if (!ServerIsSenderInRange(sender) || !ServerIsSenderAlive(sender))
                 return;
 
             _isOpen.Value = !_isOpen.Value;
@@ -101,6 +108,25 @@ namespace GhostHunter.Gameplay.Interaction
 
         private bool ServerIsSenderInRange(ulong senderClientId)
         {
+            if (!TryGetSenderPlayerObject(senderClientId, out NetworkObject playerObject))
+                return false;
+
+            return Vector3.Distance(playerObject.transform.position, transform.position)
+                <= _maxInteractDistance;
+        }
+
+        private bool ServerIsSenderAlive(ulong senderClientId)
+        {
+            if (!TryGetSenderPlayerObject(senderClientId, out NetworkObject playerObject))
+                return false;
+
+            SanityNetworkState sanity = playerObject.GetComponent<SanityNetworkState>();
+            return sanity == null || sanity.HasSanity;
+        }
+
+        private bool TryGetSenderPlayerObject(ulong senderClientId, out NetworkObject playerObject)
+        {
+            playerObject = null;
             if (NetworkManager == null
                 || !NetworkManager.ConnectedClients.TryGetValue(senderClientId, out NetworkClient client)
                 || client.PlayerObject == null)
@@ -108,8 +134,8 @@ namespace GhostHunter.Gameplay.Interaction
                 return false;
             }
 
-            return Vector3.Distance(client.PlayerObject.transform.position, transform.position)
-                <= _maxInteractDistance;
+            playerObject = client.PlayerObject;
+            return true;
         }
 
         private void ApplyYaw()

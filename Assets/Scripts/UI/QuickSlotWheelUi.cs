@@ -11,12 +11,10 @@ namespace GhostHunter.UI
     /// 없어(사용자 확정 2026-09-12) <see cref="_loadout"/>는 더미 데이터이고, 확정은 로컬 상태
     /// 변경(장착 표시)까지만 한다 — 서버 RPC는 실제 인벤토리가 붙을 때 추가한다.
     ///
-    /// <para><b>열림 조건</b> — 일시정지 메뉴·굴착 잠금이 없고 가구를 잡고 있지 않을 때만 연다
-    /// (QS-9, 사용자 확정). 열려 있는 동안 이 조건이 깨지면 선택을 버리고 즉시 닫는다.</para>
-    ///
-    /// <para><b>사망 상태는 아직 게이팅하지 않는다.</b> <c>SanityNetworkState</c>가
-    /// <see cref="ILocalPlayerContext"/>에 등록돼 있지 않아 이 더미 스캐폴드 범위에서는 읽을
-    /// 방법이 없다 — 실제 인벤토리가 붙을 때 함께 정리한다 → docs/architecture/quick-slot.md.</para>
+    /// <para><b>열림 조건</b> — 일시정지 메뉴·굴착 잠금이 없고, 사망하지 않았고, 가구를 잡고
+    /// 있지 않을 때만 연다(QS-9, 사용자 확정 + 관전 기획서 SP-2 QS-사망 게이팅, 2026-09-12).
+    /// 열려 있는 동안 이 조건이 깨지면 선택을 버리고 즉시 닫는다 — 사망 시에도 같은 경로로
+    /// 닫히므로 별도의 사망 처리 분기가 없다 → docs/architecture/quick-slot.md §5.</para>
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class QuickSlotWheelUi : MonoBehaviour
@@ -126,6 +124,7 @@ namespace GhostHunter.UI
         {
             return !input.IsGameplayInputLocked
                 && !input.IsSkillInputLocked
+                && (_localPlayer.Sanity == null || _localPlayer.Sanity.HasSanity)
                 && (_localPlayer.GrabController == null || !_localPlayer.GrabController.IsHolding);
         }
 

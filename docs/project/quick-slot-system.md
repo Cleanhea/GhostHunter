@@ -72,4 +72,5 @@ Sons of the Forest 식 홀드형 라디얼 퀵슬롯을 로컬 플레이어 HUD�
 [architecture/player-controller.md](../architecture/player-controller.md) ·
 [mole-skill-system.md](mole-skill-system.md)(입력 잠금 선례)
 
-최종 갱신: 2026-09-12 (QS-1~10 더미 스캐폴드 문서 작성. 사망 게이팅 후속을 관전 SP-IMPL-1로 연결, 코드 미수정.)
+최종 갱신: 2026-09-12 (QS-1~10 더미 스캐폴드 문서 작성. 사망 게이팅은 관전 SP-IMPL-1로 구현 완료 →
+[quick-slot.md §5](../architecture/quick-slot.md).)

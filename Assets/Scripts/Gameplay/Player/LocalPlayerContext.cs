@@ -1,4 +1,5 @@
 using GhostHunter.Gameplay.Interaction;
+using GhostHunter.Gameplay.Sanity;
 using UnityEngine;
 
 namespace GhostHunter.Gameplay.Player
@@ -12,6 +13,7 @@ namespace GhostHunter.Gameplay.Player
         public MoleBurrowController BurrowController { get; private set; }
         public DetectionSkillController DetectionController { get; private set; }
         public PlayerInputReader Input { get; private set; }
+        public SanityNetworkState Sanity { get; private set; }
 
         public void Register(FurnitureTargeter targeter)
         {
@@ -61,6 +63,14 @@ namespace GhostHunter.Gameplay.Player
             Input = input;
         }
 
+        public void Register(SanityNetworkState sanity)
+        {
+            if (!CanRegister(Sanity, sanity))
+                return;
+
+            Sanity = sanity;
+        }
+
         public void Unregister(FurnitureTargeter targeter)
         {
             if (Targeter == targeter)
@@ -95,6 +105,12 @@ namespace GhostHunter.Gameplay.Player
         {
             if (Input == input)
                 Input = null;
+        }
+
+        public void Unregister(SanityNetworkState sanity)
+        {
+            if (Sanity == sanity)
+                Sanity = null;
         }
 
         private static bool CanRegister<T>(T current, T incoming) where T : Component

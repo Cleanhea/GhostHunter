@@ -39,7 +39,7 @@ namespace GhostHunter.Gameplay.Player
         [Tooltip("[TBD: MS-19] 현재 FullBodyEmission을 선택했다. 벽 투시는 없다 — ZTest LEqual 로 시야에 보이는 표면만 표시한다.")]
         [SerializeField] private DetectionHighlightMode _highlightMode = DetectionHighlightMode.FullBodyEmission;
 
-        [Tooltip("[TBD: MS-20] 시전·표시 중 사망하면 탐지를 취소할지. 기본 true는 죽은 플레이어의 표시를 즉시 끈다.")]
+        [Tooltip("시전·표시 중 사망하면 탐지를 즉시 취소한다(MS-20, 관전 기획서 SP-2로 확정 2026-09-12).")]
         [SerializeField] private bool _cancelOnDeath = true;
 
         public float CastDurationSeconds => _castDurationSeconds;

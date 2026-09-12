@@ -1,6 +1,7 @@
 using GhostHunter.Core;
 using GhostHunter.Gameplay.Furniture;
 using GhostHunter.Gameplay.Player;
+using GhostHunter.Gameplay.Sanity;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -35,10 +36,16 @@ namespace GhostHunter.Gameplay.Interaction
         public bool IsTestHoldLatched => _testHoldLatched;
 
         private ILocalPlayerContext _localPlayer;
+        private SanityNetworkState _sanity;
 
         public override void OnNetworkSpawn()
         {
             _heldObjectId.OnValueChanged += HandleHeldObjectChanged;
+
+            // 서버 인스턴스에서도 필요하다(원격 플레이어의 사망 시 강제 해제) — Owner 분기 밖에서 구한다.
+            _sanity = GetComponent<SanityNetworkState>();
+            if (_sanity != null)
+                _sanity.AliveStateChanged += HandleAliveStateChanged;
 
             if (IsOwner)
             {
@@ -52,8 +59,27 @@ namespace GhostHunter.Gameplay.Interaction
             _heldObjectId.OnValueChanged -= HandleHeldObjectChanged;
             _testHoldLatched = false;
 
+            if (_sanity != null)
+                _sanity.AliveStateChanged -= HandleAliveStateChanged;
+            _sanity = null;
+
             _localPlayer?.Unregister(this);
             _localPlayer = null;
+        }
+
+        /// <summary>
+        /// 사망 시 들고 있던 가구를 발사 없이 놓는다(관전 기획서 SP-2, 사용자 확정 2026-09-12).
+        /// 서버에서만 실행하며, <see cref="FurnitureGrabTarget.ServerForceRelease"/>가 이미
+        /// <see cref="FurnitureGrabTarget.NotifyPlayerReleased"/>로 <see cref="_heldObjectId"/>를
+        /// 정리해 준다.
+        /// </summary>
+        private void HandleAliveStateChanged(bool alive)
+        {
+            if (alive || !IsServer || !IsHolding)
+                return;
+
+            if (TryResolveTarget(_heldObjectId.Value, out FurnitureGrabTarget target))
+                target.ServerForceRelease(OwnerClientId);
         }
 
         private void Update()
@@ -163,6 +189,7 @@ namespace GhostHunter.Gameplay.Interaction
         {
             ulong sender = rpcParams.Receive.SenderClientId;
             if (sender != OwnerClientId
+                || (_sanity != null && !_sanity.HasSanity)
                 || _heldObjectId.Value != NoObjectId
                 || _settings == null
                 || !TryResolveTarget(objectId, out FurnitureGrabTarget target)
@@ -186,6 +213,7 @@ namespace GhostHunter.Gameplay.Interaction
         {
             ulong sender = rpcParams.Receive.SenderClientId;
             if (sender != OwnerClientId
+                || (_sanity != null && !_sanity.HasSanity)
                 || objectId != _heldObjectId.Value
                 || !IsValidAim(aimOrigin, aimDirection)
                 || Vector3.Distance(transform.position, aimOrigin) > 3f
@@ -206,6 +234,7 @@ namespace GhostHunter.Gameplay.Interaction
         {
             ulong sender = rpcParams.Receive.SenderClientId;
             if (sender != OwnerClientId
+                || (_sanity != null && !_sanity.HasSanity)
                 || !IsFinite(aimDirection)
                 || !TryResolveTarget(objectId, out FurnitureGrabTarget target)
                 || !target.ContainsHolder(sender))

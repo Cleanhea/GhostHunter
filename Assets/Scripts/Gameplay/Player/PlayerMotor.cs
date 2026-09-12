@@ -26,6 +26,14 @@ namespace GhostHunter.Gameplay.Player
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Owner);
 
+        // 같은 예외의 연장. 자세(웅크리기·엎드리기)뿐 아니라 굴착 중 CameraHeightOverride 까지
+        // 최종적으로 적용된 카메라 로컬 높이 하나를 복제한다 — 관전 시스템(spectator-system.md)이
+        // 자세·굴착 단계를 각각 재계산하지 않고 이 값 하나로 생존자 눈높이를 재현한다.
+        private readonly NetworkVariable<float> _networkCameraHeight = new(
+            0f,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Owner);
+
         private readonly Collider[] _standOverlapResults = new Collider[StandOverlapCapacity];
 
         private CharacterController _controller;
@@ -58,6 +66,15 @@ namespace GhostHunter.Gameplay.Player
         /// 같은 <see cref="PlayerMoveSettings.PostureTransitionSpeed"/> 로 부드럽게 이어진다.
         /// </summary>
         public float? CameraHeightOverride { get; set; }
+
+        /// <summary>
+        /// 현재 적용된 카메라 로컬 높이(자세 + <see cref="CameraHeightOverride"/> 반영, 부드러운
+        /// 전환 중간값 포함). 소유자는 로컬 값을, 원격에서는 복제된 값을 읽는다 — 관전 시스템이
+        /// 대상 생존자의 눈높이를 재현할 때 쓴다.
+        /// </summary>
+        public float CameraLocalHeight => IsOwner
+            ? (_cameraPivot != null ? _cameraPivot.localPosition.y : 0f)
+            : _networkCameraHeight.Value;
 
         private void Awake()
         {
@@ -208,6 +225,9 @@ namespace GhostHunter.Gameplay.Player
                         targetCameraHeight,
                         _settings.PostureTransitionSpeed * deltaTime);
                 _cameraPivot.localPosition = cameraPosition;
+
+                if (IsOwner)
+                    _networkCameraHeight.Value = cameraPosition.y;
             }
 
             if (_visualBody == null)

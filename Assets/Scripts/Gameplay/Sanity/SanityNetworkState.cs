@@ -63,6 +63,15 @@ namespace GhostHunter.Gameplay.Sanity
         public event Action<SanityDebuffFlags, SanityDebuffFlags> DebuffsChanged;
         public event Action BreathingHeartbeatTriggered;
 
+        /// <summary>
+        /// 생존 여부가 바뀔 때마다(사망·부활) 알린다. 관전 시스템(spectator-system.md)이 이
+        /// 이벤트로 자유시점 진입·복귀를 판단한다 — 값 자체는 <see cref="HasSanity"/>로 이미
+        /// 읽을 수 있었지만, 변화 시점을 알 공개 경로가 없었다.
+        /// </summary>
+        public event Action<bool> AliveStateChanged;
+
+        private ILocalPlayerContext _localPlayer;
+
         private void Awake()
         {
             _playerMotor = GetComponent<PlayerMotor>();
@@ -90,12 +99,21 @@ namespace GhostHunter.Gameplay.Sanity
             }
 
             _teamService.Register(this);
+
+            if (IsOwner)
+            {
+                _localPlayer = Services.Get<ILocalPlayerContext>();
+                _localPlayer.Register(this);
+            }
         }
 
         public override void OnNetworkDespawn()
         {
             if (_teamService != null)
                 _teamService.Unregister(this);
+
+            _localPlayer?.Unregister(this);
+            _localPlayer = null;
 
             _sanity.OnValueChanged -= HandleSanityChanged;
             _isAlive.OnValueChanged -= HandleAliveChanged;
@@ -218,6 +236,9 @@ namespace GhostHunter.Gameplay.Sanity
         private void HandleAliveChanged(bool previous, bool current)
         {
             PublishDebuffChange(_sanity.Value, previous, _sanity.Value, current);
+
+            if (previous != current)
+                AliveStateChanged?.Invoke(current);
         }
 
         private void PublishDebuffChange(

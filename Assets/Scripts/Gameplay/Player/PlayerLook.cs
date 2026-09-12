@@ -1,4 +1,5 @@
 using GhostHunter.Core;
+using GhostHunter.Gameplay.Sanity;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -14,9 +15,25 @@ namespace GhostHunter.Gameplay.Player
         [SerializeField] private Camera _playerCamera;
         [SerializeField] private AudioListener _audioListener;
 
+        // Owner 쓰기 + Everyone 읽기 — PlayerMotor의 IsCrouching/IsProne, MoleBurrowController의
+        // IsBurrowed와 같은 이동 권위 예외(ADR-0008)의 연장이다. 로컬 피치는 그동안 복제되지
+        // 않았지만, 관전 시스템(spectator-system.md)이 생존자의 상하 시선을 재현하려면 필요하다.
+        private readonly NetworkVariable<float> _networkPitch = new(
+            0f,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Owner);
+
         private float _pitch;
+        private SanityNetworkState _sanity;
 
         public Camera PlayerCamera => _playerCamera;
+
+        /// <summary>
+        /// 상하 시선(도, 위가 음수). 소유자는 로컬 값을 그대로, 원격에서는 복제된 값을 읽는다 —
+        /// 관전 중인 다른 클라이언트의 <see cref="SpectatorController"/>가 이 값으로 카메라 회전을
+        /// 재현한다.
+        /// </summary>
+        public float Pitch => IsOwner ? _pitch : _networkPitch.Value;
 
         public override void OnNetworkSpawn()
         {
@@ -39,12 +56,26 @@ namespace GhostHunter.Gameplay.Player
             }
 
             SetCursorLocked(true);
+
+            // 관전 시스템(SpectatorController)이 사망 중 이 카메라/리스너를 대신 켜므로,
+            // 여기서는 생존 여부에 따라 초기·이후 상태를 맞추기만 한다.
+            _sanity = GetComponent<SanityNetworkState>();
+            if (_sanity != null)
+            {
+                _sanity.AliveStateChanged += HandleAliveStateChanged;
+                if (!_sanity.HasSanity)
+                    HandleAliveStateChanged(false);
+            }
         }
 
         public override void OnNetworkDespawn()
         {
             if (!IsOwner)
                 return;
+
+            if (_sanity != null)
+                _sanity.AliveStateChanged -= HandleAliveStateChanged;
+            _sanity = null;
 
             // Overview 리스너를 되살리기 전에 플레이어 쪽을 먼저 끈다.
             if (_playerCamera != null)
@@ -73,6 +104,20 @@ namespace GhostHunter.Gameplay.Player
 
             _pitch = Mathf.Clamp(_pitch - look.y, -_settings.PitchLimit, _settings.PitchLimit);
             _cameraPivot.localRotation = Quaternion.Euler(_pitch, 0f, 0f);
+            _networkPitch.Value = _pitch;
+        }
+
+        /// <summary>
+        /// 사망하면 이 카메라/리스너를 끈다 — 관전 카메라(<see cref="SpectatorController"/>)가
+        /// 대신 켜진다. 부활하면 되돌린다.
+        /// </summary>
+        private void HandleAliveStateChanged(bool alive)
+        {
+            if (_playerCamera != null)
+                _playerCamera.enabled = alive;
+
+            if (_audioListener != null)
+                _audioListener.enabled = alive;
         }
 
         /// <summary>

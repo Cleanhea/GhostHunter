@@ -9,9 +9,15 @@ namespace GhostHunter.Gameplay.Player
     /// 프로젝트의 InputActionAsset을 로컬 플레이어별로 복제한다. 원격 플레이어가 공유 에셋을
     /// 활성화해 내 입력을 읽는 일을 막기 위해 소유자에서만 런타임 복제본을 켠다.
     ///
-    /// <para><b>잠금은 세 가지이고 서로 독립이다.</b></para>
+    /// <para><b>잠금은 네 가지이고 서로 독립이다.</b></para>
     /// <list type="bullet">
-    /// <item><see cref="SetGameplayInputLocked"/> — 일시정지 메뉴. <b>전부</b> 0으로 만든다(시점 포함).</item>
+    /// <item><see cref="SetGameplayInputLocked"/> — 일시정지 메뉴. <b>전부</b> 0으로 만든다(시점·
+    /// 관전 입력 포함) → docs/project/spectator-system.md §2("메뉴가 열리면 관전 입력도 잠근다").</item>
+    /// <item><see cref="SetDeathInputLocked"/> — 사망 상태(관전 기획서 SP-1~SP-2, 사용자 확정
+    /// 2026-09-12). 생존 조작(이동·시점·상호작용·스킬)을 전부 막고 대신 관전 입력(자유비행·모드
+    /// 전환·대상 전환)을 채운다. <b>굴착·휠 잠금보다 우선한다</b> — 사망과 같은 프레임에 굴착 취소가
+    /// 자기 잠금(<see cref="SetSkillInputLocked"/>)을 먼저 풀어도 생존 조작이 되살아나지 않게
+    /// 막는 안전장치다.</item>
     /// <item><see cref="SetSkillInputLocked"/> — 굴착 중(두더지 스킬 기획서 §5.5.1, 사용자 확정
     /// 2026-09-05). <b>시야 회전(Look)과 스킬 키(Burrow)만 남기고</b> 나머지를 전부 막는다 —
     /// 땅속에서 점프·던지기·문 여닫기·자세 전환이 되면 안 된다.</item>
@@ -20,7 +26,7 @@ namespace GhostHunter.Gameplay.Player
     /// Move·Crouch·Sprint는 살려 둔다(QS-5) — 휠을 연 채 이동할 수 있다. 휠 키(QuickSlot) 자신은
     /// 이 잠금 중에도 계속 읽혀야 스스로 닫힌다.</item>
     /// </list>
-    /// 우선순위는 <b>메뉴 &gt; 굴착 &gt; 휠</b>이다 — 겹치면 더 강한 잠금이 이긴다. 어느 쪽이든
+    /// 우선순위는 <b>메뉴 &gt; 사망 &gt; 굴착 &gt; 휠</b>이다 — 겹치면 더 강한 잠금이 이긴다. 어느 쪽이든
     /// 자세(웅크리기)는 마지막 값으로 얼려서, 잠기는 것만으로 플레이어가 일어서지 않게 한다.
     /// </summary>
     [DefaultExecutionOrder(-200)]
@@ -41,8 +47,12 @@ namespace GhostHunter.Gameplay.Player
         private InputAction _detectAction;
         private InputAction _proneAction;
         private InputAction _quickSlotAction;
+        private InputAction _spectateDescendAction;
+        private InputAction _spectateToggleAction;
+        private InputAction _spectateNextAction;
         private bool _jumpQueued;
         private bool _inputLocked;
+        private bool _deathLocked;
         private bool _skillLocked;
         private bool _wheelLocked;
 
@@ -66,11 +76,34 @@ namespace GhostHunter.Gameplay.Player
         /// <summary>일시정지 메뉴가 게임플레이 입력을 잠갔는가 → docs/project/pause-menu-system.md §3.4</summary>
         public bool IsGameplayInputLocked => _inputLocked;
 
+        /// <summary>사망해 생존 조작이 잠기고 관전 입력으로 바뀌었는가 → docs/project/spectator-system.md</summary>
+        public bool IsDeathInputLocked => _deathLocked;
+
         /// <summary>굴착 중이라 시점·스킬 키를 뺀 조작이 잠겼는가 → docs/project/mole-skill-system.md §5.5.1</summary>
         public bool IsSkillInputLocked => _skillLocked;
 
         /// <summary>퀵슬롯 휠이 열려 있어 시점을 뺀 조작이 잠겼는가 → docs/architecture/quick-slot.md</summary>
         public bool IsWheelInputLocked => _wheelLocked;
+
+        /// <summary>
+        /// 관전 자유비행 이동 입력(WASD, Move 액션 재사용) — <see cref="IsDeathInputLocked"/> 동안만 채워진다.
+        /// </summary>
+        public Vector2 SpectatorMove { get; private set; }
+
+        /// <summary>관전 자유비행 상승 입력(Space, Jump 액션 재사용) — 누르는 동안 참.</summary>
+        public bool SpectatorAscendHeld { get; private set; }
+
+        /// <summary>관전 자유비행 하강 입력(Left Ctrl) — 누르는 동안 참.</summary>
+        public bool SpectatorDescendHeld { get; private set; }
+
+        /// <summary>관전 모드 전환 입력(V) — 자유시점 ↔ 플레이어 관전.</summary>
+        public bool SpectatorToggleModePressedThisFrame { get; private set; }
+
+        /// <summary>관전 대상 이전 전환 입력(좌클릭, Attack 액션 재사용).</summary>
+        public bool SpectatorPreviousPressedThisFrame { get; private set; }
+
+        /// <summary>관전 대상 다음 전환 입력(우클릭).</summary>
+        public bool SpectatorNextPressedThisFrame { get; private set; }
 
         /// <summary>
         /// 굴착 스킬 토글 입력(§5.3) — 한 번 누르면 진입, 진입/유지 중 다시 누르면 즉시 종료.
@@ -126,6 +159,9 @@ namespace GhostHunter.Gameplay.Player
             _detectAction = _runtimeActions.FindAction("Player/Detect", true);
             _proneAction = _runtimeActions.FindAction("Player/Prone", true);
             _quickSlotAction = _runtimeActions.FindAction("Player/QuickSlot", true);
+            _spectateDescendAction = _runtimeActions.FindAction("Player/SpectateDescend", true);
+            _spectateToggleAction = _runtimeActions.FindAction("Player/SpectateToggleMode", true);
+            _spectateNextAction = _runtimeActions.FindAction("Player/SpectateNext", true);
             _runtimeActions.Enable();
 
             // 일시정지 메뉴가 로컬 플레이어의 입력을 잠글 수 있도록 자신을 알린다.
@@ -152,8 +188,10 @@ namespace GhostHunter.Gameplay.Player
             QuickSlotPressedThisFrame = false;
             QuickSlotReleasedThisFrame = false;
             _inputLocked = false;
+            _deathLocked = false;
             _skillLocked = false;
             _wheelLocked = false;
+            ClearSpectatorInputs();
         }
 
         /// <summary>
@@ -173,6 +211,34 @@ namespace GhostHunter.Gameplay.Player
                 return;
 
             ClearBlockedInputs();
+        }
+
+        /// <summary>
+        /// 사망 상태를 반영해 생존 조작을 잠그거나 푼다(관전 기획서 SP-1·SP-2, 사용자 확정
+        /// 2026-09-12). 잠긴 동안 이동·시점·상호작용·스킬 입력은 전부 0이 되고, 대신
+        /// <see cref="SpectatorMove"/> 등 관전 입력이 채워진다.
+        ///
+        /// 굴착·휠 잠금보다 우선한다(<see cref="Update"/> 참고) — 사망과 같은 프레임에 굴착
+        /// 취소가 <see cref="SetSkillInputLocked"/>(false)를 먼저 불러도 이 잠금이 살아있는 한
+        /// 생존 조작이 되살아나지 않는다. 일시정지 메뉴 잠금보다는 아래다.
+        /// </summary>
+        public void SetDeathInputLocked(bool locked)
+        {
+            if (_deathLocked == locked)
+                return;
+
+            _deathLocked = locked;
+
+            if (locked)
+            {
+                ClearBlockedInputs();
+                Look = Vector2.zero;
+                BurrowPressedThisFrame = false;
+            }
+            else
+            {
+                ClearSpectatorInputs();
+            }
         }
 
         /// <summary>
@@ -228,6 +294,31 @@ namespace GhostHunter.Gameplay.Player
             _jumpQueued = false;
         }
 
+        /// <summary>관전 입력을 전부 0/false로 되돌린다 — 사망 잠금이 아닌 모든 분기에서 부른다.</summary>
+        private void ClearSpectatorInputs()
+        {
+            SpectatorMove = Vector2.zero;
+            SpectatorAscendHeld = false;
+            SpectatorDescendHeld = false;
+            SpectatorToggleModePressedThisFrame = false;
+            SpectatorPreviousPressedThisFrame = false;
+            SpectatorNextPressedThisFrame = false;
+        }
+
+        /// <summary>
+        /// 사망 잠금 중에만 채운다. Move/Jump/Attack 액션을 자유비행·대상 전환 용도로 재사용하고,
+        /// 시야는 <see cref="RawLookDelta"/>(항상 갱신됨)를 관전 컨트롤러가 직접 읽는다.
+        /// </summary>
+        private void PopulateSpectatorInputs()
+        {
+            SpectatorMove = _moveAction.ReadValue<Vector2>();
+            SpectatorAscendHeld = _jumpAction.IsPressed();
+            SpectatorDescendHeld = _spectateDescendAction.IsPressed();
+            SpectatorToggleModePressedThisFrame = _spectateToggleAction.WasPressedThisFrame();
+            SpectatorPreviousPressedThisFrame = _attackAction.WasPressedThisFrame();
+            SpectatorNextPressedThisFrame = _spectateNextAction.WasPressedThisFrame();
+        }
+
         /// <summary>
         /// 게임플레이 입력을 잠그거나 푼다. 잠긴 동안 이동·시점·상호작용·던지기·스킬 입력은
         /// 전부 0이 되고, 대기 중이던 점프도 버린다. 자세는 마지막 값으로 얼린다.
@@ -261,10 +352,23 @@ namespace GhostHunter.Gameplay.Player
             if (_inputLocked)
             {
                 // 잠긴 동안에는 액션을 읽지 않는다. CrouchHeld 는 마지막 값 그대로 두어
-                // 메뉴를 여는 것만으로 자세가 바뀌지 않게 한다.
+                // 메뉴를 여는 것만으로 자세가 바뀌지 않게 한다. 관전 입력도 함께 잠근다
+                // → docs/project/spectator-system.md §2.
                 ClearBlockedInputs();
                 Look = Vector2.zero;
                 BurrowPressedThisFrame = false;
+                ClearSpectatorInputs();
+                return;
+            }
+
+            if (_deathLocked)
+            {
+                // 사망(SP-1·SP-2) — 생존 조작은 전부 버리고 관전 입력만 채운다. 굴착·휠 잠금보다
+                // 우선하므로 이 검사가 먼저 와야 한다(§SetDeathInputLocked 참고).
+                ClearBlockedInputs();
+                Look = Vector2.zero;
+                BurrowPressedThisFrame = false;
+                PopulateSpectatorInputs();
                 return;
             }
 
@@ -275,6 +379,7 @@ namespace GhostHunter.Gameplay.Player
                 Look = _lookAction.ReadValue<Vector2>();
                 BurrowPressedThisFrame = _burrowAction.WasPressedThisFrame();
                 DetectPressedThisFrame = false;
+                ClearSpectatorInputs();
                 return;
             }
 
@@ -290,9 +395,11 @@ namespace GhostHunter.Gameplay.Player
                 QuickSlotHeld = _quickSlotAction.IsPressed();
                 QuickSlotPressedThisFrame = _quickSlotAction.WasPressedThisFrame();
                 QuickSlotReleasedThisFrame = _quickSlotAction.WasReleasedThisFrame();
+                ClearSpectatorInputs();
                 return;
             }
 
+            ClearSpectatorInputs();
             Move = _moveAction.ReadValue<Vector2>();
             Look = RawLookDelta;
             AttackPressedThisFrame = _attackAction.WasPressedThisFrame();
