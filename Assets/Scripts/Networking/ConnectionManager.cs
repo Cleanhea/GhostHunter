@@ -44,6 +44,9 @@ namespace GhostHunter.Networking
         /// <summary>게임 씬 로드를 기다리는 한계. 넘으면 원인을 로그로 남기고 포기한다.</summary>
         private static readonly TimeSpan SceneLoadTimeout = TimeSpan.FromSeconds(30);
 
+        /// <summary>Bootstrap 은 빌드 목록 0번이다(ProjectWiringTests 가 순서를 고정한다).</summary>
+        private const int BootstrapBuildIndex = 0;
+
         public TransportMode Mode => _transportMode;
         public bool IsRunning => Net != null && (Net.IsServer || Net.IsClient);
         public bool IsHost => Net != null && Net.IsHost;
@@ -59,7 +62,10 @@ namespace GhostHunter.Networking
         private ISteamLobbyService _lobby;
         private ISceneFlow _sceneFlow;
 
-        /// <summary>이쪽에서 Disconnect 를 부른 동안에는 SessionEnded 를 올리지 않는다.</summary>
+        /// <summary>
+        /// 이쪽에서 Disconnect 를 불러 세션이 실제로 멈출 때까지 참이다. 그 사이의 자기 끊김 콜백은
+        /// 요청한 종료이므로 로비 퇴장·SessionEnded 를 하지 않는다.
+        /// </summary>
         private bool _shutdownRequested;
 
         private void Awake()
@@ -94,6 +100,8 @@ namespace GhostHunter.Networking
                 net.OnTransportFailure += HandleTransportFailure;
                 net.OnServerStarted += HandleServerStarted;
                 net.OnClientStarted += HandleClientStarted;
+                net.OnServerStopped += HandleSessionStopped;
+                net.OnClientStopped += HandleSessionStopped;
             }
             else
             {
@@ -117,6 +125,8 @@ namespace GhostHunter.Networking
                 _networkManager.OnTransportFailure -= HandleTransportFailure;
                 _networkManager.OnServerStarted -= HandleServerStarted;
                 _networkManager.OnClientStarted -= HandleClientStarted;
+                _networkManager.OnServerStopped -= HandleSessionStopped;
+                _networkManager.OnClientStopped -= HandleSessionStopped;
             }
         }
 
@@ -320,16 +330,13 @@ namespace GhostHunter.Networking
         {
             NetworkManager net = Net;
 
-            _shutdownRequested = true;
-
-            try
+            // NGO 는 Shutdown 을 다음 업데이트로 미루고 그 안에서 자기 자신의 끊김 콜백을 부른다.
+            // 표시를 여기서 바로 내리면 게스트의 자발적 이탈이 "요청하지 않은 종료"로 처리돼 로비까지
+            // 나간다(2026-09-13 Local 3프로세스 실측). 세션이 실제로 멈출 때 HandleSessionStopped 가 내린다.
+            if (net != null && (net.IsServer || net.IsClient))
             {
-                if (net != null && (net.IsServer || net.IsClient))
-                    net.Shutdown();
-            }
-            finally
-            {
-                _shutdownRequested = false;
+                _shutdownRequested = true;
+                net.Shutdown();
             }
 
             if (leaveLobby)
@@ -418,6 +425,9 @@ namespace GhostHunter.Networking
         /// </summary>
         private void HandleServerStarted()
         {
+            // 이전 세션의 종료 표시가 남아 새 세션의 실제 끊김을 삼키지 않게 한다.
+            _shutdownRequested = false;
+
             NetworkManager net = Net;
             if (net == null || net.SceneManager == null)
                 return;
@@ -428,6 +438,8 @@ namespace GhostHunter.Networking
 
         private void HandleClientStarted()
         {
+            _shutdownRequested = false;
+
             NetworkManager net = Net;
             if (net == null || net.SceneManager == null)
                 return;
@@ -436,14 +448,31 @@ namespace GhostHunter.Networking
         }
 
         /// <summary>
-        /// 이미 올라와 있는 씬은 동기화로 다시 올리지 않는다. Additive 동기화는 서버가 들고 있는
-        /// 씬 목록을 그대로 보내는데, 거기엔 <c>Bootstrap</c> 도 들어 있다. 걸러내지 않으면
-        /// 게스트에 두 번째 <c>Bootstrap</c> 이 올라와 NetworkManager 와 서비스가 중복 등록된다.
+        /// NGO 가 씬을 올리거나 게스트 동기화 목록을 만들기 전에 묻는 검증 → <see cref="ShouldLoadNetworkScene"/>.
         /// </summary>
-        private static bool VerifySceneBeforeLoading(int sceneIndex, string sceneName, LoadSceneMode loadSceneMode)
+        private bool VerifySceneBeforeLoading(int sceneIndex, string sceneName, LoadSceneMode loadSceneMode)
         {
+            NetworkManager net = Net;
             Scene existing = SceneManager.GetSceneByName(sceneName);
-            return !existing.IsValid() || !existing.isLoaded;
+            return ShouldLoadNetworkScene(
+                net != null && net.IsServer,
+                sceneIndex,
+                existing.IsValid() && existing.isLoaded);
+        }
+
+        /// <summary>
+        /// NGO 씬 검증 규칙. <b>서버에서는 게스트에게 보낼 동기화 목록을 거르는 데 쓰이므로</b>
+        /// <c>Bootstrap</c>(빌드 인덱스 0)만 뺀다 — 이미 로드됐다는 이유로 거절하면 호스트의 <c>Game</c>
+        /// 씬까지 목록에서 빠져, 게스트가 씬 없이 씬 오브젝트만 받는다(in-scene soft synchronization failure).
+        /// 게스트에서는 이미 올라와 있는 씬을 다시 올리지 않는다 — 두 번째 <c>Bootstrap</c> 이 올라오면
+        /// NetworkManager 와 서비스가 중복 등록된다 → docs/architecture/networking.md §3.5
+        /// </summary>
+        public static bool ShouldLoadNetworkScene(bool isServer, int sceneIndex, bool alreadyLoaded)
+        {
+            if (isServer)
+                return sceneIndex != BootstrapBuildIndex;
+
+            return !alreadyLoaded;
         }
 
         private void HandleClientConnected(ulong clientId)
@@ -460,6 +489,14 @@ namespace GhostHunter.Networking
 
             if (selfDisconnected && !net.IsServer)
             {
+                // 이쪽에서 Disconnect 를 부른 뒤 NGO 가 늦게 올리는 자기 끊김이다. 로비 퇴장 여부는
+                // Disconnect(leaveLobby) 가 이미 정했으므로 여기서 다시 나가지 않는다(PM-5).
+                if (_shutdownRequested)
+                {
+                    SetStatus("요청한 세션 종료가 완료되었습니다.");
+                    return;
+                }
+
                 // 사유는 로그에만 남긴다. 사용자에게는 종류를 구분하지 않고 한 문구만 보인다
                 // → docs/project/pause-menu-system.md §5.3
                 string reason = string.IsNullOrEmpty(net.DisconnectReason)
@@ -487,8 +524,18 @@ namespace GhostHunter.Networking
             if (net != null && net.IsServer)
                 return;
 
+            // 요청한 종료 도중의 트랜스포트 정리는 끊김으로 보지 않는다.
+            if (_shutdownRequested)
+                return;
+
             _lobby?.LeaveLobby();
             RaiseSessionEnded();
+        }
+
+        /// <summary>세션이 완전히 멈췄다. 요청한 종료 표시를 내린다.</summary>
+        private void HandleSessionStopped(bool _)
+        {
+            _shutdownRequested = false;
         }
 
         private void RaiseSessionEnded()

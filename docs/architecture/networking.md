@@ -157,13 +157,17 @@ private readonly NetworkVariable<bool> _isOpen =
 - 세션 중에는 MUST `NetworkManager.Singleton.SceneManager.LoadScene(...)`.
 - 비네트워크 구간의 씬 전환도 MUST `ISceneFlow`를 경유한다. 어떤 코드도 `SceneManager`를 직접 부르지 않는다
   → [ADR-0004](decisions/ADR-0004-multi-scene-additive.md)
-- 클라이언트 동기화 모드는 `LoadSceneMode.Additive`**여야 한다.**
-  > ⚠️ **미검증 — 코드가 이 서술을 뒷받침하지 않는다(2026-09-04 확인).** 저장소 어디에서도
-  > `NetworkSceneManager.SetClientSynchronizationMode(...)` 를 부르지 않으므로 NGO 기본값
-  > **`LoadSceneMode.Single`** 로 동작한다. Single 모드는 클라이언트 동기화 시 이미 로드된 씬을
-  > 전부 언로드하므로 **게스트의 `Bootstrap` 이 내려갈 수 있다**(= `NetworkRig`·`Services` 소실).
-  > Local 2인(UTP)으로 재현·확인한 뒤, 모드를 명시 호출하거나 이 서술을 고친다
-  > → [pause-menu.md §5.5](pause-menu.md), [../project/roadmap.md §5](../project/roadmap.md)
+- 클라이언트 동기화 모드는 `LoadSceneMode.Additive`**여야 한다.** `ConnectionManager.HandleServerStarted` 가
+  `SetClientSynchronizationMode(Additive)` 를 지정한다 — NGO 기본값 `Single` 은 게스트의 `Bootstrap` 까지 내린다.
+  2026-09-13 Local 3프로세스로 게스트에 `Bootstrap` 이 남는 것을 확인했다 → [pause-menu.md §10.1 D-1](pause-menu.md)
+- **씬 검증(`VerifySceneBeforeLoading`)은 서버와 게스트에서 뜻이 다르다** → `ConnectionManager.ShouldLoadNetworkScene`.
+  - **서버**: NGO 가 **게스트에게 보낼 동기화 목록**을 거르는 데 쓴다. `Bootstrap`(빌드 인덱스 0)만 뺀다.
+  - **게스트**: 이미 올라와 있는 씬을 다시 올리지 않는다(두 번째 `Bootstrap` 방지).
+  > **2026-09-13 수정·확인.** 예전에는 "이미 로드됐으면 거절" 규칙을 서버에도 걸어, 호스트에 로드돼 있는
+  > `Game` 이 게스트 동기화 목록에서 빠졌다(에디터 호스트 콘솔 `Scene Game ... failed validation on the Host!`).
+  > 게스트는 `Title` 에 남은 채 `Game` 의 씬 오브젝트만 받아 `In-Scene placed NetworkObject soft synchronization
+  > failure` 가 653건 났다 — **게스트가 매치에 들어갈 수 없는 상태였다.** 수정 후 게스트가 `scenes=[Bootstrap,Game]`
+  > 으로 들어오고 해당 오류가 사라졌다. EditMode `ConnectionSceneValidationTests` 가 규칙을 고정한다.
 - **NGO가 올린 씬은 MUST `NetworkManager.SceneManager.UnloadScene`으로 내린다.** 로컬로 올린 씬은 각 피어가 직접 내린다.
 - additive 전환 중 이전/다음 씬이 공존하므로 `SceneFlowController`가 이전 씬의 `EventSystem`과
   `AudioListener`를 로드 전에 비활성화한다. 전환 시작 실패 시 원상 복구한다.
@@ -189,8 +193,12 @@ IConnectionService.Disconnect() → (한 프레임 양보) → ISceneFlow.Load(T
   `useNgo && !IsServer` 를 걸러 경고만 남긴다.
 - 세션이 살아 있는 동안 **호스트의 `ISceneFlow.Load` 는 NGO 경로를 타서 게스트까지 끌고 간다.**
   혼자 나가려는 의도라면 반드시 `Disconnect()` 가 먼저다.
-- `ConnectionManager.Disconnect()` 는 `NetworkManager.Shutdown()` 뒤에 `ISteamLobbyService.LeaveLobby()`
-  까지 부른다. 호출부가 로비 퇴장을 또 부르지 않는다.
+- `ConnectionManager.Disconnect(leaveLobby)` 는 `NetworkManager.Shutdown()` 을 요청하고, `leaveLobby` 면
+  `ISteamLobbyService.LeaveLobby()` 까지 부른다. 호출부가 로비 퇴장을 또 부르지 않는다. 게스트의 매치 이탈은
+  `leaveLobby: false` 다(PM-5).
+- **`Shutdown()` 은 다음 업데이트로 미뤄지고, 그 안에서 자기 자신의 끊김 콜백이 올라온다.** `ConnectionManager` 는
+  요청한 종료 표시를 `OnClientStopped`/`OnServerStopped` 까지 유지해, 이 늦은 콜백을 요청하지 않은 종료
+  (`SessionEnded`·로비 퇴장)로 오인하지 않는다 → [pause-menu.md §7.4](pause-menu.md)
 
 연결이 끊겼을 때 플레이어에게 무엇을 보여주고 어디로 보낼지는
 [pause-menu.md](pause-menu.md) 와 [../project/pause-menu-system.md §5](../project/pause-menu-system.md) 가 정한다.
@@ -281,4 +289,5 @@ Facepunch 고유 `targetSteamId` 설정은 `ISteamLobbyService.TrySetConnectionT
 관련: [overview.md](overview.md) · [steam.md](steam.md) · [pause-menu.md](pause-menu.md) ·
 [../conventions/code-style.md](../conventions/code-style.md)
 
-최종 갱신: 2026-09-04 (§3.6.1 세션 종료 순서 신설, §3.5 클라이언트 동기화 모드 서술이 코드와 어긋남을 ⚠️ 표시. 이전: 2026-08-20)
+최종 갱신: 2026-09-13 (Local 3프로세스 실측 — §3.5 서버 측 씬 검증이 게스트 `Game` 동기화를 막던 결함 수정·확인,
+§3.6.1 자발적 종료 뒤 늦게 오는 자기 끊김 처리. 이전: 2026-09-04 §3.6.1 세션 종료 순서 신설)

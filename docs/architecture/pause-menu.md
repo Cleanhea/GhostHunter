@@ -329,6 +329,20 @@ net.OnClientDisconnectCallback += HandleClientDisconnected;
 호스트에게 `OnClientDisconnectCallback` 은 **게스트가 나갔다**는 뜻이다. 분기 기준은
 `clientId == LocalClientId && !IsServer` 이며, **이미 현재 코드가 그렇게 판별한다.**
 
+### 7.4 자발적 종료 뒤 늦게 오는 자기 끊김 (2026-09-13 수정)
+
+NGO `Shutdown()` 은 다음 업데이트의 `ShutdownInternal` 로 미뤄지고, 그 안에서 게스트 자신의
+`OnClientDisconnectCallback`(`TransportShutdown`)이 올라온다. 예전 `ConnectionManager.Disconnect` 는
+`_shutdownRequested` 를 `Shutdown()` 호출 직후 바로 내려서, 게스트가 "타이틀로"를 누르면 이 늦은 콜백이
+"요청하지 않은 종료"로 처리돼 **`LeaveLobby()` 와 `SessionEnded` 가 실행됐다** — 메뉴는 `_leaving` 으로
+모달을 막지만 로비 퇴장은 실제로 일어나 PM-5·PM-14(로비 복귀)가 깨졌다.
+
+지금은 표시를 `OnClientStopped`/`OnServerStopped` 까지 유지하고, 새 세션 시작(`OnServerStarted`/
+`OnClientStarted`)에서 초기화한다. 표시가 켜진 동안의 자기 끊김·트랜스포트 실패는 로비 퇴장·`SessionEnded`
+없이 상태 문구 `요청한 세션 종료가 완료되었습니다.` 만 남긴다. Local 3프로세스에서 수정 전 게스트 로그의
+`서버와의 연결이 끊겼습니다 ... TransportShutdown`·`sessionEnded=1` 이 수정 후 `요청한 세션 종료가 완료되었습니다.`·
+`sessionEnded=0` 으로 바뀐 것을 확인했다.
+
 ## 8. 씬 · 프리팹 · 에셋 배선
 
 | 대상 | 경로·오브젝트 | 상태 | 메모 |
@@ -377,8 +391,8 @@ net.OnClientDisconnectCallback += HandleClientDisconnected;
 
 | # | 항목 | 방법 |
 | --- | --- | --- |
-| D-1 | **클라이언트 동기화 모드가 `Single` 이라 게스트의 `Bootstrap` 이 언로드되는가**(§5.5) | Local(UTP) 2인 구성으로 Host + Client 접속 후 게스트 쪽 `SceneManager.sceneCount` 와 `Bootstrap` 존재 확인 |
-| D-2 | 게스트의 `ISceneFlow.Current` 가 `Game` 접속 후에도 `Lobby` 로 남는가(§5.4) | 같은 구성에서 값 확인 |
+| D-1 | **클라이언트 동기화 모드가 `Single` 이라 게스트의 `Bootstrap` 이 언로드되는가**(§5.5) | **확인 (2026-09-13, Local 3프로세스).** `ConnectionManager.HandleServerStarted` 가 Additive 를 지정해 게스트에 `Bootstrap` 이 남는다(`scenes=[Bootstrap,Game]`). 같은 확인에서 **서버가 `VerifySceneBeforeLoading` 으로 호스트의 `Game` 까지 게스트 동기화 목록에서 빼던 결함**(게스트가 씬 없이 씬 오브젝트만 받아 in-scene soft synchronization failure 653건)을 발견해 고쳤다 → [networking.md §3.5](networking.md) |
+| D-2 | 게스트의 `ISceneFlow.Current` 가 `Game` 접속 후에도 `Lobby` 로 남는가(§5.4) | **확인 (2026-09-13).** 게스트 `ISceneFlow.Current` 가 `Game` 으로 바뀌고(`SceneFlowController` 외부 로드 수용), 이탈 후 `Title` 로 돌아가며 `Game` 이 내려간다 |
 
 **D-1 이 참이면 일시정지 메뉴보다 그 문제가 먼저다.** 서비스가 통째로 사라진 게스트에서는
 "타이틀로"도 연결 끊김 복귀도 성립하지 않는다.
@@ -436,12 +450,17 @@ net.OnClientDisconnectCallback += HandleClientDisconnected;
 | M-9b | Local Host 로 나간 뒤 `Title` | 로비가 없으므로 **로비 복귀 버튼이 보이지 않는다**(PM-14) |
 | M-10 | 콘솔 | 오류·경고 0건. 특히 `AudioListener` 중복, `EventSystem` 중복 경고 없음 |
 
-### 10.5 수동 (Local 2인 · UTP) — **미수행**
+### 10.5 수동 (Local 2인 · UTP) — **일부 수행 (2026-09-13, `LocalSessionAutomation` 3프로세스)**
+
+> 수행: L-1, L-2, 게스트 프로세스 강제 종료(호스트가 약 40초 안에 접속·플레이어·정신력 팀에서 정리, 오류 0).
+> 미수행: L-2b(로비 복귀 — Steam 필요), L-3(호스트 강제 종료), L-4, L-5. 방법은 [testing.md §4.5](../workflow/testing.md).
+> 참고: 게스트가 `Title` 에서 `Game` 동기화를 받는 동안 두 씬이 겹쳐 "EventSystem 2개·AudioListener 2개" 경고가
+> 잠깐 뜬다(`SceneFlowController.HandleSceneLoadedExternally` 는 이전 씬 입력을 먼저 끄지 않는다). 동작에는 영향이 없었다.
 
 | # | 절차 | 기대 |
 | --- | --- | --- |
-| L-1 | Host + Client 접속 후 **호스트가** "타이틀로" | 게스트에게 **모달**이 뜬다. 확인을 누르기 전에는 씬이 안 바뀐다. 확인 → `Title` |
-| L-2 | **게스트가** "타이틀로" | 호스트 세션 유지. 게스트만 `Title` 로 가고 **Steam 로비 멤버로는 남는다**(PM-5) |
+| L-1 | Host + Client 접속 후 **호스트가** "타이틀로" | 게스트에게 **모달**이 뜬다. 확인을 누르기 전에는 씬이 안 바뀐다. 확인 → `Title` — **확인 (2026-09-13, 빌드 호스트 + 에디터 게스트):** 호스트 자발적 이탈 후 에디터 게스트가 `state=Disconnected`·끊김 패널 표시·문구 "호스트와 연결이 끊겼습니다."·커서 해제, 씬은 `Game` 유지. 확인 버튼 → `Title`(`Bootstrap` 서비스 유지, `Game` 내려감). 빌드 게스트(`-gh-return-on-end`)도 `sessionEnded=1` 후 `Title` 로 복귀. 호스트 쪽은 `sessionEnded=0` |
+| L-2 | **게스트가** "타이틀로" | 호스트 세션 유지. 게스트만 `Title` 로 가고 **Steam 로비 멤버로는 남는다**(PM-5) — **Local 3프로세스로 확인 (2026-09-13):** 호스트·남은 게스트의 접속·플레이어·정신력 팀 수가 3→2로 줄고 오류 증가 없음. 떠난 게스트는 `Title`(`Bootstrap` 유지). 자발적 이탈이 `SessionEnded`·`LeaveLobby` 를 부르던 결함을 고쳤다(§7.4). Steam 로비 멤버 유지 자체는 Steam 2PC 필요로 **미확인** |
 | L-2b | L-2 직후 `Title` 의 **로비 복귀** | `Lobby` 씬으로 들어가고, 호스트가 아직 매치 중이면 **자동 재접속**된다(PM-14) |
 | L-3 | 호스트 프로세스 강제 종료 | 게스트가 **같은 문구**의 모달을 본다(PM-9) |
 | L-4 | 게스트가 메뉴를 연 상태에서 L-3 | **모달이 메뉴를 덮는다.** "계속하기"로 돌아갈 수 없다 |
@@ -460,8 +479,9 @@ PM-5 검증은 여기서만 진짜로 확인된다 — Steam 로비 멤버 목�
 
 | 항목 | 종류 | 상태 |
 | --- | --- | --- |
-| **클라이언트 동기화 모드(§5.5)** | **선행 검증** | ❌ **D-1 미수행.** `Single` 로 확인되면 `SetClientSynchronizationMode(Additive)` 를 명시하거나 [networking.md §3.5](networking.md) 서술을 고친다. **이게 참이면 게스트 경로 전체가 무너지므로 다른 무엇보다 먼저 확인한다** |
-| **수동 검증(§10.4~§10.6)** | 검증 | ❌ **미수행.** 실제로 플레이해 본 사람이 없다 |
+| **클라이언트 동기화 모드(§5.5)** | **선행 검증** | ✅ **D-1 확인 (2026-09-13).** Additive 지정으로 게스트 `Bootstrap` 유지. 확인 중 발견한 서버 측 씬 검증 결함(호스트 `Game` 이 게스트 동기화에서 빠짐)은 수정 → [networking.md §3.5](networking.md) |
+| **자발적 이탈 후 로비 퇴장(§7.4)** | 결함 수정 | ✅ **수정·확인 (2026-09-13).** 늦게 오는 자기 끊김 콜백이 `LeaveLobby`·`SessionEnded` 를 부르던 문제 |
+| **수동 검증(§10.4~§10.6)** | 검증 | 🟡 **일부 수행 (2026-09-13).** Local 다중 프로세스로 L-1·L-2·게스트 강제 종료 확인. §10.4 에디터 단독 항목, L-2b·L-3~L-5, Steam 2PC(§10.6)는 미수행 |
 | PlayMode 테스트 P-1~P-4(§10.3) | 테스트 | ❌ 미작성 |
 | ~~게스트의 `Game` 씬 추적(§5.4)~~ | 구조 변경 | ✅ **A안 구현** — `SceneFlowController` 가 `SceneManager.sceneLoaded` 로 외부 로드를 받아들인다 |
 | ~~`IConnectionService` 분리(§3.1)~~ | 인터페이스 변경 | ✅ `Disconnect(bool leaveLobby)` + `SessionEnded` |
