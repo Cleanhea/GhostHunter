@@ -12,6 +12,7 @@ namespace GhostHunter.Gameplay.Player
         MoleBurrowController BurrowController { get; }
         DetectionSkillController DetectionController { get; }
         PlayerCleaningController CleaningController { get; }
+        PlayerFurnitureDriverController FurnitureDriverController { get; }
 
         /// <summary>일시정지 메뉴가 게임플레이 입력을 잠글 때 쓴다.</summary>
         PlayerInputReader Input { get; }
@@ -25,6 +26,7 @@ namespace GhostHunter.Gameplay.Player
         void Register(MoleBurrowController burrowController);
         void Register(DetectionSkillController detectionController);
         void Register(PlayerCleaningController cleaningController);
+        void Register(PlayerFurnitureDriverController furnitureDriverController);
         void Register(PlayerInputReader input);
         void Register(SanityNetworkState sanity);
 
@@ -34,6 +36,7 @@ namespace GhostHunter.Gameplay.Player
         void Unregister(MoleBurrowController burrowController);
         void Unregister(DetectionSkillController detectionController);
         void Unregister(PlayerCleaningController cleaningController);
+        void Unregister(PlayerFurnitureDriverController furnitureDriverController);
         void Unregister(PlayerInputReader input);
         void Unregister(SanityNetworkState sanity);
     }

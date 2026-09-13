@@ -7,9 +7,11 @@
         "GhostHunter.Core",
         "GhostHunter.Data",
         "GhostHunter.Gameplay",
+        "GhostHunter.UI",
         "GhostHunter.Networking",
         "Unity.Netcode.Runtime",
         "Unity.InputSystem",
+        "UnityEngine.UI",
         "UniTask"
     ],
     "includePlatforms": [],

@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3296c61d467867648872c37e91128017, type: 3}
+  m_Name: FurnitureDriverSettings_Default
+  m_EditorClassIdentifier: GhostHunter.Gameplay::GhostHunter.Gameplay.FurnitureDriver.FurnitureDriverSettings
+  _actionSecondsHighDurability: 3
+  _actionSecondsLowDurability: 9
+  _durabilityThreshold: 15
+  _startingItemDurability: 100
+  _durabilityDecreasePerUse: 5
+  _useDistance: 3
+  _requestInterval: 0.2
+  _dropHeight: 1

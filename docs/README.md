@@ -23,7 +23,7 @@ docs/
 │   ├── pause-menu-system.md        일시정지 메뉴·호스트 연결 끊김 규칙 — 구현됨, 수동 검증 대기
 │   ├── quick-slot-system.md        퀵슬롯 규칙·대걸레/맨손 장착
 │   ├── cleaning-system.md          대걸레·랜덤 얼룩·HUD 초기화, 상세 룰·진행도 미정
-│   ├── furniture-multidriver-system.md  가구 분해·조립 아이템 — 기획서 1.0 이관, 구현 없음
+│   ├── furniture-multidriver-system.md  가구 분해·조립 아이템 — MD-1·2·5·9·10·11·12 확정, FM-IMPL-1~3 구현
 │   ├── spectator-system.md         사망 후 능력 제한·자유시점·생존자 관전 — 핵심 요구 확정, 구현 미착수
 │   └── roadmap.md                  마일스톤 & 태스크 보드
 ├── architecture/                   어떻게 구성되는가
@@ -39,6 +39,7 @@ docs/
 │   ├── pause-menu.md                일시정지 메뉴·연결 끊김 배선·권위·검증 — 구현됨, 수동 검증 대기
 │   ├── quick-slot.md                퀵슬롯 휠 구현 — 입력 잠금·선택 계산·장착 전달
 │   ├── cleaning-system.md           서버 얼룩 상태·청소 검증·씬 풀·설치/검증
+│   ├── furniture-multidriver.md     분해·조립 서버 판정·씬 풀 재배치·행동 시간 HUD·설치/검증 — 손목 애니메이션·실루엣 렌더링 미구현
 │   └── decisions/                  ADR (기술 결정 기록)
 ├── conventions/                    어떻게 쓰는가
 │   ├── code-style.md               C# / Unity 코딩 규약
@@ -113,7 +114,7 @@ docs/
 | project/pause-menu-system.md | 🟢 **규칙 확정 + 구현 완료.** PM-1~15 전부 확정. 설정 화면 **내용**(PM-6)만 설정 시스템 기획서로 이월 / 수동 검증 대기 |
 | project/quick-slot-system.md | 🟡 **대걸레·맨손 장착 연결(2026-09-12).** 일반 인벤토리·정식 아이콘은 별도 작업 |
 | project/cleaning-system.md | 🟡 **대걸레·좌클릭·랜덤 얼룩·HUD 초기화 구현.** 정식 얼룩 규칙·가구 완료·진행도는 미정 |
-| project/furniture-multidriver-system.md | 🔴 **기획서 1.0 이관만(2026-09-12).** 분해·조립·내구도·연출 규칙은 확정, **코드·씬·에셋 구현 전혀 없음.** 미결정 13건(MD-1~13), 설명 이미지 2장 저장 대기·행동 UI 레퍼런스 1장 미수령 |
+| project/furniture-multidriver-system.md | 🟡 **1.1(2026-09-13) — 우클릭 유지·중앙 원형 게이지로 수정·구현.** MD-1·2·5·9·10·11·12 확정, FM-IMPL-1~3 + FM-IMPL-4 행동 UI 구현. 손목 애니메이션·실루엣 렌더링·원격 검증 남음. MD-3·4·6·13 여전히 TBD, 설명 이미지 2장 저장 대기 |
 | project/spectator-system.md | 🟡 **사망 후 특수능력 제한 + 자유시점/생존자 관전 핵심 요구 확정(2026-09-12).** 세부 키·속도·전환/정리 정책 일부 TBD / 관전 구현 미착수 |
 | project/roadmap.md | 🟢 M0~M7 + 마이그레이션 보드, M8 기획 부분 진행 |
 | architecture/overview.md | 🟢 씬·서비스·스크립트 레이어와 asmdef 구조 반영됨 |
@@ -128,6 +129,7 @@ docs/
 | architecture/pause-menu.md | 🟢 **구현됨.** EditMode 141/142·PlayMode 12/12 통과 / **수동 검증(§10.4~10.6)과 선행 검증 D-1(클라이언트 씬 동기화 모드) 미수행** |
 | architecture/quick-slot.md | 🟡 **대걸레 장착 전달 연결.** 사망 게이팅 구현됨, 일반 인벤토리 대기 |
 | architecture/cleaning-system.md | 🟡 **씬·프리팹 설치/저장 및 Local Host 입력 검증 완료.** 자동 검증 결과·Steam 2PC 잔여 기록 |
+| architecture/furniture-multidriver.md | 🟡 **FM-IMPL-1~3 + 행동 시간 HUD(1.1) 구현·씬 설치, 부품 위치 버그 수정(2026-09-13).** EditMode 235/235·PlayMode 32/32, 실제 Local Host 유지 완료·뗌 취소·부품 착지 확인. 원격 Host/Client·조립·손목 애니메이션·실루엣 렌더링 미수행. 식탁·선반 2종은 라이브 배치 인스턴스 0개 |
 | architecture/decisions/ | 🟡 ADR-0001~0011·0013 확정 / ADR-0012 Proposed |
 | conventions/* | 🟢 규약 확정 |
 | workflow/unity-mcp.md | 🟢 설치·연결·씬 편집 검증됨 |
@@ -135,6 +137,7 @@ docs/
 
 ---
 
-최종 갱신: 2026-09-12 (가구용 멀티 드라이버 기획서 1.0 이관·라우팅 추가 — 구현 없음, 미결정 MD-1~13.
-같은 날 사망 후 관전 기획서·구현 프롬프트 라우팅 추가, 퀵슬롯 더미 스캐폴드 문서와 맵 v0.4·B안 선택·
-MAP-19 랜덤 가구 코드·검증/설치 안내·ADR-0013 반영.)
+최종 갱신: 2026-09-12 (가구용 멀티 드라이버 MD-1·2·5·9·10·11·12 확정 + FM-IMPL-1~3 구현·씬 설치
+반영, 신규 architecture/furniture-multidriver.md 라우팅 추가. 같은 날 사망 후 관전 기획서·구현
+프롬프트 라우팅 추가, 퀵슬롯 더미 스캐폴드 문서와 맵 v0.4·B안 선택·MAP-19 랜덤 가구 코드·검증/설치
+안내·ADR-0013 반영.)

@@ -919,6 +919,7 @@ GameObject:
   - component: {fileID: 6332610387085500506}
   - component: {fileID: 1680156443875350550}
   - component: {fileID: 2045582237521510675}
+  - component: {fileID: 4266342670690431854}
   m_Layer: 9
   m_Name: DiningTable_1.55x0.85
   m_TagString: Untagged
@@ -1125,6 +1126,21 @@ MonoBehaviour:
   _mineColor: {r: 0.1, g: 1, b: 0.9, a: 1}
   _partnerColor: {r: 1, g: 0.45, b: 0.1, a: 1}
   _cooperativeColor: {r: 1, g: 0.9, b: 0.1, a: 1}
+--- !u!114 &4266342670690431854
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7679663668167674458}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c6a7145e8ebc18e4a948e9ee6f666fff, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: GhostHunter.Gameplay::GhostHunter.Gameplay.FurnitureDriver.FurnitureDriverPoolItem
+  ShowTopMostFoldoutHeaderGroup: 1
+  _poolKey: DiningTable_1.55x0.85
+  _startActive: 0
 --- !u!1 &7790930193009860394
 GameObject:
   m_ObjectHideFlags: 0

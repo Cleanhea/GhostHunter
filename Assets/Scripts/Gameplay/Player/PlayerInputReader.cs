@@ -50,6 +50,7 @@ namespace GhostHunter.Gameplay.Player
         private InputAction _spectateDescendAction;
         private InputAction _spectateToggleAction;
         private InputAction _spectateNextAction;
+        private InputAction _useDriverAction;
         private bool _jumpQueued;
         private bool _inputLocked;
         private bool _deathLocked;
@@ -130,6 +131,19 @@ namespace GhostHunter.Gameplay.Player
         /// </summary>
         public bool PronePressedThisFrame { get; private set; }
 
+        /// <summary>
+        /// 생존 중 우클릭 입력(Player/UseDriver) — 가구용 멀티 드라이버의 분해·조립 트리거.
+        /// 사망 중 우클릭(<see cref="SpectatorNextPressedThisFrame"/>)과는 별개 액션이라 상태가
+        /// 갈려 직접 충돌하지 않는다 → docs/project/furniture-multidriver-system.md §7.
+        /// </summary>
+        public bool UseDriverPressedThisFrame { get; private set; }
+
+        /// <summary>
+        /// 생존 중 우클릭(Player/UseDriver)을 누르고 있는 동안 참 — 분해·조립은 행동 시간 끝까지 이 값이
+        /// 유지돼야 완료된다 → docs/project/furniture-multidriver-system.md §3.2.
+        /// </summary>
+        public bool UseDriverHeld { get; private set; }
+
         private ILocalPlayerContext _localPlayer;
 
         public override void OnNetworkSpawn()
@@ -162,6 +176,7 @@ namespace GhostHunter.Gameplay.Player
             _spectateDescendAction = _runtimeActions.FindAction("Player/SpectateDescend", true);
             _spectateToggleAction = _runtimeActions.FindAction("Player/SpectateToggleMode", true);
             _spectateNextAction = _runtimeActions.FindAction("Player/SpectateNext", true);
+            _useDriverAction = _runtimeActions.FindAction("Player/UseDriver", true);
             _runtimeActions.Enable();
 
             // 일시정지 메뉴가 로컬 플레이어의 입력을 잠글 수 있도록 자신을 알린다.
@@ -187,6 +202,8 @@ namespace GhostHunter.Gameplay.Player
             QuickSlotHeld = false;
             QuickSlotPressedThisFrame = false;
             QuickSlotReleasedThisFrame = false;
+            UseDriverPressedThisFrame = false;
+            UseDriverHeld = false;
             _inputLocked = false;
             _deathLocked = false;
             _skillLocked = false;
@@ -276,6 +293,8 @@ namespace GhostHunter.Gameplay.Player
             QuickSlotHeld = false;
             QuickSlotPressedThisFrame = false;
             QuickSlotReleasedThisFrame = false;
+            UseDriverPressedThisFrame = false;
+            UseDriverHeld = false;
             _jumpQueued = false;
         }
 
@@ -291,6 +310,8 @@ namespace GhostHunter.Gameplay.Player
             PronePressedThisFrame = false;
             BurrowPressedThisFrame = false;
             DetectPressedThisFrame = false;
+            UseDriverPressedThisFrame = false;
+            UseDriverHeld = false;
             _jumpQueued = false;
         }
 
@@ -413,6 +434,8 @@ namespace GhostHunter.Gameplay.Player
             BurrowPressedThisFrame = _burrowAction.WasPressedThisFrame();
             DetectPressedThisFrame = _detectAction.WasPressedThisFrame();
             PronePressedThisFrame = _proneAction.WasPressedThisFrame();
+            UseDriverPressedThisFrame = _useDriverAction.WasPressedThisFrame();
+            UseDriverHeld = _useDriverAction.IsPressed();
             QuickSlotHeld = _quickSlotAction.IsPressed();
             QuickSlotPressedThisFrame = _quickSlotAction.WasPressedThisFrame();
             QuickSlotReleasedThisFrame = _quickSlotAction.WasReleasedThisFrame();

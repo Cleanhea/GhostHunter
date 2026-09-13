@@ -158,6 +158,15 @@
                     "processors": "",
                     "interactions": "",
                     "initialStateCheck": false
+                },
+                {
+                    "name": "UseDriver",
+                    "type": "Button",
+                    "id": "c3d79416-e7a1-40e9-8657-5a4aa0d48a28",
+                    "expectedControlType": "Button",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
                 }
             ],
             "bindings": [
@@ -642,6 +651,17 @@
                     "processors": "",
                     "groups": "",
                     "action": "SpectateNext",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "40f66b3b-9ff6-4020-b30d-30b6debbacfd",
+                    "path": "<Mouse>/rightButton",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "UseDriver",
                     "isComposite": false,
                     "isPartOfComposite": false
                 }

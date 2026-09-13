@@ -149,6 +149,30 @@
 | SP-IMPL-3 | 생존자 1인칭 추종, 상하 시선 동기화, 대상 선택·사망·이탈 처리 | SP-DECIDE | **완료 (2026-09-12)** — `PlayerLook.Pitch`/`PlayerMotor.CameraLocalHeight` 복제 + `SpectatorTargetSelector`. Play 미검증 |
 | SP-IMPL-4 | 메뉴·굴착·휠 잠금 충돌, 서버 디버그 부활·리셋·디스폰 복구, 카메라/리스너·멀티플레이 검증 | SP-IMPL-1~3 | **대기 — Host/Client Play 수동 검증 필요** (spectator-system.md §6 AC-1~9 ★ 항목) |
 
+---
+
+### 1.6 FM 가구용 멀티 드라이버 TODO
+
+> 2026-09-12 [가구용 멀티 드라이버 기획서](furniture-multidriver-system.md) 1.0 저장소 반영 +
+> MD-1·2·5·9·10·11·12 사용자 확정 + **FM-IMPL-1~3 코드·씬 구현 완료(2026-09-12).**
+> 구현 상세는 [architecture/furniture-multidriver.md](../architecture/furniture-multidriver.md).
+> FM-IMPL-4(연출)와 수동 검증이 남아 있다.
+> **2026-09-13 수정·검증:** 퀵슬롯 장착 연결과 원본 홀더 정리를 수정했다. 실제 Game Local Host
+> 입력으로 침대 분해 완료. 원격·조립·연출은 남아 있다.
+> **2026-09-13 기획서 1.1:** 우클릭을 끝까지 누르고 있어야 완료·중앙 원형 게이지 HUD 구현. 실제 씬
+> 검증 중 발견한 "분해 부품이 풀 보관 위치로 되돌아가 낙하" 버그 수정. EditMode 235개·PlayMode 32개 통과.
+
+| # | TODO | 선행 조건 | 상태 |
+| --- | --- | --- | --- |
+| FM-DECIDE | MD-1·2·5·9·10·11·12 사용자 확정 | 기획서 1.0 반영 | **완료 (2026-09-12)** — [furniture-multidriver-system.md §8](furniture-multidriver-system.md) |
+| FM-IMPL-1 | 분해 가능 가구·부품 SO, 드라이버 장착 경로, 우클릭 액션 신설 | FM-DECIDE | **완료 (2026-09-12)** — `FurnitureDriverCatalog`·`FurnitureDisassemblyRecipe`·`FurnitureDriverSettings`, 퀵슬롯 1번 슬롯, `Player/UseDriver` 입력 액션 |
+| FM-IMPL-2 | 분해 요청·행동 시간·중단·서버 실행(가구 제거·부품 배치·내구도 상속) | FM-IMPL-1 | **완료 (2026-09-12)** — `PlayerFurnitureDriverController.RequestDisassembleRpc`, `FurnitureDriverPoolItem` 씬 풀 재배치(ADR-0009 준수) |
+| FM-IMPL-3 | 조립 영역 점유 관리, 조립 성립 순수 판정, 실루엣 상태 복제, 서버 조립 실행 | FM-IMPL-2 | **완료 (2026-09-12)** — `FurnitureAssemblyZone` + `FurnitureAssemblyRules`(EditMode 19개 테스트). 실루엣 **시각화는 FM-IMPL-4로 이월** |
+| FM-IMPL-4 | 행동 시간 UI(1.1: 중앙 원형 게이지), 실패 흔들림·문구, 손목 애니메이션, 3색 실루엣 렌더링 | FM-IMPL-3 | **진행중 (2026-09-13)** — 기획서 1.1 수정(우클릭 유지·중앙 원형 게이지)과 함께 `FurnitureDriverActionHud`·`UseDriverHeld` 취소 구현, Game `PrototypeUI` 설치·저장. 손목 애니메이션·3색 실루엣 렌더링 미착수 |
+| FM-TEST | PlayMode 서버 거절·홀더 정리 자동 테스트 | FM-IMPL-2~3 | **진행중 (2026-09-13)** — `FurnitureDisassemblyFlowTests` 17개(1.1 우클릭 뗌 취소·원형 게이지 진행/실패 표시 3개 추가). 전체 PlayMode 32/32 통과. 부품 위치 버그는 PlayMode로 재현하지 못해 실제 씬으로 확인. 사망·원격·조립 검증 남음 |
+| FM-검증 | Host/Client 수동 분해·조립, Steam 2PC 복제 확인 | FM-IMPL-1~4 | **진행중 (2026-09-13)** — 실제 Game Local Host 가상 입력: 침대 분해·내구도 100→95, 1.1 우클릭 유지 완료·뗌 취소·"분해 실패" 게이지, 부품 위치 수정 후 부품이 침대 앞 1.2m 이내에 착지. 사람 수동 플레이·원격·Steam 2PC 미수행 → [검증 상세](../architecture/furniture-multidriver.md#5-검증-상태) |
+| FM-레벨배치 | 식탁·선반 2종을 `House_01/PhysicsFurniture`에 실제 배치(맵 v0.4 일반 가구 배치와 연동) | 맵 v0.4 진행 | **미착수** — 현재 라이브 인스턴스 0개라 분해 대상 없음 |
+
 ## 2. 현재 스프린트 — MIG: 아키텍처 정비
 
 2026-08-19 결정으로 씬 아키텍처·어셈블리 구조·의존성 획득 방식이 바뀌었다.

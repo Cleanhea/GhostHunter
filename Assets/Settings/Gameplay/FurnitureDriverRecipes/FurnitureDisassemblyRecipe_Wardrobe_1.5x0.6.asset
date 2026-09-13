@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c2b33c351550e254a8680972505dcda8, type: 3}
+  m_Name: FurnitureDisassemblyRecipe_Wardrobe_1.5x0.6
+  m_EditorClassIdentifier: GhostHunter.Gameplay::GhostHunter.Gameplay.FurnitureDriver.FurnitureDisassemblyRecipe
+  _largeFurnitureId: Wardrobe_1.5x0.6
+  _displayName: "\uC637\uC7A5(1.5m)"
+  _parts:
+  - PartId: DoorPanel_1.5
+    Count: 1
+  - PartId: Hanger_1.5
+    Count: 1
+  - PartId: Clothes_1.5
+    Count: 1

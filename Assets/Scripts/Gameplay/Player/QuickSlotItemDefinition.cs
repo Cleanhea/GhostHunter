@@ -13,6 +13,7 @@ namespace GhostHunter.Gameplay.Player
         [SerializeField, TextArea] private string _description = "";
         [SerializeField] private Sprite _icon;
         [SerializeField] private bool _isMop;
+        [SerializeField] private bool _isDriver;
 
         [Tooltip("아이콘 에셋이 없을 때(QS-10) 대신 그리는 단색 도형 자리표시자 색.")]
         [SerializeField] private Color _placeholderColor = Color.white;
@@ -22,6 +23,7 @@ namespace GhostHunter.Gameplay.Player
         public string Description => _description;
         public Sprite Icon => _icon;
         public bool IsMop => _isMop;
+        public bool IsDriver => _isDriver;
         public Color PlaceholderColor => _placeholderColor;
     }
 }

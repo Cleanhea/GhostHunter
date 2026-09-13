@@ -455,6 +455,7 @@ GameObject:
   - component: {fileID: 7635980112726645091}
   - component: {fileID: 5490730634563090897}
   - component: {fileID: 6608234166032575517}
+  - component: {fileID: 2808397687057996184}
   m_Layer: 8
   m_Name: Player
   m_TagString: Untagged
@@ -782,6 +783,24 @@ MonoBehaviour:
   _loadout: {fileID: 11400000, guid: 943369e31c482124aac1e7e236a0e763, type: 2}
   _settings: {fileID: 11400000, guid: 5380d5a103559f14cae15f7c4ed0feed, type: 2}
   _mopView: {fileID: 2822219319352316216}
+--- !u!114 &2808397687057996184
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6853845278674404290}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b59945067a4a4d24a9a3212c18aea519, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: GhostHunter.Gameplay::GhostHunter.Gameplay.Player.PlayerFurnitureDriverController
+  ShowTopMostFoldoutHeaderGroup: 1
+  _input: {fileID: 841358848952369473}
+  _camera: {fileID: 431433331754987499}
+  _loadout: {fileID: 11400000, guid: 943369e31c482124aac1e7e236a0e763, type: 2}
+  _settings: {fileID: 11400000, guid: 3607bc663a65b4f4baa221fab15be9d4, type: 2}
+  _catalog: {fileID: 11400000, guid: 035376995373d1d4a8c299012673d6ba, type: 2}
 --- !u!1 &7530103813448067282
 GameObject:
   m_ObjectHideFlags: 0

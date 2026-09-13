@@ -13,6 +13,7 @@ namespace GhostHunter.Gameplay.Player
         public MoleBurrowController BurrowController { get; private set; }
         public DetectionSkillController DetectionController { get; private set; }
         public PlayerCleaningController CleaningController { get; private set; }
+        public PlayerFurnitureDriverController FurnitureDriverController { get; private set; }
 
         public void Register(PlayerCleaningController cleaningController)
         {
@@ -24,6 +25,18 @@ namespace GhostHunter.Gameplay.Player
         {
             if (CleaningController == cleaningController)
                 CleaningController = null;
+        }
+
+        public void Register(PlayerFurnitureDriverController furnitureDriverController)
+        {
+            if (CanRegister(FurnitureDriverController, furnitureDriverController))
+                FurnitureDriverController = furnitureDriverController;
+        }
+
+        public void Unregister(PlayerFurnitureDriverController furnitureDriverController)
+        {
+            if (FurnitureDriverController == furnitureDriverController)
+                FurnitureDriverController = null;
         }
         public PlayerInputReader Input { get; private set; }
         public SanityNetworkState Sanity { get; private set; }

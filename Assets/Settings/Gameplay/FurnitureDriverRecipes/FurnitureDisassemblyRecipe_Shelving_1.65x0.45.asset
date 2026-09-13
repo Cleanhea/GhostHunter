@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c2b33c351550e254a8680972505dcda8, type: 3}
+  m_Name: FurnitureDisassemblyRecipe_Shelving_1.65x0.45
+  m_EditorClassIdentifier: GhostHunter.Gameplay::GhostHunter.Gameplay.FurnitureDriver.FurnitureDisassemblyRecipe
+  _largeFurnitureId: Shelving_1.65x0.45
+  _displayName: "\uC791\uC740 \uC120\uBC18"
+  _parts:
+  - PartId: ShelfFrame_1.65
+    Count: 1
+  - PartId: ShelfBoard_1.65
+    Count: 3

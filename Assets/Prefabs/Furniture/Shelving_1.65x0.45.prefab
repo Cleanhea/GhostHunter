@@ -806,6 +806,7 @@ GameObject:
   - component: {fileID: 1475644789848836109}
   - component: {fileID: 1752403998438387170}
   - component: {fileID: 2704033599126209638}
+  - component: {fileID: 1317825809486840734}
   m_Layer: 9
   m_Name: Shelving_1.65x0.45
   m_TagString: Untagged
@@ -1014,6 +1015,21 @@ MonoBehaviour:
   _mineColor: {r: 0.1, g: 1, b: 0.9, a: 1}
   _partnerColor: {r: 1, g: 0.45, b: 0.1, a: 1}
   _cooperativeColor: {r: 1, g: 0.9, b: 0.1, a: 1}
+--- !u!114 &1317825809486840734
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6334386416602088911}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c6a7145e8ebc18e4a948e9ee6f666fff, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: GhostHunter.Gameplay::GhostHunter.Gameplay.FurnitureDriver.FurnitureDriverPoolItem
+  ShowTopMostFoldoutHeaderGroup: 1
+  _poolKey: Shelving_1.65x0.45
+  _startActive: 0
 --- !u!1 &6835810720086284338
 GameObject:
   m_ObjectHideFlags: 0

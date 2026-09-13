@@ -1,0 +1,32 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: eeac8a49d4f66d5409918c61ae2e1e41, type: 3}
+  m_Name: FurnitureDriverUiSettings_Default
+  m_EditorClassIdentifier: GhostHunter.Gameplay::GhostHunter.Gameplay.FurnitureDriver.FurnitureDriverUiSettings
+  _ringDiameter: 88
+  _ringThicknessRatio: 0.18
+  _trackColor: {r: 0, g: 0, b: 0, a: 0.54901963}
+  _fillColor: {r: 1, g: 1, b: 1, a: 0.92156863}
+  _failColor: {r: 0.8392157, g: 0.39607844, b: 0.39607844, a: 0.92156863}
+  _textColor: {r: 1, g: 1, b: 1, a: 1}
+  _disassemblingText: "\uBD84\uD574 \uC911"
+  _assemblingText: "\uC870\uB9BD \uC911"
+  _disassembleFailText: "\uBD84\uD574 \uC2E4\uD328"
+  _assembleFailText: "\uC870\uB9BD \uC2E4\uD328"
+  _fontSize: 18
+  _labelGap: 10
+  _failDisplaySeconds: 0.9
+  _shakeSeconds: 0.4
+  _shakeCount: 2
+  _shakeAmplitude: 12
+  _textureResolution: 256
+  _referenceResolution: {x: 1920, y: 1080}

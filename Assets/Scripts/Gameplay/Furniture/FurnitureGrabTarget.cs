@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using GhostHunter.Gameplay.FurnitureDriver;
 using GhostHunter.Gameplay.Interaction;
 using GhostHunter.Gameplay.Map;
 using Unity.Netcode;
@@ -36,6 +37,7 @@ namespace GhostHunter.Gameplay.Furniture
         private Rigidbody _rigidbody;
         private FurnitureLauncher _launcher;
         private RandomFurnitureItem _randomItem;
+        private FurnitureDriverPoolItem _driverPoolItem;
         private float _heldSince;
         private float _launchedAt;
 
@@ -57,7 +59,16 @@ namespace GhostHunter.Gameplay.Furniture
             _rigidbody = GetComponent<Rigidbody>();
             _launcher = GetComponent<FurnitureLauncher>();
             _randomItem = GetComponent<RandomFurnitureItem>();
+            _driverPoolItem = GetComponent<FurnitureDriverPoolItem>();
         }
+
+        /// <summary>
+        /// 씬 풀 재배치 컴포넌트(랜덤 가구 또는 가구용 멀티 드라이버 부품/큰 가구)가 있다면
+        /// 배치·활성화된 상태인지 확인한다. 둘 다 없으면 원래부터 항상 배치된 일반 가구다.
+        /// </summary>
+        private bool IsPlacementReady =>
+            (_randomItem == null || _randomItem.IsPlaced)
+            && (_driverPoolItem == null || _driverPoolItem.IsActive);
 
         public override void OnNetworkSpawn()
         {
@@ -102,7 +113,7 @@ namespace GhostHunter.Gameplay.Furniture
 
         public bool CanGrab(ulong clientId)
         {
-            if (_randomItem != null && !_randomItem.IsPlaced)
+            if (!IsPlacementReady)
                 return false;
             if (_state.Value == FurnitureState.Launched)
                 return false;
@@ -127,7 +138,7 @@ namespace GhostHunter.Gameplay.Furniture
             Vector3 direction)
         {
             if (!IsServer
-                || (_randomItem != null && !_randomItem.IsPlaced)
+                || !IsPlacementReady
                 || _state.Value == FurnitureState.Launched
                 || _holders.Count >= MaxHolders
                 || ContainsHolder(clientId)
@@ -276,6 +287,16 @@ namespace GhostHunter.Gameplay.Furniture
             }
 
             _aims.Remove(clientId);
+        }
+
+        /// <summary>서버에서 풀로 돌려보내기 전에 홀더를 알리고 잡기·투척 상태를 초기화한다.</summary>
+        public void ServerResetForPool()
+        {
+            if (!IsServer || !IsSpawned)
+                return;
+
+            ClearRemainingHolders();
+            ServerReturnToIdle();
         }
 
         private void ClearRemainingHolders()

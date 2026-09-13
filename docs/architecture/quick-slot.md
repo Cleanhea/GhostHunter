@@ -1,6 +1,7 @@
 # 퀵슬롯(라디얼 휠) 구현
 
-> 상태: **대걸레 장착·청소 연결 (2026-09-12).** 일반 인벤토리는 미구현. [청소 구현](cleaning-system.md) 참조.
+> 상태: **대걸레·드라이버 장착 연결 (2026-09-13).** 일반 인벤토리는 미구현.
+> [청소 구현](cleaning-system.md) · [가구 분해 구현](furniture-multidriver.md) 참조.
 > 게임 규칙의 권위는 [퀵슬롯 시스템 기획서](../project/quick-slot-system.md)다.
 
 ## 1. 구성 요소
@@ -68,9 +69,12 @@ null`(빈 슬롯, QS-2)이어도 아무 것도 하지 않는다 — 둘 다 "장
 
 ### 4.1 확정은 플레이어 장착 요청으로 전달 (QS-3·QS-6)
 
-`Confirm`은 `ILocalPlayerContext.CleaningController.EquipSlot(index)`으로 선택을 전달한다.
+`Confirm`은 `ILocalPlayerContext.CleaningController.EquipSlot(index)`과
+`FurnitureDriverController.EquipSlot(index)`으로 선택을 전달한다. 드라이버 이외의 슬롯을
+선택해도 양쪽에 전달해야 이전 도구의 장착 상태가 남지 않는다. 드라이버 컴포넌트가 없으면
+드라이버 슬롯 선택은 거절한다. 드라이버 해제 시 진행 중인 분해/조립도 취소한다.
 UI 자체는 로컬 MonoBehaviour이며 RPC를 소유하지 않는다. 플레이어 컴포넌트가 서버에 장착을
-요청하고 소유자에게 결과를 회신한다. UI는 현재 플레이어의 `EquippedSlot`을 읽어 재접속이나
+요청하고 소유자에게 결과를 회신한다. UI는 대걸레 컨트롤러의 `EquippedSlot`(없으면 드라이버)을 읽어 재접속이나
 서버 거부 후에도 표시를 맞춘다. 다른 플레이어에게 장착 모델·선택을 복제하지 않는다.
 
 ### 4.2 시각 구성
@@ -99,15 +103,16 @@ UI 자체는 로컬 MonoBehaviour이며 RPC를 소유하지 않는다. 플레이
   CanOpen`이 `_localPlayer.Sanity.HasSanity`를 함께 검사한다. 사망 시 열려 있던 휠은 기존
   `CanRemainOpen` → `Close()` 경로로 선택을 취소하고 닫힌다 — 별도 사망 분기가 필요 없었다.
 - **게임패드 미지원**(QS-7). `Player/QuickSlot`은 키보드 바인딩만 갖는다.
-- **아이콘은 자리표시자**(QS-10). 현재 0번 슬롯은 `QuickSlotItem_Mop.asset`, 2번은 기존
-  `QuickSlotItem_Placeholder2.asset`를 맨손으로 표시한다. 나머지 두 칸은 비어 있다.
+- **아이콘은 자리표시자**(QS-10). 현재 0번 슬롯은 `QuickSlotItem_Mop.asset`, 1번은
+  `QuickSlotItem_Driver.asset`, 2번은 기존 `QuickSlotItem_Placeholder2.asset`를 맨손으로 표시한다.
+  3번은 비어 있다.
 
 ## 6. 씬·에셋 배선
 
 | 대상 | 경로 | 상태 |
 | --- | --- | --- |
 | 설정 에셋 | `Assets/Settings/Gameplay/QuickSlotUiSettings_Default.asset` | 설치 도구가 생성 |
-| 로드아웃 | `Assets/Settings/Gameplay/QuickSlotLoadout_Default.asset` | 0번 대걸레·2번 맨손, 빈 슬롯 2개 |
+| 로드아웃 | `Assets/Settings/Gameplay/QuickSlotLoadout_Default.asset` | 0번 대걸레·1번 드라이버·2번 맨손, 빈 슬롯 1개 |
 | 아이템 | `QuickSlotItem_Mop.asset`·`QuickSlotItem_Placeholder2.asset` | 청소 설치 도구가 대걸레와 맨손 표시 연결 |
 | HUD 컴포넌트 | `Game` 씬 `PrototypeUI` (기존 `MoleSkillHud`와 같은 오브젝트) | 설치 도구가 `QuickSlotWheelUi` 추가 |
 
@@ -115,7 +120,14 @@ UI 자체는 로컬 MonoBehaviour이며 RPC를 소유하지 않는다. 플레이
 이미 있으면 덮어쓰지 않고 `ValidateInstallation()`으로 배선만 검증한다. `Game` 씬을 통째로
 다시 만들지 않는다.
 
-## 7. 검증 상태 (2026-09-12)
+## 7. 검증 상태
+
+2026-09-13: 드라이버 장착 전달 누락을 수정했다. `FurnitureDisassemblyFlowTests`에서 실제
+`QuickSlotWheelUi.Confirm`을 통한 드라이버 장착·대걸레 전환 시 분해 취소·맨손 전환 시 양쪽
+도구 해제를 확인했다(분해 14/14, 전체 PlayMode 29/29 통과). 관련 EditMode는 31/31 통과.
+별도로 실제 Game 씬 Local Host에 가상 Tab·마우스 이동·Tab 해제 입력을 넣어 1번 슬롯의
+클라이언트·서버 드라이버 장착을 확인했고, 실제 조준·우클릭으로 침대 분해까지 완료했다.
+씬·프리팹을 재저장하거나 재설치할 필요는 없다. 원격 Host/Client 검증은 남아 있다.
 
 청소 연결 후 Local Host에서 Input System의 Tab 누름·마우스 델타·Tab 해제를 주입해
 휠 열림, 맨손 슬롯 확정, 서버 장착 반영, 대걸레 모델 숨김과 휠 잠금 해제를 확인했다.
@@ -138,4 +150,4 @@ UI 자체는 로컬 MonoBehaviour이며 RPC를 소유하지 않는다. 플레이
 [player-controller.md](player-controller.md) · [pause-menu.md](pause-menu.md)(입력 잠금 선례) ·
 [../conventions/code-style.md](../conventions/code-style.md)
 
-최종 갱신: 2026-09-12 (사망 게이팅을 관전 SP-IMPL-1로 구현 — `ILocalPlayerContext.Sanity` 추가, `CanOpen` 검사 반영. Unity Test Runner 통과, Host/Client Play 검증 대기.)
+최종 갱신: 2026-09-13 (드라이버 장착·해제 전달 수정, 자동 테스트와 실제 Local Host 입력 검증)

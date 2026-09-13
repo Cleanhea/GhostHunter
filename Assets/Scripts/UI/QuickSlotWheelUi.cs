@@ -90,7 +90,8 @@ namespace GhostHunter.UI
 
             PlayerInputReader input = _localPlayer != null ? _localPlayer.Input : null;
             PlayerCleaningController cleaning = _localPlayer != null ? _localPlayer.CleaningController : null;
-            int equipped = cleaning != null ? cleaning.EquippedSlot : -1;
+            PlayerFurnitureDriverController driver = _localPlayer != null ? _localPlayer.FurnitureDriverController : null;
+            int equipped = cleaning != null ? cleaning.EquippedSlot : driver != null ? driver.EquippedSlot : -1;
             if (_equippedIndex != equipped)
             {
                 _equippedIndex = equipped;
@@ -168,7 +169,13 @@ namespace GhostHunter.UI
                 return;
 
             PlayerCleaningController cleaning = _localPlayer != null ? _localPlayer.CleaningController : null;
+            PlayerFurnitureDriverController driver = _localPlayer != null ? _localPlayer.FurnitureDriverController : null;
+            if (item.IsDriver && driver == null)
+                return;
             if (cleaning != null && !cleaning.EquipSlot(index))
+                return;
+            // 다른 슬롯 선택도 전달해야 이전 드라이버 장착이 서버에 남지 않는다.
+            if (driver != null && !driver.EquipSlot(index))
                 return;
 
             _equippedIndex = index;
@@ -221,7 +228,10 @@ namespace GhostHunter.UI
         private void UpdateEquippedDisplay()
         {
             _equippedHintText.text = _equippedItem != null && _equippedItem.IsMop
-                ? "대걸레 · 좌클릭 청소\nTab 장비 변경" : "Tab 장비 선택";
+                ? "대걸레 · 좌클릭 청소\nTab 장비 변경"
+                : _equippedItem != null && _equippedItem.IsDriver
+                    ? "드라이버 · 우클릭 유지 분해/조립\nTab 장비 변경"
+                    : "Tab 장비 선택";
             if (_equippedItem == null)
             {
                 _equippedIcon.enabled = false;
