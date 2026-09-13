@@ -184,6 +184,79 @@ namespace GhostHunter.Tests.PlayMode
             Assert.IsFalse(furniture.ServerTryAddHolder(HostClientId, AimOrigin, AimDirection));
         }
 
+        [UnityTest]
+        public IEnumerator ServerTryAddHolder_두_명이_잡으면_그_순간_자세를_목표_자세로_잡는다()
+        {
+            FurnitureGrabTarget furniture = SpawnFurniture();
+            yield return null;
+
+            Quaternion start = Quaternion.Euler(0f, 30f, 0f);
+            BodyOf(furniture).rotation = start;
+            furniture.ServerTryAddHolder(HostClientId, AimOrigin, AimDirection);
+            furniture.ServerTryAddHolder(PartnerClientId, AimOrigin + Vector3.right, AimDirection);
+
+            Assert.Less(Quaternion.Angle(furniture.HeldRotation, start), 0.01f);
+        }
+
+        [UnityTest]
+        public IEnumerator ServerRotateHeld_휠_한_칸이면_목표_자세가_한_칸_돈다()
+        {
+            FurnitureGrabTarget furniture = SpawnFurniture();
+            yield return null;
+
+            furniture.ServerTryAddHolder(HostClientId, AimOrigin, AimDirection);
+            furniture.ServerTryAddHolder(PartnerClientId, AimOrigin + Vector3.right, AimDirection);
+            Quaternion start = furniture.HeldRotation;
+
+            Assert.IsTrue(furniture.ServerRotateHeld(HostClientId, 1, FurnitureRotateMode.Rotate));
+
+            Quaternion expected = Quaternion.AngleAxis(Settings.WheelStepDegrees, Vector3.up) * start;
+            Assert.Less(Quaternion.Angle(furniture.HeldRotation, expected), 0.01f);
+        }
+
+        [UnityTest]
+        public IEnumerator ServerRotateHeld_두_홀더가_반대로_굴리면_상쇄된다()
+        {
+            FurnitureGrabTarget furniture = SpawnFurniture();
+            yield return null;
+
+            furniture.ServerTryAddHolder(HostClientId, AimOrigin, AimDirection);
+            furniture.ServerTryAddHolder(PartnerClientId, AimOrigin + Vector3.right, AimDirection);
+            Quaternion start = furniture.HeldRotation;
+
+            Assert.IsTrue(furniture.ServerRotateHeld(HostClientId, 1, FurnitureRotateMode.Rotate));
+            Assert.IsTrue(furniture.ServerRotateHeld(PartnerClientId, -1, FurnitureRotateMode.Rotate));
+
+            Assert.Less(Quaternion.Angle(furniture.HeldRotation, start), 0.01f);
+        }
+
+        [UnityTest]
+        public IEnumerator ServerRotateHeld_혼자_잡은_투척_준비에서는_거부한다()
+        {
+            FurnitureGrabTarget furniture = SpawnFurniture();
+            yield return null;
+
+            furniture.ServerTryAddHolder(HostClientId, AimOrigin, AimDirection);
+
+            Assert.IsFalse(furniture.ServerRotateHeld(HostClientId, 1, FurnitureRotateMode.Rotate));
+        }
+
+        [UnityTest]
+        public IEnumerator ServerRotateHeld_홀더가_아니거나_한_칸을_넘으면_거부한다()
+        {
+            FurnitureGrabTarget furniture = SpawnFurniture();
+            yield return null;
+
+            furniture.ServerTryAddHolder(HostClientId, AimOrigin, AimDirection);
+            furniture.ServerTryAddHolder(PartnerClientId, AimOrigin + Vector3.right, AimDirection);
+            Quaternion start = furniture.HeldRotation;
+
+            Assert.IsFalse(furniture.ServerRotateHeld(1234, 1, FurnitureRotateMode.Rotate));
+            Assert.IsFalse(furniture.ServerRotateHeld(HostClientId, 5, FurnitureRotateMode.Tilt));
+            Assert.IsFalse(furniture.ServerRotateHeld(HostClientId, 1, (FurnitureRotateMode)7));
+            Assert.Less(Quaternion.Angle(furniture.HeldRotation, start), 0.01f);
+        }
+
         /// <summary>
         /// 차징은 첫 홀더가 붙은 순간부터 흐른다. 값 자체보다 "0 에서 시작해 늘어난다"를 본다.
         /// </summary>

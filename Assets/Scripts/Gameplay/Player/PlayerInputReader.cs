@@ -51,6 +51,8 @@ namespace GhostHunter.Gameplay.Player
         private InputAction _spectateToggleAction;
         private InputAction _spectateNextAction;
         private InputAction _useDriverAction;
+        private InputAction _rotateFurnitureAction;
+        private InputAction _rotateFurnitureModeAction;
         private bool _jumpQueued;
         private bool _inputLocked;
         private bool _deathLocked;
@@ -144,6 +146,15 @@ namespace GhostHunter.Gameplay.Player
         /// </summary>
         public bool UseDriverHeld { get; private set; }
 
+        /// <summary>
+        /// 이 프레임 마우스 휠 세로 이동량(Player/RotateFurniture) — 2인 잡기 가구 회전·기울이기에 쓴다.
+        /// 크기는 플랫폼·설정마다 달라 사용처는 부호만 본다 → docs/architecture/throw-system.md §3.1.
+        /// </summary>
+        public float FurnitureRotateScroll { get; private set; }
+
+        /// <summary>휠 클릭(Player/RotateFurnitureMode) — 가구 휠 조작의 회전 ↔ 기울이기 전환.</summary>
+        public bool FurnitureRotateModePressedThisFrame { get; private set; }
+
         private ILocalPlayerContext _localPlayer;
 
         public override void OnNetworkSpawn()
@@ -177,6 +188,8 @@ namespace GhostHunter.Gameplay.Player
             _spectateToggleAction = _runtimeActions.FindAction("Player/SpectateToggleMode", true);
             _spectateNextAction = _runtimeActions.FindAction("Player/SpectateNext", true);
             _useDriverAction = _runtimeActions.FindAction("Player/UseDriver", true);
+            _rotateFurnitureAction = _runtimeActions.FindAction("Player/RotateFurniture", true);
+            _rotateFurnitureModeAction = _runtimeActions.FindAction("Player/RotateFurnitureMode", true);
             _runtimeActions.Enable();
 
             // 일시정지 메뉴가 로컬 플레이어의 입력을 잠글 수 있도록 자신을 알린다.
@@ -204,6 +217,8 @@ namespace GhostHunter.Gameplay.Player
             QuickSlotReleasedThisFrame = false;
             UseDriverPressedThisFrame = false;
             UseDriverHeld = false;
+            FurnitureRotateScroll = 0f;
+            FurnitureRotateModePressedThisFrame = false;
             _inputLocked = false;
             _deathLocked = false;
             _skillLocked = false;
@@ -295,6 +310,8 @@ namespace GhostHunter.Gameplay.Player
             QuickSlotReleasedThisFrame = false;
             UseDriverPressedThisFrame = false;
             UseDriverHeld = false;
+            FurnitureRotateScroll = 0f;
+            FurnitureRotateModePressedThisFrame = false;
             _jumpQueued = false;
         }
 
@@ -312,6 +329,8 @@ namespace GhostHunter.Gameplay.Player
             DetectPressedThisFrame = false;
             UseDriverPressedThisFrame = false;
             UseDriverHeld = false;
+            FurnitureRotateScroll = 0f;
+            FurnitureRotateModePressedThisFrame = false;
             _jumpQueued = false;
         }
 
@@ -436,6 +455,8 @@ namespace GhostHunter.Gameplay.Player
             PronePressedThisFrame = _proneAction.WasPressedThisFrame();
             UseDriverPressedThisFrame = _useDriverAction.WasPressedThisFrame();
             UseDriverHeld = _useDriverAction.IsPressed();
+            FurnitureRotateScroll = _rotateFurnitureAction.ReadValue<Vector2>().y;
+            FurnitureRotateModePressedThisFrame = _rotateFurnitureModeAction.WasPressedThisFrame();
             QuickSlotHeld = _quickSlotAction.IsPressed();
             QuickSlotPressedThisFrame = _quickSlotAction.WasPressedThisFrame();
             QuickSlotReleasedThisFrame = _quickSlotAction.WasReleasedThisFrame();

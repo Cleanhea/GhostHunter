@@ -38,6 +38,8 @@
 | `Look` | Mouse Delta / 우스틱 | 시점 |
 | `Jump` | Space | 점프 (엎드린 중에는 무시) |
 | `Attack` | 마우스 좌클릭 (**Hold 아님, press/release 둘 다 필요**) | 가구 잡기/던지기 |
+| `RotateFurniture` | 마우스 휠 (`<Mouse>/scroll`, 부호만 사용) | 2인 잡기 가구 회전/기울이기 한 칸 → [throw-system.md §3.1](throw-system.md) |
+| `RotateFurnitureMode` | 휠 클릭 (`<Mouse>/middleButton`) | 휠 조작 회전 ↔ 기울이기 전환 |
 | `Interact` | E | 문 여닫기 (조준선 2.5m 안의 문) |
 | `Crouch` | C (홀드) | 웅크리기 |
 | `Burrow` | **T** | 굴착 스킬 토글 — **확정(2026-09-05)**. 기획서의 E는 `Interact`(E)와 겹쳐 채택하지 않았다 → [mole-skill-system.md §3.5](../project/mole-skill-system.md) |

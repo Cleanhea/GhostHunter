@@ -40,6 +40,7 @@ namespace GhostHunter.Gameplay.Furniture
         private FurnitureDriverPoolItem _driverPoolItem;
         private float _heldSince;
         private float _launchedAt;
+        private Quaternion _heldRotation = Quaternion.identity;
 
         private struct HolderAim
         {
@@ -52,6 +53,9 @@ namespace GhostHunter.Gameplay.Furniture
         public float Charge => _charge.Value;
         public int HolderCount => _holders.Count;
         public bool HasFreeSlot => _holders.Count < MaxHolders;
+
+        /// <summary>서버 전용 — 2인 잡기 중 가구가 맞출 목표 자세. Held 진입 시 현재 자세로 시작해 휠로만 바뀐다.</summary>
+        public Quaternion HeldRotation => _heldRotation;
         public event Action<FurnitureState, FurnitureState> StateChanged;
 
         private void Awake()
@@ -161,6 +165,7 @@ namespace GhostHunter.Gameplay.Furniture
             }
             else
             {
+                _heldRotation = _rigidbody.rotation;
                 _state.Value = FurnitureState.Held;
                 _rigidbody.useGravity = false;
             }
@@ -178,6 +183,28 @@ namespace GhostHunter.Gameplay.Furniture
             }
 
             _aims[clientId] = aim;
+        }
+
+        /// <summary>
+        /// 2인 잡기 중인 홀더의 휠 한 칸으로 목표 자세를 바꾼다. 두 홀더 입력은 순서대로 합산된다.
+        /// 기울이기 축은 그 홀더의 마지막 조준 방향에서 구한다.
+        /// </summary>
+        public bool ServerRotateHeld(ulong clientId, int steps, FurnitureRotateMode mode)
+        {
+            if (!IsServer
+                || _settings == null
+                || _state.Value != FurnitureState.Held
+                || (steps != 1 && steps != -1)
+                || mode is not (FurnitureRotateMode.Rotate or FurnitureRotateMode.Tilt)
+                || !ContainsHolder(clientId)
+                || !_aims.TryGetValue(clientId, out HolderAim aim))
+            {
+                return false;
+            }
+
+            _heldRotation = FurnitureHeldControl.ApplyWheel(
+                _heldRotation, steps, mode, aim.Direction, _settings.WheelStepDegrees);
+            return true;
         }
 
         public void ServerRelease(ulong clientId, Vector3 direction, bool forced)

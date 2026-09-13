@@ -12,7 +12,7 @@
 ### 확정된 것 — 던지기 메커닉
 
 ```
-[가구 조준] → [홀드로 투척 준비] → [혼자 밀치기 or 둘이 잡아 부양] → [떼면 발사] → [연쇄 충돌]
+[가구 조준] → [홀드로 투척 준비] → [혼자 밀치기 or 둘이 잡아 고정 운반·휠로 회전] → [떼면 발사] → [연쇄 충돌]
 ```
 
 1인칭 시점에서 가구를 조준해 홀드로 붙잡고, 마우스 방향으로 밀쳐 날린다.
@@ -61,6 +61,8 @@
 | `Look` | Mouse Delta / 우스틱 | 시점 |
 | `Jump` | Space | 점프 |
 | `Attack` | 마우스 좌클릭 (**Press And Release**) | 가구 잡기/던지기 (조준 2 m) |
+| `RotateFurniture` | 마우스 휠 | 2인 잡기 중 가구 회전/기울이기 한 칸(15°). 두 홀더 입력 합산 — **2026-09-13 사용자 확정** |
+| `RotateFurnitureMode` | 휠 클릭 | 휠 조작을 회전 ↔ 기울이기로 전환. 기울기 제한 없음 |
 | `Interact` | E | 문 여닫기 (조준선 2.5m 안의 문) |
 | `Prone` | Z (토글) | 엎드리기 — 침대 밑으로 기어 들어가는 3번째 자세 |
 | `Burrow` | **T** | 굴착 스킬 — **확정(2026-09-05)**. 기획서의 E는 `Interact` 충돌로 채택하지 않았다 → [mole-skill-system.md §3.5](mole-skill-system.md) |
@@ -81,7 +83,7 @@
 
 | 능력 | 효과 | 쿨다운 | 네트워크 권위 |
 | --- | --- | --- | --- |
-| 가구 잡기/던지기 | 홀드 중 부양, 해제 시 발사 | `relaunchLockDuration` 2.0s | **Server** |
+| 가구 잡기/던지기 | 2인 홀드 중 조준점 중간에 고정·휠로 자세 조절, 해제 시 발사 | `relaunchLockDuration` 2.0s | **Server** |
 | 문 여닫기 | 열림/닫힘 토글 | 없음 | **Server** (거리 검증) |
 | 이동·점프 | — | — | **Owner** ([ADR-0008](../architecture/decisions/ADR-0008-owner-authoritative-player-movement.md)) |
 | **탐지 스킬** (Q) | 활성 마커만 5초간 옮길 가구(`#f9f871`)·닦을 얼룩(`#fc84b8`)로 표시. 시전자 화면 전용 | **10초** | 로컬 전용 (복제 없음) |
@@ -281,9 +283,9 @@ v0.4 변경 이력에는 맵 크기·도면 수정이 있으나 이번 첨부에
 | `maxTargetDistance` | 2 m | 좌클릭 조준·붙잡기 사거리 (2026-08-31 12 m → 2 m 근접 그랩) |
 | `maxHoldDistance` | 15 m | 초과 시 강제 해제 |
 | `hoverDistance` | 3 m | 조준점 앞 부양 거리 |
-| `springStiffness` | 60 | 낮을수록 흐물흐물 |
-| `springDamping` | 8 | 낮으면 진동, 높으면 뻣뻣 |
-| `angularDamping` | 0.9 | 프레임당 각속도 감쇠 |
+| `heldMaxLinearSpeed` | 15 m/s | 2인 고정 추종 최대 속력 (2026-09-13, 스프링 대체) |
+| `heldMaxAngularSpeed` | 720 °/s | 2인 고정 추종 최대 각속력 |
+| `wheelStepDegrees` | 15° | 휠 한 칸 회전·기울기 각도 |
 | `chargeTime` | 1.0 s | 0 → 최대 차지 |
 | `minChargeRatio` | 0.4 | 차지 0에서도 이만큼은 나감 |
 | `oneHolderForce` | 30 | 1인 최대 발사 속도 변화량 |
@@ -338,9 +340,9 @@ v0.4 변경 이력에는 맵 크기·도면 수정이 있으나 이번 첨부에
 
 | 용어 | 정의 | 코드상 표기 |
 | --- | --- | --- |
-| 홀드(Hold) | 던지기 버튼을 누르고 있는 상태. 가구가 허공에 부양한다 | `Attack` started~canceled |
+| 홀드(Hold) | 던지기 버튼을 누르고 있는 상태. 2명이 누르면 가구가 두 조준점 중간에 고정된다 | `Attack` started~canceled |
 | 흡착(Attach) | 특정 가구의 홀더 슬롯을 점유한 상태. 가구당 최대 2슬롯 | `FurnitureGrabTarget.holders` |
-| 부양(Hover) | 홀드 중 가구가 중력을 무시하고 조준점 앞에 떠 있는 상태 | `FurnitureHoverMotor` |
+| 부양(Hover) | 2인 홀드 중 가구가 중력을 무시하고 두 조준점 중간에 흔들림 없이 고정된 상태. 휠로 회전·기울인다 | `FurnitureHoverMotor`, `FurnitureHeldControl` |
 | 발사(Launch) | 입력 해제로 가구에 속도 변화가 적용되어 날아가는 순간 | `FurnitureLauncher` |
 | 투척 준비(ThrowReady) | 1명만 홀드 중. 잡히거나 부양되지 않음 | `FurnitureState.ThrowReady` |
 | 방 슬롯(Room Slot) | 프리셋이 들어갈 자리. 현재 침실 2칸 | `House_01/RoomSlots` |

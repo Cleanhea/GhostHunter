@@ -13,11 +13,16 @@ namespace GhostHunter.Gameplay.Furniture
         [SerializeField, Min(0.1f)] private float _maxHoldDistance = 15f;
         [SerializeField, Min(0.1f)] private float _hoverDistance = 3f;
 
-        [Header("부양 스프링")]
-        [SerializeField, Min(0f)] private float _springStiffness = 60f;
-        [SerializeField, Min(0f)] private float _springDamping = 8f;
-        [SerializeField, Range(0f, 1f)] private float _angularDamping = 0.9f;
-        [SerializeField, Min(0f)] private float _maxHoverForce = 500f;
+        [Header("2인 잡기 고정 추종")]
+        [Tooltip("2인 잡기 가구가 조준점 중간을 따라갈 최대 속력(m/s). 이 안에서는 한 물리 스텝에 목표에 닿는다.")]
+        [SerializeField, Min(0.1f)] private float _heldMaxLinearSpeed = 15f;
+
+        [Tooltip("2인 잡기 가구가 목표 자세로 돌 최대 각속력(도/초).")]
+        [SerializeField, Min(1f)] private float _heldMaxAngularSpeed = 720f;
+
+        [Header("휠 회전")]
+        [Tooltip("마우스 휠 한 칸에 회전·기울이는 각도(도).")]
+        [SerializeField, Range(1f, 90f)] private float _wheelStepDegrees = 15f;
 
         [Header("차징 / 발사")]
         [SerializeField, Min(0.01f)] private float _chargeTime = 1f;
@@ -36,10 +41,9 @@ namespace GhostHunter.Gameplay.Furniture
         public float MaxTargetDistance => _maxTargetDistance;
         public float MaxHoldDistance => _maxHoldDistance;
         public float HoverDistance => _hoverDistance;
-        public float SpringStiffness => _springStiffness;
-        public float SpringDamping => _springDamping;
-        public float AngularDamping => _angularDamping;
-        public float MaxHoverForce => _maxHoverForce;
+        public float HeldMaxLinearSpeed => _heldMaxLinearSpeed;
+        public float HeldMaxAngularSpeed => _heldMaxAngularSpeed;
+        public float WheelStepDegrees => _wheelStepDegrees;
         public float ChargeTime => _chargeTime;
         public float MinChargeRatio => _minChargeRatio;
         public float OneHolderForce => _oneHolderForce;

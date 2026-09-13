@@ -66,13 +66,14 @@ namespace GhostHunter.Gameplay.Furniture
                 return;
 
             Vector3 desiredPosition = targetSum / validCount;
-            Vector3 displacement = desiredPosition - _rigidbody.position;
-            Vector3 force = displacement * _settings.SpringStiffness
-                - _rigidbody.linearVelocity * _settings.SpringDamping;
+            float deltaTime = Time.fixedDeltaTime;
 
-            force = Vector3.ClampMagnitude(force, _settings.MaxHoverForce);
-            _rigidbody.AddForce(force, ForceMode.Force);
-            _rigidbody.angularVelocity *= _settings.AngularDamping;
+            // 스프링 힘 대신 매 스텝 목표에 닿는 속도를 직접 준다 — 뒤처지거나 출렁이지 않는다.
+            // kinematic 이 아니라 동적 바디 그대로라 벽·다른 가구에는 막힌다.
+            _rigidbody.linearVelocity = FurnitureHeldControl.TrackingVelocity(
+                _rigidbody.position, desiredPosition, deltaTime, _settings.HeldMaxLinearSpeed);
+            _rigidbody.angularVelocity = FurnitureHeldControl.TrackingAngularVelocity(
+                _rigidbody.rotation, _target.HeldRotation, deltaTime, _settings.HeldMaxAngularSpeed);
         }
 
         private int FindHolderIndex(ulong clientId)

@@ -107,7 +107,7 @@ namespace GhostHunter.UI
                 ? "<b>GhostHunter Prototype</b>\n왼쪽 HUD에서 Local 모드 → Host를 눌러 시작"
                 : "<b>WASD</b> 이동  ·  <b>Space</b> 점프  ·  <b>마우스</b> 시점  ·  <b>E</b> 문 여닫기\n" +
                   "<b>좌클릭 누름</b> 투척 준비  ·  <b>떼기</b> 밀기/던지기  ·  " +
-                  "<b>2인 동시 누름</b> 잡아당기기  ·  <b>R</b> 가구 리셋(호스트)  ·  <b>Esc</b> 커서";
+                  "<b>2인 동시 누름</b> 잡고 옮기기(<b>휠</b> 회전)  ·  <b>R</b> 가구 리셋(호스트)  ·  <b>Esc</b> 커서";
 
             if (_localPlayer.CleaningController != null && _localPlayer.CleaningController.IsMopEquipped)
                 message = "<b>대걸레</b>  ·  얼룩 조준 후 <b>좌클릭</b>으로 닦기\n"

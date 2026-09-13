@@ -53,11 +53,14 @@ namespace GhostHunter.UI
             GUI.DrawTexture(inner, _whiteTexture);
 
             GUI.color = Color.white;
-            string holders = target.State == FurnitureState.Held
-                ? "2인 협력 잡기"
-                : "1인 투척 준비";
+            string holders = target.State != FurnitureState.Held
+                ? "1인 투척 준비"
+                : grab.RotateMode == FurnitureRotateMode.Tilt
+                    ? "2인 협력 잡기 · 휠 기울이기 (휠 클릭: 회전)"
+                    : "2인 협력 잡기 · 휠 회전 (휠 클릭: 기울이기)";
+            float labelWidth = Mathf.Min(560f, Screen.width - 20f);
             GUI.Label(
-                new Rect(outer.x, outer.y - 23f, outer.width, 22f),
+                new Rect(Screen.width * 0.5f - labelWidth * 0.5f, outer.y - 23f, labelWidth, 22f),
                 $"{holders}  {target.Charge * 100f:0}%",
                 _labelStyle);
             GUI.color = previous;

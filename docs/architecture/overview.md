@@ -237,7 +237,7 @@ Furniture (씬 배치 NetworkObject, 프리팹 인스턴스)
 ├─ Collider
 ├─ NetworkTransform         서버 권위 복제
 ├─ FurnitureGrabTarget      홀더 슬롯(NetworkList) 관리, 잡기 가능 여부 판정
-├─ FurnitureHoverMotor      서버 전용. 2인 잡기 중에만 스프링 힘 적용
+├─ FurnitureHoverMotor      서버 전용. 2인 잡기 중 조준점 중간·휠 목표 자세로 고정 추종
 ├─ FurnitureLauncher        서버 전용. 발사 속도와 보정 각도 계산·적용
 └─ FurnitureOutline         클라이언트 전용. 조준/홀드 상태에 따라 윤곽선 표시
 
@@ -282,7 +282,7 @@ UI (씬별, 로컬 전용)
 | 에셋 | 담는 값 |
 | --- | --- |
 | `PlayerMoveSettings` | 이동 속도, 가속, 점프 높이, 중력 배수, 마우스 감도 |
-| `FurnitureThrowSettings` | 부양 거리/강성/댐핑, 차지 시간, 1인/2인 발사 속도, 최대 사거리 |
+| `FurnitureThrowSettings` | 부양 거리, 2인 고정 추종 최대 속력·각속력, 휠 한 칸 각도, 차지 시간, 1인/2인 발사 속도, 최대 사거리 |
 | `FurnitureDefinition` | 가구 종류별 질량, 무게 등급(1인/2인), 기본 프리팹 참조 |
 | `FurnitureSpawnSettings` | 맵별 풀·Target Type/Count 범위·방 상한·시드·탐색 예산·B안 후보 설치값. 최초 임시 4종 16개 |
 | `GhostPrototypeSettings` | 팀 평균 임계값(80/60/30), 상태 지속시간, §7.3 어택 확률표, 시야·소리·추격·수색 수치. **정신력 값 필드도 활동도 필드도 없다** |

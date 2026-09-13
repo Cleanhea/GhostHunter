@@ -30,10 +30,14 @@ namespace GhostHunter.Gameplay.Interaction
         private float _requestSentAt;
         private float _nextAimSendAt;
         private bool _testHoldLatched;
+        private FurnitureRotateMode _rotateMode = FurnitureRotateMode.Rotate;
 
         public ulong HeldObjectId => _heldObjectId.Value;
         public bool IsHolding => _heldObjectId.Value != NoObjectId;
         public bool IsTestHoldLatched => _testHoldLatched;
+
+        /// <summary>로컬 소유자의 휠 조작 모드. 휠 클릭으로 바뀌고, 잡기가 끝나면 회전으로 돌아간다.</summary>
+        public FurnitureRotateMode RotateMode => _rotateMode;
 
         private ILocalPlayerContext _localPlayer;
         private SanityNetworkState _sanity;
@@ -112,6 +116,9 @@ namespace GhostHunter.Gameplay.Interaction
                     _camera.transform.forward);
             }
 
+            if (IsHolding)
+                HandleHeldRotationInput();
+
             if (!IsHolding
                 && _requestedObjectId != NoObjectId
                 && Time.unscaledTime - _requestSentAt > 0.5f)
@@ -138,6 +145,27 @@ namespace GhostHunter.Gameplay.Interaction
             Debug.Log(
                 $"[GrabController] F12 입력 고정: {(_testHoldLatched ? "ON" : "OFF")}",
                 this);
+        }
+
+        private void HandleHeldRotationInput()
+        {
+            if (_input.FurnitureRotateModePressedThisFrame)
+            {
+                _rotateMode = _rotateMode == FurnitureRotateMode.Rotate
+                    ? FurnitureRotateMode.Tilt
+                    : FurnitureRotateMode.Rotate;
+            }
+
+            float scroll = _input.FurnitureRotateScroll;
+            if (Mathf.Approximately(scroll, 0f)
+                || !TryResolveTarget(_heldObjectId.Value, out FurnitureGrabTarget target)
+                || target.State != FurnitureState.Held)
+            {
+                return;
+            }
+
+            // 휠 값의 크기는 플랫폼·설정마다 달라 부호만 쓴다 — 한 프레임에 최대 한 칸.
+            RequestRotateHeldRpc(_heldObjectId.Value, scroll > 0f ? 1 : -1, _rotateMode);
         }
 
         public bool TryGetHeldTarget(out FurnitureGrabTarget target)
@@ -253,6 +281,26 @@ namespace GhostHunter.Gameplay.Interaction
             target.ServerRelease(sender, aimDirection.normalized, false);
         }
 
+        [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
+        private void RequestRotateHeldRpc(
+            ulong objectId,
+            int steps,
+            FurnitureRotateMode mode,
+            RpcParams rpcParams = default)
+        {
+            ulong sender = rpcParams.Receive.SenderClientId;
+            if (sender != OwnerClientId
+                || (_sanity != null && !_sanity.HasSanity)
+                || objectId != _heldObjectId.Value
+                || !TryResolveTarget(objectId, out FurnitureGrabTarget target))
+            {
+                return;
+            }
+
+            // 홀더 여부·Held 상태·한 칸 범위·모드 값은 가구 쪽에서 다시 검증한다.
+            target.ServerRotateHeld(sender, steps, mode);
+        }
+
         public void ServerClearHeld(ulong objectId)
         {
             if (IsServer && _heldObjectId.Value == objectId)
@@ -265,6 +313,8 @@ namespace GhostHunter.Gameplay.Interaction
                 return;
 
             _requestedObjectId = NoObjectId;
+            if (current == NoObjectId)
+                _rotateMode = FurnitureRotateMode.Rotate;
 
             if (current != NoObjectId && TryResolveTarget(current, out FurnitureGrabTarget target))
                 _targeter.SetHoldTarget(target);
