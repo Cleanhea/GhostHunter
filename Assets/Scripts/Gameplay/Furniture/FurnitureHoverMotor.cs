@@ -11,12 +11,14 @@ namespace GhostHunter.Gameplay.Furniture
 
         private Rigidbody _rigidbody;
         private FurnitureGrabTarget _target;
+        private Collider[] _colliders;
         private readonly ulong[] _holderBuffer = new ulong[FurnitureGrabTarget.MaxHolders];
 
         private void Awake()
         {
             _rigidbody = GetComponent<Rigidbody>();
             _target = GetComponent<FurnitureGrabTarget>();
+            _colliders = GetComponentsInChildren<Collider>(true);
         }
 
         public override void OnNetworkSpawn()
@@ -44,8 +46,7 @@ namespace GhostHunter.Gameplay.Furniture
             for (int i = 0; i < snapshotCount; i++)
             {
                 ulong clientId = _holderBuffer[i];
-                if (!TryGetPlayerPosition(clientId, out Vector3 playerPosition)
-                    || Vector3.Distance(playerPosition, _rigidbody.position) > _settings.MaxHoldDistance)
+                if (!TryGetPlayerPosition(clientId, out _))
                 {
                     _target.ServerForceRelease(clientId);
                     continue;
@@ -54,6 +55,14 @@ namespace GhostHunter.Gameplay.Furniture
                 int currentIndex = FindHolderIndex(clientId);
                 if (!_target.TryGetHolderAim(currentIndex, out _, out Vector3 origin, out Vector3 direction))
                     continue;
+
+                // 차징 중(1인 투척 준비·2인 잡기 모두) 눈 위치에서 가구 표면까지 멀어지면 발사 없이 푼다.
+                // 중심이 아니라 표면 기준이라 큰 가구나 위를 보고 든 2인 잡기에서 헛해제되지 않는다.
+                if (DistanceToSurface(origin) > _settings.HoldBreakDistance)
+                {
+                    _target.ServerForceRelease(clientId);
+                    continue;
+                }
 
                 if (_target.State == FurnitureState.Held)
                 {
@@ -74,6 +83,25 @@ namespace GhostHunter.Gameplay.Furniture
                 _rigidbody.position, desiredPosition, deltaTime, _settings.HeldMaxLinearSpeed);
             _rigidbody.angularVelocity = FurnitureHeldControl.TrackingAngularVelocity(
                 _rigidbody.rotation, _target.HeldRotation, deltaTime, _settings.HeldMaxAngularSpeed);
+        }
+
+        /// <summary>점에서 가구 콜라이더 표면까지의 최단 거리. 켜진 콜라이더가 없으면 바디 위치까지 잰다.</summary>
+        private float DistanceToSurface(Vector3 point)
+        {
+            float bestSqr = float.PositiveInfinity;
+            foreach (Collider part in _colliders)
+            {
+                if (part == null || !part.enabled || part.isTrigger)
+                    continue;
+
+                float sqr = (part.ClosestPoint(point) - point).sqrMagnitude;
+                if (sqr < bestSqr)
+                    bestSqr = sqr;
+            }
+
+            return float.IsPositiveInfinity(bestSqr)
+                ? Vector3.Distance(point, _rigidbody.position)
+                : Mathf.Sqrt(bestSqr);
         }
 
         private int FindHolderIndex(ulong clientId)

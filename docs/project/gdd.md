@@ -281,7 +281,7 @@ v0.4 변경 이력에는 맵 크기·도면 수정이 있으나 이번 첨부에
 | 항목 | 초기값 | 메모 |
 | --- | --- | --- |
 | `maxTargetDistance` | 2 m | 좌클릭 조준·붙잡기 사거리 (2026-08-31 12 m → 2 m 근접 그랩) |
-| `maxHoldDistance` | 15 m | 초과 시 강제 해제 |
+| `holdBreakDistance` | 4 m | 차징 중 눈 → 가구 표면 거리 초과 시 발사 없이 해제 (2026-09-13 사용자 요청, 이전 `maxHoldDistance` 15 m) |
 | `hoverDistance` | 3 m | 조준점 앞 부양 거리 |
 | `heldMaxLinearSpeed` | 15 m/s | 2인 고정 추종 최대 속력 (2026-09-13, 스프링 대체) |
 | `heldMaxAngularSpeed` | 720 °/s | 2인 고정 추종 최대 각속력 |

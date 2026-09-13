@@ -184,6 +184,41 @@ namespace GhostHunter.Tests.PlayMode
             Assert.IsFalse(furniture.ServerTryAddHolder(HostClientId, AimOrigin, AimDirection));
         }
 
+        /// <summary>
+        /// 가구 중심까지는 4.4m지만 표면까지는 3.9m인 자리 — 표면 기준이면 잡기가 유지돼야 한다.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator Hold_차징_중_가구_표면에서_4m_안이면_유지된다()
+        {
+            FurnitureGrabTarget furniture = SpawnFurniture();
+            yield return null;
+            Assume.That(Settings.HoldBreakDistance, Is.EqualTo(4f));
+
+            furniture.ServerTryAddHolder(HostClientId, AimOrigin, AimDirection);
+            furniture.ServerUpdateAim(HostClientId, new Vector3(0f, 1f, -1.4f), AimDirection);
+            yield return new WaitForFixedUpdate();
+            yield return new WaitForFixedUpdate();
+
+            Assert.AreEqual(FurnitureState.ThrowReady, furniture.State);
+            Assert.AreEqual(1, furniture.HolderCount);
+        }
+
+        [UnityTest]
+        public IEnumerator Hold_차징_중_가구_표면에서_4m를_넘으면_발사_없이_풀린다()
+        {
+            FurnitureGrabTarget furniture = SpawnFurniture();
+            yield return null;
+            Assume.That(Settings.HoldBreakDistance, Is.EqualTo(4f));
+
+            furniture.ServerTryAddHolder(HostClientId, AimOrigin, AimDirection);
+            furniture.ServerUpdateAim(HostClientId, new Vector3(0f, 1f, -1.6f), AimDirection);
+            yield return new WaitForFixedUpdate();
+            yield return new WaitForFixedUpdate();
+
+            Assert.AreEqual(0, furniture.HolderCount);
+            Assert.AreEqual(FurnitureState.Idle, furniture.State, "발사(Launched)가 아니라 그냥 풀려야 합니다.");
+        }
+
         [UnityTest]
         public IEnumerator ServerTryAddHolder_두_명이_잡으면_그_순간_자세를_목표_자세로_잡는다()
         {

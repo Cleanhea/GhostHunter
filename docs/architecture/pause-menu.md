@@ -272,7 +272,8 @@ if (_input.AttackReleasedThisFrame && !_testHoldLatched)
 
 `ReleaseGrab()` 은 **`AttackReleasedThisFrame` 이 true 인 프레임에만** 불린다.
 메뉴를 열며 입력을 잠그면 그 프레임이 영영 오지 않고, 서버는 홀드가 유지된 것으로 본다
-(`FurnitureThrowSettings.maxHoldDistance` 15m 를 넘겨야 강제 해제된다).
+(눈 위치에서 가구 표면까지 `FurnitureThrowSettings.holdBreakDistance` 4m 를 넘겨야 발사 없이 강제 해제된다 —
+2026-09-13 15m·가구 중심 기준에서 변경).
 
 **MUST — 메뉴 진입 순서** (`PauseMenuController.LockGameplay`)
 

@@ -95,7 +95,10 @@ rb.angularVelocity = 짧은 쪽 회전축 × clamp(회전각 / fixedDeltaTime, h
   질량(light/heavy)이 운반 체감에는 반영되지 않는다. 무게 차이는 1인 투척(`heavySoloMultiplier`)에만 남는다.
 - kinematic으로 바꾸지 않고 동적 바디를 유지해 **벽·다른 가구에는 막힌다.** 목표점이 벽 너머면 벽에 붙어 멈춘다.
 - 최대 속력으로 자르므로 두 번째 홀더가 붙는 순간 먼 목표점으로 순간이동하지 않는다.
-- 홀더가 대상 가구에서 `maxHoldDistance`(초기값 15 m) 이상 멀어지면 강제로 입력 해제.
+- **차징 중(1인 `ThrowReady`·2인 `Held` 모두) 홀더의 눈 위치(마지막 조준 원점)에서 가구 콜라이더 표면까지
+  `holdBreakDistance`(4 m)를 넘으면 발사 없이 그 홀더만 잡기를 푼다** (2026-09-13 사용자 요청 — 이전
+  `maxHoldDistance` 15 m·가구 중심 기준 대체). 표면 기준이라 큰 가구나 위를 보고 든 2인 잡기에서는 헛해제되지
+  않고, 혼자 차징하며 걸어가거나 가구가 벽에 걸린 채 멀어지면 풀린다. 플레이어 오브젝트가 없어진 홀더도 푼다.
 - 서버는 홀더의 카메라 위치/방향을 알아야 한다. 홀드 중인 클라이언트만 `UpdateAimRpc(origin, direction)`를
   0.05초 간격으로 보낸다 (매 프레임 아님).
 - 2명 중 1명이 놓으면 `ThrowReady`로 돌아가 중력이 켜지고, 그 순간의 속도는 그대로 남는다.
@@ -118,8 +121,9 @@ rb.angularVelocity = 짧은 쪽 회전축 × clamp(회전각 / fixedDeltaTime, h
 
 > **검증 상태 (2026-09-13):** 컴파일 오류 0, EditMode 248/248(`FurnitureHeldControlTests` 13개 —
 > 한 스텝 추종 속도·최대 속력·짧은 쪽 회전·각속력 제한·휠 회전/기울이기 축·제한 없는 한 바퀴),
-> PlayMode 37/37(`FurnitureThrowFlowTests` 5개 추가 — Held 진입 시 자세 캡처, 휠 한 칸, 두 홀더 상쇄,
-> 1인 거부, 비홀더·범위 밖·잘못된 모드 거부). `.inputactions` 임포트 후 두 액션과 바인딩을 에셋에서 확인했다.
+> PlayMode 39/39(`FurnitureThrowFlowTests` 7개 추가 — Held 진입 시 자세 캡처, 휠 한 칸, 두 홀더 상쇄,
+> 1인 거부, 비홀더·범위 밖·잘못된 모드 거부, **차징 중 표면 3.9m 유지(중심 4.4m)·4.1m 발사 없이 해제**).
+> 4m 해제의 2인 잡기 경로는 두 번째 홀더에 플레이어 오브젝트가 없어 자동 테스트로 덮지 못했다. `.inputactions` 임포트 후 두 액션과 바인딩을 에셋에서 확인했다.
 > **미검증:** 실제 2인 접속에서의 고정 추종 체감·벽 충돌·휠 입력 왕복. 테스트의 두 번째 홀더는 플레이어
 > 오브젝트가 없어 물리 스텝을 돌리면 강제 해제되므로(testing.md §4.4) 모터의 실제 추종은 자동 테스트로
 > 덮지 못했다. 에디터 단독 Local Host는 플레이어가 1명이라 2인 잡기를 만들 수 없다 — Host + 빌드 Client 또는
@@ -177,7 +181,8 @@ rb.AddTorque(random torque * torqueScale, ForceMode.Impulse)
 | 2명 중 1명만 해제 | **발사하지 않음.** 잡기를 끝내고 남은 1명의 `ThrowReady`로 전환 |
 | 남은 1명도 해제 | **발사.** 발사 시점에는 1명이므로 1인 힘 |
 | heavy 가구를 1명이 입력 → 해제 | 발사되긴 하되 `heavySoloMultiplier`(초기값 0.5)만큼 약하게 |
-| 홀더 전원이 사거리 이탈/접속 종료 | 발사 없이 `Idle`로 낙하 |
+| 차징 중 한 홀더가 가구 표면에서 4 m 넘게 멀어짐 | 그 홀더만 발사 없이 해제. 2인이었으면 남은 1명의 `ThrowReady` |
+| 홀더 전원이 4 m 이탈/접속 종료 | 발사 없이 `Idle`로 낙하 |
 
 "2명 잡기 → 1명만 해제"에서는 2인 잡기 조건이 깨졌으므로 즉시 중력을 복구한다. 남은 사람은
 가구를 붙잡지 않으며, 자신의 버튼을 놓을 때만 1인 힘으로 던진다.
@@ -191,7 +196,7 @@ rb.AddTorque(random torque * torqueScale, ForceMode.Impulse)
 | 값 | 초기값 | 메모 |
 |---|---|---|
 | `maxTargetDistance` | 12 m | 조준 사거리 |
-| `maxHoldDistance` | 15 m | 초과 시 강제 해제 |
+| `holdBreakDistance` | 4 m | 차징 중 눈 → 가구 표면 거리 초과 시 발사 없이 해제 (2026-09-13, `maxHoldDistance` 15 m 대체) |
 | `hoverDistance` | 3 m | 조준점 앞 부양 거리 |
 | `heldMaxLinearSpeed` | 15 m/s | 2인 고정 추종 최대 속력. 이 안에서는 한 스텝에 목표에 닿는다 (2026-09-13, 스프링 강성·댐핑 대체) |
 | `heldMaxAngularSpeed` | 720 °/s | 2인 고정 추종 최대 각속력 (2026-09-13, `angularDamping`·`maxHoverForce` 대체) |
@@ -228,4 +233,5 @@ rb.AddTorque(random torque * torqueScale, ForceMode.Impulse)
 
 ---
 
-최종 갱신: 2026-09-13 (2인 잡기를 스프링 부양 → 조준점 중간 고정 추종으로 변경, 마우스 휠 회전·기울이기 추가)
+최종 갱신: 2026-09-13 (2인 잡기를 스프링 부양 → 조준점 중간 고정 추종으로 변경, 마우스 휠 회전·기울이기 추가,
+차징 중 가구 표면에서 4 m 이탈 시 해제)

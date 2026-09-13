@@ -13,12 +13,11 @@ MonoBehaviour:
   m_Name: FurnitureThrowSettings_Default
   m_EditorClassIdentifier: GhostHunter.Runtime::GhostHunter.Furniture.FurnitureThrowSettings
   _maxTargetDistance: 2
-  _maxHoldDistance: 15
+  _holdBreakDistance: 4
   _hoverDistance: 3
-  _springStiffness: 60
-  _springDamping: 8
-  _angularDamping: 0.9
-  _maxHoverForce: 500
+  _heldMaxLinearSpeed: 15
+  _heldMaxAngularSpeed: 720
+  _wheelStepDegrees: 15
   _chargeTime: 1
   _minChargeRatio: 0.4
   _oneHolderForce: 30

@@ -10,7 +10,8 @@ namespace GhostHunter.Gameplay.Furniture
         [Header("타겟팅 / 홀드")]
         [Tooltip("좌클릭으로 가구를 조준·붙잡을 수 있는 최대 거리(m).")]
         [SerializeField, Min(0.1f)] private float _maxTargetDistance = 2f;
-        [SerializeField, Min(0.1f)] private float _maxHoldDistance = 15f;
+        [Tooltip("잡고 차징하는 동안(1인 투척 준비·2인 잡기) 플레이어 눈 위치에서 가구 표면까지 이 거리(m)를 넘으면 발사 없이 잡기가 풀린다.")]
+        [SerializeField, Min(0.1f)] private float _holdBreakDistance = 4f;
         [SerializeField, Min(0.1f)] private float _hoverDistance = 3f;
 
         [Header("2인 잡기 고정 추종")]
@@ -39,7 +40,7 @@ namespace GhostHunter.Gameplay.Furniture
         [SerializeField] private bool _launchOnFirstRelease;
 
         public float MaxTargetDistance => _maxTargetDistance;
-        public float MaxHoldDistance => _maxHoldDistance;
+        public float HoldBreakDistance => _holdBreakDistance;
         public float HoverDistance => _hoverDistance;
         public float HeldMaxLinearSpeed => _heldMaxLinearSpeed;
         public float HeldMaxAngularSpeed => _heldMaxAngularSpeed;
