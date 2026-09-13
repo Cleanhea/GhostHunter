@@ -445,5 +445,33 @@ namespace GhostHunter.Tests.EditMode
                 moveSettings.MoveSpeed * moveSettings.SprintMultiplier,
                 ghostSettings.RunSpeedThreshold);
         }
+
+        /// <summary>
+        /// <c>DetectionTargetMarker</c> 는 런타임 <c>Shader.Find</c> 로 하이라이트 셰이더를 찾는다. 참조하는
+        /// 머티리얼이 없어 Always Included Shaders 에 없으면 빌드에서 빠진다(2026-09-13 개발 빌드에서 확인).
+        /// </summary>
+        [Test]
+        public void DetectionHighlight_셰이더가_Always_Included_Shaders_에_있다()
+        {
+            var shader = AssetDatabase.LoadAssetAtPath<Shader>("Assets/Shaders/DetectionHighlight.shader");
+            Assert.IsNotNull(shader, "DetectionHighlight.shader 를 찾지 못했습니다.");
+
+            var graphicsSettings = AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(
+                "ProjectSettings/GraphicsSettings.asset");
+            Assert.IsNotNull(graphicsSettings, "GraphicsSettings 에셋을 찾지 못했습니다.");
+
+            SerializedProperty included = new SerializedObject(graphicsSettings)
+                .FindProperty("m_AlwaysIncludedShaders");
+            Assert.IsNotNull(included, "m_AlwaysIncludedShaders 속성을 찾지 못했습니다.");
+
+            bool found = false;
+            for (int i = 0; i < included.arraySize; i++)
+            {
+                if (included.GetArrayElementAtIndex(i).objectReferenceValue == shader)
+                    found = true;
+            }
+
+            Assert.IsTrue(found, "DetectionHighlight 셰이더가 Always Included Shaders 에 없어 빌드에서 빠진다.");
+        }
     }
 }

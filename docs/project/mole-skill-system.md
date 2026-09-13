@@ -759,6 +759,10 @@ MS-15(사망 외 제한 상태) · MS-19~MS-21(이번 구현에서 새로 드러
 `DetectionTargetKind.cs` · `DetectionHighlightMode.cs` · `IMoleSkillStatus.cs` ·
 `MoleSkillPhase.cs` · `MoleSkillUiSettings.cs` · `Assets/Scripts/UI/MoleSkillHud.cs` ·
 `Assets/Shaders/DetectionHighlight.shader` · `Assets/Scripts/Editor/MoleSkillSetup.cs`.
+`DetectionTargetMarker` 가 런타임에 `Shader.Find("GhostHunter/DetectionHighlight")` 로 셰이더를 찾으므로, 이 셰이더는
+**`ProjectSettings > Graphics > Always Included Shaders` 에 포함**되어 있어야 한다 — 참조하는 머티리얼이 없어 빠지면
+빌드에서 하이라이트가 그려지지 않는다(2026-09-13 개발 빌드에서 마커마다 "셰이더를 찾지 못했습니다" 오류로 확인 후 추가,
+`ProjectWiringTests` 가 포함 여부를 고정).
 `MoleSkillSetup`가 `Player.prefab`, `Game` 씬, 아이콘 임포터와 `[TEMP]` 마커를 멱등 배선한다.
 작업 시스템의 실제 대상 판정은 구현하지 않았으며 MS-5로 남아 있다.
 
