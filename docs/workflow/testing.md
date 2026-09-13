@@ -121,6 +121,28 @@ Steam 실경로(로비·초대·SDR 연결)는 사람이 2대로 확인한다 �
 상태 전이는 `FurnitureGrabTarget` 안에서 동기적으로 끝나므로 2인 경로의 단언은
 `yield` 없이 같은 프레임에 이어서 한다.
 
+### 4.5 여러 프로세스로 입장·이탈 확인 (`LocalSessionAutomation`)
+
+한 프로세스 PlayMode 테스트로는 게스트의 씬 동기화·자발적 이탈·호스트 종료를 볼 수 없다. 개발 빌드와
+에디터에만 들어가는 `DebugTools/LocalSessionAutomation`(`DEVELOPMENT_BUILD || UNITY_EDITOR`)이 명령행
+인자로 Local(UTP) 세션을 자동 진행한다. `RuntimeInitializeOnLoadMethod` 로 인자가 있을 때만 생기므로
+씬 배치가 필요 없다.
+
+| 인자 | 동작 |
+| --- | --- |
+| `-gh-auto=host` / `-gh-auto=client` | Title 이 뜨면 Local 모드로 `StartHostInGameScene(Game)` / `StartLocalClient()` |
+| `-gh-leave-after=초` | 세션 참여 후 그 시간이 지나면 "타이틀로"와 같은 순서로 떠난다(게스트는 로비 유지, 호스트는 로비 퇴장) |
+| `-gh-return-on-end` | 요청하지 않은 종료(호스트 이탈 등) 뒤 끊김 모달 "확인"과 같은 경로로 Title 로드 |
+
+2초마다 `[GhAuto] t phase net connected players team flow scenes errors sessionEnded` 한 줄을 남기고,
+오류·예외 로그를 세어 앞 8건을 함께 찍는다.
+
+절차: 빌드 씬 전체로 **Development** 빌드(`Build/SessionTest/`, gitignore 대상) → `-batchmode -nographics
+-logFile <경로>` 로 인스턴스를 띄운다. **호스트를 먼저 띄워 `phase=InSession` 을 확인한 뒤 클라이언트를
+띄운다** — 호스트가 떠나기 전에 클라이언트가 붙을 만큼 `-gh-leave-after` 를 넉넉히 준다. 에디터를 한쪽
+피어로 섞으면 서버 상태를 Unity MCP `execute_code` 로 직접 볼 수 있다. 같은 PC 에서 PlayMode 테스트를
+동시에 돌리면 초기화 시간 초과가 난다. 결과 기록 → [pause-menu.md §10.5](../architecture/pause-menu.md)
+
 ## 5. 실행
 
 ### 5.1 에디터 Test Runner (권장 · 판정 기준)
