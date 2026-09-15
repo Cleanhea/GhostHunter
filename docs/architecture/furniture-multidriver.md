@@ -20,7 +20,7 @@
 | `Gameplay/FurnitureDriver/FurnitureDisassemblyRecipe.cs` | 큰 가구 1종의 부품 구성(부품 ID·개수) |
 | `Gameplay/FurnitureDriver/FurniturePartRequirement.cs` | 레시피 안 부품 하나(ID·개수) |
 | `Gameplay/FurnitureDriver/FurnitureDriverCatalog.cs` | 레시피 6종 묶음 SO. 서버·조립 판정이 공유 |
-| `Gameplay/FurnitureDriver/FurnitureDriverPoolItem.cs` | 씬 배치 오브젝트(큰 가구 인스턴스 또는 부품 인스턴스) 하나의 활성/비활성·내구도 |
+| `Gameplay/FurnitureDriver/FurnitureDriverPoolItem.cs` | 씬 배치 오브젝트의 활성/비활성 및 공통 `FurnitureNetworkPhysics` 내구도 상속. 파손 풀 재사용 차단(2026-09-15, Unity 실행 검증 대기) |
 | `Gameplay/FurnitureDriver/FurnitureAssemblyZone.cs` | 조립 영역 점유 추적·순수 판정 호출·실루엣 상태 복제·조립 실행 |
 | `Gameplay/FurnitureDriver/FurnitureAssemblyRules.cs` | 조립 성립 판정 순수 함수(부품 ID별 개수 → Empty/Partial/Ready/Invalid) |
 | `Gameplay/FurnitureDriver/FurnitureDurability.cs` | 아이템 내구도 감소, 가구 내구도 상속·평균 순수 함수 |

@@ -24,6 +24,7 @@ docs/
 │   ├── quick-slot-system.md        퀵슬롯 규칙·대걸레/맨손 장착
 │   ├── cleaning-system.md          대걸레·랜덤 얼룩·HUD 초기화, 상세 룰·진행도 미정
 │   ├── furniture-multidriver-system.md  가구 분해·조립 아이템 — MD-1·2·5·9·10·11·12 확정, FM-IMPL-1~3 구현
+│   ├── furniture-durability-system.md   가구 내구도 — 수직 상대 속도·초기값·복구 승인, 코드 구현·Unity 검증 대기
 │   ├── spectator-system.md         사망 후 능력 제한·자유시점·생존자 관전 — 핵심 요구 확정, 구현 미착수
 │   └── roadmap.md                  마일스톤 & 태스크 보드
 ├── architecture/                   어떻게 구성되는가
@@ -66,6 +67,7 @@ docs/
 | [project/pause-menu-system.md](project/pause-menu-system.md) | 매치를 어떻게 떠나고, 끊기면 무엇을 보는가 | 일시정지 메뉴·나가기·끊김 규칙 변경 |
 | [project/quick-slot-system.md](project/quick-slot-system.md) | 퀵슬롯 휠은 언제 열리고 무엇을 담는가 | 퀵슬롯 규칙·슬롯 구성 변경 |
 | [project/furniture-multidriver-system.md](project/furniture-multidriver-system.md) | 큰 가구를 어떻게 분해해서 옮기고 다시 조립하는가 | 분해·조립 규칙, 아이템 내구도, 부품 구성 확정 |
+| [project/furniture-durability-system.md](project/furniture-durability-system.md) | 가구 내구도는 언제 얼마나 깎이고 0이 되면 어떻게 되는가 | 충돌 파손 규칙·수치·0 도달 결과(FD-1~12) 확정 |
 | [project/spectator-system.md](project/spectator-system.md) | 사망 후 무엇을 할 수 있고 두 관전 모드는 어떻게 전환하는가 | 사망·관전 규칙 확정 및 구현 |
 | [workflow/spectator-implementation-prompt.md](workflow/spectator-implementation-prompt.md) | 구현 모델에 관전 기능 작업을 어떻게 지시하는가 | 관전 기획·구현 전제 변경 |
 | [workflow/furniture-multidriver-implementation-prompt.md](workflow/furniture-multidriver-implementation-prompt.md) | 구현 모델에 가구 분해·조립 작업을 어떻게 지시하는가 | 멀티 드라이버 기획·MD 확정·선례 구현 변경 |
@@ -115,6 +117,7 @@ docs/
 | project/quick-slot-system.md | 🟡 **대걸레·맨손 장착 연결(2026-09-12).** 일반 인벤토리·정식 아이콘은 별도 작업 |
 | project/cleaning-system.md | 🟡 **대걸레·좌클릭·랜덤 얼룩·HUD 초기화 구현.** 정식 얼룩 규칙·가구 완료·진행도는 미정 |
 | project/furniture-multidriver-system.md | 🟡 **1.1(2026-09-13) — 우클릭 유지·중앙 원형 게이지로 수정·구현.** MD-1·2·5·9·10·11·12 확정, FM-IMPL-1~3 + FM-IMPL-4 행동 UI 구현. 손목 애니메이션·실루엣 렌더링·원격 검증 남음. MD-3·4·6·13 여전히 TBD, 설명 이미지 2장 저장 대기 |
+| project/furniture-durability-system.md | 🟡 **0.3(2026-09-15).** 수직 상대 속도·초기값·F1/R 복구 승인. 코드·테스트 추가, C# 빌드 통과. Unity 실행·Host/Client 검증 대기. 제품 연출·정산 보류 |
 | project/spectator-system.md | 🟡 **사망 후 특수능력 제한 + 자유시점/생존자 관전 핵심 요구 확정(2026-09-12).** 세부 키·속도·전환/정리 정책 일부 TBD / 관전 구현 미착수 |
 | project/roadmap.md | 🟢 M0~M7 + 마이그레이션 보드, M8 기획 부분 진행 |
 | architecture/overview.md | 🟢 씬·서비스·스크립트 레이어와 asmdef 구조 반영됨 |

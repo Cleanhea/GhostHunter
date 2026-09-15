@@ -1,4 +1,5 @@
 using GhostHunter.Gameplay.Player;
+using GhostHunter.Gameplay.Furniture;
 using Unity.Netcode;
 using Unity.Netcode.Components;
 using UnityEngine;
@@ -21,6 +22,7 @@ namespace GhostHunter.Gameplay.Map
             NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
         private NetworkTransform _networkTransform;
         private Rigidbody _body;
+        private FurnitureNetworkPhysics _physics;
         private Renderer[] _renderers;
         private Collider[] _colliders;
         private bool[] _rendererEnabled;
@@ -30,12 +32,14 @@ namespace GhostHunter.Gameplay.Map
         public string PoolId => _poolId;
         public Bounds LocalBounds => _localBounds;
         public bool IsPlaced => IsSpawned && (_placementState.Value & PlacedFlag) != 0;
-        public bool IsWorkTarget => IsPlaced && (_placementState.Value & TargetFlag) != 0;
+        public bool IsWorkTarget => IsPlaced && (_physics == null || !_physics.IsBroken)
+            && (_placementState.Value & TargetFlag) != 0;
 
         private void Awake()
         {
             _networkTransform = GetComponent<NetworkTransform>();
             _body = GetComponent<Rigidbody>();
+            _physics = GetComponent<FurnitureNetworkPhysics>();
             _renderers = GetComponentsInChildren<Renderer>(true);
             _colliders = GetComponentsInChildren<Collider>(true);
             _rendererEnabled = new bool[_renderers.Length];
@@ -77,10 +81,14 @@ namespace GhostHunter.Gameplay.Map
         {
             if (!IsServer || !IsSpawned || _networkTransform == null || !_networkTransform.IsSpawned)
                 return false;
+            if (_physics != null && _physics.IsBroken)
+                return false;
             _networkTransform.Teleport(pose.position, pose.rotation, transform.localScale);
             RoomPreset.TeleportBody(_body, pose.position, pose.rotation);
             _placementState.Value = (byte)(PlacedFlag | (isWorkTarget ? TargetFlag : 0));
             ApplyPresentation(true, isWorkTarget);
+            if (_physics != null)
+                _physics.ServerProtectPlacement();
             return true;
         }
 
@@ -117,6 +125,13 @@ namespace GhostHunter.Gameplay.Map
             ApplyPresentation(IsPlaced, IsWorkTarget);
         }
 
+        /// <summary>파손·복구 시 작업 대상 마커만 갱신한다.</summary>
+        public void RefreshTargetVisibility()
+        {
+            if (_detectionMarker != null)
+                _detectionMarker.SetTargetActive(IsWorkTarget);
+        }
+
         private void ApplyPresentation(bool placed, bool target)
         {
             for (int i = 0; i < _renderers.Length; i++)
@@ -129,6 +144,8 @@ namespace GhostHunter.Gameplay.Map
             _body.detectCollisions = placed;
             if (_detectionMarker != null)
                 _detectionMarker.SetTargetActive(placed && target);
+            if (_physics != null)
+                _physics.RefreshPresentation();
         }
     }
 }

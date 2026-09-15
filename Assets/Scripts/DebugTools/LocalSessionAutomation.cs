@@ -7,6 +7,7 @@ using GhostHunter.Core;
 using GhostHunter.Core.Networking;
 using GhostHunter.Core.Scenes;
 using GhostHunter.Gameplay.Sanity;
+using GhostHunter.Gameplay.Furniture;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -56,6 +57,13 @@ namespace GhostHunter.DebugTools
         private float _returnAt = -1f;
         private int _errorCount;
         private int _sessionEndedCount;
+        private ulong _watchedFurnitureId;
+        private bool _watchFurniture;
+        private bool _probeFurnitureAuthority;
+        private bool _authorityProbed;
+        private FurnitureNetworkPhysics _watchedFurniture;
+        private Renderer[] _watchedRenderers;
+        private Collider[] _watchedColliders;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void CreateFromCommandLine()
@@ -68,6 +76,9 @@ namespace GhostHunter.DebugTools
             LocalSessionAutomation automation = host.AddComponent<LocalSessionAutomation>();
             automation._role = role.ToLowerInvariant();
             automation._returnOnEnd = HasArgument("-gh-return-on-end");
+            automation._watchFurniture = TryGetArgument("-gh-watch-furniture=", out string furnitureId)
+                && ulong.TryParse(furnitureId, out automation._watchedFurnitureId);
+            automation._probeFurnitureAuthority = HasArgument("-gh-probe-furniture-authority");
 
             if (TryGetArgument("-gh-leave-after=", out string seconds)
                 && float.TryParse(seconds, NumberStyles.Float, CultureInfo.InvariantCulture, out float parsed))
@@ -275,6 +286,7 @@ namespace GhostHunter.DebugTools
                 .Append(" sessionEnded=").Append(_sessionEndedCount);
 
             Debug.Log(_report.ToString());
+            ReportFurniture(net);
 
             if (_errors.Count > 0)
             {
@@ -282,6 +294,45 @@ namespace GhostHunter.DebugTools
                     Debug.Log($"{LogTag} 기록된 오류 → {error}");
                 _errors.Clear();
             }
+        }
+
+        private void ReportFurniture(NetworkManager net)
+        {
+            if (!_watchFurniture || net == null || !net.IsListening || net.SpawnManager == null)
+                return;
+            if (_watchedFurniture == null)
+            {
+                if (!net.SpawnManager.SpawnedObjects.TryGetValue(_watchedFurnitureId, out NetworkObject target)
+                    || !target.TryGetComponent(out _watchedFurniture))
+                    return;
+                _watchedRenderers = target.GetComponentsInChildren<Renderer>(true);
+                _watchedColliders = target.GetComponentsInChildren<Collider>(true);
+            }
+
+            // 명시적 검증 인자가 있는 원격 클라이언트에서만 서버 API 거절을 검사한다.
+            if (_probeFurnitureAuthority && !_authorityProbed && !net.IsServer)
+            {
+                _authorityProbed = true;
+                int before = _watchedFurniture.Durability;
+                bool accepted = _watchedFurniture.ServerSetDurability(1);
+                _watchedFurniture.ServerApplyCollisionSpeed(100f);
+                _watchedFurniture.ServerResetDurability(false);
+                Debug.Log($"[GhFurniture] authority accepted={accepted} before={before} after={_watchedFurniture.Durability}", this);
+            }
+
+            int visible = 0;
+            int colliders = 0;
+            foreach (Renderer renderer in _watchedRenderers)
+                if (renderer != null && renderer.enabled && !renderer.forceRenderingOff && renderer.gameObject.activeInHierarchy)
+                    visible++;
+            foreach (Collider collider in _watchedColliders)
+                if (collider != null && collider.enabled && collider.gameObject.activeInHierarchy)
+                    colliders++;
+            Rigidbody body = _watchedFurniture.Rigidbody;
+            Debug.Log($"[GhFurniture] id={_watchedFurnitureId} server={_watchedFurniture.IsServer} "
+                + $"durability={_watchedFurniture.Durability} broken={_watchedFurniture.IsBroken} "
+                + $"available={_watchedFurniture.IsAvailable} visible={visible} colliders={colliders} "
+                + $"kinematic={body.isKinematic} collisions={body.detectCollisions} position={body.position}", this);
         }
 
         private static int CountSpawnedPlayers(NetworkManager net)

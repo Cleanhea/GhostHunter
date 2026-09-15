@@ -38,6 +38,7 @@ namespace GhostHunter.Gameplay.Furniture
         private FurnitureLauncher _launcher;
         private RandomFurnitureItem _randomItem;
         private FurnitureDriverPoolItem _driverPoolItem;
+        private FurnitureNetworkPhysics _physics;
         private float _heldSince;
         private float _launchedAt;
         private Quaternion _heldRotation = Quaternion.identity;
@@ -64,6 +65,7 @@ namespace GhostHunter.Gameplay.Furniture
             _launcher = GetComponent<FurnitureLauncher>();
             _randomItem = GetComponent<RandomFurnitureItem>();
             _driverPoolItem = GetComponent<FurnitureDriverPoolItem>();
+            _physics = GetComponent<FurnitureNetworkPhysics>();
         }
 
         /// <summary>
@@ -71,7 +73,8 @@ namespace GhostHunter.Gameplay.Furniture
         /// 배치·활성화된 상태인지 확인한다. 둘 다 없으면 원래부터 항상 배치된 일반 가구다.
         /// </summary>
         private bool IsPlacementReady =>
-            (_randomItem == null || _randomItem.IsPlaced)
+            (_physics == null || !_physics.IsBroken)
+            && (_randomItem == null || _randomItem.IsPlaced)
             && (_driverPoolItem == null || _driverPoolItem.IsActive);
 
         public override void OnNetworkSpawn()

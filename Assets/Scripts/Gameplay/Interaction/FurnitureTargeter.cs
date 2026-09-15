@@ -19,6 +19,9 @@ namespace GhostHunter.Gameplay.Interaction
         public FurnitureGrabTarget CurrentTarget => _holdTarget != null ? _holdTarget : _currentTarget;
         public bool HasTarget => CurrentTarget != null;
 
+        /// <summary>소유자 조준 카메라. 개발 HUD가 월드 좌표를 화면에 투영할 때 쓴다.</summary>
+        public Camera AimCamera => _camera;
+
         private ILocalPlayerContext _localPlayer;
 
         public override void OnNetworkSpawn()

@@ -106,6 +106,8 @@ if (!IsServer) {
 주의할 점만:
 
 - 날아간 가구가 `Idle` 상태 가구를 치면, 맞은 쪽은 그냥 물리로 밀린다. **맞은 쪽을 `Launched`로 전환하지 않는다** (재흡착 금지 규칙이 엉뚱하게 걸린다).
+- **충돌 내구도 코드를 구현했다** — 수직 상대 속도·초기값·개발 복구 승인. Unity 테스트·Local Host/Client 충돌·복제 검증 통과 →
+  [가구 내구도 시스템 기획서](../project/furniture-durability-system.md), 아래 구현 상세.
 - 여러 가구가 한 프레임에 연쇄 충돌하면 `NetworkTransform` 대역폭이 튄다. 라이브러리 21종 +
   손으로 배치한 가구가 전부 스폰되는데, 가만히 있는 가구는 아무것도 보내지 않으므로
   평상시 비용은 없다. 한 방에서 대량으로
@@ -114,6 +116,85 @@ if (!IsServer) {
   튀어나가는데, 눈으로는 원인을 알기 어렵다. 그래서 생성 시점에 파츠 콜라이더 단위로 겹침을
   검사하고(`ValidateFurnitureClearance`), 도면 좌표가 떠 있으면 지지면에 정확히 얹는다
   (`RestOnSupport`).
+
+## 가구 내구도 구현 (2026-09-15)
+
+- **값의 소유자:** 모든 가구에 있던 `FurnitureNetworkPhysics`가 서버 쓰기 `NetworkVariable<int>`
+  하나로 0~100 내구도를 복제한다. 0은 파손 상태다. `FurnitureDriverPoolItem.Durability`는 이 값을
+  읽으며 분해·조립 시 `ServerSetDurability`로 상속한다. 별도 NetworkBehaviour나 어셈블리는 추가하지 않는다.
+- **설정:** 기존 `FurnitureDefinition_Light/Heavy` SO에 최소 속도 6, 초과 속도당 피해 1,
+  등급 계수 1, 피해 상한 50, 판정 창 0.2초, 배치 보호 1초, Held 중 피해 적용을 추가했다.
+  기존 에셋에 없는 필드는 C# 초기값으로 로드된다. Inspector에서 등급별로 조정한다.
+- **충돌:** 서버 `OnCollisionEnter`에서 `Collision.relativeVelocity`를 각 접촉 법선에 투영하고
+  가장 큰 수직 속도를 쓴다. 가구끼리는 같은 속도를 양쪽에 전달한다. 각 가구가 독립적으로
+  보호 시간·설정·판정 창을 적용하므로 상대 콜백과 복합 콜라이더의 중복도 누적되지 않는다.
+  `OnCollisionStay`는 처리하지 않는다. 플레이어·귀신은 레이어와 부모 컴포넌트로 제외한다.
+- **판정 창:** 첫 유효 피해부터 0.2초 동안 최대 피해를 기억한다. 더 강한 접촉이 오면 차액만
+  즉시 차감한다. 따라서 합계는 최대 충돌 한 번과 같고, 0 도달 시 창 종료까지 기다리지 않는다.
+  피해 없는 접촉은 판정 창을 시작하지 않는다.
+- **파손:** 홀더를 모두 해제하고 발사 상태를 초기화한다. `Renderer.forceRenderingOff`로
+  윤곽선까지 숨기고 콜라이더·충돌·물리를 끈다. 기존 풀 활성/랜덤 배치 값은 보존한다.
+  파손 풀은 `IsActive`가 false이며 `TryFindInactive`·`ServerActivate`·`ServerPlace`에서도 거절한다.
+  파손 시 조립 영역 후보 목록에서도 즉시 제거한다(콜라이더 비활성화는 이탈 콜백을 보장하지 않는다).
+  진행 행동은 기존 재검증으로 취소된다.
+- **표시 순서:** 공통 물리의 Awake를 풀보다 먼저 실행해 원래 콜라이더 배선을 기억한다.
+  `OnNetworkPostSpawn`과 풀 배치 변경 후에 가용 상태를 다시 적용한다. 늦게 접속해도 파손
+  상태가 반영되며 풀의 표시 코드가 파손 가구를 다시 켜지 않는다. Local 별도 프로세스의 파손 후 접속 검증 통과(아래).
+- **배치 보호:** 네트워크 스폰, `RoomPreset.TeleportBody`(프리셋·랜덤 배치·리셋 공통),
+  분해/조립 활성화가 보호 시간을 갱신한다. 배치 위치를 R의 복귀 위치로 기억한다.
+- **개발 복구:** F1 접속 HUD의 가구 내구도 섹션에서 조준 대상 값 확인 및 서버 전체 100 복구.
+  R은 기존 초기 위치 복귀에 더해 공통 가구 레지스트리 전체를 복구하므로 기존 직렬화 목록 밖의
+  분해 부품도 포함한다. 풀 대기 인스턴스는 계속 숨겨 두고, 파손 전 활성 가구만 다시 나타난다.
+  F1 복구는 위치를 바꾸지 않으며 R의 복귀 위치도 덮어쓰지 않는다. 클라이언트 변경 RPC는 없다.
+- **개발 라벨 (2026-09-15):** F1 HUD가 켜져 있는 동안 조준 카메라 기준 반경 20m(`ConnectionHud._durabilityLabelRange`)
+  안의 사용 가능한 가구마다 켜진 콜라이더 경계 윗면 위에 `내구도 N`을 띄운다. 글자색은 0 빨강 → 100 초록.
+  복제된 값을 읽는 로컬 IMGUI 표시라 Host·Client 모두 보이며, 벽 뒤 가구도 가리지 않는다.
+  파손·풀 대기 가구는 표시하지 않는다. HUD 가구 내구도 섹션의 토글로 라벨만 끌 수 있다.
+  검증: `.NET` C# 빌드(Gameplay·DebugTools) 경고 0·오류 0. **에디터 Play 화면 확인은 미수행**(Unity MCP 미연결).
+
+### 검증 상태
+
+- `.NET` C# 빌드: Gameplay·DebugTools·EditMode·PlayMode 코드 컴파일 확인. Unity Test Runner와는 별개다.
+- 순수 내구도 테스트 18건: 컴파일한 `FurnitureDurabilityTests`를 별도 .NET 실행기로 실행해 18 통과·0 실패.
+  Unity Test Runner 밖의 계산 검증이며 PhysX·네트워크·에셋 임포트는 검증하지 않는다.
+- 씬·프리팹에 직접 직렬화된 가구 138개: 공통 물리·설정 참조 누락 0 (프리팹 오버라이드 최종 해석은 에디터 확인 필요).
+- `FurnitureDurabilityTests`: 속도별 공식, 상한, 수직 성분, 비정상 입력, 기존 상속·평균.
+- `FurnitureCollisionFlowTests`: 보호, 1m 낙하·바닥 안착, 최대 피해 창, 실제 양쪽 충돌, 플레이어/귀신 제외,
+  보호 대상과 충돌, Held 중 파손과 홀더 해제, 복구.
+- `FurnitureDisassemblyFlowTests`: 파손 풀 재사용 차단·복구, 대기 부품의 복구 후 비활성 유지,
+  이탈 콜백 없이도 조립 영역 후보에서 파손 부품 제거 추가.
+- **2026-09-15 Unity MCP 실행:** EditMode `FurnitureDurabilityTests` **18/18**,
+  PlayMode `FurnitureCollisionFlowTests` **8/8** + `FurnitureDisassemblyFlowTests` **20/20** +
+  `FurnitureThrowFlowTests` **19/19** 통과. 합계 **65 통과·0 실패·0 스킵**.
+  실제 PhysX 가구 간 충돌의 양쪽 피해·1m 낙하·바닥 안착·플레이어/귀신 레이어 충돌 제외를 포함한다.
+- **Development Windows 빌드:** `Build/DurabilityTest/GhostHunter.exe`, 오류 0·경고 0.
+  게임 규칙 변경 없이 `LocalSessionAutomation`에 선택한 가구의 복제 상태 로그와 명시적 Client 권위 검사 인자를 추가했다.
+- **실제 Game 씬, 에디터 Host + 별도 실행 파일 Client 2개(Local UTP):**
+
+  | 검사 | 관찰 결과 |
+  | --- | --- |
+  | 실제 바닥 충돌 | `DeskChair_0.55x0.55`(NetworkObjectId 12)를 2m 올리고 서버 하향 속도 20m/s 부여. 직접 피해 함수를 부르지 않은 PhysX 충돌에서 Host·Client 모두 **100 → 86** |
+  | 충돌 파손 | 서버에서 검증용 시작 내구도 3을 설정하고 같은 충돌을 반복. 양쪽 **0**, 가용 false, 활성 렌더러/콜라이더 **0/0**, 충돌 비활성. Host에서 잡기 불가 확인 |
+  | 늦은 접속 | 파손 후 두 번째 Client 접속. 플레이어 3명, `Bootstrap,Game` 동기화. 처음부터 내구도 0·렌더러/콜라이더 0/0 |
+  | Client 권위 | 첫 Client에서 `ServerSetDurability(1)` 거절, 충돌 피해·복구 API 호출 후 **100 유지**. 늦은 Client에서도 같은 호출 후 **0 유지** |
+  | F1 복구 경로 | `ServerResetAll(false)` 호출. 세 피어 모두 **100**, 렌더러/콜라이더 **4/4**, 충돌 활성. 복구 직후 서버 피해 호출은 보호 시간으로 무시 |
+  | R 복구 경로 | 원래 위치에서 옆으로 옮겨 다시 실제 충돌 파손 후 `FurnitureResetter.ResetAll` 호출. 세 피어 모두 **100**, 원래 `(-7.59, 0.00, 12.80)` 복귀, 렌더러/콜라이더 **4/4** |
+  | 물리 권위 | 정상 가구는 Host dynamic / Client kinematic, 파손 시 양쪽 kinematic |
+
+- **관찰 한계:** Client는 `-batchmode -nographics`로 실행했다. 렌더러 활성 상태를 검사했으며 화면 픽셀·사람의 조작감은 미검증.
+  F1 버튼/R 키 자체 대신 해당 처리 함수를 호출했다. Held 파손 검사는 테스트의 가짜 두 번째 홀더를 사용한다.
+  실제 두 플레이어의 운반 중 파손·Steam 2PC는 미검증이다.
+- **로그:** `Logs/durability-client.log`, `Logs/durability-late-client.log`(gitignore 대상).
+  세션 관측 로그의 오류 수는 0이나, 관측기 생성 전 Bootstrap의 **Steam 초기화 실패(NoSteamClient)** 로그는 별도로 존재한다.
+  에디터에서도 같은 오류 1건과 Bootstrap을 NGO 동기화에서 제외하는 경고가 있었다. Local 접속/내구도 검증은 통과했다.
+- **정리:** 테스트 Client 2개 종료, 에디터 Play 종료 후 Bootstrap 복귀. 씬·프리팹·설정 에셋은 저장하지 않았다.
+
+재현 절차(직접 입력·화면 확인은 남은 수동 검증):
+1. Unity에서 프로젝트를 임포트하고 Console 컴파일 오류가 없는지 확인한다.
+2. Test Runner에서 EditMode의 `FurnitureDurabilityTests`, PlayMode의 `FurnitureCollisionFlowTests`,
+   `FurnitureDisassemblyFlowTests`, `FurnitureThrowFlowTests`를 실행한다.
+3. Bootstrap → F1 Local Host에서 가구 충돌·F1 내구도 표시·0 파손·R 복구를 확인한다.
+4. Local Client로 같은 값·숨김·복구와 클라이언트 변경 불가를 확인한다. Steam 검증은 PC 2대·계정 2개로 수행한다.
 
 ## 씬 배치 (`Prototype`)
 

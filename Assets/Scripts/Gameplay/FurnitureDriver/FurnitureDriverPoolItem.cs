@@ -21,6 +21,7 @@ namespace GhostHunter.Gameplay.FurnitureDriver
     /// </summary>
     [DisallowMultipleComponent]
     [RequireComponent(typeof(NetworkObject), typeof(NetworkTransform), typeof(Rigidbody))]
+    [RequireComponent(typeof(FurnitureNetworkPhysics))]
     public sealed class FurnitureDriverPoolItem : NetworkBehaviour
     {
         private static readonly List<FurnitureDriverPoolItem> Registry = new();
@@ -33,8 +34,7 @@ namespace GhostHunter.Gameplay.FurnitureDriver
 
         private readonly NetworkVariable<bool> _active = new(false,
             NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
-        private readonly NetworkVariable<int> _durability = new(100,
-            NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+        private FurnitureNetworkPhysics _physics;
 
         private NetworkTransform _networkTransform;
         private Rigidbody _body;
@@ -45,8 +45,11 @@ namespace GhostHunter.Gameplay.FurnitureDriver
         private bool[] _colliderEnabled;
 
         public string PoolKey => _poolKey;
-        public bool IsActive => IsSpawned && _active.Value;
-        public int Durability => _durability.Value;
+        public bool IsActive => IsSpawned && _active.Value && !IsBroken;
+        public bool IsBroken => _physics != null && _physics.IsBroken;
+        public int Durability => _physics != null ? _physics.Durability : FurnitureNetworkPhysics.FullDurability;
+
+        private void Awake() => _physics = GetComponent<FurnitureNetworkPhysics>();
 
         public override void OnNetworkSpawn()
         {
@@ -85,7 +88,8 @@ namespace GhostHunter.Gameplay.FurnitureDriver
         {
             foreach (FurnitureDriverPoolItem candidate in Registry)
             {
-                if (candidate != null && candidate.PoolKey == poolKey && !candidate.IsActive)
+                if (candidate != null && candidate.IsSpawned && candidate.PoolKey == poolKey
+                    && !candidate.IsActive && !candidate.IsBroken)
                 {
                     item = candidate;
                     return true;
@@ -103,15 +107,17 @@ namespace GhostHunter.Gameplay.FurnitureDriver
         {
             if (!IsServer || !IsSpawned || _networkTransform == null || !_networkTransform.IsSpawned)
                 return false;
+            if (_physics == null || !_physics.ServerSetDurability(durability))
+                return false;
             _networkTransform.Teleport(dropPosition, rotation, transform.localScale);
             // 보간 바디는 트랜스폼만 옮기면 다음 물리 스텝에 이전 자세(풀 보관 위치)로 되돌아간다.
             RoomPreset.TeleportBody(_body, dropPosition, rotation);
-            _durability.Value = Mathf.Clamp(durability, 0, 100);
             _active.Value = true;
             ApplyPresentation(true);
             // 대기 중에는 kinematic이므로 활성화 후 속도를 초기화한다.
             _body.linearVelocity = Vector3.zero;
             _body.angularVelocity = Vector3.zero;
+            _physics.ServerProtectPlacement();
             return true;
         }
 
@@ -144,6 +150,8 @@ namespace GhostHunter.Gameplay.FurnitureDriver
                 _body.detectCollisions = active;
                 _body.useGravity = active;
             }
+            if (_physics != null)
+                _physics.RefreshPresentation();
         }
     }
 }

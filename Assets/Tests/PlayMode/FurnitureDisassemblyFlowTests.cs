@@ -31,6 +31,69 @@ namespace GhostHunter.Tests.PlayMode
         private uint _nextHash = 0x5F300001;
 
         [UnityTest]
+        public IEnumerator 부품_파손은_트리거_이탈_콜백_없이도_조립_영역에서_즉시_제외된다()
+        {
+            CreateScenario();
+            var part = _parts[0];
+            part.ServerActivate(Vector3.up, Quaternion.identity, 3);
+            var instance = Track(new GameObject("TestAssemblyZone"));
+            instance.SetActive(false);
+            var networkObject = instance.AddComponent<NetworkObject>();
+            AssignHash(networkObject);
+            var trigger = instance.AddComponent<BoxCollider>();
+            trigger.size = Vector3.one * 5f;
+            var zone = instance.AddComponent<FurnitureAssemblyZone>();
+            zone.Configure(GetPrivateField<FurnitureDriverCatalog>(_driver, "_catalog"), trigger);
+            instance.SetActive(true);
+            networkObject.Spawn();
+            InvokePrivate(zone, "OnTriggerEnter", part.GetComponent<Collider>());
+            var candidates = GetPrivateField<HashSet<FurnitureDriverPoolItem>>(zone, "_candidates");
+            Assert.IsTrue(candidates.Contains(part));
+            var physics = part.GetComponent<FurnitureNetworkPhysics>();
+            SetPrivateField(physics, "_definition", Track(ScriptableObject.CreateInstance<FurnitureDefinition>()));
+            SetPrivateField(physics, "_protectedUntil", 0d);
+            physics.ServerApplyCollisionSpeed(20f);
+            Assert.IsFalse(candidates.Contains(part));
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator 파손된_가구는_풀에서_재사용되지_않고_개발_복구로만_되살아난다()
+        {
+            CreateScenario();
+            var physics = _large.GetComponent<FurnitureNetworkPhysics>();
+            var definition = Track(ScriptableObject.CreateInstance<FurnitureDefinition>());
+            SetPrivateField(physics, "_definition", definition);
+            SetPrivateField(physics, "_protectedUntil", 0d);
+            physics.ServerSetDurability(3);
+            physics.ServerApplyCollisionSpeed(20f);
+            Assert.IsTrue(_large.IsBroken);
+            Assert.IsFalse(_large.IsActive);
+            Assert.IsFalse(FurnitureDriverPoolItem.TryFindInactive("TestLarge", out _));
+            Assert.IsFalse(_large.ServerActivate(Vector3.up, Quaternion.identity, 100));
+            physics.ServerResetDurability(true);
+            Assert.IsTrue(_large.IsActive);
+            Assert.AreEqual(100, _large.Durability);
+            Assert.IsTrue(_large.GetComponent<Collider>().enabled);
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator 비활성_분해_부품은_전체_내구도_복구로_나타나지_않는다()
+        {
+            CreateScenario();
+            FurnitureNetworkPhysics.ServerResetAll(true);
+            foreach (var part in _parts)
+            {
+                Assert.IsFalse(part.IsActive);
+                Assert.IsFalse(part.GetComponent<Renderer>().enabled);
+                Assert.IsFalse(part.GetComponent<Collider>().enabled);
+                Assert.AreEqual(100, part.Durability);
+            }
+            yield return null;
+        }
+
+        [UnityTest]
         public IEnumerator 배치된_가구는_스폰부터_보이고_잡을_수_있다()
         {
             CreateScenario();

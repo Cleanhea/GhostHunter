@@ -1,4 +1,5 @@
 using Unity.Netcode;
+using GhostHunter.Gameplay.Furniture;
 using Unity.Netcode.Components;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -59,7 +60,10 @@ namespace GhostHunter.Gameplay.Map
         private void ResetAll()
         {
             if (_furniture == null || _initialPoses == null)
+            {
+                FurnitureNetworkPhysics.ServerResetAll(true);
                 return;
+            }
 
             for (int i = 0; i < _furniture.Length; i++)
             {
@@ -85,7 +89,8 @@ namespace GhostHunter.Gameplay.Map
                 RoomPreset.TeleportBody(body, pose.position, pose.rotation);
             }
 
-            Debug.Log($"[FurnitureResetter] 가구 {_furniture.Length}개를 초기 위치로 되돌렸습니다.", this);
+            FurnitureNetworkPhysics.ServerResetAll(true);
+            Debug.Log($"[FurnitureResetter] 가구 {_furniture.Length}개를 초기 위치로 되돌리고 전체 내구도를 복구했습니다.", this);
         }
     }
 }

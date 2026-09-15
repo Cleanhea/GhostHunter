@@ -379,6 +379,7 @@ v0.4 변경 이력에는 맵 크기·도면 수정이 있으나 이번 첨부에
 | ~~16~~ | ~~일시정지 메뉴·연결 끊김 처리의 미결정 15건 (PM-1~15)~~ | — | ✅ **해결·구현(2026-09-04)** — 자동 테스트 통과, 수동 검증과 D-1 선행 검증 대기. 설정 화면 **내용**(PM-6)만 설정 시스템 기획서로 이월(이번 범위는 stub) → [pause-menu-system.md §9](pause-menu-system.md) |
 | 17 | **맵 생성 v0.4 미결정** — 맵별 작업량·집계·보충 정책(MG-21~23), Work Room 제한 존치(MG-6), 오픈 보이드·열쇠·지하실 도면 등 | Spawn Point·Target Furniture·스페셜 공간 구현 | **부분 해결** — B안 채택(MG-20), 랜덤 가구 1차 설치 완료. Play 검증·잔여 결정 대기 → [map-generation.md §12](../architecture/map-generation.md) |
 | 18 | **게임명** — 기획서 `Holy Moley!` vs 저장소·Unity Product `GhostHunter` | 표기 통일, `ProjectSettings` 변경 | **대기** → [map-generation.md §12 MG-1](../architecture/map-generation.md) |
+| 19 | **가구 내구도** — 충돌 속도 비례 감소의 공식·수치, 가구끼리·운반 중 충돌 적용, **0이 되면 어떻게 되는가** | 가구 내구도 구현, 반출·정산(MG-22) | **부분 해결 (2026-09-15)** — 모든 가구·가구끼리 양쪽 감소·플레이어/귀신 제외·0이면 사라짐(잠정) 확정. 수직 상대 속도·초기 공식 `floor((v−6)×1×1)`·상한 50·창 0.2초·보호 1초·운반 중 적용·F1/R 복구 승인. 코드 구현, Unity 실행 검증 대기 → [furniture-durability-system.md §7](furniture-durability-system.md) |
 
 ---
 

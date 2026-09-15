@@ -1,4 +1,5 @@
 using Unity.Netcode;
+using GhostHunter.Gameplay.Furniture;
 using Unity.Netcode.Components;
 using UnityEngine;
 
@@ -122,6 +123,8 @@ namespace GhostHunter.Gameplay.Map
 
             body.position = position;
             body.rotation = rotation;
+            if (body.TryGetComponent(out FurnitureNetworkPhysics physics))
+                physics.ServerProtectPlacement();
         }
     }
 }

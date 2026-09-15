@@ -1,11 +1,48 @@
 using GhostHunter.Gameplay.FurnitureDriver;
+using GhostHunter.Gameplay.Furniture;
 using NUnit.Framework;
+using UnityEngine;
 
 namespace GhostHunter.Tests.EditMode
 {
     /// <summary>내구도 계산(기획서 §3.3·§5) — 아이템 감소 클램프, 가구 상속, 조립 평균(소수점 버림).</summary>
     public sealed class FurnitureDurabilityTests
     {
+        [TestCase(4.4f, 0)]
+        [TestCase(6f, 0)]
+        [TestCase(6.99f, 0)]
+        [TestCase(7.7f, 1)]
+        [TestCase(12f, 6)]
+        [TestCase(30f, 24)]
+        [TestCase(50f, 44)]
+        [TestCase(1000f, 50)]
+        public void 충돌_속도별_초기_피해_공식을_따른다(float speed, int expected)
+        {
+            Assert.AreEqual(expected, FurnitureCollisionDamage.Calculate(speed, 6f, 1f, 1f, 50));
+        }
+
+        [Test]
+        public void 미끄러지는_속도는_피해에_포함하지_않는다()
+        {
+            Assert.AreEqual(2f, FurnitureCollisionDamage.NormalSpeed(new Vector3(30f, -2f, 0f), Vector3.up));
+            Assert.AreEqual(2f, FurnitureCollisionDamage.NormalSpeed(new Vector3(-30f, 2f, 0f), Vector3.down));
+        }
+
+        [Test]
+        public void 무게_계수와_상한을_적용한_뒤_버림한다()
+        {
+            Assert.AreEqual(7, FurnitureCollisionDamage.Calculate(11f, 6f, 1f, 1.5f, 50));
+            Assert.AreEqual(5, FurnitureCollisionDamage.Calculate(11f, 6f, 2f, 1.5f, 5));
+        }
+
+        [Test]
+        public void 유효하지_않은_속도는_피해가_없다()
+        {
+            Assert.AreEqual(0, FurnitureCollisionDamage.Calculate(float.NaN, 6f, 1f, 1f, 50));
+            Assert.AreEqual(0, FurnitureCollisionDamage.Calculate(float.PositiveInfinity, 6f, 1f, 1f, 50));
+            Assert.AreEqual(50, FurnitureCollisionDamage.Calculate(float.MaxValue, 6f, 1f, 1f, 50));
+        }
+
         [Test]
         public void 사용_성공시_지정한_만큼_감소한다()
         {

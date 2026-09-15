@@ -7,6 +7,7 @@ using GhostHunter.Gameplay.Sanity;
 using Unity.Netcode;
 using UnityEngine;
 using GhostHunter.Gameplay.Cleaning;
+using GhostHunter.Gameplay.Furniture;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 
@@ -30,6 +31,9 @@ namespace GhostHunter.DebugTools
         [Tooltip("밸런스 튜닝 창(별도)을 켜고 끄는 키.")]
         [SerializeField] private Key _tuningToggleKey = Key.F2;
 
+        [Tooltip("HUD가 켜져 있을 때 가구 위에 내구도를 띄우는 최대 거리(m). 벽 뒤 가구도 표시한다.")]
+        [SerializeField, Min(1f)] private float _durabilityLabelRange = 20f;
+
         private string _lastStatus = "대기 중";
         private IConnectionService _connection;
         private ISteamLobbyService _lobby;
@@ -47,6 +51,8 @@ namespace GhostHunter.DebugTools
         private bool _showPhenomena;
         private bool _showSkill;
         private bool _showCleaning = true;
+        private bool _showFurniture = true;
+        private bool _showDurabilityLabels = true;
 
         private GUIStyle _boxStyle;
         private GUIStyle _richLabelStyle;
@@ -107,6 +113,10 @@ namespace GhostHunter.DebugTools
         {
             EnsureStyles();
 
+            // HUD 창보다 먼저 그려야 창이 라벨 위에 덮인다.
+            if (_visible && _showDurabilityLabels)
+                DrawDurabilityLabels();
+
             // 튜닝 창은 접속 HUD(Tab)와 독립이다 — HUD가 꺼져 있어도 F2로 열 수 있다.
             _tuning.DrawWindow();
 
@@ -146,6 +156,10 @@ namespace GhostHunter.DebugTools
             if (_showCleaning)
                 DrawCleaningBody();
 
+            _showFurniture = SectionHeader("가구 내구도", _showFurniture);
+            if (_showFurniture)
+                DrawFurnitureBody();
+
             if (GUILayout.Button(
                     (_tuning.Visible ? "▼" : "▶") + $"  튜닝 창 (밸런스 값) — {_tuningToggleKey}",
                     _headerStyle))
@@ -159,6 +173,93 @@ namespace GhostHunter.DebugTools
             GUILayout.Label(_lastStatus, GUI.skin.textArea, GUILayout.MinHeight(38));
 
             GUILayout.EndArea();
+        }
+
+        private void DrawFurnitureBody()
+        {
+            var targeter = _localPlayer != null ? _localPlayer.Targeter : null;
+            var target = targeter != null ? targeter.CurrentTarget : null;
+            if (target != null && target.TryGetComponent(out FurnitureNetworkPhysics physics))
+                GUILayout.Label($"{target.name}: {physics.Durability} / {FurnitureNetworkPhysics.FullDurability}");
+            else
+                GUILayout.Label("가구를 조준하면 현재 내구도가 표시됩니다.");
+
+            bool wasEnabled = GUI.enabled;
+            NetworkManager network = NetworkManager.Singleton;
+            GUI.enabled = wasEnabled && network != null && network.IsServer;
+            if (GUILayout.Button("전체 내구도 100 복구 (파손 가구 포함)"))
+                FurnitureNetworkPhysics.ServerResetAll(false);
+            GUI.enabled = wasEnabled;
+            GUILayout.Label("R: 배치 위치로 복귀 + 내구도 복구 · 호스트 전용");
+            _showDurabilityLabels = GUILayout.Toggle(_showDurabilityLabels, " 가구 위에 내구도 표시 (HUD 켜진 동안)");
+        }
+
+        private const float DurabilityLabelWidth = 84f;
+        private const float DurabilityLabelHeight = 24f;
+        private const float DurabilityLabelLift = 0.2f;
+        private static readonly Color DurabilityLowColor = new(1f, 0.35f, 0.3f);
+        private static readonly Color DurabilityHighColor = new(0.45f, 1f, 0.45f);
+        private static string[] _durabilityTexts;
+        private GUIStyle _durabilityLabelStyle;
+
+        /// <summary>
+        /// HUD가 켜진 동안 반경 안 가구의 머리 위에 복제된 내구도를 그린다. 모든 접속자에서 같은 값이 보인다.
+        /// OnGUI 는 프레임마다 여러 번 불리므로 Repaint 에서만 그리고, 가구 수만큼 문자열을 새로 만들지 않는다.
+        /// </summary>
+        private void DrawDurabilityLabels()
+        {
+            if (Event.current.type != EventType.Repaint || _localPlayer == null)
+                return;
+
+            var targeter = _localPlayer.Targeter;
+            Camera view = targeter != null ? targeter.AimCamera : null;
+            if (view == null)
+                return;
+
+            _durabilityLabelStyle ??= new GUIStyle(GUI.skin.box)
+            {
+                alignment = TextAnchor.MiddleCenter,
+                fontStyle = FontStyle.Bold,
+                fontSize = 13,
+            };
+
+            Vector3 eye = view.transform.position;
+            float rangeSqr = _durabilityLabelRange * _durabilityLabelRange;
+            Color previousColor = GUI.contentColor;
+            var furniture = FurnitureNetworkPhysics.All;
+            for (int i = 0; i < furniture.Count; i++)
+            {
+                FurnitureNetworkPhysics item = furniture[i];
+                if (item == null || !item.IsAvailable
+                    || (item.transform.position - eye).sqrMagnitude > rangeSqr
+                    || !item.TryGetTopCenter(out Vector3 top))
+                    continue;
+
+                Vector3 screen = view.WorldToScreenPoint(top + Vector3.up * DurabilityLabelLift);
+                if (screen.z <= 0f)
+                    continue;
+
+                int durability = Mathf.Clamp(item.Durability, 0, FurnitureNetworkPhysics.FullDurability);
+                GUI.contentColor = Color.Lerp(DurabilityLowColor, DurabilityHighColor,
+                    durability / (float)FurnitureNetworkPhysics.FullDurability);
+                var rect = new Rect(screen.x - DurabilityLabelWidth * 0.5f,
+                    Screen.height - screen.y - DurabilityLabelHeight, DurabilityLabelWidth, DurabilityLabelHeight);
+                GUI.Label(rect, DurabilityText(durability), _durabilityLabelStyle);
+            }
+
+            GUI.contentColor = previousColor;
+        }
+
+        private static string DurabilityText(int durability)
+        {
+            if (_durabilityTexts == null)
+            {
+                _durabilityTexts = new string[FurnitureNetworkPhysics.FullDurability + 1];
+                for (int i = 0; i < _durabilityTexts.Length; i++)
+                    _durabilityTexts[i] = "내구도 " + i;
+            }
+
+            return _durabilityTexts[durability];
         }
 
         /// <summary>

@@ -88,6 +88,16 @@ namespace GhostHunter.Gameplay.FurnitureDriver
             _trigger = trigger;
         }
 
+        /// <summary>파손으로 콜라이더가 꺼질 때 이탈 콜백 없이 남을 수 있는 점유를 즉시 제거한다.</summary>
+        public static void ServerRemoveBrokenItem(FurnitureDriverPoolItem item)
+        {
+            foreach (FurnitureAssemblyZone zone in Registry)
+            {
+                if (zone != null && zone.IsServer && zone.IsSpawned && zone._candidates.Remove(item))
+                    zone.RecomputeState();
+            }
+        }
+
         private void FixedUpdate()
         {
             if (!IsServer)
