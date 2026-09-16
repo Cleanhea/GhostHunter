@@ -39,7 +39,16 @@ namespace GhostHunter.Gameplay.Furniture
         public FurnitureDefinition Definition => _definition;
         public Rigidbody Rigidbody => _rigidbody;
         public int Durability => _durability.Value;
-        public bool IsBroken => _durability.Value == 0;
+
+        /// <summary>
+        /// 내구도 0에서 가구를 없앨지 여부(FD-10). <see cref="FurnitureDefinition"/>가 정하며 기본값은
+        /// **끔**이다(2026-09-16 사용자 요청) — 끈 동안에는 0이 되어도 사라지지 않고 잡기·던지기·조립에
+        /// 계속 쓸 수 있다. 사라지는 처리는 이 한 플래그로만 켜고 끈다.
+        /// </summary>
+        public bool DestroysAtZeroDurability => _definition != null && _definition.DestroyAtZeroDurability;
+
+        /// <summary>파손(사라짐) 상태. 없애지 않는 설정에서는 내구도가 0이어도 파손으로 치지 않는다.</summary>
+        public bool IsBroken => DestroysAtZeroDurability && _durability.Value == 0;
         public bool IsAvailable => IsSpawned && !IsBroken
             && (_poolItem == null || _poolItem.IsActive)
             && (_randomItem == null || _randomItem.IsPlaced);
@@ -153,12 +162,16 @@ namespace GhostHunter.Gameplay.Furniture
                 SetDurability(Mathf.Max(0, Durability - additionalDamage));
         }
 
-        /// <summary>분해·조립에서 상속 값을 쓴다. 파손된 인스턴스의 재사용은 거절한다.</summary>
+        /// <summary>
+        /// 분해·조립에서 상속·평균 값을 쓴다. 파손된 인스턴스의 재사용은 거절한다.
+        /// 없애지 않는 설정에서는 **0도 유효한 값**이다 — 0인 부품만 모아 조립하면 완성품도 0이 된다(§5 평균).
+        /// </summary>
         public bool ServerSetDurability(int durability)
         {
-            if (!IsServer || !IsSpawned || IsBroken || durability <= 0)
+            int minimum = DestroysAtZeroDurability ? 1 : 0;
+            if (!IsServer || !IsSpawned || IsBroken || durability < minimum)
                 return false;
-            SetDurability(Mathf.Clamp(durability, 1, FullDurability));
+            SetDurability(Mathf.Clamp(durability, minimum, FullDurability));
             return true;
         }
 
@@ -235,7 +248,8 @@ namespace GhostHunter.Gameplay.Furniture
 
         private void SetDurability(int durability)
         {
-            if (durability == 0 && _grabTarget != null)
+            // 없애지 않는 설정에서는 0이 되어도 들고 있던 홀더를 떼지 않는다 — 그냥 계속 쓰는 가구다.
+            if (durability == 0 && DestroysAtZeroDurability && _grabTarget != null)
                 _grabTarget.ServerResetForPool();
             _durability.Value = durability;
         }
@@ -243,7 +257,7 @@ namespace GhostHunter.Gameplay.Furniture
         private void HandleDurabilityChanged(int previous, int current)
         {
             RefreshPresentation();
-            if (IsServer && current == 0 && _poolItem != null)
+            if (IsServer && IsBroken && _poolItem != null)
                 FurnitureAssemblyZone.ServerRemoveBrokenItem(_poolItem);
         }
 

@@ -82,6 +82,14 @@ namespace GhostHunter.Tests.EditMode
         }
 
         [Test]
+        public void 내구도_0인_부품도_평균에_그대로_들어간다()
+        {
+            // 사라짐이 꺼져 있으면(2026-09-16 기본값) 0인 부품이 남아 조립에 쓰인다.
+            Assert.AreEqual(10, FurnitureDurability.AverageOnAssemble(new[] { 0, 0, 30 }));
+            Assert.AreEqual(0, FurnitureDurability.AverageOnAssemble(new[] { 0, 0, 0 }));
+        }
+
+        [Test]
         public void 부품이_없으면_0이다()
         {
             Assert.AreEqual(0, FurnitureDurability.AverageOnAssemble(System.Array.Empty<int>()));

@@ -50,7 +50,10 @@ namespace GhostHunter.Tests.PlayMode
             var candidates = GetPrivateField<HashSet<FurnitureDriverPoolItem>>(zone, "_candidates");
             Assert.IsTrue(candidates.Contains(part));
             var physics = part.GetComponent<FurnitureNetworkPhysics>();
-            SetPrivateField(physics, "_definition", Track(ScriptableObject.CreateInstance<FurnitureDefinition>()));
+            var partDefinition = Track(ScriptableObject.CreateInstance<FurnitureDefinition>());
+            // 사라짐은 기본값이 꺼짐(FD-10 재확정 2026-09-16) — 파손 경로 검증에만 켠다.
+            SetPrivateField(partDefinition, "_destroyAtZeroDurability", true);
+            SetPrivateField(physics, "_definition", partDefinition);
             SetPrivateField(physics, "_protectedUntil", 0d);
             physics.ServerApplyCollisionSpeed(20f);
             Assert.IsFalse(candidates.Contains(part));
@@ -63,6 +66,7 @@ namespace GhostHunter.Tests.PlayMode
             CreateScenario();
             var physics = _large.GetComponent<FurnitureNetworkPhysics>();
             var definition = Track(ScriptableObject.CreateInstance<FurnitureDefinition>());
+            SetPrivateField(definition, "_destroyAtZeroDurability", true);
             SetPrivateField(physics, "_definition", definition);
             SetPrivateField(physics, "_protectedUntil", 0d);
             physics.ServerSetDurability(3);
@@ -344,6 +348,69 @@ namespace GhostHunter.Tests.PlayMode
             if (_context != null)
                 Services.Unbind<ILocalPlayerContext>(_context);
             _context = null;
+        }
+
+        [UnityTest]
+        public IEnumerator 조립하면_완성_가구가_부품_내구도의_평균을_가진다()
+        {
+            // 기획서 §5 예시 — 60·60·30 → 50(소수점 버림).
+            CreateScenario();
+            FurnitureAssemblyZone zone = CreateZone();
+            _large.ServerDeactivate();
+            ActivateInZone(zone, _parts[0], 60);
+            ActivateInZone(zone, _parts[1], 60);
+            ActivateInZone(zone, _parts[2], 30);
+
+            Assert.IsTrue(zone.ServerTryAssemble(0f, out FurnitureDisassemblyRecipe recipe, out int durability));
+            Assert.AreEqual("TestLarge", recipe.LargeFurnitureId);
+            Assert.AreEqual(50, durability);
+            Assert.IsTrue(_large.IsActive);
+            Assert.AreEqual(50, _large.Durability);
+            foreach (FurnitureDriverPoolItem part in _parts)
+                Assert.IsFalse(part.IsActive, "조립에 쓰인 부품은 비활성화됩니다.");
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator 내구도가_0인_부품도_조립에_쓰이고_평균이_그대로_적용된다()
+        {
+            // 사라짐이 꺼져 있으면(기본값) 0인 부품이 그대로 남아 조립 대상이 된다 — 2026-09-16.
+            CreateScenario();
+            FurnitureAssemblyZone zone = CreateZone();
+            _large.ServerDeactivate();
+            ActivateInZone(zone, _parts[0], 0);
+            ActivateInZone(zone, _parts[1], 0);
+            ActivateInZone(zone, _parts[2], 30);
+
+            Assert.IsTrue(zone.ServerTryAssemble(0f, out _, out int durability));
+            Assert.AreEqual(10, durability);
+            Assert.IsTrue(_large.IsActive);
+            Assert.AreEqual(10, _large.Durability);
+            yield return null;
+        }
+
+        /// <summary>조립 판정에 쓸 트리거 영역 하나를 만든다(실제 씬의 AssemblyZone과 같은 구성).</summary>
+        private FurnitureAssemblyZone CreateZone()
+        {
+            var instance = Track(new GameObject("TestAssemblyZone"));
+            instance.SetActive(false);
+            var networkObject = instance.AddComponent<NetworkObject>();
+            AssignHash(networkObject);
+            var trigger = instance.AddComponent<BoxCollider>();
+            trigger.size = Vector3.one * 5f;
+            var zone = instance.AddComponent<FurnitureAssemblyZone>();
+            zone.Configure(GetPrivateField<FurnitureDriverCatalog>(_driver, "_catalog"), trigger);
+            instance.SetActive(true);
+            networkObject.Spawn();
+            return zone;
+        }
+
+        /// <summary>부품을 지정한 내구도로 활성화하고 영역 점유로 등록한다(트리거 콜백 대체).</summary>
+        private void ActivateInZone(FurnitureAssemblyZone zone, FurnitureDriverPoolItem part, int durability)
+        {
+            Assert.IsTrue(part.ServerActivate(Vector3.up, Quaternion.identity, durability));
+            Assert.AreEqual(durability, part.Durability);
+            InvokePrivate(zone, "OnTriggerEnter", part.GetComponent<Collider>());
         }
 
         private void CreateScenario(int secondPartCount = 2, bool equipDriver = true)

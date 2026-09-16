@@ -59,8 +59,31 @@ namespace GhostHunter.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator 없애지_않는_설정에서는_내구도가_0이어도_가구가_그대로_남는다()
+        {
+            // 2026-09-16 사용자 요청 — 기본값은 "파괴하지 않음"이다(FurnitureDefinition 기본값).
+            var physics = ReadyFurniture();
+            var target = physics.GetComponent<FurnitureGrabTarget>();
+            Assert.IsTrue(target.ServerTryAddHolder(HostClientId, AimOrigin, AimDirection));
+            physics.ServerSetDurability(3);
+            physics.ServerApplyCollisionSpeed(20f);
+            Assert.AreEqual(0, physics.Durability);
+            Assert.IsFalse(physics.IsBroken);
+            Assert.IsTrue(physics.IsAvailable);
+            Assert.AreEqual(1, target.HolderCount, "0이 되어도 들고 있던 홀더를 떼지 않습니다.");
+            Assert.IsFalse(physics.GetComponent<Renderer>().forceRenderingOff);
+            Assert.IsTrue(physics.GetComponent<Collider>().enabled);
+            Assert.IsFalse(physics.Rigidbody.isKinematic);
+            physics.ServerApplyCollisionSpeed(100f);
+            Assert.AreEqual(0, physics.Durability, "0 아래로는 내려가지 않습니다.");
+            yield return null;
+        }
+
+        [UnityTest]
         public IEnumerator 운반_중_파손되면_발사하지_않고_두_홀더를_즉시_해제한다()
         {
+            // 사라짐은 기본값이 꺼짐(FD-10 재확정 2026-09-16)이라 이 경로를 검증하려면 설정에서 켠다.
+            SetPrivateField(Definition, "_destroyAtZeroDurability", true);
             var physics = ReadyFurniture();
             var target = physics.GetComponent<FurnitureGrabTarget>();
             Assert.IsTrue(target.ServerTryAddHolder(HostClientId, AimOrigin, AimDirection));
@@ -81,6 +104,7 @@ namespace GhostHunter.Tests.PlayMode
         [UnityTest]
         public IEnumerator 파손_복구는_가구를_되살리고_보호_시간을_갱신한다()
         {
+            SetPrivateField(Definition, "_destroyAtZeroDurability", true);
             var physics = ReadyFurniture();
             Vector3 original = physics.Rigidbody.position;
             physics.ServerSetDurability(3);

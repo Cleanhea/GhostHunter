@@ -42,6 +42,9 @@ namespace GhostHunter.Tests.PlayMode
 
         protected FurnitureThrowSettings Settings => _settings;
 
+        /// <summary>가구 템플릿이 공유하는 정의. 내구도 0 파손 같은 규칙 스위치를 테스트에서 켠다.</summary>
+        protected FurnitureDefinition Definition => _definition;
+
         protected ulong HostClientId => Network.LocalClientId;
 
         /// <summary>호스트 플레이어의 눈높이. 홀더 조준의 시작점으로 쓴다.</summary>
