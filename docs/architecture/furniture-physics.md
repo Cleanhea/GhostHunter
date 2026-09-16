@@ -117,10 +117,17 @@ if (!IsServer) {
   검사하고(`ValidateFurnitureClearance`), 도면 좌표가 떠 있으면 지지면에 정확히 얹는다
   (`RestOnSupport`).
 
-## 가구 내구도 구현 (2026-09-15)
+## 가구 내구도 구현 (2026-09-15, 2026-09-16 파괴 끄기)
+
+> **2026-09-16 — 내구도 0에서 가구를 파괴하지 않는다(FD-10 재확정).** 아래 "파손" 서술은
+> `FurnitureDefinition.DestroyAtZeroDurability`를 **켰을 때만** 일어난다. 기본값은 꺼짐이고,
+> 끈 상태에서는 0이 되어도 렌더러·콜라이더·물리·잡기·풀 재사용이 모두 그대로다.
+> `FurnitureNetworkPhysics.IsBroken`이 이 스위치를 포함하므로, 파손을 참조하는 모든 게이트
+> (`IsAvailable`·`FurnitureDriverPoolItem.IsActive`·`TryFindInactive`·조립 영역 제거)가 한 번에 꺼진다.
+> `ServerSetDurability`는 파괴를 끈 동안 **0도 유효한 값**으로 받는다 — 조립 평균이 0이 될 수 있기 때문이다.
 
 - **값의 소유자:** 모든 가구에 있던 `FurnitureNetworkPhysics`가 서버 쓰기 `NetworkVariable<int>`
-  하나로 0~100 내구도를 복제한다. 0은 파손 상태다. `FurnitureDriverPoolItem.Durability`는 이 값을
+  하나로 0~100 내구도를 복제한다. 0은 파괴를 켠 경우에만 파손 상태다. `FurnitureDriverPoolItem.Durability`는 이 값을
   읽으며 분해·조립 시 `ServerSetDurability`로 상속한다. 별도 NetworkBehaviour나 어셈블리는 추가하지 않는다.
 - **설정:** 기존 `FurnitureDefinition_Light/Heavy` SO에 최소 속도 6, 초과 속도당 피해 1,
   등급 계수 1, 피해 상한 50, 판정 창 0.2초, 배치 보호 1초, Held 중 피해 적용을 추가했다.
@@ -132,7 +139,7 @@ if (!IsServer) {
 - **판정 창:** 첫 유효 피해부터 0.2초 동안 최대 피해를 기억한다. 더 강한 접촉이 오면 차액만
   즉시 차감한다. 따라서 합계는 최대 충돌 한 번과 같고, 0 도달 시 창 종료까지 기다리지 않는다.
   피해 없는 접촉은 판정 창을 시작하지 않는다.
-- **파손:** 홀더를 모두 해제하고 발사 상태를 초기화한다. `Renderer.forceRenderingOff`로
+- **파손(`DestroyAtZeroDurability`를 켠 경우만):** 홀더를 모두 해제하고 발사 상태를 초기화한다. `Renderer.forceRenderingOff`로
   윤곽선까지 숨기고 콜라이더·충돌·물리를 끈다. 기존 풀 활성/랜덤 배치 값은 보존한다.
   파손 풀은 `IsActive`가 false이며 `TryFindInactive`·`ServerActivate`·`ServerPlace`에서도 거절한다.
   파손 시 조립 영역 후보 목록에서도 즉시 제거한다(콜라이더 비활성화는 이탈 콜백을 보장하지 않는다).
@@ -153,6 +160,15 @@ if (!IsServer) {
   검증: `.NET` C# 빌드(Gameplay·DebugTools) 경고 0·오류 0. **에디터 Play 화면 확인은 미수행**(Unity MCP 미연결).
 
 ### 검증 상태
+
+**2026-09-16 파괴 끄기 변경분:** `dotnet build`로 `GhostHunter.Gameplay`·`GhostHunter.Tests.PlayMode`·
+`GhostHunter.Tests.EditMode` 경고 0·오류 0. **Unity Test Runner와 에디터 Play는 미실행**
+(에디터가 열려 있어 batchmode 잠김, Unity MCP 미연결). 추가한 테스트도 아직 실행되지 않았다:
+`FurnitureCollisionFlowTests.없애지_않는_설정에서는_내구도가_0이어도_가구가_그대로_남는다`,
+`FurnitureDisassemblyFlowTests.조립하면_완성_가구가_부품_내구도의_평균을_가진다`·
+`내구도가_0인_부품도_조립에_쓰이고_평균이_그대로_적용된다`,
+`FurnitureDurabilityTests.내구도_0인_부품도_평균에_그대로_들어간다`.
+기존 파손 경로 테스트 4건은 정의 SO에서 `_destroyAtZeroDurability`를 켜도록 수정했다.
 
 - `.NET` C# 빌드: Gameplay·DebugTools·EditMode·PlayMode 코드 컴파일 확인. Unity Test Runner와는 별개다.
 - 순수 내구도 테스트 18건: 컴파일한 `FurnitureDurabilityTests`를 별도 .NET 실행기로 실행해 18 통과·0 실패.

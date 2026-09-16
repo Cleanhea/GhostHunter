@@ -54,7 +54,7 @@ GhostHunter — 1인칭 멀티플레이 "가구 던지기" 게임.
 | 사망 처리·자유시점·플레이어 관전 | `docs/project/spectator-system.md`, `docs/architecture/player-controller.md`, `docs/architecture/networking.md` — **핵심 요구 확정 / 관전 구현 미착수.** 구현 지시는 `docs/workflow/spectator-implementation-prompt.md` |
 | 잡기·부양·발사 | `docs/architecture/throw-system.md` |
 | 가구 물리·아웃라인 | `docs/architecture/furniture-physics.md` |
-| 가구 내구도·충돌 파손 | `docs/project/furniture-durability-system.md`, `docs/architecture/throw-system.md` — **0.3(2026-09-15). 수직 상대 속도·초기값·F1/R 복구 승인. 서버 내구도·파손·복구 코드 구현, C# 빌드 통과. Unity 실행·Host/Client 검증 대기** |
+| 가구 내구도·충돌 파손 | `docs/project/furniture-durability-system.md`, `docs/architecture/throw-system.md` — **0.4(2026-09-16). 내구도 0에서 가구를 파괴하지 않는다(FD-10 재확정) — 파괴는 `FurnitureDefinition.DestroyAtZeroDurability` 스위치로 보존(기본 꺼짐). 조립 완성품은 0을 포함한 부품 내구도 평균. Unity 실행·Host/Client 검증 대기** |
 | 귀신 상태·어택·탐지·추격 | `docs/project/ghost-system.md`, `docs/architecture/ghost-prototype.md` |
 | 정신력 | `docs/project/sanity-system.md`, `docs/architecture/sanity-system.md` |
 | 플레이어 스킬(탐지·굴착) | `docs/project/mole-skill-system.md` — **초안. 미결정 15건(MS-1~15)** |
