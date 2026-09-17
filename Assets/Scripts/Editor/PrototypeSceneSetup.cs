@@ -176,6 +176,8 @@ namespace GhostHunter.EditorTools
             SanityPostProcessingSetup.InstallIntoActiveGameScene(false);
             SanityTestbedSetup.InstallIntoActiveGameScene(false);
             GhostPrototypeSetup.InstallIntoActiveGameScene(false);
+            EditorSceneManager.SaveScene(SceneManager.GetActiveScene());
+            VoiceChatSetup.Install();
 
             if (AssetDatabase.LoadAssetAtPath<MonoScript>("Assets/Scripts/Temp.cs") != null)
                 AssetDatabase.DeleteAsset("Assets/Scripts/Temp.cs");

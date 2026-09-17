@@ -10,6 +10,7 @@
         "GhostHunter.UI",
         "GhostHunter.Networking",
         "Unity.Netcode.Runtime",
+        "Unity.Collections",
         "Unity.InputSystem",
         "UnityEngine.UI",
         "UniTask"

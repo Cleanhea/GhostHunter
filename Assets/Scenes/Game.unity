@@ -95099,6 +95099,8 @@ GameObject:
   - component: {fileID: 1053962166}
   - component: {fileID: 1053962165}
   - component: {fileID: 1053962164}
+  - component: {fileID: 1053962168}
+  - component: {fileID: 1053962167}
   m_Layer: 0
   m_Name: PlayerSpawnPoints
   m_TagString: Untagged
@@ -95118,6 +95120,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b40d913672f3d8e49944a4b1c334d192, type: 3}
   m_Name: 
   m_EditorClassIdentifier: GhostHunter.Systems::GhostHunter.Systems.Installers.GameInstaller
+  _voiceSettings: {fileID: 11400000, guid: a10fc94f039685b4ab747ef79469a3de, type: 2}
   _playerSpawns: {fileID: 1053962165}
   _sanityTeam: {fileID: 1088740211}
   _ghostSpawner: {fileID: 1955749254}
@@ -95161,6 +95164,30 @@ Transform:
   - {fileID: 1167231939}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1053962167
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1053962163}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b3dc18f43bf2eb84b9b4353eb10d2259, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: GhostHunter.DebugTools::GhostHunter.DebugTools.VoiceDebugHud
+--- !u!114 &1053962168
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1053962163}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8b6909dd8a9c37c49a9a49fe826de95e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: GhostHunter.UI::GhostHunter.UI.VoiceIndicatorHud
 --- !u!1 &1054354942
 GameObject:
   m_ObjectHideFlags: 0

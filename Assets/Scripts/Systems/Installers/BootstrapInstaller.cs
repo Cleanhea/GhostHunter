@@ -1,3 +1,4 @@
+using GhostHunter.Core.Voice;
 using GhostHunter.Core.Networking;
 using GhostHunter.Core.Scenes;
 using GhostHunter.Core.Steam;
@@ -19,12 +20,14 @@ namespace GhostHunter.Systems.Installers
         [SerializeField] private SceneFlowController _sceneFlow;
         [SerializeField] private SteamLobbyManager _steamLobby;
         [SerializeField] private ConnectionManager _connection;
+        [SerializeField] private SteamVoiceCapture _voiceCapture;
 
         protected override void InstallBindings()
         {
             Bind<ISceneFlow>(_sceneFlow);
             Bind<ISteamLobbyService>(_steamLobby);
             Bind<IConnectionService>(_connection);
+            if (_voiceCapture != null) Bind<IVoiceCaptureService>(_voiceCapture);
         }
     }
 }

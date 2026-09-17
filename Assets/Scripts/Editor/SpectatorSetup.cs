@@ -54,7 +54,7 @@ namespace GhostHunter.EditorTools
                 {
                     throw new InvalidOperationException(
                         $"{actionPath} 액션이 없습니다. InputSystem_Actions.inputactions 에 먼저 추가하세요 " +
-                        "(SpectateDescend=Left Ctrl, SpectateToggleMode=V, SpectateNext=Mouse Right Button).");
+                        "(SpectateDescend=Left Ctrl, SpectateToggleMode=C, SpectateNext=Mouse Right Button).");
                 }
             }
 

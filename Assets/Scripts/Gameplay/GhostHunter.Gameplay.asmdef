@@ -5,6 +5,7 @@
         "GhostHunter.Core",
         "GhostHunter.Data",
         "Unity.Netcode.Runtime",
+        "Unity.Collections",
         "Unity.InputSystem",
         "UniTask"
     ],

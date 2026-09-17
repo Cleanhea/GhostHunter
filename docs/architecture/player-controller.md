@@ -199,3 +199,9 @@ Player (root)          ← 요(Y) 회전. ClientNetworkTransform이 복제
 — `Player/Pause` 신설·입력 잠금 포함. 이전: 엎드리기(Z 토글)
 3번째 자세 추가 — `PlayerStance`/`PlayerPosture` 분리, 침대 밑 은신 연동. `Prototype` → `Game` 씬 개명 등
 나머지 낡은 서술은 미정리)
+
+### 음성 입력 (2026-09-17)
+
+`Player/Voice`=V(PTT), `Player/VoiceMute`=M(캡처 뮤트). 메뉴·사망·굴착·휠 잠금과 독립적으로 읽는다.
+PTT와 겹치던 `SpectateToggleMode`는 C로 분리했다. C 웅크리기는 생존, C 관전 전환은 사망 상태에서만 처리한다.
+키 선호도 질문에 답변이 없어 제시한 기본안을 적용했다. 음성 구현은 [voice-chat.md](voice-chat.md).

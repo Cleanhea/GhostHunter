@@ -133,6 +133,24 @@
                     "initialStateCheck": false
                 },
                 {
+                    "name": "Voice",
+                    "type": "Button",
+                    "id": "ba2dba57-179e-4c01-8d4d-c5ca647ed5e4",
+                    "expectedControlType": "Button",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
+                    "name": "VoiceMute",
+                    "type": "Button",
+                    "id": "97acc1b6-5639-400a-9686-9c84a549f1ab",
+                    "expectedControlType": "Button",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
                     "name": "SpectateDescend",
                     "type": "Button",
                     "id": "63846759-adf9-468c-9547-1bc4b1408fb0",
@@ -641,6 +659,28 @@
                 },
                 {
                     "name": "",
+                    "id": "9060325d-2c6c-416e-a9a4-2224a3421663",
+                    "path": "<Keyboard>/v",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "Keyboard&Mouse",
+                    "action": "Voice",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "067eee77-db02-4466-9ca2-9d52c7e21178",
+                    "path": "<Keyboard>/m",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "Keyboard&Mouse",
+                    "action": "VoiceMute",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
                     "id": "3f236ca6-9996-4618-916d-40d40d7895f3",
                     "path": "<Keyboard>/leftCtrl",
                     "interactions": "",
@@ -653,7 +693,7 @@
                 {
                     "name": "",
                     "id": "68c689ca-7cbc-4a29-8be6-007cb293d579",
-                    "path": "<Keyboard>/v",
+                    "path": "<Keyboard>/c",
                     "interactions": "",
                     "processors": "",
                     "groups": "",

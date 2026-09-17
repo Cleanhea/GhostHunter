@@ -1,4 +1,4 @@
-# 로드맵 & 태스크 보드
+﻿# 로드맵 & 태스크 보드
 
 > 에이전트는 작업 시작 시 여기서 대상 태스크를 확인하고, 완료 시 상태를 갱신한다.
 > 상태: `대기` → `진행중` → `완료` / `보류`
@@ -442,7 +442,8 @@
 | 2026-09-04 | 엎드리기 + 침대 밑 은신 | **엎드리기(Z 토글)** 3번째 자세 — `PlayerStance`/`PlayerPosture`(순수, EditMode) 분리, `_isProne` owner-authoritative `NetworkVariable`, 캡슐 0.5m·카메라 0.35m·이동 1.4m/s, 자세 올릴 때 `CanOccupyHeight` 머리 공간 검사, 점프 불가, 엎드려 이동도 귀신 소리 탐지 제외. **침대 밑 은신** — 침대 3종을 다리로 ~0.8m 띄우고 자식 `UnderBedHide`(`BedHideZone`) 추가(`CreateBed` 수정 + 기존 프리팹은 `GlobalObjectIdHash` 보존 제자리 편집). 서버가 플레이어별 `BedHideEvaluator`를 어택 틱마다 굴려 판정: 엎드림+Idle 침대 밑+안 쫓김+시야 밖이 `BedHideConcealSeconds`(1s [임시]) 이어지면 성립 → 탐지·잡힘·수색 훔쳐보기 전부 제외. **들어가는 걸 봤으면 추격 유지 + 침대 밑에서도 잡힘**(수색 중에도 `TryCatch` 호출), 놓친 뒤에야 성립(사용자 확정 2026-09-04). EditMode 134/135(신규 14건 통과, 남은 1건은 선재 실패 `Player_굴착_액션은_R키에...`). 옷장·책상 밑은 미구현 → [player-controller.md](../architecture/player-controller.md), [ghost-prototype.md](../architecture/ghost-prototype.md), [ghost-system.md §9.5·§13 G-8](ghost-system.md) |
 | 2026-09-04 | 밸런스 튜닝 창 (F2, 별도) | `TuningHud`(`Assets/Scripts/DebugTools/`) — `PlayerMoveSettings`(16)·`GhostPrototypeSettings`(52)·`MoleBurrowSettings`(6)·`FurnitureThrowSettings`(16)·`SanitySystemSettings`(12), 총 102개 `[SerializeField]` 값을 런타임 리플렉션으로 노출. **접속 HUD(Tab)와 독립된 이동식 `GUILayout.Window`**, 기본 키 `F2`(`ConnectionHud._tuningToggleKey`). 가독성: SO별 접이식 → 그 안에서 `[Header]` 그룹별 접이식(귀신은 11개 그룹, 최대 12줄) + 상단 이름 필터(가로질러 검색). 세션 시작 시 씬 컴포넌트의 `_settings` 에서 SO 를 찾아 붙잡음(배선 없음), `[Range]`→슬라이더 · 편집 후 `OnValidate` 재호출로 상호 의존 클램프 · `이 설정/전체 되돌리기`. SO 에 필드를 더하면 자동 노출. EditMode 회귀 없음(134/135) → [ghost-prototype.md §7](../architecture/ghost-prototype.md) |
 
-| 2026-09-04 | 일시정지 메뉴 · 연결 끊김 처리 **기획·설계 문서화** (코드 변경 없음) | 사용자 확정 4건(ESC 진입 · `timeScale`=1 유지 · 메뉴 4항목 순서 · "호스트와 연결이 끊겼습니다.")을 기준으로 [pause-menu-system.md](pause-menu-system.md)(기획, PM-1~13 미결정)와 [pause-menu.md](../architecture/pause-menu.md)(구현 설계 — 서비스·권위·배선·검증)를 신규 작성. `gdd.md` 조작키·UI 표와 부록 A #16, `player-controller.md` ESC 충돌 해소안, `networking.md` 씬 전환 제약을 함께 갱신. **코드 확인에서 3건 발견** — ① 세션 중 게스트는 `ISceneFlow.Load` 가 거부된다 ② 게스트의 `Game` 씬을 `SceneFlowController` 가 추적하지 않아 나갈 때 안 내려간다 ③ `SetClientSynchronizationMode` 미호출로 동기화 모드가 문서와 달리 `Single` 이다(§5 백로그로 승격). 구현은 D-15 결정 대기 |
+| 2026-09-04 | 일시정지 메뉴 · 연결 끊김 처리 **기획·설계 문서화** (코드 변경 없음) | 사용자 확정 4건(ESC 진입 · `timeScale`=1 유지 · 메뉴 4항목 순서 · "호스트와 연결이 끊겼습니다.")을 기준으로 [pause-menu-system.md](pause-menu-system.md)(기획, PM-1~13 미결정)와 [pause-menu.md](../architecture/pause-menu.md)(구현 설계 — 서비스·권위·배선·검증)를 신규 작성. `gdd.md` 조작키·UI 표와 부록 A #16, `player-controller.md` ESC 충돌 해소안, 
+etworking.md` 씬 전환 제약을 함께 갱신. **코드 확인에서 3건 발견** — ① 세션 중 게스트는 `ISceneFlow.Load` 가 거부된다 ② 게스트의 `Game` 씬을 `SceneFlowController` 가 추적하지 않아 나갈 때 안 내려간다 ③ `SetClientSynchronizationMode` 미호출로 동기화 모드가 문서와 달리 `Single` 이다(§5 백로그로 승격). 구현은 D-15 결정 대기 |
 
 | 2026-09-04 | 일시정지 메뉴 **미결정 11건 사용자 확정** (문서만) | 메뉴 중 **조작 전부 잠금**(PM-1) · 안전지대 경고 없음(PM-2) · **ESC 해소안 A**(PM-3 — `PlayerLook` 의 ESC 커서 토글 제거, 메뉴가 커서 관리, `Player/Pause` 신설 + `UI/Cancel` 로 닫기) · 호스트 "타이틀로"→**게스트 전원 강제 종료**(PM-4) · 게스트는 **Steam 로비에 남음**(PM-5) · 설정은 **stub**(PM-6) · 종료는 **확인 대화상자**(PM-7) · 끊김은 **모달+확인 버튼, 자동 이동 없음**(PM-8) · **사유 불문 문구 통일**(PM-9) · **`Result` 미경유**(PM-11) · 호스트 "종료"도 같은 정리(PM-13). 파생 요구 2건 기록 — `IConnectionService` 가 **세션 종료와 로비 퇴장을 분리**해야 하고(PM-5), `SceneFlowController` 가 게스트의 `Game` 씬을 추적해야 한다(§5.4). 신설 미결정 **PM-14·PM-15** → D-16 |
 
@@ -478,3 +479,9 @@ Work Room 이전 기준을 보류하고 D-14·MG 의존 관계 갱신.)
 
 2026-09-05 (MAP-15 B·C 대저택 실내 프로토타입 생성기 코드 추가 —
 에디터 메뉴 실행·씬 저장·수동 Play 검증 대기. MAP-14 HousePlanB·C 도면 컨텍스트 보완, MAP-1 오른쪽 그레이박스 1차 생성 및 탐지 스킬·공통 UI 코드 구현 포함)
+
+### 근접 음성 (2026-09-17 사용자 요청)
+
+| # | 작업 | 상태 |
+| --- | --- | --- |
+| VC-IMPL-1 | Steam Voice 근접 음성·VAD·서버 중계·HUD·가짜 마이크·검증 | 진행중 |

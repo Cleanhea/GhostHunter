@@ -129,6 +129,7 @@ GameObject:
   m_Component:
   - component: {fileID: 603993669}
   - component: {fileID: 603993670}
+  - component: {fileID: 603993671}
   m_Layer: 0
   m_Name: BootstrapInstaller
   m_TagString: Untagged
@@ -166,6 +167,19 @@ MonoBehaviour:
   _sceneFlow: {fileID: 1382687019}
   _steamLobby: {fileID: 5221456195027015277}
   _connection: {fileID: 3352543703398193555}
+  _voiceCapture: {fileID: 603993671}
+--- !u!114 &603993671
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 603993668}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f61c7ed011cfff64b9e980b17af47131, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: GhostHunter.Systems::GhostHunter.Systems.Steam.SteamVoiceCapture
 --- !u!1 &1382687018
 GameObject:
   m_ObjectHideFlags: 0
@@ -363,6 +377,7 @@ MonoBehaviour:
   _visible: 1
   _toggleKey: 94
   _tuningToggleKey: 95
+  _durabilityLabelRange: 20
 --- !u!114 &5221456195027015277
 MonoBehaviour:
   m_ObjectHideFlags: 0

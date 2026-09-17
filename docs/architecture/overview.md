@@ -1,5 +1,9 @@
 # 아키텍처 개요
 
+근접 음성은 Bootstrap의 `IVoiceCaptureService`와 Game의 `IVoiceChatService`,
+Player의 `PlayerVoiceEmitter`/`VoiceReceiver`로 구성한다. Steam 캡처와 NGO 전송을 분리하며
+Gameplay·테스트에 기존 Unity.Collections 참조를 추가했다 → [voice-chat.md](voice-chat.md).
+
 청소 프로토타입은 `Gameplay/Cleaning`의 씬 얼룩 풀과 `PlayerCleaningController`로 구성한다.
 `GameInstaller`가 `ICleaningService`를 등록하며 UI·디버그 HUD는 해당 계약을 사용한다.
 어셈블리 참조 변경은 없다 → [cleaning-system.md](cleaning-system.md).

@@ -61,6 +61,7 @@ GhostHunter — 1인칭 멀티플레이 "가구 던지기" 게임.
 | 일시정지 메뉴·나가기·연결 끊김 | `docs/project/pause-menu-system.md`, `docs/architecture/pause-menu.md` — **구현됨.** 수동 검증·선행 검증 D-1 대기 |
 | 퀵슬롯(라디얼 휠) | `docs/project/quick-slot-system.md`, `docs/architecture/quick-slot.md` — **대걸레·맨손 장착 연결.** 일반 인벤토리는 별도 작업, Local Host 입력 검증 완료 |
 | 가구 분해·조립(멀티 드라이버) | `docs/architecture/furniture-multidriver.md`(구현 상세), `docs/project/furniture-multidriver-system.md` — **FM-IMPL-1~3 구현·씬 설치. 기획서 1.1(2026-09-13): 우클릭을 끝까지 누르고 있어야 완료, 중앙 원형 게이지 HUD 구현. 분해 부품이 풀 보관 위치로 되돌아가던 버그 수정. EditMode 235개·PlayMode 32개 통과, 실제 Game Local Host에서 유지 완료·뗌 취소·부품 착지 확인.** 손목 애니메이션·실루엣 렌더링·원격 Host/Client·조립 검증 남음. MD-3·4·6·13 TBD 유지 |
+| 마이크·근접 음성 채팅 | `docs/project/voice-chat-system.md` — **기획 0.2. 음성 코드·배선 구현, 검증 진행 중.** XZ 원형 10m 감쇠·벽 가림(레이 3개+로우패스)·|ΔY| 2.6m 층 차단. **Steam Voice 캡처(VC-1) · 기본 오픈 마이크+VAD(VC-3) · 가구 제외 마스크(VC-6) 확정.** 남은 것은 플레이테스트 수치(VC-4·7·21)와 정책(VC-8·10·13·16) |
 | 맵·방 프리셋·스폰 포인트·작업 대상 가구 | `docs/architecture/map-generation.md` — **기획서 v0.4 반영. Type·Count·B/C 비교·작업량 검증, 기존 도면·MAP-15 기록 포함. 미결정은 §12(MG-1~23)** |
 | C# 코드 작성 / 리팩터링 | `docs/conventions/code-style.md` |
 | 프리팹·씬·ScriptableObject·에셋 | `docs/conventions/unity-assets.md` |

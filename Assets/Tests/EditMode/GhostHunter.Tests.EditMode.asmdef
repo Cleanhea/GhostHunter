@@ -13,6 +13,7 @@
         "GhostHunter.DebugTools",
         "GhostHunter.Editor",
         "Unity.Netcode.Runtime",
+        "Unity.Collections",
         "Unity.InputSystem",
         "UniTask"
     ],

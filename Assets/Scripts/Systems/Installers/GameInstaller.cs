@@ -1,3 +1,7 @@
+using GhostHunter.Core;
+using GhostHunter.Core.Voice;
+using GhostHunter.Data;
+using GhostHunter.Gameplay.Voice;
 using GhostHunter.Core.Player;
 using GhostHunter.Gameplay.Cleaning;
 using GhostHunter.Gameplay.Ghost;
@@ -12,6 +16,7 @@ namespace GhostHunter.Systems.Installers
     [DisallowMultipleComponent]
     public sealed class GameInstaller : SceneInstaller
     {
+        [SerializeField] private VoiceChatSettings _voiceSettings;
         [SerializeField] private PlayerSpawnRegistry _playerSpawns;
         [SerializeField] private SanityTeamService _sanityTeam;
         [SerializeField] private GhostPrototypeSpawner _ghostSpawner;
@@ -21,6 +26,8 @@ namespace GhostHunter.Systems.Installers
 
         protected override void InstallBindings()
         {
+            if (_voiceSettings != null)
+                Bind<IVoiceChatService>(new VoiceChatService(Services.Get<IVoiceCaptureService>(), _voiceSettings));
             Bind<IPlayerSpawnRegistry>(_playerSpawns);
             Bind<ILocalPlayerContext>(_localPlayer);
             Bind<ISanityTeamService>(_sanityTeam);

@@ -26,6 +26,7 @@ docs/
 │   ├── furniture-multidriver-system.md  가구 분해·조립 아이템 — MD-1·2·5·9·10·11·12 확정, FM-IMPL-1~3 구현
 │   ├── furniture-durability-system.md   가구 내구도 — 수직 상대 속도·초기값·복구 승인, 코드 구현·Unity 검증 대기
 │   ├── spectator-system.md         사망 후 능력 제한·자유시점·생존자 관전 — 핵심 요구 확정, 구현 미착수
+│   ├── voice-chat-system.md        근접 음성 채팅(마이크) — 10m XZ 감쇠·벽 가림·층 차단, 기획 0.2 (선행 결정 4건 확정)
 │   └── roadmap.md                  마일스톤 & 태스크 보드
 ├── architecture/                   어떻게 구성되는가
 │   ├── overview.md                 폴더·어셈블리·씬·런타임 구조
@@ -69,6 +70,7 @@ docs/
 | [project/furniture-multidriver-system.md](project/furniture-multidriver-system.md) | 큰 가구를 어떻게 분해해서 옮기고 다시 조립하는가 | 분해·조립 규칙, 아이템 내구도, 부품 구성 확정 |
 | [project/furniture-durability-system.md](project/furniture-durability-system.md) | 가구 내구도는 언제 얼마나 깎이고 0이 되면 어떻게 되는가 | 충돌 파손 규칙·수치·0 도달 결과(FD-1~12) 확정 |
 | [project/spectator-system.md](project/spectator-system.md) | 사망 후 무엇을 할 수 있고 두 관전 모드는 어떻게 전환하는가 | 사망·관전 규칙 확정 및 구현 |
+| [project/voice-chat-system.md](project/voice-chat-system.md) | 마이크 음성이 거리·벽·층에 따라 어떻게 들리는가 | 음성 감쇠·가림·전송 규칙(VC-1~20) 확정 및 구현 |
 | [workflow/spectator-implementation-prompt.md](workflow/spectator-implementation-prompt.md) | 구현 모델에 관전 기능 작업을 어떻게 지시하는가 | 관전 기획·구현 전제 변경 |
 | [workflow/furniture-multidriver-implementation-prompt.md](workflow/furniture-multidriver-implementation-prompt.md) | 구현 모델에 가구 분해·조립 작업을 어떻게 지시하는가 | 멀티 드라이버 기획·MD 확정·선례 구현 변경 |
 | [project/roadmap.md](project/roadmap.md) | 지금 무엇을 하고 있고 다음은 무엇인가 | 태스크 시작/완료 시 |
@@ -144,3 +146,5 @@ docs/
 반영, 신규 architecture/furniture-multidriver.md 라우팅 추가. 같은 날 사망 후 관전 기획서·구현
 프롬프트 라우팅 추가, 퀵슬롯 더미 스캐폴드 문서와 맵 v0.4·B안 선택·MAP-19 랜덤 가구 코드·검증/설치
 안내·ADR-0013 반영.)
+
+- [근접 음성 구현·검증](architecture/voice-chat.md) — Steam Voice/NGO, VAD, 거리·가림, 설치와 수동 검증.

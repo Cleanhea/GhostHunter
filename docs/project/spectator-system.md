@@ -68,7 +68,7 @@ Unity EditMode(211건)·PlayMode(12건) 테스트는 통과했다 — **Host/Cli
 | 자유시점·관전 전환 | `Gameplay/Player/SpectatorController.cs`(신규) — 사망한 네트워크 루트와 분리된 전용 `SpectatorCamera`(Camera+AudioListener, 기본 비활성)로 자유비행·생존자 추종·모드 전환·대상 순회를 담당 |
 | 대상 순회 순수 로직 | `Gameplay/Player/SpectatorTargetSelector.cs`(신규, Unity API 비의존) — EditMode에서 순수 테스트 |
 | 원격 플레이어 시점 | `PlayerLook.Pitch`, `PlayerMotor.CameraLocalHeight`를 각각 `NetworkVariable`로 복제(Owner 쓰기 + Everyone 읽기, ADR-0008 이동 권위 예외의 연장) — `SpectatorController`가 대상의 루트 위치 + 이 두 값으로 눈높이·yaw·pitch를 재현 |
-| 입력 잠금 | `PlayerInputReader`에 4번째 잠금 `SetDeathInputLocked` 추가. 우선순위 **메뉴 &gt; 사망 &gt; 굴착 &gt; 휠** — 사망이 굴착·휠보다 위라 같은 프레임에 굴착이 자기 잠금을 풀어도 생존 조작이 되살아나지 않는다. 새 관전 입력 액션 3개(SpectateDescend=Ctrl, SpectateToggleMode=V, SpectateNext=우클릭)는 `SpectatorSetup` 도구가 확인한다 |
+| 입력 잠금 | `PlayerInputReader`에 4번째 잠금 `SetDeathInputLocked` 추가. 우선순위 **메뉴 &gt; 사망 &gt; 굴착 &gt; 휠** — 사망이 굴착·휠보다 위라 같은 프레임에 굴착이 자기 잠금을 풀어도 생존 조작이 되살아나지 않는다. 새 관전 입력 액션 3개(SpectateDescend=Ctrl, SpectateToggleMode=C, SpectateNext=우클릭)는 `SpectatorSetup` 도구가 확인한다 |
 | 스킬 사용 제한 | `DetectionSkillController`·`MoleBurrowController`는 기존 `HasSanity` 검사를 그대로 쓴다(수정 없음) — 이미 §5 SP-2 정책과 일치했다 |
 | 탐지 중 사망 | `DetectionSkillSettings.CancelOnDeath = true` **확정**(MS-20 해소, 코드 변경 없음 — 태그만 제거) |
 | 굴착 중 사망 | 기존 취소/무발사 종료 경로 유지(수정 없음). 잠금 해제 순서 경합은 위 사망 잠금 우선순위로 별도 방어 |

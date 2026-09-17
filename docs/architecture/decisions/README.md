@@ -49,6 +49,8 @@
 | [0013](ADR-0013-plan-b-random-furniture.md) | B안 제작 기준 + 씬 가구 풀의 서버 랜덤 배치 | Accepted | 2026-09-12 |
 | [0014](ADR-0014-server-cleaning-prototype.md) | 씬 얼룩 풀의 서버 랜덤 배치·청소·HUD 초기화 | Accepted | 2026-09-12 |
 
+| [0015](ADR-0015-steam-voice-ngo.md) | Steam Voice 캡처 + NGO 근접 음성 중계 | Accepted | 2026-09-17 |
+
 ## 5. 작성 대기
 
 확정되면 ADR을 남겨야 할 항목:

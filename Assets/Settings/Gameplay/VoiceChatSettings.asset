@@ -1,0 +1,42 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 84a88699f2ef6b14ea5c1040758b0842, type: 3}
+  m_Name: VoiceChatSettings
+  m_EditorClassIdentifier: GhostHunter.Data::GhostHunter.Data.VoiceChatSettings
+  _minimumDistance: 1.5
+  _fadeDistance: 7
+  _maximumDistance: 10
+  _rolloffExponent: 0.9
+  _verticalNear: 1.2
+  _verticalCut: 2.6
+  _wallFactor: 0.32
+  _maximumWalls: 3
+  _occlusionFloor: 0.04
+  _rayOffset: 0.6
+  _openCutoff: 22000
+  _blockedCutoff: 750
+  _gainSmoothTime: 0.12
+  _cutoffSmoothTime: 0.18
+  _occlusionHz: 10
+  _serverMarginXZ: 2
+  _serverMarginY: 1
+  _openThreshold: -42
+  _closeThreshold: -48
+  _hangoverSeconds: 0.35
+  _preRollSeconds: 0.15
+  _mode: 0
+  _sendHz: 20
+  _serverPacketsPerSecond: 30
+  _jitterSeconds: 0.08
+  _maximumJitterSeconds: 0.2
+  _silenceTimeout: 0.2
+  _outputGroup: {fileID: -5496812739555830242, guid: 8706371e2bcc47c4a91e68bd78327bd3, type: 2}

@@ -36,6 +36,10 @@ namespace GhostHunter.Gameplay.Player
         [SerializeField] private InputActionAsset _inputActions;
 
         private InputActionAsset _runtimeActions;
+        private InputAction _voiceAction;
+        private InputAction _voiceMuteAction;
+        public bool VoiceHeld { get; private set; }
+        public bool VoiceMutePressedThisFrame { get; private set; }
         private InputAction _moveAction;
         private InputAction _lookAction;
         private InputAction _jumpAction;
@@ -99,7 +103,7 @@ namespace GhostHunter.Gameplay.Player
         /// <summary>관전 자유비행 하강 입력(Left Ctrl) — 누르는 동안 참.</summary>
         public bool SpectatorDescendHeld { get; private set; }
 
-        /// <summary>관전 모드 전환 입력(V) — 자유시점 ↔ 플레이어 관전.</summary>
+        /// <summary>관전 모드 전환 입력(C) — 자유시점 ↔ 플레이어 관전.</summary>
         public bool SpectatorToggleModePressedThisFrame { get; private set; }
 
         /// <summary>관전 대상 이전 전환 입력(좌클릭, Attack 액션 재사용).</summary>
@@ -190,6 +194,8 @@ namespace GhostHunter.Gameplay.Player
             _useDriverAction = _runtimeActions.FindAction("Player/UseDriver", true);
             _rotateFurnitureAction = _runtimeActions.FindAction("Player/RotateFurniture", true);
             _rotateFurnitureModeAction = _runtimeActions.FindAction("Player/RotateFurnitureMode", true);
+            _voiceAction = _runtimeActions.FindAction("Player/Voice", true);
+            _voiceMuteAction = _runtimeActions.FindAction("Player/VoiceMute", true);
             _runtimeActions.Enable();
 
             // 일시정지 메뉴가 로컬 플레이어의 입력을 잠글 수 있도록 자신을 알린다.
@@ -205,6 +211,8 @@ namespace GhostHunter.Gameplay.Player
             if (_runtimeActions == null)
                 return;
 
+            VoiceHeld = false;
+            VoiceMutePressedThisFrame = false;
             _runtimeActions.Disable();
             Destroy(_runtimeActions);
             _runtimeActions = null;
@@ -388,6 +396,8 @@ namespace GhostHunter.Gameplay.Player
 
             // 어떤 잠금 중에도 계속 갱신된다 — 퀵슬롯 휠이 카메라와 무관하게 자기 포인터를 누적할 때 쓴다.
             RawLookDelta = _lookAction.ReadValue<Vector2>();
+            VoiceHeld = _voiceAction.IsPressed();
+            VoiceMutePressedThisFrame = _voiceMuteAction.WasPressedThisFrame();
 
             if (_inputLocked)
             {

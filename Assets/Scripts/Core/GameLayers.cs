@@ -23,6 +23,9 @@ namespace GhostHunter.Core
         /// <summary>귀신 자신을 제외해야 하는 AI 레이캐스트용 마스크.</summary>
         public static LayerMask NonGhostPrototypeRaycastMask { get; private set; }
 
+        /// <summary>플레이어·가구·귀신을 제외한 음성 벽 가림 마스크.</summary>
+        public static LayerMask VoiceOccluderMask { get; private set; }
+
         static GameLayers()
         {
             Player = LayerMask.NameToLayer(PlayerName);
@@ -32,6 +35,7 @@ namespace GhostHunter.Core
             FurnitureMask = Furniture >= 0 ? 1 << Furniture : 0;
             int ghostPrototypeMask = GhostPrototype >= 0 ? 1 << GhostPrototype : 0;
             NonGhostPrototypeRaycastMask = Physics.DefaultRaycastLayers & ~ghostPrototypeMask;
+            VoiceOccluderMask = NonGhostPrototypeRaycastMask & ~FurnitureMask & ~(Player >= 0 ? 1 << Player : 0);
 
             // 레이어를 만들기 전에 조용히 동작하면 "레이캐스트가 아무것도 안 맞는" 원인을
             // 찾느라 시간을 버린다. 시작할 때 한 번 크게 알린다.
