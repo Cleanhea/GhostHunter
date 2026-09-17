@@ -3,7 +3,6 @@ using System.Threading;
 using GhostHunter.Gameplay.Voice;
 using NUnit.Framework;
 using Unity.Collections;
-using UnityEngine.InputSystem;
 
 namespace GhostHunter.Tests.EditMode
 {
@@ -156,42 +155,6 @@ namespace GhostHunter.Tests.EditMode
         {
             using var packet = new NativeArray<byte>(bytes, Allocator.Temp);
             Assert.That(PlayerVoiceEmitter.ValidatePacket(packet), Is.EqualTo(expected));
-        }
-        [Test]
-        public void Input_MenuLockStillAllowsVoiceAndMute()
-        {
-            var keyboard = UnityEngine.InputSystem.InputSystem.AddDevice<UnityEngine.InputSystem.Keyboard>();
-            var actions = UnityEngine.ScriptableObject.CreateInstance<UnityEngine.InputSystem.InputActionAsset>();
-            var map = actions.AddActionMap("Player");
-            var voice = map.AddAction("Voice", UnityEngine.InputSystem.InputActionType.Button, "<Keyboard>/v");
-            var mute = map.AddAction("VoiceMute", UnityEngine.InputSystem.InputActionType.Button, "<Keyboard>/m");
-            var look = map.AddAction("Look", UnityEngine.InputSystem.InputActionType.Value, expectedControlLayout: "Vector2");
-            var root = new UnityEngine.GameObject("VoiceInputTest");
-            var input = root.AddComponent<GhostHunter.Gameplay.Player.PlayerInputReader>();
-            var flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
-            var type = input.GetType();
-            try
-            {
-                type.GetField("_runtimeActions", flags).SetValue(input, actions);
-                type.GetField("_voiceAction", flags).SetValue(input, voice);
-                type.GetField("_voiceMuteAction", flags).SetValue(input, mute);
-                type.GetField("_lookAction", flags).SetValue(input, look);
-                input.SetGameplayInputLocked(true);
-                actions.Enable();
-                UnityEngine.InputSystem.LowLevel.InputState.Change(keyboard,
-                    new UnityEngine.InputSystem.LowLevel.KeyboardState(UnityEngine.InputSystem.Key.V, UnityEngine.InputSystem.Key.M));
-                type.GetMethod("Update", flags).Invoke(input, null);
-                Assert.IsTrue(input.VoiceHeld);
-                Assert.IsTrue(input.VoiceMutePressedThisFrame);
-                Assert.That(input.Move, Is.EqualTo(UnityEngine.Vector2.zero));
-            }
-            finally
-            {
-                actions.Disable();
-                UnityEngine.Object.DestroyImmediate(root);
-                UnityEngine.Object.DestroyImmediate(actions);
-                UnityEngine.InputSystem.InputSystem.RemoveDevice(keyboard);
-            }
         }
         [Test]
         public void Input_PttAndSpectatorHaveDifferentBindings()

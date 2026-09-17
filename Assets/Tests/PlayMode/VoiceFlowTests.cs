@@ -76,6 +76,18 @@ namespace GhostHunter.Tests.PlayMode
             Assert.That(_owner.ReceivedPackets, Is.Zero);
         }
         [UnityTest]
+        public IEnumerator SelfMonitor_ReturnsOwnVoiceThroughTheServer()
+        {
+            // 혼자 검증 경로 — 서버 검증·전송률·컬링을 그대로 지나 자기에게 되돌아와야 한다.
+            _chat.SelfMonitor = true;
+            using (var packet = new NativeArray<byte>(new byte[] { 1, 0, 7 }, Allocator.Temp))
+                Invoke(_owner, "SubmitVoiceRpc", packet, (byte)1, (ushort)1, true, default(RpcParams));
+            yield return null;
+            Assert.That(_owner.AcceptedPackets, Is.EqualTo(1));
+            Assert.That(_owner.ReceivedPackets, Is.EqualTo(1), "자가 모니터를 켜면 자기 목소리가 돌아와야 한다");
+            Assert.That(_capture.DecodeCount, Is.EqualTo(1));
+        }
+        [UnityTest]
         public IEnumerator ServerRelay_DecodesOnHostAndRejectsReorderedOrWrongChannel()
         {
             PlayerVoiceEmitter remote = Spawn(999);
@@ -136,6 +148,7 @@ namespace GhostHunter.Tests.PlayMode
             public int SampleRate => 24000;
             public int DecodeCount { get; private set; }
             public void SetRecording(bool value) => IsRecording = value;
+            public bool OpenSettings() => false;
             public int ReadFrame(byte[] destination) { destination[0] = 7; return IsRecording ? 1 : 0; }
             public int Decode(byte[] source, int count, float[] destination)
             { DecodeCount++; for (int i = 0; i < 2400; i++) destination[i] = 0.1f; return 2400; }

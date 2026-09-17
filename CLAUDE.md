@@ -61,7 +61,7 @@ GhostHunter — 1인칭 멀티플레이 "가구 던지기" 게임.
 | 일시정지 메뉴·나가기·연결 끊김 | `docs/project/pause-menu-system.md`, `docs/architecture/pause-menu.md` — **구현됨.** 수동 검증·선행 검증 D-1 대기 |
 | 퀵슬롯(라디얼 휠) | `docs/project/quick-slot-system.md`, `docs/architecture/quick-slot.md` — **대걸레·맨손 장착 연결.** 일반 인벤토리는 별도 작업, Local Host 입력 검증 완료 |
 | 가구 분해·조립(멀티 드라이버) | `docs/architecture/furniture-multidriver.md`(구현 상세), `docs/project/furniture-multidriver-system.md` — **FM-IMPL-1~3 구현·씬 설치. 기획서 1.1(2026-09-13): 우클릭을 끝까지 누르고 있어야 완료, 중앙 원형 게이지 HUD 구현. 분해 부품이 풀 보관 위치로 되돌아가던 버그 수정. EditMode 235개·PlayMode 32개 통과, 실제 Game Local Host에서 유지 완료·뗌 취소·부품 착지 확인.** 손목 애니메이션·실루엣 렌더링·원격 Host/Client·조립 검증 남음. MD-3·4·6·13 TBD 유지 |
-| 마이크·근접 음성 채팅 | `docs/project/voice-chat-system.md` — **기획 0.2. 음성 코드·배선 구현, 검증 진행 중.** XZ 원형 10m 감쇠·벽 가림(레이 3개+로우패스)·|ΔY| 2.6m 층 차단. **Steam Voice 캡처(VC-1) · 기본 오픈 마이크+VAD(VC-3) · 가구 제외 마스크(VC-6) 확정.** 남은 것은 플레이테스트 수치(VC-4·7·21)와 정책(VC-8·10·13·16) |
+| 마이크·근접 음성 채팅 | `docs/project/voice-chat-system.md`(기획 0.2), `docs/architecture/voice-chat.md`(구현) — **코드·배선 구현 완료, 자동 검증 통과(2026-09-17 재검증: EditMode 302/302 · PlayMode 57/57).** XZ 원형 10m 감쇠·벽 가림(레이 3개+로우패스)·\|ΔY\| 2.6m 층 차단. **Steam Voice 캡처(VC-1) · 기본 오픈 마이크+VAD(VC-3) · 가구 제외 마스크(VC-6) 확정, 정책 VC-8·10·13·16 승인, UI 1차(VC-11) 구현.** 남은 것은 **실기 수동 검증**(마이크·Steam 2PC·4인 대역폭·macOS)과 플레이테스트로 정할 수치(VC-4·7·21) |
 | 맵·방 프리셋·스폰 포인트·작업 대상 가구 | `docs/architecture/map-generation.md` — **기획서 v0.4 반영. Type·Count·B/C 비교·작업량 검증, 기존 도면·MAP-15 기록 포함. 미결정은 §12(MG-1~23)** |
 | C# 코드 작성 / 리팩터링 | `docs/conventions/code-style.md` |
 | 프리팹·씬·ScriptableObject·에셋 | `docs/conventions/unity-assets.md` |
@@ -199,6 +199,11 @@ Bootstrap 이 `Title` 을 additive 로 올린다.
 
 **단독 플레이 (Steam 없이):** `Bootstrap.unity`에서 플레이 → **F1** 접속 HUD → 모드 `Local` → **Host**.
 HUD 로 바꾼 모드는 저장하지 않는다. 저장하면 릴리스 빌드가 `TransportModeBuildGuard` 에 막힌다.
+
+**음성을 혼자 확인:** 게임 안에서 **F3** — 선 자리에 테스트 스피커가 놓이고 내 목소리가 서버를 거쳐
+그 자리에서 들린다. 거기서 걸어 나가며 거리·벽·층 감쇠를 듣는다. **헤드폰 필수**(하울링).
+마이크·Steam 이 없으면 **F1** 음성 창에서 사인파를 켠다 →
+[docs/architecture/voice-chat.md](docs/architecture/voice-chat.md) "혼자 검증"
 
 **정신력 감소 확인:** 집 **서쪽**(`Game/SanityTestbed`)에 시체 2구와 귀신 이벤트를 둔 임시 칸이 있다.
 칸 안으로 들어가 소품을 바라보면 서버가 목격을 판정해 정신력이 줄고, 20 이하가 되면 화면 테두리

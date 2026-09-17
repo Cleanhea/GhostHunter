@@ -40,6 +40,12 @@ namespace GhostHunter.Gameplay.Voice
         private bool _wasMuted;
         private VoiceMode _lastMode;
         private float _volume = 1f;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        private readonly EchoSpeaker _echo = new();
+        private bool _echoReady;
+        private bool _wasSelfMonitor;
+        private float _level = -120f;
+#endif
         internal int AcceptedPackets { get; private set; }
         internal int ReceivedPackets { get; private set; }
         public ulong ClientId => OwnerClientId;
@@ -86,11 +92,17 @@ namespace GhostHunter.Gameplay.Voice
                 _lastMode = _chat.Mode;
                 _wasMuted = _chat.IsMuted;
             }
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            UpdateSelfMonitor();
+#endif
             if (_chat.IsMuted || !_activeCapture.IsAvailable) { StopCapture(); return; }
             _activeCapture.SetRecording(true);
             double now = Time.unscaledTimeAsDouble;
             if (now < _nextSend) return;
             _nextSend = now + 1d / _settings.SendHz;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            _level = -120f;
+#endif
             // 20Hz 고정 송신이다. 렌더 프레임마다 RPC를 보내지 않는다 (기획 §5.2).
             int count = _activeCapture.ReadFrame(_frame);
             bool transmit = _chat.Mode == VoiceMode.PushToTalk && _input.VoiceHeld;
@@ -104,7 +116,11 @@ namespace GhostHunter.Gameplay.Voice
                     for (int offset = 0; offset < samples; offset += window)
                     {
                         int length = Math.Min(window, samples - offset);
-                        transmit |= _gate.Step(VoiceActivityGate.Decibels(_pcm, offset, length),
+                        float decibels = VoiceActivityGate.Decibels(_pcm, offset, length);
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                        _level = Math.Max(_level, decibels);
+#endif
+                        transmit |= _gate.Step(decibels,
                             length / (float)_activeCapture.SampleRate, _chat.OpenThreshold,
                             _chat.OpenThreshold - (_settings.OpenThreshold - _settings.CloseThreshold), _settings.HangoverSeconds);
                     }
@@ -118,6 +134,9 @@ namespace GhostHunter.Gameplay.Voice
             if (_chat.Mode == VoiceMode.PushToTalk && !transmit) _pending.Clear();
             int bytes = transmit ? _pending.Pack(_packet) : 0;
             _chat.IsTransmitting = bytes > 0;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            UpdateDiagnostics(bytes);
+#endif
             if (bytes == 0) return;
             using var payload = new NativeArray<byte>(bytes, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
             NativeArray<byte>.Copy(_packet, payload, bytes);
@@ -140,7 +159,14 @@ namespace GhostHunter.Gameplay.Voice
             for (int index = 0; index < _chat.Participants.Count; index++)
             {
                 IVoiceParticipant listener = _chat.Participants[index];
-                if (listener.ClientId == OwnerClientId || !NetworkManager.ConnectedClients.ContainsKey(listener.ClientId)) continue;
+                if (!NetworkManager.ConnectedClients.ContainsKey(listener.ClientId)) continue;
+                if (listener.ClientId == OwnerClientId)
+                {
+                    // 평소에는 화자에게 자기 목소리를 되돌리지 않는다(기획 §5.3 ③).
+                    // 자가 모니터를 켠 호스트만 예외 — 혼자 검증하려면 되돌아와야 한다.
+                    if (SelfMonitorActive) _targets.Add(listener.ClientId);
+                    continue;
+                }
                 Vector3 delta = MouthPosition - listener.MouthPosition;
                 if (VoiceAttenuation.CanRelay(IsAlive, listener.IsAlive, new Vector2(delta.x, delta.z).magnitude,
                     delta.y, _settings.MaximumDistance, _settings.VerticalCut, _settings.ServerMarginXZ, _settings.ServerMarginY))
@@ -151,8 +177,9 @@ namespace GhostHunter.Gameplay.Voice
         [Rpc(SendTo.SpecifiedInParams, InvokePermission = RpcInvokePermission.Server, Delivery = RpcDelivery.Unreliable)]
         private void PlayVoiceRpc(NativeArray<byte> frame, byte codec, ushort sequence, bool aliveChannel, RpcParams rpcParams = default)
         {
-            if (!IsClient || IsOwner || _chat == null || rpcParams.Receive.SenderClientId != NetworkManager.ServerClientId ||
+            if (!IsClient || _chat == null || rpcParams.Receive.SenderClientId != NetworkManager.ServerClientId ||
                 !ValidatePacket(frame) || !IsCodecAllowed(codec) || aliveChannel != IsAlive) return;
+            if (IsOwner && !SelfMonitorActive) return;
             if (_hasSequence && Time.unscaledTimeAsDouble - _lastReceivedTime < 2d && (short)(sequence - _lastReceivedSequence) <= 0) return;
             _lastReceivedTime = Time.unscaledTimeAsDouble;
             _hasSequence = true;
@@ -161,6 +188,9 @@ namespace GhostHunter.Gameplay.Voice
             if (listener == null || listener.IsAlive != IsAlive || Volume <= 0f) return;
             IVoiceCaptureService decoder = codec == 0 ? _steamCapture : _chat.TestDecoder;
             if (decoder == null || decoder.Codec != codec) return;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            if (IsOwner && !EnsureEcho()) return;
+#endif
             ReceivedPackets++;
             int offset = 0;
             while (offset < frame.Length)
@@ -197,6 +227,56 @@ namespace GhostHunter.Gameplay.Voice
             return codec == 0;
 #endif
         }
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        private bool SelfMonitorActive => _chat != null && _chat.SelfMonitor;
+        /// <summary>자가 모니터 토글을 처리한다. <b>켠 자리</b>가 테스트 스피커가 된다 — 거기서 걸어
+        /// 나가며 거리·벽·층 감쇠를 혼자 듣는다. 자리를 옮기려면 껐다 켠다.</summary>
+        private void UpdateSelfMonitor()
+        {
+            if (_chat.SelfMonitor == _wasSelfMonitor) return;
+            _wasSelfMonitor = _chat.SelfMonitor;
+            if (_chat.SelfMonitor) _echo.Bind(this, MouthPosition);
+            else { _receiver.Flush(); _chat.Diagnostics = null; }
+        }
+        /// <summary>자가 모니터용 재생 경로를 준비한다. 소유자는 평소에 수신하지 않으므로 여기서 연다.</summary>
+        private bool EnsureEcho()
+        {
+            if (_echoReady) return true;
+            if (_activeCapture == null) return false;
+            _echo.Bind(this, MouthPosition);
+            // 클립은 한 번만 만든다. 토글할 때마다 만들면 AudioClip 이 샌다.
+            _receiver.Initialize(_settings, _echo, _chat, _activeCapture.SampleRate);
+            _echoReady = true;
+            return true;
+        }
+        private void UpdateDiagnostics(int bytes)
+        {
+            string input = _chat.Mode == VoiceMode.OpenMic
+                ? $"입력 {_level:F0} dBFS / 임계 {_chat.OpenThreshold:F0} · 게이트 {(_gate.IsOpen ? "열림" : "닫힘")}"
+                : $"PTT {(_input.VoiceHeld ? "누름" : "뗌")}";
+            string line = $"{input} · {(bytes > 0 ? bytes + "B 송신" : "송신 없음")}";
+            _chat.Diagnostics = SelfMonitorActive
+                ? $"{line}\n스피커까지 {_receiver.Distance:F1} m · 음량 {_receiver.Gain:F2} · " +
+                  $"가림 {_receiver.Occlusion:F2} · 컷오프 {_receiver.Cutoff:F0} Hz"
+                : line;
+        }
+        /// <summary>자가 모니터가 쓰는 고정 위치 화자. 생사 채널은 본인을 따라간다.</summary>
+        private sealed class EchoSpeaker : IVoiceParticipant
+        {
+            private PlayerVoiceEmitter _owner;
+            private Vector3 _position;
+            public void Bind(PlayerVoiceEmitter owner, Vector3 position) { _owner = owner; _position = position; }
+            public ulong ClientId => _owner != null ? _owner.OwnerClientId : 0;
+            public bool IsAlive => _owner != null && _owner.IsAlive;
+            public bool IsSpeaking => false;
+            public Vector3 MouthPosition => _position;
+            public Transform Ear => null;
+            public string DisplayName => "자가 모니터 스피커";
+            public float Volume { get => 1f; set { } }
+        }
+#else
+        private bool SelfMonitorActive => false;
+#endif
         private void HandleAliveChanged(bool alive)
         {
             if (_receiver != null) _receiver.Flush();

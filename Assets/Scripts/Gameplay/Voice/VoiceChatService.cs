@@ -37,6 +37,9 @@ namespace GhostHunter.Gameplay.Voice
         public float MasterVolume { get => _master; set { _master = Mathf.Clamp01(value); PlayerPrefs.SetFloat("Voice.Volume", _master); } }
         public float OpenThreshold { get => _threshold; set { _threshold = Mathf.Clamp(value, -80f, 0f); PlayerPrefs.SetFloat("Voice.Threshold", _threshold); } }
         public bool IsTransmitting { get; set; }
+        // 자가 모니터는 저장하지 않는다. 다음 세션에 켜진 채로 시작하면 하울링의 원인이 된다.
+        public bool SelfMonitor { get; set; }
+        public string Diagnostics { get; set; }
         public IVoiceCaptureService Capture => _testCapture ?? _capture;
         public IVoiceCaptureService TestDecoder { get; set; }
         public IVoiceCaptureService TestCapture
@@ -58,6 +61,8 @@ namespace GhostHunter.Gameplay.Voice
             {
                 Capture.SetRecording(false);
                 IsTransmitting = false;
+                SelfMonitor = false;
+                Diagnostics = null;
                 LocalParticipant = null;
                 PlayerPrefs.Save();
             }

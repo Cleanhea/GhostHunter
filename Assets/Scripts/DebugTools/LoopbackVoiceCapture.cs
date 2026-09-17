@@ -13,6 +13,7 @@ namespace GhostHunter.DebugTools
         public byte Codec => 1;
         public int SampleRate => 24000;
         public void SetRecording(bool recording) { IsRecording = recording; }
+        public bool OpenSettings() => false;
         public int ReadFrame(byte[] destination)
         {
             if (!IsRecording) return 0;

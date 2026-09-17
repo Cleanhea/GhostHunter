@@ -66,6 +66,17 @@ namespace GhostHunter.Systems.Steam
             }
             catch (Exception exception) { Fail(exception); return 0; }
         }
+        public bool OpenSettings()
+        {
+            // 게임 안에 입력 장치 선택이 없다(기획 §5.1 제약 1). 오버레이의 Steam 설정으로 보낸다.
+            if (!SteamClient.IsValid || !SteamUtils.IsOverlayEnabled) return false;
+            try { SteamFriends.OpenOverlay("settings"); return true; }
+            catch (Exception exception)
+            {
+                Debug.LogWarning($"[SteamVoiceCapture] Steam 설정 오버레이를 열지 못했다: {exception.Message}", this);
+                return false;
+            }
+        }
         public int Decode(byte[] compressed, int count, float[] samples)
         {
             if (!IsAvailable || count <= 0 || count > _compressed.Length) return 0;

@@ -22,6 +22,11 @@ namespace GhostHunter.Gameplay.Voice
         private float _gain;
         private int _prebuffer;
         public bool IsSpeaking => _source != null && _source.isPlaying && _gain >= 0.001f;
+        // 혼자 검증할 때 귀 대신 눈으로 확인하는 값들 → DebugTools/VoiceDebugHud.
+        internal float Gain => _gain;
+        internal float Occlusion => _occlusion;
+        internal float Cutoff => _filter != null ? _filter.cutoffFrequency : 0f;
+        internal float Distance { get; private set; }
         public void Initialize(VoiceChatSettings settings, IVoiceParticipant speaker, IVoiceChatService chat, int sampleRate)
         {
             _settings = settings;
@@ -68,6 +73,7 @@ namespace GhostHunter.Gameplay.Voice
             if (!global && listener.Ear == null) { Flush(); return; }
             Vector3 delta = global ? Vector3.zero : _speaker.MouthPosition - listener.Ear.position;
             float distance = new Vector2(delta.x, delta.z).magnitude;
+            Distance = distance;
             float horizontal = VoiceAttenuation.Horizontal(distance, _settings.MinimumDistance, _settings.FadeDistance,
                 _settings.MaximumDistance, _settings.RolloffExponent);
             float vertical = VoiceAttenuation.Vertical(delta.y, _settings.VerticalNear, _settings.VerticalCut);

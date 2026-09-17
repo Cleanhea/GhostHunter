@@ -11,5 +11,7 @@
         void SetRecording(bool recording);
         int ReadFrame(byte[] destination);
         int Decode(byte[] compressed, int count, float[] samples);
+        /// <summary>입력 장치·게인은 플랫폼이 쥐고 있다(기획 §5.1 제약 1). 열 수 없으면 false.</summary>
+        bool OpenSettings();
     }
 }

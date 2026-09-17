@@ -197,13 +197,39 @@ $PROJ  = "C:\MainScreen\Dev\GitDirectory\GhostHunter"
 - **패키지 어셈블리로 되는 검사는 `Assert.Ignore` 호출보다 앞에 둔다.** Ghost 프리팹 테스트는
   `NetworkObject`의 `GlobalObjectIdHash`를 먼저 단언하고 컨트롤러 확인을 마지막에 둔다 —
   해시가 깨지면 batchmode 에서도 스킵되지 않고 그대로 실패한다.
-- 그래서 batchmode EditMode 는 현재 **93건 중 88 통과 / 5 스킵 / 0 실패**가 정상이다
+- 그래서 batchmode EditMode 는 2026-08-21 기준 **93건 중 88 통과 / 5 스킵 / 0 실패**가 정상이었다
   (SceneNameSO 3건 + Player 정신력 배선 1건 + Ghost_Prototype 컨트롤러 배선 1건).
-  에디터 Test Runner 에서는 93/93 통과한다.
+  에디터 Test Runner 에서는 93/93 통과했다.
+  **2026-09-17 재측정에서는 검증용 복제 프로젝트 batchmode 에서 EditMode 302/302 · PlayMode 57/57 로
+  스킵이 남지 않았다.** 위 `Assert.Ignore` 장치는 그대로 두되, 스킵 건수를 기대값으로 삼지 않는다.
 - **씬 생성 도구를 `-executeMethod`로 batchmode 에서 돌리지 않는다.**
   `LoadOrCreateAsset`이 기존 설정 에셋을 못 찾아 새로 만들어 버린다.
   생성 도구는 MUST 에디터 메뉴에서 실행한다 → [../conventions/unity-assets.md §1.1](../conventions/unity-assets.md)
 - `-quit -batchmode -nographics ... -logFile -` 로 하는 **컴파일 검증은 영향받지 않는다.**
+
+### 5.4 batchmode 한계 — 입력이 `InputAction` 까지 오지 않는다
+
+> 2026-09-17 · Unity 6000.3.20f1 · Windows 에서 확인.
+
+키 입력을 흉내 내는 테스트는 **EditMode 에서 아예 불가능하고, PlayMode 에서는 설정을 바꿔야 한다.**
+
+| 상황 | 결과 |
+| --- | --- |
+| EditMode + `InputState.Change` | `keyboard.vKey.isPressed` 는 `true` 가 되지만 `action.IsPressed()` 는 **계속 false**. 액션 상태가 에디트 모드에서 갱신되지 않는다 |
+| PlayMode + `QueueStateEvent` (기본 설정) | 이벤트가 **버려진다.** 기본값 `PointersAndKeyboardsRespectGameViewFocus` 인데 배치모드에는 포커스가 없다 |
+| PlayMode + 두 설정을 바꾼 뒤 | 정상 동작. `yield return null` 한 프레임 뒤 액션이 눌린 상태로 읽힌다 |
+
+```csharp
+// 테스트 동안만 바꾸고 finally 에서 되돌린다.
+InputSystem.settings.backgroundBehavior = InputSettings.BackgroundBehavior.IgnoreFocus;
+InputSystem.settings.editorInputBehaviorInPlayMode =
+    InputSettings.EditorInputBehaviorInPlayMode.AllDeviceInputAlwaysGoesToGameView;
+```
+
+- `WasPressedThisFrame` 은 이벤트가 처리된 **그 한 프레임에서만** 참이다. `yield return null` 직후에 단언한다.
+- 본보기: `Assets/Tests/PlayMode/VoiceInputTests.cs`.
+- **사용자 에디터에서만 통과하는 입력 테스트를 EditMode 에 두지 않는다.** 포커스가 있는 에디터에서는
+  초록이지만 batchmode/CI 에서는 코드와 무관하게 빨간색이 된다.
 
 ## 6. 수동 검증 체크리스트
 
