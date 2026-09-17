@@ -88,6 +88,31 @@
 조립 실행 시 서버는 **다시 한번** 상태를 재계산해(레이턴시로 어긋난 클라이언트 판단을 신뢰하지
 않음) Ready가 아니면 거부한다 — 별도 락 없이 이 재계산만으로 MD-9(동시 시도)가 해소된다.
 
+> **버그 수정(2026-09-17): 조립 영역 트리거가 지면에서 1.5m 떠 있었다.**
+> MD-2에 따라 `DrillCarSafeZone_Temp`의 좌표를 복사했는데, **세이프 존은 오브젝트 위치가 상자
+> '중심'** 이고(`DrillCarSafeZone.ContainsPoint`) 조립 영역 트리거는 `center (0, 1.25, 0)` ·
+> `size (3, 2.5, 3)`으로 **오브젝트 위치를 '바닥'으로 가정**했다. 세이프 존이 (0.975, **1.5**, -9.74)에
+> 높이 3m 상자로 놓여 있어 지면은 y=0인데, 조립 트리거는 **월드 y 1.5~4.0**에 생겼다.
+> 침대 부품은 가장 높은 헤드가 0.9m(매트리스 0.25 · 다리 0.15)라 바닥에 놓으면 트리거에 닿지도
+> 못한다 → `OnTriggerEnter`가 걸리지 않아 상태가 `Empty`에서 바뀌지 않고, **조립이 오류 하나 없이
+> 영원히 시작되지 않았다.** 부품을 들어 트리거 높이로 올려도 `IsGrounded`가 잡힌 부품을 제외하므로
+> 소용없다.
+>
+> 설치 도구가 세이프 존의 **바닥**(`AssemblyZoneOrigin` = 중심 − 높이/2)에 영역을 놓도록 고치고,
+> `Validate()`에 트리거 바닥과 지면이 어긋나면 실패하는 검사를 넣었다. 회귀 테스트는
+> `FurnitureAssemblyZonePlacementTests`(EditMode 3건)다.
+>
+> **뒤따른 수정(같은 날): 조준 기준점도 바닥으로 내려가 있었다.** 영역을 지면으로 내리자
+> `PlayerFurnitureDriverController`가 조준 기준으로 쓰던 `zone.transform.position`이 발밑이 되어,
+> 눈높이 1.6m 기준 **수평 1.8~2.6m에서만** 45° 원뿔 안에 들어왔다. 부품을 내려놓고 바로 옆에 선
+> 자리(1.2m)에서는 내적이 0.53이라 **우클릭이 아무 반응도 하지 않는다.** `FurnitureAssemblyZone.AimPoint`
+> (트리거 상자의 월드 중심, 지면 위 1.25m)를 조준 기준으로 바꿔 서 있는 어느 거리에서나 잡히게 했다.
+> 이 수정은 코드만 바뀌므로 메뉴 재실행이 필요 없다.
+>
+> **영역 트리거 수정은 코드에만 반영돼 있다.** 씬의 영역을 실제로 옮기려면 Game 씬을 열고
+> **`GhostHunter > 가구용 멀티 드라이버 조립 영역 재배치`** 를 실행한다 — 영역 트랜스폼과 트리거만
+> 고쳐 씬을 저장하므로 프리팹·부품 풀·NGO 해시는 건드리지 않는다.
+
 ### 2.5 씬 풀 재배치 — ADR-0009 준수
 
 분해·조립 모두 `NetworkObject.Spawn`을 쓰지 않는다. `FurnitureDriverPoolItem`이
@@ -140,8 +165,8 @@
   세트 수는 2026-09-12 씬 스캔 기준 라이브 인스턴스 개수(Furniture_Library·비교용 집 제외,
   최소 1세트 보장)다 — 더블 침대 1, 옷장 2종 각 1, 식탁·선반 2종은 라이브 인스턴스가 없어
   세트 1개만 미리 마련해 뒀다(레벨 배치 전까지 실제 분해 대상 없음).
-- `Game/FurnitureMultiDriverPrototype/AssemblyZone`: 기존 `DrillCarSafeZone_Temp` 좌표를 그대로
-  쓰는 트리거 1개(MD-2, 임시).
+- `Game/FurnitureMultiDriverPrototype/AssemblyZone`: 기존 `DrillCarSafeZone_Temp` 자리를 쓰는
+  트리거 1개(MD-2, 임시). **좌표를 그대로 복사하지 않고 세이프 존 상자의 바닥에 맞춘다**(§2.4 버그 수정).
 - `FurnitureDriverSettings_Default.asset`, `FurnitureDriverCatalog_Default.asset`,
   `FurnitureDriverRecipes/*.asset`(6개), `QuickSlotItem_Driver.asset`,
   `FurnitureDriverUiSettings_Default.asset`: `Assets/Settings/Gameplay`.
@@ -153,6 +178,9 @@
 
 ## 4. 알려진 제약
 
+- **조립은 아직 한 번도 끝까지 돌아간 적이 없다.** §2.4의 뜬 트리거 때문에 그동안 불가능했고,
+  수정은 코드에만 있다 — 씬에 반영(재배치 메뉴)한 뒤 실기로 확인해야 "된다"고 말할 수 있다.
+  **Ready 상태를 화면에서 볼 방법이 아직 없다**(아래 실루엣 미구현)는 점이 확인을 어렵게 만든다.
 - **FM-IMPL-4 일부 미구현.** 손목 애니메이션, 3색 실루엣의 실제 렌더링(현재는 상태값만 복제됨)이
   없다. 행동 시간 원형 게이지·중단 연출은 구현됐다(§2.6).
 - 게이지 크기·색·흔들림 폭 기본값(`FurnitureDriverUiSettings_Default`)은 임시 UI 값이다. 기획서는
@@ -201,7 +229,8 @@ Bootstrap 씬으로 복귀했다.
 만들고 `QuickSlotItem_Driver.asset` 설명 문구를 갱신했다. 가구·부품·Player 프리팹은 다시 저장하지 않았다.
 부품 위치 수정은 코드만 바뀌어 재설치가 필요 없다.
 
-**남은 작업**: FM-IMPL-4 중 손목 애니메이션·3색 실루엣 렌더링, 조립 흐름 PlayMode 자동 테스트,
+**남은 작업**: **조립 영역 재배치 메뉴 실행(씬 반영)과 조립 실기 확인**, FM-IMPL-4 중 손목
+애니메이션·3색 실루엣 렌더링, 조립 흐름 PlayMode 자동 테스트,
 Host·Client 수동 검증(Steam 2PC 포함), MD-7·MD-8 사용자 확정, 식탁·선반 2종의 실제 레벨 배치.
 부품 여러 개가 같은 점에 겹쳐 생성돼 튕기는 문제(§2.3 드롭 오프셋이 같은 부품 여러 개일 때만
 분산)는 기획 판단이 필요해 손대지 않았다.
@@ -212,6 +241,10 @@ Host·Client 수동 검증(Steam 2PC 포함), MD-7·MD-8 사용자 확정, 식�
 [roadmap.md §1.6](../project/roadmap.md) · [ADR-0009](decisions/ADR-0009-scene-placed-level-objects.md) ·
 [ADR-0010](decisions/ADR-0010-server-authoritative-furniture-physics.md)
 
-최종 갱신: 2026-09-13 (기획서 1.1 — 우클릭 유지·중앙 원형 게이지 HUD 구현, 부품이 풀 보관 위치로
+최종 갱신: 2026-09-17 (조립 영역 트리거가 지면에서 1.5m 떠 있어 조립이 시작될 수 없던 문제를
+설치 도구에서 수정 — §2.4. 재배치 전용 메뉴·설치 검증·EditMode 회귀 테스트 3건 추가, EditMode
+305/305 통과. **씬 반영과 조립 실기 확인은 남아 있다.**)
+
+이전 갱신: 2026-09-13 (기획서 1.1 — 우클릭 유지·중앙 원형 게이지 HUD 구현, 부품이 풀 보관 위치로
 되돌아가는 버그 수정. EditMode 235개·PlayMode 32개 통과, 실제 Game Local Host에서 유지 완료·뗌 취소·
 부품 위치 확인)

@@ -19,6 +19,10 @@ namespace GhostHunter.Gameplay.Ghost
         [Tooltip("세이프 존 상자의 크기(m). 오브젝트 위치가 상자 중심이다. 스케일은 1로 둔다(하드 룰 §3.5).")]
         [SerializeField] private Vector3 _size = new(4f, 3f, 4f);
 
+        /// <summary>상자 크기(m). <b>오브젝트 위치는 중심이지 바닥이 아니다</b> — 이 자리에 다른 것을
+        /// 맞출 때 바닥 높이가 필요하다(조립 영역이 그렇다). 읽기 전용.</summary>
+        public Vector3 Size => _size;
+
         /// <summary>주어진 월드 좌표가 지금 살아 있는 세이프 존 중 하나라도 안에 있는가.</summary>
         public static bool Contains(Vector3 worldPosition)
         {

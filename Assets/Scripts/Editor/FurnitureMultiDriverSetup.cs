@@ -39,6 +39,11 @@ namespace GhostHunter.EditorTools
         private const string RootName = "FurnitureMultiDriverPrototype";
         private const int DriverSlotIndex = 1;
 
+        /// <summary>조립 영역 트리거의 크기·중심. 중심이 <see cref="AssemblyTriggerSize"/>의 절반이라
+        /// 상자 <b>바닥</b>이 오브젝트 위치에 놓인다 — 바닥에 놓인 부품이 들어와야 하기 때문이다.</summary>
+        internal static readonly Vector3 AssemblyTriggerSize = new(3f, 2.5f, 3f);
+        internal static readonly Vector3 AssemblyTriggerCenter = new(0f, 1.25f, 0f);
+
         private const string ThrowSettingsPath = "Assets/Settings/Gameplay/FurnitureThrowSettings_Default.asset";
         private const string LightDefinitionPath = "Assets/Settings/Gameplay/FurnitureDefinition_Light.asset";
         private const string OutlineMaterialPath = "Assets/Materials/Furniture_Outline.mat";
@@ -203,6 +208,54 @@ namespace GhostHunter.EditorTools
             Debug.Log("[FurnitureMultiDriverSetup] 행동 시간 원형 게이지 HUD를 PrototypeUI에 설치하고 Game 씬을 저장했습니다.");
         }
 
+        /// <summary>
+        /// 이미 설치된 씬의 조립 영역 트리거만 지면에 다시 맞춘다(2026-09-17 뜬 트리거 수정).
+        /// 프리팹·부품 풀·SO를 다시 저장하지 않고, 씬 오브젝트를 옮기기만 하므로 NGO 해시도 그대로다.
+        /// </summary>
+        [MenuItem("GhostHunter/가구용 멀티 드라이버 조립 영역 재배치", priority = 16)]
+        public static void RepositionAssemblyZoneOnly()
+        {
+            if (EditorApplication.isPlayingOrWillChangePlaymode)
+                throw new InvalidOperationException("Play 모드를 종료한 뒤 실행하세요.");
+            Scene scene = SceneManager.GetActiveScene();
+            if (scene.path != QuickSlotSetup.ScenePath)
+                throw new InvalidOperationException("Game 씬을 연 뒤 실행하세요.");
+
+            GameObject root = scene.GetRootGameObjects().FirstOrDefault(item => item.name == RootName);
+            if (root == null)
+                throw new InvalidOperationException($"{RootName} 루트가 씬에 없습니다 — 전체 설치를 먼저 실행하세요.");
+            var zone = root.GetComponentInChildren<FurnitureAssemblyZone>(true);
+            if (zone == null)
+                throw new InvalidOperationException("FurnitureAssemblyZone이 없습니다 — 전체 설치를 먼저 실행하세요.");
+            DrillCarSafeZone safeZone = scene.GetRootGameObjects()
+                .Select(item => item.GetComponent<DrillCarSafeZone>())
+                .FirstOrDefault(item => item != null);
+            if (safeZone == null)
+                throw new InvalidOperationException("DrillCarSafeZone_Temp가 씬에 없습니다 — MD-2 재사용 대상이 없습니다.");
+
+            BoxCollider trigger = zone.GetComponent<BoxCollider>();
+            if (trigger == null)
+                trigger = Undo.AddComponent<BoxCollider>(zone.gameObject);
+
+            Vector3 before = zone.transform.position;
+            Undo.RecordObject(zone.transform, "조립 영역 재배치");
+            Undo.RecordObject(trigger, "조립 영역 트리거 재설정");
+            zone.transform.position = AssemblyZoneOrigin(safeZone.transform.position, safeZone.Size);
+            zone.transform.rotation = safeZone.transform.rotation;
+            trigger.isTrigger = true;
+            trigger.size = AssemblyTriggerSize;
+            trigger.center = AssemblyTriggerCenter;
+            EditorUtility.SetDirty(zone.transform);
+            EditorUtility.SetDirty(trigger);
+
+            EditorSceneManager.MarkSceneDirty(scene);
+            if (!EditorSceneManager.SaveScene(scene))
+                throw new InvalidOperationException("Game 씬을 저장하지 못했습니다.");
+            ValidateAssemblyZonePlacement(scene, zone);
+            Debug.Log($"[FurnitureMultiDriverSetup] 조립 영역을 {before} → {zone.transform.position}로 옮겨 " +
+                "트리거 바닥을 지면에 맞추고 Game 씬을 저장했습니다.", zone);
+        }
+
         [MenuItem("GhostHunter/가구용 멀티 드라이버 검증", priority = 14)]
         public static void Validate()
         {
@@ -239,6 +292,7 @@ namespace GhostHunter.EditorTools
                 throw new InvalidOperationException("FurnitureAssemblyZone이 없습니다.");
             RequireReference(zone, "_catalog");
             RequireReference(zone, "_trigger");
+            ValidateAssemblyZonePlacement(scene, zone);
 
             var seen = new HashSet<long>();
             var networkObjects = new List<NetworkObject>(root.GetComponentsInChildren<NetworkObject>(true));
@@ -535,17 +589,58 @@ namespace GhostHunter.EditorTools
             return new Renderer[] { shellRenderer };
         }
 
+        /// <summary>
+        /// 트리거가 지면에 붙어 있는지 확인한다. 떠 있으면 바닥에 놓인 부품이 영역에 들어오지 못해
+        /// 조립이 조용히 불가능해진다 — 화면에 아무 오류도 나지 않으므로 여기서 잡는다.
+        /// </summary>
+        private static void ValidateAssemblyZonePlacement(Scene scene, FurnitureAssemblyZone zone)
+        {
+            DrillCarSafeZone safeZone = scene.GetRootGameObjects()
+                .Select(item => item.GetComponent<DrillCarSafeZone>())
+                .FirstOrDefault(item => item != null);
+            if (safeZone == null)
+                throw new InvalidOperationException("DrillCarSafeZone_Temp가 씬에 없습니다 — 조립 영역 기준을 확인할 수 없습니다.");
+
+            var trigger = zone.GetComponent<BoxCollider>();
+            if (trigger == null || !trigger.isTrigger)
+                throw new MissingComponentException("조립 영역에 트리거 BoxCollider가 없습니다.");
+
+            float groundY = AssemblyZoneOrigin(safeZone.transform.position, safeZone.Size).y;
+            float bottomY = AssemblyTriggerBottom(zone.transform.position.y, trigger.center, trigger.size);
+            if (Mathf.Abs(bottomY - groundY) > 0.01f)
+                throw new InvalidOperationException(
+                    $"조립 영역 트리거가 지면에서 {bottomY - groundY:F2}m 어긋나 있습니다(바닥 {bottomY:F2}, 지면 {groundY:F2}). " +
+                    "바닥에 놓인 부품이 영역에 들어오지 못합니다 — 'GhostHunter > 가구용 멀티 드라이버 조립 영역 재배치'를 실행하세요.");
+        }
+
+        /// <summary>
+        /// 조립 영역 오브젝트를 놓을 자리 — 세이프 존 상자의 <b>바닥</b>이다.
+        ///
+        /// <para><see cref="DrillCarSafeZone"/>은 오브젝트 위치가 상자 <b>중심</b>이라, 그 좌표를 그대로
+        /// 복사하면 바닥에서 상자 높이의 절반만큼 뜬 자리에 트리거가 생긴다. 실제로 그렇게 설치돼
+        /// 트리거가 지면 1.5m 위에 떠 있었고(월드 y 1.5~4.0), 바닥에 놓인 부품이 영역에 들어오지
+        /// 못해 조립이 영원히 Ready 가 되지 않았다(2026-09-17 수정). 침대 부품은 가장 높은 헤드가
+        /// 0.9m라 트리거 바닥에 닿을 수조차 없었다.</para>
+        /// </summary>
+        internal static Vector3 AssemblyZoneOrigin(Vector3 safeZoneCenter, Vector3 safeZoneSize) =>
+            new(safeZoneCenter.x, safeZoneCenter.y - safeZoneSize.y * 0.5f, safeZoneCenter.z);
+
+        /// <summary>조립 영역 트리거 상자의 월드 바닥 높이. 지면과 같아야 한다.</summary>
+        internal static float AssemblyTriggerBottom(float originY, Vector3 triggerCenter, Vector3 triggerSize) =>
+            originY + triggerCenter.y - triggerSize.y * 0.5f;
+
         private static FurnitureAssemblyZone InstallAssemblyZone(Transform root, Scene scene,
             FurnitureDriverCatalog catalog)
         {
             // MD-2(2026-09-12 확정) — 기존 임시 드릴 카 세이프 존 자리를 그대로 재사용한다.
-            GameObject safeZone = scene.GetRootGameObjects()
-                .FirstOrDefault(item => item.GetComponent<DrillCarSafeZone>() != null);
+            DrillCarSafeZone safeZone = scene.GetRootGameObjects()
+                .Select(item => item.GetComponent<DrillCarSafeZone>())
+                .FirstOrDefault(item => item != null);
             if (safeZone == null)
                 throw new InvalidOperationException("DrillCarSafeZone_Temp가 씬에 없습니다 — MD-2 재사용 대상이 없습니다.");
 
             Transform zoneTransform = Child(root, "AssemblyZone");
-            zoneTransform.position = safeZone.transform.position;
+            zoneTransform.position = AssemblyZoneOrigin(safeZone.transform.position, safeZone.Size);
             zoneTransform.rotation = safeZone.transform.rotation;
 
             if (zoneTransform.GetComponent<NetworkObject>() == null)
@@ -555,8 +650,8 @@ namespace GhostHunter.EditorTools
             if (trigger == null)
                 trigger = zoneTransform.gameObject.AddComponent<BoxCollider>();
             trigger.isTrigger = true;
-            trigger.size = new Vector3(3f, 2.5f, 3f);
-            trigger.center = new Vector3(0f, 1.25f, 0f);
+            trigger.size = AssemblyTriggerSize;
+            trigger.center = AssemblyTriggerCenter;
 
             FurnitureAssemblyZone zone = zoneTransform.GetComponent<FurnitureAssemblyZone>();
             if (zone == null)

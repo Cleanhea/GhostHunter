@@ -47,6 +47,16 @@ namespace GhostHunter.Gameplay.FurnitureDriver
 
         public FurnitureAssemblyState Silhouette => _state.Value.Silhouette;
 
+        /// <summary>
+        /// 조준 기준점 — 트리거 상자의 <b>월드 중심</b>.
+        ///
+        /// <para>오브젝트 원점은 부품이 들어와야 하는 <b>바닥</b>이다. 그 점을 조준 기준으로 쓰면
+        /// 발치를 내려다봐야 하고, 부품을 내려놓느라 가까이 설수록 각도가 원뿔을 벗어나 우클릭이
+        /// 아무 반응도 하지 않는다(2026-09-17). 상자 중심은 가슴 높이라 서 있는 어느 거리에서나
+        /// 자연스럽게 조준된다.</para>
+        /// </summary>
+        public Vector3 AimPoint => _trigger != null ? _trigger.bounds.center : transform.position;
+
         public FurnitureDisassemblyRecipe MatchedRecipe
         {
             get

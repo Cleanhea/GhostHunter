@@ -188,7 +188,8 @@ namespace GhostHunter.Gameplay.Player
                 FurnitureAssemblyZone zone = zones[i];
                 if (zone == null || zone.Silhouette != FurnitureAssemblyState.Ready)
                     continue;
-                Vector3 toZone = zone.transform.position - _camera.transform.position;
+                // 상자 중심을 본다 — 오브젝트 원점은 바닥이라 가까이 서면 조준이 안 된다(AimPoint 주석).
+                Vector3 toZone = zone.AimPoint - _camera.transform.position;
                 float distance = toZone.magnitude;
                 if (distance > _settings.UseDistance || distance < 0.001f)
                     continue;
