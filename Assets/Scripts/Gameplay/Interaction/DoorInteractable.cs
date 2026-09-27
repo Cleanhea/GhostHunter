@@ -83,6 +83,12 @@ namespace GhostHunter.Gameplay.Interaction
                 _isOpen.Value = false;
         }
 
+        public void ServerRestoreStageState(bool open)
+        {
+            if (IsSpawned && IsServer)
+                _isOpen.Value = open;
+        }
+
         /// <summary>서버가 문 상태를 뒤집는다. 귀신 초자연현상 '문 열고 닫기'(§6.5 #4) 용도.</summary>
         public void ServerForceToggle()
         {

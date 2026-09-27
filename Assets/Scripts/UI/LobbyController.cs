@@ -9,9 +9,10 @@ using UnityEngine.UI;
 namespace GhostHunter.UI
 {
     /// <summary>
-    /// 로비(대기실) 화면. 여기까지는 Steam 로비만 살아 있고 NGO 세션은 없다.
-    /// - 호스트: 전원 준비 확인 후 "게임 시작" → 게임 씬 로드 → StartHost → 로비에 시작 신호.
-    /// - 게스트: 로비 데이터의 시작 신호를 보고 StartClient. NGO 씬 동기화가 게임 씬으로 데려간다.
+    /// 일반 로비(대기실) 화면. 여기까지는 Steam 로비만 살아 있고 NGO 세션은 없다.
+    /// - 호스트: 전원 준비 확인 후 "게임 시작" → <b>인게임 로비</b> 씬 로드 → StartHost → 로비에 시작 신호.
+    /// - 게스트: 로비 데이터의 시작 신호를 보고 StartClient. NGO 씬 동기화가 인게임 로비로 데려간다.
+    /// 상점은 인게임 로비로 옮겼다(2026-09-28, ADR-0018). 세션은 그 뒤 인게임 로비 ⇄ 스테이지를 오가며 유지된다.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class LobbyController : MonoBehaviour
@@ -84,6 +85,7 @@ namespace GhostHunter.UI
                 : "호스트가 시작할 때까지 기다리는 중입니다. 준비를 눌러주세요.");
 
             Refresh();
+            TryResumeLoadingAsHost();
             TryConnectToStartedGame();
         }
 
@@ -97,10 +99,45 @@ namespace GhostHunter.UI
             _lobby.LobbyLeft -= HandleLobbyLeft;
         }
 
+        private void Update()
+        {
+            if (!_departing && CancelLoadingIfUnderpopulated())
+                return;
+            if (!_departing && _lobby != null && _lobby.IsGameLoading && _lobby.IsLobbyOwner)
+                TryResumeLoadingAsHost();
+        }
+
         private void HandleLobbyUpdated()
         {
+            if (CancelLoadingIfUnderpopulated())
+                return;
             Refresh();
+            if (_lobby != null && _lobby.IsGameLoading)
+                SetStatus("스테이지 로딩 중...");
+            TryResumeLoadingAsHost();
             TryConnectToStartedGame();
+        }
+
+        private bool CancelLoadingIfUnderpopulated()
+        {
+            if (_lobby == null || !_lobby.IsGameLoading || _lobby.GetMembers().Count >= 2)
+                return false;
+            SetStatus("참여 인원이 부족하여 시작이 취소되었습니다");
+            _lobby.LeaveLobby();
+            return true;
+        }
+
+        private void TryResumeLoadingAsHost()
+        {
+            if (_departing || _lobby == null || !_lobby.IsGameLoading
+                || !_lobby.IsLobbyOwner || _lobby.GetMembers().Count < 2
+                || _connection == null || _connection.IsRunning)
+                return;
+
+            _departing = true;
+            SetStatus("이전 호스트가 떠났습니다. 스테이지 로딩을 이어갑니다.");
+            _connection.SetTransportMode(TransportMode.Steam);
+            _connection.StartHostInGameScene(SceneId.InGameLobby);
         }
 
         /// <summary>
@@ -127,13 +164,13 @@ namespace GhostHunter.UI
 
             if (!_lobby.AllGuestsReady())
             {
-                SetStatus("모든 참가자가 준비를 마쳐야 시작할 수 있습니다.");
+                SetStatus("2명 이상 참가하고 모든 게스트가 준비해야 시작할 수 있습니다.");
                 return;
             }
 
             _departing = true;
             _connection.SetTransportMode(TransportMode.Steam);
-            _connection.StartHostInGameScene(SceneId.Game);
+            _connection.StartHostInGameScene(SceneId.InGameLobby);
         }
 
         private void HandleReadyClicked()

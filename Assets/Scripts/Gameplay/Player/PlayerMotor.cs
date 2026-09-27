@@ -1,4 +1,6 @@
 using Unity.Netcode;
+using Unity.Netcode.Components;
+using GhostHunter.Gameplay.Recovery;
 using UnityEngine;
 
 namespace GhostHunter.Gameplay.Player
@@ -75,6 +77,34 @@ namespace GhostHunter.Gameplay.Player
         public float CameraLocalHeight => IsOwner
             ? (_cameraPivot != null ? _cameraPivot.localPosition.y : 0f)
             : _networkCameraHeight.Value;
+
+        public void ServerRestoreStageState(StageRecoverySnapshot.PlayerState snapshot)
+        {
+            if (!IsServer || !IsSpawned)
+                return;
+            RestoreStageStateRpc(snapshot.Position, snapshot.Rotation,
+                snapshot.Crouching, snapshot.Prone);
+        }
+
+        [Rpc(SendTo.Owner)]
+        private void RestoreStageStateRpc(Vector3 position, Quaternion rotation,
+            bool crouching, bool prone)
+        {
+            if (!IsOwner)
+                return;
+            bool wasEnabled = _controller.enabled;
+            _controller.enabled = false;
+            NetworkTransform networkTransform = GetComponent<NetworkTransform>();
+            if (networkTransform != null && networkTransform.IsSpawned)
+                networkTransform.Teleport(position, rotation, transform.localScale);
+            else
+                transform.SetPositionAndRotation(position, rotation);
+            _controller.enabled = wasEnabled;
+            _isCrouching.Value = crouching;
+            _isProne.Value = prone;
+            _verticalVelocity = 0f;
+            ApplyPosture(0f, true);
+        }
 
         private void Awake()
         {

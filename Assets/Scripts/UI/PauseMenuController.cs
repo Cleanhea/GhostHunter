@@ -10,7 +10,7 @@ using UnityEngine.UI;
 namespace GhostHunter.UI
 {
     /// <summary>
-    /// 매치 중 ESC로 여는 메뉴. 계속하기 / 설정(stub) / 타이틀로 / 종료 4개를 제공하고,
+    /// 매치 중 ESC로 여는 메뉴. 방장에게는 스테이지 나가기도 제공한다.
     /// 세션이 끊기면 그 위에 안내 모달을 띄운다.
     ///
     /// 시간을 멈추지 않는다 — <c>Time.timeScale</c> 은 항상 1이다. 규칙은
@@ -36,9 +36,10 @@ namespace GhostHunter.UI
         [SerializeField] private GameObject _confirmQuitPanel;
         [SerializeField] private GameObject _disconnectedPanel;
 
-        [Header("메뉴 버튼 (순서 고정: 계속하기 / 설정 / 타이틀로 / 종료)")]
+        [Header("메뉴 버튼 (계속하기 / 설정 / 스테이지 나가기 / 타이틀로 / 종료)")]
         [SerializeField] private Button _resumeButton;
         [SerializeField] private Button _settingsButton;
+        [SerializeField] private Button _stageLeaveButton;
         [SerializeField] private Button _titleButton;
         [SerializeField] private Button _quitButton;
 
@@ -55,6 +56,7 @@ namespace GhostHunter.UI
         private ISceneFlow _sceneFlow;
         private IConnectionService _connection;
         private ILocalPlayerContext _localPlayer;
+        private IStageSessionFlow _stageFlow;
 
         private InputActionAsset _runtimeActions;
         private InputAction _openAction;
@@ -70,12 +72,20 @@ namespace GhostHunter.UI
             Services.TryGet(out _sceneFlow);
             Services.TryGet(out _connection);
             Services.TryGet(out _localPlayer);
+            Services.TryGet(out _stageFlow);
         }
 
         private void Start()
         {
+            // 기존 Game 씬을 다시 굽기 전에도 새 항목을 표시한다. 생성 도구를 재실행하면
+            // 직렬화된 버튼을 그대로 사용하고 이 경로는 실행되지 않는다.
+            if (_stageLeaveButton == null)
+                CreateStageLeaveButtonFromExistingMenu();
+
             _resumeButton.onClick.AddListener(HandleResumeClicked);
             _settingsButton.onClick.AddListener(HandleSettingsClicked);
+            if (_stageLeaveButton != null)
+                _stageLeaveButton.onClick.AddListener(HandleStageLeaveClicked);
             _titleButton.onClick.AddListener(HandleTitleClicked);
             _quitButton.onClick.AddListener(HandleQuitClicked);
             _quitConfirmButton.onClick.AddListener(HandleQuitConfirmClicked);
@@ -148,6 +158,9 @@ namespace GhostHunter.UI
             _menuPanel.SetActive(next == State.Menu);
             _confirmQuitPanel.SetActive(next == State.ConfirmQuit);
             _disconnectedPanel.SetActive(next == State.Disconnected);
+            if (_stageLeaveButton != null)
+                _stageLeaveButton.gameObject.SetActive(next == State.Menu && _connection != null && _connection.IsHost
+                    && _sceneFlow != null && _sceneFlow.Current.IsStage());
 
             ApplyInputActionState(next);
 
@@ -229,6 +242,19 @@ namespace GhostHunter.UI
         }
 
         private void HandleTitleClicked() => LeaveToTitleAsync().Forget();
+
+        private void HandleStageLeaveClicked()
+        {
+            if (_leaving || _connection == null || !_connection.IsHost || _sceneFlow == null)
+                return;
+
+            // 스테이지만 끝내고 세션은 유지한 채 전원이 인게임 로비로 간다(ADR-0018). 예전에는 일반 로비로 가며 세션을 끊었다.
+            if (_stageFlow == null || !_stageFlow.ReturnToInGameLobby())
+                return;
+
+            _leaving = true;
+            SetButtonsInteractable(false);
+        }
 
         private void HandleQuitClicked() => ApplyState(State.ConfirmQuit);
 
@@ -312,14 +338,14 @@ namespace GhostHunter.UI
         }
 
         /// <summary>
-        /// 세션을 끊는다. 게스트는 Steam 로비에 남아 타이틀에서 다시 들어갈 수 있고,
-        /// 호스트는 로비까지 나간다 → pause-menu-system.md §4.4 (PM-4·PM-5)
+        /// 타이틀 또는 앱 종료는 해당 플레이어의 로비 멤버십도 정리한다.
+        /// 스테이지가 시작된 뒤에는 로비로 돌아와 중도 참가할 수 없다.
         /// </summary>
         private async UniTask EndSessionAsync()
         {
             if (_connection != null && _connection.IsRunning)
             {
-                _connection.Disconnect(leaveLobby: _connection.IsHost);
+                _connection.Disconnect(leaveLobby: true);
 
                 // 세션이 완전히 내려간 뒤에 씬을 만진다. 게스트가 붙어 있으면 NGO 는 클라이언트를
                 // 먼저 끊느라 한 프레임으로 끝나지 않는데, 그 사이에 씬을 전환하면 NGO 경로로 빠져
@@ -338,10 +364,48 @@ namespace GhostHunter.UI
         {
             _resumeButton.interactable = interactable;
             _settingsButton.interactable = interactable;
+            if (_stageLeaveButton != null)
+                _stageLeaveButton.interactable = interactable;
             _titleButton.interactable = interactable;
             _quitButton.interactable = interactable;
             _quitConfirmButton.interactable = interactable;
             _quitCancelButton.interactable = interactable;
+        }
+
+        private void CreateStageLeaveButtonFromExistingMenu()
+        {
+            if (_titleButton == null || _settingsButton == null || _quitButton == null || _resumeButton == null)
+                return;
+
+            Transform parent = _titleButton.transform.parent;
+            _stageLeaveButton = Instantiate(_titleButton, parent);
+            _stageLeaveButton.name = "StageLeaveButton";
+            _stageLeaveButton.onClick.RemoveAllListeners();
+            _stageLeaveButton.transform.SetSiblingIndex(_titleButton.transform.GetSiblingIndex());
+            Text label = _stageLeaveButton.GetComponentInChildren<Text>();
+            if (label != null)
+                label.text = "스테이지 나가기";
+
+            RectTransform box = parent as RectTransform;
+            if (box != null)
+                box.sizeDelta = new Vector2(box.sizeDelta.x, 540f);
+
+            SetButtonY(_resumeButton, 145f);
+            SetButtonY(_settingsButton, 70f);
+            SetButtonY(_stageLeaveButton, -5f);
+            SetButtonY(_titleButton, -80f);
+            SetButtonY(_quitButton, -155f);
+        }
+
+        private static void SetButtonY(Button button, float y)
+        {
+            RectTransform rect = button.transform as RectTransform;
+            if (rect == null)
+                return;
+
+            Vector2 position = rect.anchoredPosition;
+            position.y = y;
+            rect.anchoredPosition = position;
         }
 
         private void SetStatus(string message)

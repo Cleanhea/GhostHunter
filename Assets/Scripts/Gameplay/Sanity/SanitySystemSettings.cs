@@ -17,6 +17,7 @@ namespace GhostHunter.Gameplay.Sanity
         [SerializeField] private float _darknessInterval = 10f;
         [SerializeField] private int _darknessDecrease = 1;
         [SerializeField] private int _ghostEventDecrease = 15;
+        [SerializeField] private int _ghostBodyWitnessDecrease = 5;
         [SerializeField] private int _corpseWitnessDecrease = 20;
 
         [Header("Debuff thresholds")]
@@ -32,6 +33,7 @@ namespace GhostHunter.Gameplay.Sanity
         public float DarknessInterval => _darknessInterval;
         public int DarknessDecrease => _darknessDecrease;
         public int GhostEventDecrease => _ghostEventDecrease;
+        public int GhostBodyWitnessDecrease => _ghostBodyWitnessDecrease;
         public int CorpseWitnessDecrease => _corpseWitnessDecrease;
         public int CameraNoiseThreshold => _cameraNoiseThreshold;
         public int WhisperThreshold => _whisperThreshold;
@@ -48,6 +50,7 @@ namespace GhostHunter.Gameplay.Sanity
             _darknessInterval = Mathf.Max(0.1f, _darknessInterval);
             _darknessDecrease = Mathf.Max(1, _darknessDecrease);
             _ghostEventDecrease = Mathf.Max(1, _ghostEventDecrease);
+            _ghostBodyWitnessDecrease = Mathf.Max(1, _ghostBodyWitnessDecrease);
             _corpseWitnessDecrease = Mathf.Max(1, _corpseWitnessDecrease);
 
             _cameraNoiseThreshold = Mathf.Clamp(

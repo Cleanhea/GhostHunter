@@ -5,6 +5,7 @@ using Cysharp.Threading.Tasks;
 using Unity.Netcode;
 using Unity.Netcode.Components;
 using UnityEngine;
+using GhostHunter.Gameplay.Recovery;
 using Random = System.Random;
 
 namespace GhostHunter.Gameplay.Map
@@ -38,8 +39,24 @@ namespace GhostHunter.Gameplay.Map
             if (!IsServer)
                 return;
             _isReady.Value = false;
+            if (StageRecoveryGate.Restoring)
+                return;
             _spawnCancellation = CancellationTokenSource.CreateLinkedTokenSource(destroyCancellationToken);
             GenerateAfterSceneSpawnAsync(_spawnCancellation.Token).Forget();
+        }
+
+        public bool ServerRestoreStageState(StageRecoverySnapshot snapshot)
+        {
+            if (!IsServer || !IsSpawned || snapshot == null || snapshot.Furniture == null
+                || snapshot.Furniture.Length != _items.Length)
+                return false;
+            _generationSeed.Value = snapshot.FurnitureSeed;
+            for (int i = 0; i < _items.Length; i++)
+                if (_items[i] == null || !_items[i].ServerRestoreStageState(snapshot.Furniture[i]))
+                    return false;
+            _resetter?.CapturePoses();
+            _isReady.Value = snapshot.FurnitureReady;
+            return true;
         }
 
         public override void OnNetworkDespawn()

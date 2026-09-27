@@ -1,5 +1,8 @@
 # 두더지 스킬 시스템 기획서
 
+> **2026-09-28:** 이 문서의 `GhostHunter > …` 설치·생성·검증 메뉴와 `Editor/…Setup.cs` 도구는 [ADR-0020](../architecture/decisions/ADR-0020-remove-one-off-editor-setup-tools.md)으로 삭제됐다.
+> 도구 실행 절차·결과는 구현 당시 기록이다. 지금은 저장된 씬·프리팹이 원본이고 직접 고친다.
+
 ## 1. 버전 관리
 
 | 항목 | 내용 |
@@ -92,7 +95,7 @@
 | **[임시]** | 초안에 수치는 적혔으나 검증 후 조정할 값 | 구현하되 `ScriptableObject`로 노출해 튜닝 가능하게 둔다 |
 | **[TBD]** | 미정 | **임의로 확정하지 않는다.** 사용자에게 질문한다 |
 
-수치의 최종 권위는 코드 상수가 아니라 설정 에셋에 있다 → [CLAUDE.md §3.4](../../CLAUDE.md)
+수치의 최종 권위는 코드 상수가 아니라 설정 에셋에 있다 → [CLAUDE.md §3 코드](../../CLAUDE.md)
 
 > **이 문서 전체가 초안이다.** 여기서 `[확정]`은 "초안이 명시적으로 정한 것"을 뜻하며,
 > 기획이 완료됐다는 뜻이 아니다. `[확정]` 항목도 스킬 전체 설계가 마무리되면 바뀔 수 있다.
@@ -295,7 +298,7 @@ ADR을 대체하지는 않는다** — 위 코드 패턴을 새 소유자 권위
 | 표시 지속 시간 | **5초** [확정] | 시전 연출(§4.4) 시간은 여기에 포함되지 **않는다** |
 | 재사용 대기 시간 | **10초** [확정 — 플로우차트] | 시전이 끝난 뒤 부여된다. UI는 §6.2 |
 
-수치는 `ScriptableObject`로 노출한다 → [CLAUDE.md §3.4](../../CLAUDE.md).
+수치는 `ScriptableObject`로 노출한다 → [CLAUDE.md §3 코드](../../CLAUDE.md).
 
 ### 4.4 시전 연출 [확정]
 
@@ -581,7 +584,7 @@ ADR을 대체하지는 않는다** — 위 코드 패턴을 새 소유자 권위
 > ⚠️ **탐지 아이콘 두 개는 파일명에 `ICON_` 뒤 공백이 있다**(`ICON_` + 공백 + `detection_...`).
 > 원문 1.0의 표기를 그대로 따른 것이라 **오타가 아니라 실제 파일명**이다. 코드에서 경로로 부를 때
 > 공백을 빠뜨리면 못 찾는다. 굴착 두 개에는 공백이 없다 — **둘의 규칙이 다르다.**
-> 정리하려면 Unity 에디터 안에서 이름을 바꾸고(GUID 보존) 이 표를 함께 고친다.
+> 정리하려면 `.meta`와 함께 이름을 바꿔 GUID를 보존하고 이 표를 함께 고친다.
 
 > **저작권 표시 의무가 있다.** 두 아이콘 모두 Flaticon 출처이며 **크레딧 표기가 필요하다.**
 > 게임 내 크레딧 화면이 아직 없으므로, 화면이 생길 때까지 표기를 잃지 않도록 여기에 원문을 남긴다.
@@ -670,7 +673,7 @@ ADR을 대체하지는 않는다** — 위 코드 패턴을 새 소유자 권위
 | 런타임 수치 조절 | **구현됨(2026-09-05 보강)** — 개발 HUD `Tab` 의 **`두더지 스킬` 섹션**에 `MoleBurrowSettings` 값 줄이 바로 펼쳐져 있다. 튜닝 창(`F2`)과 같은 SO 를 만지므로 결과가 같고, SO 에 `[SerializeField]` 를 더하면 양쪽에 자동으로 나타난다 |
 | 굴착 상태·강제 조작 | **구현됨(2026-09-05)** — 같은 섹션에서 상태(대기/시전/매몰·남은 시간)와 쿨타임을 보고 `굴착 시작`·`즉시 종료`·`쿨타임 리셋` 로 강제한다(`IMoleSkillDebug`). 사망 게이팅(§3.1)은 일부러 우회하지 않는다 |
 | 탐지 스킬 전체 | **부분 구현됨** — `DetectionSkillController`(로컬 상태 머신) · `DetectionTargetMarker`(활성 마커) · `DetectionHighlight` 셰이더 · `MoleSkillHud` 시전 파란빛 오버레이 · `MoleSkillSetup` 설치 도구. 손·레이저 포인터 애니메이션과 작업 시스템의 실제 대상 정의는 MS-14·MS-5 |
-| 자동화 테스트 | 마지막 완료 결과는 **복제 batchmode EditMode 165/172 passed · 1 failed · 6 skipped** (2026-09-05)다. 탐지 신규 테스트는 전부 통과한다. 실패 1건(`Ghost_소리탐지는_걷기6m와_달리기12m를_구분한다` — `GhostPrototypeSettings_Default.asset` 로드 null)과 skip 6건은 **복제 프로젝트의 에셋 임포트 한계**이며 원본에서 재확인이 필요하다. 최신 파란빛 오버레이 변경 후 복제 재시도는 Unity Licensing 채널과 오프라인 Git 패키지(`com.coplaydev.unity-mcp`, `com.cysharp.unitask`) 해결 단계에서 테스트 XML 생성 전에 **중단됐다**. 소스 어셈블리(`Gameplay`·`UI`·`Editor`·EditMode/PlayMode 테스트)는 `dotnet build --no-restore` 오류 0으로 컴파일했고, 셰이더(`DetectionHighlight`)는 원본 Editor.log에서 임포트 오류가 없다. **실제 스폰·렌더링·UI는 여전히 수동 Play 검증 필요** |
+| 자동화 테스트 | 마지막 완료 결과는 **복제 batchmode EditMode 165/172 passed · 1 failed · 6 skipped** (2026-09-05)다. 탐지 신규 테스트는 전부 통과한다. 실패 1건(`Ghost_소리탐지는_걷기6m와_달리기12m를_구분한다` — `GhostPrototypeSettings_Default.asset` 로드 null)과 skip 6건은 **복제 프로젝트의 에셋 임포트 한계**이며 원본에서 재확인이 필요하다. 최신 파란빛 오버레이 변경 후 복제 재시도는 Unity Licensing 채널과 오프라인 Git 패키지(`com.cysharp.unitask` 등) 해결 단계에서 테스트 XML 생성 전에 **중단됐다**. 소스 어셈블리(`Gameplay`·`UI`·`Editor`·EditMode/PlayMode 테스트)는 `dotnet build --no-restore` 오류 0으로 컴파일했고, 셰이더(`DetectionHighlight`)는 원본 Editor.log에서 임포트 오류가 없다. **실제 스폰·렌더링·UI는 여전히 수동 Play 검증 필요** |
 | 발견·수정한 버그 | `DetectionSkillStateMachine` 의 시간 비교가 float 오차에 취약했다 — 쿨타임·표시 시간을 나눠 태우면 미세 잔여로 한 프레임 더 잠긴다. `TimeEpsilon`(1e-4) 도입으로 수정. 1.0 이 테스트를 못 돌려 놓친 것이다 |
 
 > **버그 발견·수정(2026-08-31)** — 설치 직후엔 정상으로 보이지만 `VolumeProfile.Add<T>()`만으로는

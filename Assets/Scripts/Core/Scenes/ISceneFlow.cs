@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace GhostHunter.Core.Scenes
 {
@@ -16,6 +17,18 @@ namespace GhostHunter.Core.Scenes
 
         /// <summary>전환이 진행 중인가. true 인 동안의 <see cref="Load"/> 호출은 무시된다.</summary>
         bool IsLoading { get; }
+
+        /// <summary>전멸로 끝난 직전 스테이지의 사망자 수. 금액은 기획 결정 전까지 계산하지 않는다.</summary>
+        int StageFailureDeadCount { get; }
+
+        /// <summary>전멸 결과를 모든 피어의 Result 화면에 보관한다.</summary>
+        void RecordStageFailure(int deadCount);
+
+        /// <summary>현재 방이 유지되는 동안의 정상 종료 이력.</summary>
+        IReadOnlyList<StageSettlementRecord> SettlementHistory { get; }
+
+        /// <summary>서버가 확정한 결과를 각 피어의 방 이력에 한 번 기록한다.</summary>
+        void RecordStageSettlement(StageSettlementRecord record);
 
         /// <summary>전환이 끝나 새 씬이 활성 씬이 된 뒤 발생한다.</summary>
         event Action<SceneId> SceneChanged;

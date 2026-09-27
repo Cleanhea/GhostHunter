@@ -114,7 +114,7 @@
 > 갑자기 6씩 깎이는 계단이 생긴다. 초과분에 비례하면 기준선 근처에서 0부터 부드럽게 늘어난다.
 > 순수 비례(`감소량 = v × k`)를 원하면 FD-2에서 바꾼다.
 
-수치는 코드 상수가 아니라 **ScriptableObject 설정 에셋**에 둔다(CLAUDE.md §3.4). 위 값은 승인된 초기값이며 `FurnitureDefinition_Light/Heavy` SO에서 조정한다.
+수치는 코드 상수가 아니라 **ScriptableObject 설정 에셋**에 둔다(CLAUDE.md §3 코드). 위 값은 승인된 초기값이며 `FurnitureDefinition_Light/Heavy` SO에서 조정한다.
 
 #### 3.4.1 속도 기준표 — 현재 설정값으로 계산
 

@@ -196,7 +196,7 @@ namespace GhostHunter.Tests.EditMode
         private static void AssertActionExists(InputActionAsset actions, string actionPath)
         {
             InputAction action = actions.FindAction(actionPath, false);
-            Assert.IsNotNull(action, $"{actionPath} 액션이 없습니다 — SpectatorSetup 메뉴 도구를 실행했는지 확인하세요.");
+            Assert.IsNotNull(action, $"{actionPath} 액션이 없습니다.");
         }
 
         /// <summary>테스트 전용 — 메서드 이름 다음 첫 중괄호 블록만 거칠게 잘라낸다.</summary>

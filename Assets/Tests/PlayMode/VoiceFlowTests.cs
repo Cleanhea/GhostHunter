@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using GhostHunter.Core;
 using GhostHunter.Core.Voice;
+using GhostHunter.Core.Scenes;
 using GhostHunter.Data;
 using GhostHunter.Gameplay.Player;
 using GhostHunter.Gameplay.Sanity;
@@ -27,6 +28,7 @@ namespace GhostHunter.Tests.PlayMode
         private LocalPlayerContext _local;
         private SanityTeamService _team;
         private FakeCapture _capture;
+        private TestSceneFlow _sceneFlow;
         private uint _hash = 0x6F100000;
         private PlayerVoiceEmitter _owner;
         [UnitySetUp]
@@ -35,7 +37,8 @@ namespace GhostHunter.Tests.PlayMode
             _settings = ScriptableObject.CreateInstance<VoiceChatSettings>();
             _sanitySettings = ScriptableObject.CreateInstance<SanitySystemSettings>();
             _capture = new FakeCapture();
-            _chat = new VoiceChatService(_capture, _settings) { TestDecoder = _capture };
+            _sceneFlow = new TestSceneFlow();
+            _chat = new VoiceChatService(_capture, _settings, _sceneFlow) { TestDecoder = _capture };
             _local = new LocalPlayerContext();
             _team = Create("Team").AddComponent<SanityTeamService>();
             Services.Bind<IVoiceCaptureService>(_capture);
@@ -115,6 +118,36 @@ namespace GhostHunter.Tests.PlayMode
             Assert.IsFalse(_capture.IsRecording);
             Assert.That(_chat.Participants.Count, Is.Zero);
         }
+        [UnityTest]
+        public IEnumerator Result_JoinsDeadAndAliveVoice_ThenLobbySilencesIt()
+        {
+            typeof(VoiceChatService).GetField("_master", BindingFlags.Instance | BindingFlags.NonPublic)
+                .SetValue(_chat, 1f);
+            PlayerVoiceEmitter remote = Spawn(999);
+            Assert.IsTrue(remote.GetComponent<SanityNetworkState>().ServerMarkDead());
+            var rpcTarget = (RpcTarget)typeof(NetworkBehaviour).GetProperty("RpcTarget",
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic).GetValue(remote);
+            using (var packet = new NativeArray<byte>(new byte[] { 1, 0, 7 }, Allocator.Temp))
+            {
+                Invoke(remote, "PlayVoiceRpc", packet, (byte)1, (ushort)1, false,
+                    (RpcParams)rpcTarget.Single(0, RpcTargetUse.Temp));
+                Assert.That(remote.ReceivedPackets, Is.Zero, "Game에서는 생존자에게 사망자 음성이 들리지 않는다");
+
+                _sceneFlow.Current = SceneId.Result;
+                Invoke(remote, "PlayVoiceRpc", packet, (byte)1, (ushort)2, false,
+                    (RpcParams)rpcTarget.Single(0, RpcTargetUse.Temp));
+                yield return null;
+                Assert.That(remote.ReceivedPackets, Is.EqualTo(1));
+                Assert.That(remote.GetComponent<AudioSource>().spatialBlend, Is.Zero,
+                    "Result 공용 채널은 위치와 무관한 2D 음성이다");
+
+                _sceneFlow.Current = SceneId.Lobby;
+                Invoke(remote, "PlayVoiceRpc", packet, (byte)1, (ushort)3, false,
+                    (RpcParams)rpcTarget.Single(0, RpcTargetUse.Temp));
+                Assert.That(remote.ReceivedPackets, Is.EqualTo(1));
+                Assert.IsFalse(_chat.IsActive);
+            }
+        }
         private PlayerVoiceEmitter Spawn(ulong owner)
         {
             GameObject root = Create("VoiceTestPlayer");
@@ -125,8 +158,9 @@ namespace GhostHunter.Tests.PlayMode
             Set(sanity, "_settings", _sanitySettings);
             var source = root.AddComponent<AudioSource>();
             source.playOnAwake = false;
-            var filter = root.AddComponent<AudioLowPassFilter>();
+            // 프리팹과 같은 순서 — 수신기의 OnAudioFilterRead 가 로우패스보다 먼저 와야 한다.
             var receiver = root.AddComponent<VoiceReceiver>();
+            var filter = root.AddComponent<AudioLowPassFilter>();
             Set(receiver, "_source", source); Set(receiver, "_filter", filter);
             var emitter = root.AddComponent<PlayerVoiceEmitter>();
             Set(emitter, "_settings", _settings); Set(emitter, "_sanity", sanity); Set(emitter, "_receiver", receiver);
@@ -139,6 +173,22 @@ namespace GhostHunter.Tests.PlayMode
             => target.GetType().GetField(name, BindingFlags.Instance | BindingFlags.NonPublic).SetValue(target, value);
         private static void Invoke(object target, string name, params object[] arguments)
             => target.GetType().GetMethod(name, BindingFlags.Instance | BindingFlags.NonPublic).Invoke(target, arguments);
+        private sealed class TestSceneFlow : ISceneFlow
+        {
+            public SceneId Current { get; set; } = SceneId.Stage1;
+            public bool IsLoading => false;
+            public int StageFailureDeadCount => 0;
+            public System.Collections.Generic.IReadOnlyList<StageSettlementRecord> SettlementHistory =>
+                System.Array.Empty<StageSettlementRecord>();
+            public event System.Action<SceneId> SceneChanged;
+            public void RecordStageFailure(int deadCount) { }
+            public void RecordStageSettlement(StageSettlementRecord record) { }
+            public void Load(SceneId scene)
+            {
+                Current = scene;
+                SceneChanged?.Invoke(scene);
+            }
+        }
         private sealed class FakeCapture : IVoiceCaptureService
         {
             public bool IsAvailable => true;

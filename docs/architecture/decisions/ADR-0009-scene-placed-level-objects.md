@@ -4,6 +4,7 @@
 - **날짜**: 2026-08-19
 - **결정자**: MinGiHong
 - **관련**: [../map-generation.md](../map-generation.md), [../furniture-physics.md](../furniture-physics.md), [../../conventions/unity-assets.md](../../conventions/unity-assets.md)
+- **후속(2026-09-28)**: 이 ADR이 언급하는 설치·생성 도구(`HousePrototypeBuilder`·`…Setup`·`GhostHunter > …` 메뉴)는 [ADR-0020](ADR-0020-remove-one-off-editor-setup-tools.md)으로 삭제됐다.
 
 ## 배경 (Context)
 

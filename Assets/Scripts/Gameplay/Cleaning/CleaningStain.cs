@@ -1,5 +1,6 @@
 using System;
 using GhostHunter.Gameplay.Player;
+using GhostHunter.Gameplay.Recovery;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -42,6 +43,7 @@ namespace GhostHunter.Gameplay.Cleaning
         private bool _wiping;
 
         public bool IsDirty => IsSpawned && _state.Value.Placed && !_state.Value.Cleaned;
+        public bool IsPlaced => IsSpawned && _state.Value.Placed;
         public uint Revision => _state.Value.Revision;
         public Collider HitCollider => _hitCollider;
 
@@ -53,7 +55,7 @@ namespace GhostHunter.Gameplay.Cleaning
 
         public override void OnNetworkSpawn()
         {
-            if (IsServer)
+            if (IsServer && !StageRecoveryGate.Restoring)
                 _state.Value = default;
             _state.OnValueChanged += HandleChanged;
             Apply(false);
@@ -88,6 +90,28 @@ namespace GhostHunter.Gameplay.Cleaning
             {
                 Position = position, Yaw = yaw, Revision = revision, Placed = placed,
             };
+        }
+
+        public StageRecoverySnapshot.StainState CaptureStageState()
+        {
+            State state = _state.Value;
+            return new StageRecoverySnapshot.StainState
+            {
+                Position = state.Position, Yaw = state.Yaw, Revision = state.Revision,
+                Placed = state.Placed, Cleaned = state.Cleaned,
+            };
+        }
+
+        public void ServerRestoreStageState(StageRecoverySnapshot.StainState snapshot)
+        {
+            if (!IsServer || !IsSpawned)
+                return;
+            _state.Value = new State
+            {
+                Position = snapshot.Position, Yaw = snapshot.Yaw, Revision = snapshot.Revision,
+                Placed = snapshot.Placed, Cleaned = snapshot.Cleaned,
+            };
+            Apply(false);
         }
 
         /// <summary>동일 배치 세대의 얼룩을 한 번만 청소한다. 이전 세대 요청은 무시한다.</summary>

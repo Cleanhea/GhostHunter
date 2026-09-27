@@ -62,7 +62,7 @@ feat: 문 여닫기를 서버 권위 NetworkVariable로 구현
 - `.meta`는 MUST 커밋한다. 누락되면 다른 사람 환경에서 참조가 깨진다.
 - 파일 삭제 시 `.meta`도 함께 삭제한다.
 - `git status`에 `.meta`만 단독으로 남아 있으면 삭제 누락 신호다.
-- 파일 이동/삭제는 MUST Unity 에디터 안에서 한다 → [unity-assets.md](unity-assets.md)
+- 파일 이동은 `git mv`로 에셋과 `.meta`를 함께 옮긴다. 에디터에서 옮겨도 된다 → [unity-assets.md](unity-assets.md)
 
 ## 5. LFS · 바이너리
 
@@ -77,7 +77,6 @@ feat: 문 여닫기를 서버 권위 NetworkVariable로 구현
 | `Packages/com.community.netcode.transport.facepunch/**` | ✅ | **벤더링 사본.** 패치 없이는 컴파일되지 않는다 |
 | `Packages/manifest.json` · `packages-lock.json` | ✅ | 함께 커밋 |
 | `steam_appid.txt` (프로젝트 루트) | ✅ | 개발용 `480`. 실제 배포 빌드에는 포함하지 않는다 |
-| `.mcp.json` (Unity MCP 등록) | ✅ | localhost 주소만 담기므로 비밀 정보 없음 |
 | 빌드 산출물 옆 `steam_api64.dll` | ❌ | 빌드 결과물이므로 커밋하지 않는다 |
 
 - 벤더링 패키지를 수정하면 MUST
@@ -109,4 +108,4 @@ feat: 문 여닫기를 서버 권위 NetworkVariable로 구현
 
 관련: [code-style.md](code-style.md) · [unity-assets.md](unity-assets.md)
 
-최종 갱신: 2026-08-19
+최종 갱신: 2026-09-28 (파일 이동은 `git mv`로 `.meta`와 함께)

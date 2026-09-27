@@ -27,17 +27,21 @@ namespace GhostHunter.Gameplay.Voice
             for (int i = 0; i < count; i++) _samples[(int)((write + i) % _samples.Length)] = source[i];
             Volatile.Write(ref _written, write + count);
         }
-        public void Read(float[] destination)
+        public void Read(float[] destination) => Read(destination, destination.Length);
+
+        /// <summary>앞쪽 <paramref name="length"/>칸을 채우고 실제로 읽은 샘플 수를 돌려준다. 모자란 칸은 0이다.</summary>
+        public int Read(float[] destination, int length)
         {
             long write = Volatile.Read(ref _written);
             long read = Math.Max(_read, Volatile.Read(ref _discardBefore));
             read = Math.Max(read, write - _maximumQueued);
-            int count = (int)Math.Min(destination.Length, write - read);
+            int count = (int)Math.Min(length, write - read);
             for (int i = 0; i < count; i++) destination[i] = _samples[(int)((read + i) % _samples.Length)];
-            Array.Clear(destination, count, destination.Length - count);
-            // Clear와 겹친 콜백은 재사용된 슬롯의 데이터를 출력하지 않는다.
-            if (Volatile.Read(ref _discardBefore) > read) Array.Clear(destination, 0, destination.Length);
+            Array.Clear(destination, count, length - count);
             Volatile.Write(ref _read, read + count);
+            // Clear와 겹친 콜백은 재사용된 슬롯의 데이터를 출력하지 않는다.
+            if (Volatile.Read(ref _discardBefore) > read) { Array.Clear(destination, 0, length); return 0; }
+            return count;
         }
         public void Clear() => Volatile.Write(ref _discardBefore, Volatile.Read(ref _written));
     }

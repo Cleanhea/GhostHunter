@@ -1,5 +1,6 @@
 using GhostHunter.Core.Scenes;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace GhostHunter.Data.Scenes
 {
@@ -16,8 +17,17 @@ namespace GhostHunter.Data.Scenes
 
         [SerializeField] private SceneReference _title = new();
         [SerializeField] private SceneReference _lobby = new();
-        [SerializeField] private SceneReference _game = new();
+        [Tooltip("프로토타입 검증 씬(구 Game). 인게임 로비의 출발 대상이 아니다(ADR-0019).")]
+        [FormerlySerializedAs("_game")]
+        [SerializeField] private SceneReference _protoTypeGame = new();
+
         [SerializeField] private SceneReference _result = new();
+
+        [Tooltip("인게임 로비 — 세션을 연 채 스테이지 사이를 잇는 공간(ADR-0018).")]
+        [SerializeField] private SceneReference _inGameLobby = new();
+
+        [Tooltip("인게임 로비의 \"스테이지 출발\"이 올리는 스테이지(ADR-0019).")]
+        [SerializeField] private SceneReference _stage1 = new();
 
         /// <summary>지정되지 않았으면 빈 문자열. 호출부가 검사한다.</summary>
         public string GetSceneName(SceneId id)
@@ -48,7 +58,8 @@ namespace GhostHunter.Data.Scenes
 
         private static readonly SceneId[] AllIds =
         {
-            SceneId.Bootstrap, SceneId.Title, SceneId.Lobby, SceneId.Game, SceneId.Result,
+            SceneId.Bootstrap, SceneId.Title, SceneId.Lobby, SceneId.ProtoTypeGame, SceneId.Result,
+            SceneId.InGameLobby, SceneId.Stage1,
         };
 
         private SceneReference Resolve(SceneId id)
@@ -58,8 +69,10 @@ namespace GhostHunter.Data.Scenes
                 case SceneId.Bootstrap: return _bootstrap;
                 case SceneId.Title: return _title;
                 case SceneId.Lobby: return _lobby;
-                case SceneId.Game: return _game;
+                case SceneId.ProtoTypeGame: return _protoTypeGame;
                 case SceneId.Result: return _result;
+                case SceneId.InGameLobby: return _inGameLobby;
+                case SceneId.Stage1: return _stage1;
                 default:
                     Debug.LogError($"{nameof(SceneNameSO)}: 알 수 없는 SceneId {id}", this);
                     return _title;
@@ -71,7 +84,8 @@ namespace GhostHunter.Data.Scenes
         {
             bool changed = false;
 
-            foreach (SceneReference reference in new[] { _bootstrap, _title, _lobby, _game, _result })
+            foreach (SceneReference reference in
+                     new[] { _bootstrap, _title, _lobby, _protoTypeGame, _result, _inGameLobby, _stage1 })
                 changed |= reference.BakeName();
 
             if (changed)

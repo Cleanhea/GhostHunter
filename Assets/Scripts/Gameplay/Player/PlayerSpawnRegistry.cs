@@ -46,6 +46,30 @@ namespace GhostHunter.Gameplay.Player
 
         private readonly Collider[] _overlapBuffer = new Collider[8];
 
+        /// <summary>현재 씬의 시작 지점 전체를 감싸는 Bounds와 지점들이 바라보는 평균 방향을 반환한다.</summary>
+        public bool TryGetSpawnBounds(out Bounds bounds, out Vector3 facing)
+        {
+            bounds = default;
+            facing = Vector3.zero;
+            bool found = false;
+            if (_spawnPoints == null)
+                return false;
+            foreach (Transform point in _spawnPoints)
+            {
+                if (point == null)
+                    continue;
+                facing += point.forward;
+                if (!found)
+                {
+                    bounds = new Bounds(point.position, Vector3.zero);
+                    found = true;
+                }
+                else
+                    bounds.Encapsulate(point.position);
+            }
+            return found;
+        }
+
         public bool TryGetSpawn(
             ulong clientId,
             Transform spawning,

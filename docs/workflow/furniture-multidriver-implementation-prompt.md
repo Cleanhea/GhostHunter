@@ -1,5 +1,8 @@
 # 가구용 멀티 드라이버 구현 모델용 프롬프트
 
+> **2026-09-28:** 이 문서의 `GhostHunter > …` 설치·생성·검증 메뉴와 `Editor/…Setup.cs` 도구는 [ADR-0020](../architecture/decisions/ADR-0020-remove-one-off-editor-setup-tools.md)으로 삭제됐다.
+> 도구 실행 절차·결과는 구현 당시 기록이다. 지금은 저장된 씬·프리팹이 원본이고 직접 고친다.
+
 GhostHunter 저장소에서 가구 분해·조립 아이템(가구용 멀티 드라이버)을 구현하라. 아래를 작업 지시로
 쓰되, 게임 규칙의 최신 권위는 `docs/project/furniture-multidriver-system.md`다.
 **기획서만 다시 쓰고 끝내지 말고, 확정된 범위의 코드·배선·검증·문서 갱신까지 수행하라.**
@@ -23,7 +26,7 @@ GhostHunter 저장소에서 가구 분해·조립 아이템(가구용 멀티 드
 5. `docs/architecture/decisions/ADR-0009-scene-placed-level-objects.md`,
    `ADR-0010-server-authoritative-furniture-physics.md` — **이번 작업의 최대 쟁점이다**(§3 함정 1).
 6. `docs/conventions/code-style.md`, `unity-assets.md`, `docs/workflow/development-loop.md`, `testing.md`.
-7. 씬·프리팹·SO 배선 전에 `docs/conventions/unity-assets.md`, `docs/workflow/unity-mcp.md`.
+7. 씬·프리팹·SO 배선 전에 `docs/conventions/unity-assets.md`.
 
 ### 1.2 브랜치 확인
 
@@ -138,11 +141,9 @@ MD-6(가구 내구도 증감 원인), MD-13(스테이지 종료 시 잔여 부�
 - 가구 물리는 **서버 권위**(ADR-0010)를 유지하고, 클라이언트는 입력·의도만 보낸다.
 - 입력은 신규 Input System만, RPC는 `[Rpc(SendTo.…)]`만 쓴다.
 - 새 `static Instance`, 매 프레임 `Find`/`Camera.main`/LINQ 할당, `async void`·새 코루틴을 만들지 마라.
-- `.meta`를 직접 만들거나 고치지 말고, `.unity`·`.prefab`·`.asset`을 텍스트로 편집하지 마라.
 - 씬·프리팹·SO 배선은 기존 설치 도구 패턴을 따라 **멱등 설치 + 검증 메뉴**로 만들어라.
-  MCP 연결을 먼저 확인하고, 변경할 씬·에셋을 미리 고지하고, 저장 여부를 보고하라.
+  변경할 씬·에셋을 미리 알리고, 바꾼 내용을 보고하라.
   **`GhostHunter > 프로토타입 게임 생성`으로 `Game` 씬을 재생성하지 마라** — 배치된 가구가 전부 사라진다.
-  MCP가 없으면 수행할 배선을 번호로 안내하고 미실행으로 기록하라.
 
 ## 5. 완료 기준
 
@@ -166,7 +167,7 @@ MD-6(가구 내구도 증감 원인), MD-13(스테이지 종료 시 잔여 부�
 ## 6. 검증·문서·최종 보고
 
 - **컴파일 → 관련 EditMode → PlayMode → Host/Client 수동 확인** 순으로 검증하라.
-  에디터가 열려 있으면 MCP 경로부터 확인하고 **잠긴 프로젝트에 batchmode를 실행하지 마라.**
+  에디터가 열려 있으면 **잠긴 프로젝트에 batchmode를 실행하지 말고** 검증용 복제 프로젝트를 써라.
 - 의미 있는 자동 검증에 집중하라. **조립 성립 판정(부품 집합 → 가능/불가·대상 가구)은 순수 로직으로
   분리해 EditMode로 촘촘히 덮어라** — 혼입·개수 초과·부분 집합·같은 종류 출처 혼합·빈 영역.
   내구도 평균·상속 계산도 순수 함수로 테스트하라. PlayMode는 서버 거절 케이스와 홀더 정리를 본다.

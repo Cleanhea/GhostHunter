@@ -3,21 +3,41 @@ using UnityEngine;
 
 namespace GhostHunter.Gameplay.Ghost
 {
-    /// <summary>
-    /// 귀신 시스템 기획서 §4·§5·§7 의 공통 상태 전이를 계산한다. 팀 평균 정신력과 청소 진행도를
-    /// 입력으로 받아 현재 <see cref="GhostPhase"/> 를 정하고, 활동 상태에서 10초 주기 어택 판정을 굴린다.
-    /// NGO·씬에 의존하지 않는 순수 로직이라 EditMode 로 검증한다.
-    /// </summary>
+    /// <summary>팀 정신력과 청소 진행도에 따른 서버 권위 귀신 상태 계산.</summary>
     internal sealed class GhostStateMachine
     {
+        internal readonly struct Snapshot
+        {
+            internal readonly GhostPhase Phase;
+            internal readonly float PhaseElapsed;
+            internal readonly float SecondsUntilNextRoll;
+            internal readonly bool CleaningThresholdReached;
+            internal readonly bool HighRiskAttack;
+            internal readonly bool AttackStartedBelowRecoveryThreshold;
+            internal readonly int LastTeamSanity;
+
+            internal Snapshot(GhostPhase phase, float phaseElapsed, float secondsUntilNextRoll,
+                bool cleaningThresholdReached, bool highRiskAttack,
+                bool attackStartedBelowRecoveryThreshold, int lastTeamSanity)
+            {
+                Phase = phase;
+                PhaseElapsed = phaseElapsed;
+                SecondsUntilNextRoll = secondsUntilNextRoll;
+                CleaningThresholdReached = cleaningThresholdReached;
+                HighRiskAttack = highRiskAttack;
+                AttackStartedBelowRecoveryThreshold = attackStartedBelowRecoveryThreshold;
+                LastTeamSanity = lastTeamSanity;
+            }
+        }
+
         private static readonly System.Random SharedRandom = new();
 
         private readonly GhostPrototypeSettings _settings;
         private readonly Func<double> _roll;
-
-        private bool _forceActive;
-        private bool _cleaningTriggerConsumed;
-        private float _cleaningBoostRemaining;
+        private bool _cleaningThresholdReached;
+        private bool _highRiskAttack;
+        private bool _attackStartedBelowRecoveryThreshold;
+        private int _lastTeamSanity = 100;
 
         internal GhostStateMachine(GhostPrototypeSettings settings, Func<double> roll = null)
         {
@@ -25,93 +45,89 @@ namespace GhostHunter.Gameplay.Ghost
                 ? settings
                 : throw new ArgumentNullException(nameof(settings));
             _roll = roll ?? SharedRandom.NextDouble;
-
             ResetForStage();
         }
 
-        /// <summary>현재 상태.</summary>
         internal GhostPhase Phase { get; private set; }
-
-        /// <summary>현재 상태에 머문 시간(초).</summary>
         internal float PhaseElapsed { get; private set; }
-
-        /// <summary>활동 상태에서 다음 어택 판정까지 남은 시간(초). 그 외 상태에서는 0.</summary>
         internal float SecondsUntilNextRoll { get; private set; }
-
-        /// <summary>청소 40% 도달 직후 방해 빈도가 올라가 있는 구간인지(§6.2).</summary>
-        internal bool CleaningBoostActive => _cleaningBoostRemaining > 0f;
-
-        /// <summary>어택·경고 진행 중이라 신규 어택 판정을 하지 않는 상태인지(§11.3).</summary>
+        internal bool CleaningBoostActive => false; // 이전 프로토타입 API 호환. 청소는 이제 영구 발동 조건이다.
+        internal bool CleaningThresholdReached => _cleaningThresholdReached;
+        internal bool IsHighRiskAttack => _highRiskAttack && Phase == GhostPhase.Attack;
         internal bool IsAttackSequenceLocked =>
-            Phase is GhostPhase.Warning or GhostPhase.Attack
-                or GhostPhase.Calming or GhostPhase.Suppressed;
+            Phase is GhostPhase.Warning or GhostPhase.Attack or GhostPhase.Calming;
 
         internal void ResetForStage()
         {
-            Phase = GhostPhase.Idle;
+            Phase = GhostPhase.Active;
             PhaseElapsed = 0f;
-            SecondsUntilNextRoll = 0f;
-            _forceActive = false;
-            _cleaningTriggerConsumed = false;
-            _cleaningBoostRemaining = 0f;
+            SecondsUntilNextRoll = _settings.AttackRollInterval;
+            _cleaningThresholdReached = false;
+            _highRiskAttack = false;
+            _attackStartedBelowRecoveryThreshold = false;
+            _lastTeamSanity = 100;
         }
 
-        /// <summary>F1 디버그 토글. 정신력·청소와 무관하게 활동 조건을 하나 더 세운다.</summary>
-        internal void SetForceActive(bool forceActive) => _forceActive = forceActive;
+        internal Snapshot CaptureSnapshot() => new(Phase, PhaseElapsed, SecondsUntilNextRoll,
+            _cleaningThresholdReached, _highRiskAttack,
+            _attackStartedBelowRecoveryThreshold, _lastTeamSanity);
 
-        /// <summary>
-        /// 특수 어택 Trigger(§7.4). 평상시·활동에서 부르면 10초 주기를 기다리지 않고 즉시 경고로 간다.
-        /// 이미 경고·어택·진정 중이면 무시한다 — 원문이 끊긴 부분(G-2)이라 중첩·연장하지 않는다.
-        /// </summary>
+        internal void RestoreSnapshot(Snapshot snapshot)
+        {
+            if (!Enum.IsDefined(typeof(GhostPhase), snapshot.Phase))
+                throw new ArgumentOutOfRangeException(nameof(snapshot));
+            Phase = snapshot.Phase;
+            PhaseElapsed = Mathf.Max(0f, snapshot.PhaseElapsed);
+            SecondsUntilNextRoll = Mathf.Max(0f, snapshot.SecondsUntilNextRoll);
+            _cleaningThresholdReached = snapshot.CleaningThresholdReached;
+            _highRiskAttack = snapshot.HighRiskAttack;
+            _attackStartedBelowRecoveryThreshold = snapshot.AttackStartedBelowRecoveryThreshold;
+            _lastTeamSanity = snapshot.LastTeamSanity;
+        }
+
+        /// <summary>귀신별 특수 조건에서 즉시 경고를 시작한다.</summary>
         internal bool ForceSpecialAttack()
         {
-            if (Phase is not (GhostPhase.Idle or GhostPhase.Active))
+            if (Phase != GhostPhase.Active)
                 return false;
 
+            _highRiskAttack = _lastTeamSanity <= _settings.HighRiskTeamSanity;
             EnterPhase(GhostPhase.Warning);
             return true;
         }
 
-        /// <summary>강제 진정(§4.8). 어느 상태에서든 걸리고 진행 중인 어택을 즉시 끊는다.</summary>
+        /// <summary>어택 종료 아이템. 현재 어택을 즉시 끝내고 30초 자연 진정으로 들어간다.</summary>
         internal bool ForceSuppression()
         {
-            if (Phase == GhostPhase.Suppressed)
+            if (Phase != GhostPhase.Attack)
                 return false;
 
-            EnterPhase(GhostPhase.Suppressed);
+            EnterPhase(GhostPhase.Calming);
             return true;
         }
 
-        /// <summary>한 프레임 진행한다. 반환값은 갱신된 현재 상태.</summary>
-        internal GhostPhase Tick(
-            float deltaTime,
-            int teamSanity,
-            bool hasLivingPlayers,
-            int cleaningProgress)
+        internal GhostPhase Tick(float deltaTime, int teamSanity, bool hasLivingPlayers, int cleaningProgress)
         {
-            if (deltaTime < 0f)
-                deltaTime = 0f;
-
+            deltaTime = Mathf.Max(0f, deltaTime);
             PhaseElapsed += deltaTime;
-            if (_cleaningBoostRemaining > 0f)
-                _cleaningBoostRemaining = Mathf.Max(0f, _cleaningBoostRemaining - deltaTime);
-
-            HandleCleaningTrigger(cleaningProgress);
+            _lastTeamSanity = teamSanity;
+            if (cleaningProgress >= _settings.CleaningActivateProgress)
+                _cleaningThresholdReached = true;
 
             switch (Phase)
             {
-                case GhostPhase.Idle:
-                    if (HasActiveCondition(teamSanity))
-                        EnterPhase(GhostPhase.Active);
-                    break;
-
                 case GhostPhase.Active:
                     TickActive(deltaTime, teamSanity, hasLivingPlayers);
                     break;
 
                 case GhostPhase.Warning:
                     if (PhaseElapsed >= _settings.WarningDuration)
+                    {
+                        _highRiskAttack |= teamSanity <= _settings.HighRiskTeamSanity;
+                        _attackStartedBelowRecoveryThreshold =
+                            teamSanity < _settings.AttackEarlyEndTeamSanity;
                         EnterPhase(GhostPhase.Attack);
+                    }
                     break;
 
                 case GhostPhase.Attack:
@@ -120,12 +136,7 @@ namespace GhostHunter.Gameplay.Ghost
 
                 case GhostPhase.Calming:
                     if (PhaseElapsed >= _settings.CalmingDuration)
-                        RecheckAfterCalm(teamSanity);
-                    break;
-
-                case GhostPhase.Suppressed:
-                    if (PhaseElapsed >= _settings.SuppressionDuration)
-                        RecheckAfterCalm(teamSanity);
+                        RecheckAfterCalm(teamSanity, hasLivingPlayers);
                     break;
             }
 
@@ -134,9 +145,14 @@ namespace GhostHunter.Gameplay.Ghost
 
         private void TickActive(float deltaTime, int teamSanity, bool hasLivingPlayers)
         {
-            if (!HasActiveCondition(teamSanity))
+            if (!hasLivingPlayers || !_cleaningThresholdReached)
+                return;
+
+            // 0~30은 확률 판정 없이 즉시 경고를 시작한다.
+            if (teamSanity <= _settings.HighRiskTeamSanity)
             {
-                EnterPhase(GhostPhase.Idle);
+                _highRiskAttack = true;
+                EnterPhase(GhostPhase.Warning);
                 return;
             }
 
@@ -144,65 +160,58 @@ namespace GhostHunter.Gameplay.Ghost
             if (SecondsUntilNextRoll > 0f)
                 return;
 
-            SecondsUntilNextRoll += _settings.AttackRollInterval;
-
-            // §7.1 전제: 팀 평균 60 이하 + 생존자 존재. 조건을 못 채우면 판정 자체를 하지 않는다.
-            if (!hasLivingPlayers || teamSanity > _settings.AttackTeamSanity)
-                return;
-
-            float chance = _settings.AttackChanceForTeamSanity(teamSanity);
-            if (chance > 0f && _roll() < chance)
+            SecondsUntilNextRoll = _settings.AttackRollInterval;
+            if (teamSanity <= _settings.AttackTeamSanity
+                && _roll() < _settings.AttackChanceForTeamSanity(teamSanity))
+            {
+                _highRiskAttack = false;
                 EnterPhase(GhostPhase.Warning);
+            }
         }
 
         private void TickAttack(int teamSanity)
         {
-            if (PhaseElapsed >= _settings.AttackMaxDuration)
-            {
-                EnterPhase(GhostPhase.Calming);
-                return;
-            }
-
-            // 최소 30초 전에는 강제 진정 아이템 말고는 절대 끝나지 않는다(§7.5).
-            if (PhaseElapsed >= _settings.AttackMinDuration
+            if (_attackStartedBelowRecoveryThreshold
+                && PhaseElapsed <= _settings.AttackEarlyEndWindow
                 && teamSanity >= _settings.AttackEarlyEndTeamSanity)
             {
                 EnterPhase(GhostPhase.Calming);
+                return;
             }
+
+            float duration = _highRiskAttack
+                ? _settings.HighRiskAttackDuration
+                : _settings.AttackMaxDuration;
+            if (PhaseElapsed >= duration)
+                EnterPhase(GhostPhase.Calming);
         }
 
-        private void RecheckAfterCalm(int teamSanity)
+        private void RecheckAfterCalm(int teamSanity, bool hasLivingPlayers)
         {
-            EnterPhase(HasActiveCondition(teamSanity) ? GhostPhase.Active : GhostPhase.Idle);
-        }
-
-        private void HandleCleaningTrigger(int cleaningProgress)
-        {
-            if (_cleaningTriggerConsumed || cleaningProgress < _settings.CleaningActivateProgress)
+            EnterPhase(GhostPhase.Active);
+            if (!hasLivingPlayers || !_cleaningThresholdReached)
                 return;
 
-            // 40% 는 일회성 트리거로 취급한다(G-1). 유지되는 활동 조건으로 박아 두지 않고,
-            // 도달 순간 활동으로 밀어 넣은 뒤 방해 증가 구간(§6.2, [임시] 90초)만 켠다.
-            // 그 구간이 지나면 다른 활동 조건이 없는 한 평상시로 돌아올 수 있다.
-            _cleaningTriggerConsumed = true;
-            _cleaningBoostRemaining = _settings.CleaningBoostDuration;
-
-            if (Phase == GhostPhase.Idle)
-                EnterPhase(GhostPhase.Active);
-        }
-
-        private bool HasActiveCondition(int teamSanity)
-        {
-            return _forceActive
-                || teamSanity <= _settings.ActiveTeamSanity
-                || CleaningBoostActive;
+            if (teamSanity <= _settings.HighRiskTeamSanity)
+            {
+                _highRiskAttack = true;
+                EnterPhase(GhostPhase.Warning);
+            }
+            else if (teamSanity <= _settings.AttackTeamSanity
+                && _roll() < _settings.AttackChanceForTeamSanity(teamSanity))
+            {
+                _highRiskAttack = false;
+                EnterPhase(GhostPhase.Warning);
+            }
         }
 
         private void EnterPhase(GhostPhase phase)
         {
             Phase = phase;
             PhaseElapsed = 0f;
-            SecondsUntilNextRoll = phase == GhostPhase.Active ? _settings.AttackRollInterval : 0f;
+            SecondsUntilNextRoll = phase == GhostPhase.Active
+                ? _settings.AttackRollInterval
+                : 0f;
         }
     }
 }

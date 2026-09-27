@@ -7,6 +7,7 @@ namespace GhostHunter.Gameplay.Cleaning
     {
         bool CanReset { get; }
         int DirtyCount { get; }
+        int ProgressPercent { get; }
         string Status { get; }
         bool TryRaycast(Vector3 origin, Vector3 direction, float distance, out CleaningStain stain,
             Transform ignoredRoot = null);

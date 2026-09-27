@@ -28,7 +28,7 @@ namespace GhostHunter.Gameplay.Ghost
         /// <summary>특수 어택 Trigger — 즉시 경고 상태로 보낸다.</summary>
         void ForceSpecialAttack();
 
-        /// <summary>강제 진정 — 진행 중인 어택을 끊고 10초 억제한다.</summary>
+        /// <summary>강제 종료 — 진행 중인 어택을 끊고 30초 자연 진정에 들어간다.</summary>
         void ForceSuppression();
 
         /// <summary>초자연현상 강제 — 주기를 무시하고 Pool에서 현상 하나를 랜덤으로 즉시 실행한다(§6).</summary>

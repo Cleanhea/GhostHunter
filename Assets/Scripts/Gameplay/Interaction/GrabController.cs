@@ -31,6 +31,13 @@ namespace GhostHunter.Gameplay.Interaction
         private float _nextAimSendAt;
         private bool _testHoldLatched;
         private FurnitureRotateMode _rotateMode = FurnitureRotateMode.Rotate;
+        private ulong _corpseInteractionId = NoObjectId;
+        private ulong _serverHeldCorpseId = NoObjectId;
+        private float _corpsePressAt;
+        private float _corpseHoldThreshold;
+        private Vector3 _corpsePressOrigin;
+        private Vector3 _corpsePressDirection;
+        private bool _corpseCarryRequested;
 
         public ulong HeldObjectId => _heldObjectId.Value;
         public bool IsHolding => _heldObjectId.Value != NoObjectId;
@@ -66,6 +73,8 @@ namespace GhostHunter.Gameplay.Interaction
         {
             _heldObjectId.OnValueChanged -= HandleHeldObjectChanged;
             _testHoldLatched = false;
+            CancelCorpseInteraction();
+            ServerReleaseCorpseCarry();
 
             if (_sanity != null)
                 _sanity.AliveStateChanged -= HandleAliveStateChanged;
@@ -83,28 +92,47 @@ namespace GhostHunter.Gameplay.Interaction
         /// </summary>
         private void HandleAliveStateChanged(bool alive)
         {
-            if (alive || !IsServer || !IsHolding)
+            if (alive)
                 return;
 
-            if (TryResolveTarget(_heldObjectId.Value, out FurnitureGrabTarget target))
+            if (IsOwner)
+                CancelCorpseInteraction();
+            if (!IsServer)
+                return;
+
+            ServerReleaseCorpseCarry();
+
+            if (IsHolding && TryResolveTarget(_heldObjectId.Value, out FurnitureGrabTarget target))
                 target.ServerForceRelease(OwnerClientId);
         }
 
         private void Update()
         {
-            if (!IsOwner || _input == null || _camera == null
-                || (_cleaning != null && _cleaning.IsMopEquipped)
-                || (_driver != null && _driver.IsDriverEquipped))
+            if (!IsOwner || _input == null || _camera == null)
                 return;
+
+            if ((_cleaning != null && _cleaning.IsMopEquipped)
+                || (_driver != null && _driver.IsDriverEquipped))
+            {
+                CancelCorpseInteraction();
+                return;
+            }
 
             Keyboard keyboard = Keyboard.current;
             if (keyboard != null && keyboard[_testHoldToggleKey].wasPressedThisFrame)
                 ToggleTestHold();
 
             if (_input.AttackPressedThisFrame)
-                BeginGrab();
+            {
+                if (!TryBeginCorpseInteraction())
+                    BeginGrab();
+            }
 
-            if (_input.AttackReleasedThisFrame && !_testHoldLatched)
+            if (_corpseInteractionId != NoObjectId)
+                TickCorpseInteraction();
+
+            if (_input.AttackReleasedThisFrame && !_testHoldLatched
+                && _corpseInteractionId == NoObjectId)
                 ReleaseGrab();
 
             if (IsHolding && Time.unscaledTime >= _nextAimSendAt)
@@ -175,7 +203,8 @@ namespace GhostHunter.Gameplay.Interaction
 
         private void BeginGrab()
         {
-            if (IsHolding || _requestedObjectId != NoObjectId || _targeter == null)
+            if (IsHolding || _requestedObjectId != NoObjectId
+                || _corpseInteractionId != NoObjectId || _targeter == null)
                 return;
 
             FurnitureGrabTarget target = _targeter.CurrentTarget;
@@ -192,6 +221,170 @@ namespace GhostHunter.Gameplay.Interaction
                 _camera.transform.forward);
         }
 
+        private bool TryBeginCorpseInteraction()
+        {
+            if (IsHolding || _requestedObjectId != NoObjectId || _settings == null
+                || !Physics.Raycast(
+                    _camera.transform.position, _camera.transform.forward,
+                    out RaycastHit hit, _settings.MaxTargetDistance,
+                    Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
+                return false;
+
+            if (!PlayerVisuals.TryGetCorpseOwner(hit.collider, out PlayerVisuals corpse))
+                return false;
+
+            _corpseInteractionId = corpse.NetworkObjectId;
+            _corpsePressAt = Time.unscaledTime;
+            _corpseHoldThreshold = corpse.CarryHoldSeconds;
+            _corpsePressOrigin = _camera.transform.position;
+            _corpsePressDirection = _camera.transform.forward;
+            _corpseCarryRequested = false;
+            return true;
+        }
+
+        private void TickCorpseInteraction()
+        {
+            ulong corpseId = _corpseInteractionId;
+            if (_input.AttackReleasedThisFrame)
+            {
+                if (_corpseCarryRequested)
+                    RequestCorpseReleaseRpc(corpseId);
+                else if (Time.unscaledTime - _corpsePressAt < _corpseHoldThreshold)
+                    RequestCorpsePushRpc(corpseId, _corpsePressOrigin, _corpsePressDirection);
+
+                ClearCorpseInteraction();
+                return;
+            }
+
+            if (!_corpseCarryRequested
+                && Time.unscaledTime - _corpsePressAt >= _corpseHoldThreshold)
+            {
+                _corpseCarryRequested = true;
+                RequestCorpseCarryRpc(corpseId,
+                    _camera.transform.position, _camera.transform.forward);
+            }
+
+            if (_corpseCarryRequested && Time.unscaledTime >= _nextAimSendAt)
+            {
+                _nextAimSendAt = Time.unscaledTime + _aimSendInterval;
+                RequestCorpseAimRpc(corpseId,
+                    _camera.transform.position, _camera.transform.forward);
+            }
+        }
+
+        private void CancelCorpseInteraction()
+        {
+            if (_corpseInteractionId != NoObjectId && _corpseCarryRequested && IsSpawned)
+                RequestCorpseReleaseRpc(_corpseInteractionId);
+            ClearCorpseInteraction();
+        }
+
+        private void ClearCorpseInteraction()
+        {
+            _corpseInteractionId = NoObjectId;
+            _corpseCarryRequested = false;
+        }
+
+        [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
+        private void RequestCorpsePushRpc(
+            ulong corpseNetworkId, Vector3 origin, Vector3 direction,
+            RpcParams rpcParams = default)
+        {
+            if (rpcParams.Receive.SenderClientId != OwnerClientId
+                || _sanity == null || !_sanity.HasSanity
+                || _settings == null || !IsValidAim(origin, direction)
+                || Vector3.Distance(transform.position, origin) > 3f
+                || !TryResolveCorpse(corpseNetworkId, out PlayerVisuals corpse))
+                return;
+
+            if (Vector3.Distance(transform.position, corpse.CorpsePosition)
+                    > _settings.MaxTargetDistance * 1.2f)
+                return;
+
+            if (Physics.Raycast(origin, direction, out RaycastHit hit,
+                    _settings.MaxTargetDistance * 1.2f,
+                    Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore)
+                && PlayerVisuals.TryGetCorpseOwner(hit.collider, out PlayerVisuals owner)
+                && owner == corpse)
+            {
+                corpse.ServerTryPush(hit.point, direction.normalized);
+            }
+        }
+
+        [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
+        private void RequestCorpseCarryRpc(
+            ulong corpseNetworkId, Vector3 origin, Vector3 direction,
+            RpcParams rpcParams = default)
+        {
+            if (rpcParams.Receive.SenderClientId != OwnerClientId
+                || _sanity == null || !_sanity.HasSanity
+                || _settings == null || !IsValidAim(origin, direction)
+                || Vector3.Distance(transform.position, origin) > 3f
+                || IsHolding || _serverHeldCorpseId != NoObjectId
+                || !TryResolveCorpse(corpseNetworkId, out PlayerVisuals corpse)
+                || Vector3.Distance(transform.position, corpse.CorpsePosition)
+                    > _settings.MaxTargetDistance * 1.2f)
+                return;
+
+            if (!Physics.Raycast(origin, direction, out RaycastHit hit,
+                    _settings.MaxTargetDistance * 1.2f,
+                    Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore)
+                || !PlayerVisuals.TryGetCorpseOwner(hit.collider, out PlayerVisuals owner)
+                || owner != corpse)
+                return;
+
+            Vector3 target = origin + direction.normalized * corpse.CarryDistance;
+            if (corpse.ServerAddCarrier(OwnerClientId, target))
+                _serverHeldCorpseId = corpseNetworkId;
+        }
+
+        [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
+        private void RequestCorpseAimRpc(
+            ulong corpseNetworkId, Vector3 origin, Vector3 direction,
+            RpcParams rpcParams = default)
+        {
+            if (rpcParams.Receive.SenderClientId != OwnerClientId
+                || _serverHeldCorpseId != corpseNetworkId
+                || _sanity == null || !_sanity.HasSanity
+                || !IsValidAim(origin, direction)
+                || Vector3.Distance(transform.position, origin) > 3f
+                || !TryResolveCorpse(corpseNetworkId, out PlayerVisuals corpse))
+                return;
+
+            corpse.ServerUpdateCarrier(OwnerClientId,
+                origin + direction.normalized * corpse.CarryDistance);
+        }
+
+        [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
+        private void RequestCorpseReleaseRpc(
+            ulong corpseNetworkId, RpcParams rpcParams = default)
+        {
+            if (rpcParams.Receive.SenderClientId == OwnerClientId
+                && _serverHeldCorpseId == corpseNetworkId)
+                ServerReleaseCorpseCarry();
+        }
+
+        private void ServerReleaseCorpseCarry()
+        {
+            if (!IsServer || _serverHeldCorpseId == NoObjectId)
+                return;
+
+            if (TryResolveCorpse(_serverHeldCorpseId, out PlayerVisuals corpse))
+                corpse.ServerRemoveCarrier(OwnerClientId);
+            _serverHeldCorpseId = NoObjectId;
+        }
+
+        private bool TryResolveCorpse(ulong corpseNetworkId, out PlayerVisuals corpse)
+        {
+            corpse = null;
+            return NetworkManager != null
+                && NetworkManager.SpawnManager != null
+                && NetworkManager.SpawnManager.SpawnedObjects.TryGetValue(
+                    corpseNetworkId, out NetworkObject networkObject)
+                && networkObject.TryGetComponent(out corpse)
+                && corpse.HasCorpse;
+        }
+
         /// <summary>
         /// 입력과 무관하게 지금 잡고 있는(또는 요청 중인) 가구를 놓는다.
         /// 일시정지 메뉴가 입력을 잠그기 <b>전에</b> 부른다 — 잠근 뒤에는
@@ -201,6 +394,7 @@ namespace GhostHunter.Gameplay.Interaction
         public void ForceRelease()
         {
             _testHoldLatched = false;
+            CancelCorpseInteraction();
             ReleaseGrab();
         }
 

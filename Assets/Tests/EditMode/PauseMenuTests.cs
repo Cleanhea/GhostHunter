@@ -1,6 +1,5 @@
 using System;
 using System.IO;
-using GhostHunter.EditorTools;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine.InputSystem;
@@ -10,7 +9,7 @@ namespace GhostHunter.Tests.EditMode
     /// <summary>
     /// 일시정지 메뉴의 규약 검사. 여기서 잡는 것들은 전부 <b>컴파일은 통과하고 플레이해야만
     /// 드러나는</b> 종류다 — ESC 바인딩 누락, `PlayerLook` 의 옛 커서 토글 잔존,
-    /// 실수로 들어간 `Time.timeScale` 조작, 메뉴 항목 순서 어긋남.
+    /// 실수로 들어간 `Time.timeScale` 조작.
     ///
     /// 규칙은 docs/project/pause-menu-system.md, 배선은 docs/architecture/pause-menu.md.
     /// </summary>
@@ -19,14 +18,7 @@ namespace GhostHunter.Tests.EditMode
         private const string InputActionsPath = "Assets/InputSystem_Actions.inputactions";
         private const string PlayerLookPath = "Assets/Scripts/Gameplay/Player/PlayerLook.cs";
         private const string PauseMenuControllerPath = "Assets/Scripts/UI/PauseMenuController.cs";
-        private const string PauseMenuSetupPath = "Assets/Scripts/Editor/PauseMenuSetup.cs";
         private const string RuntimeScriptRoot = "Assets/Scripts";
-
-        /// <summary>메뉴 항목 순서는 확정 사항이다 → pause-menu-system.md §4.1</summary>
-        private static readonly string[] ExpectedMenuOrder =
-        {
-            "ResumeButton", "SettingsButton", "TitleButton", "QuitButton",
-        };
 
         [Test]
         public void 일시정지_액션이_ESC에_바인딩되어_있다()
@@ -85,24 +77,6 @@ namespace GhostHunter.Tests.EditMode
                     $"{normalized} 가 Time.timeScale 에 값을 씁니다. " +
                     "일시정지 메뉴는 시간을 멈추지 않습니다 → pause-menu-system.md §3.2");
             }
-        }
-
-        [Test]
-        public void 메뉴_항목_순서가_확정_순서와_같다()
-        {
-            CollectionAssert.AreEqual(
-                ExpectedMenuOrder,
-                PauseMenuSetup.MenuButtonOrder,
-                "메뉴 항목 순서는 계속하기 → 설정 → 타이틀로 → 종료 로 고정이다 " +
-                "→ pause-menu-system.md §4.1");
-        }
-
-        [Test]
-        public void 설치_도구가_Game_씬을_대상으로_한다()
-        {
-            // 씬을 재생성하지 않고 덧붙이는 도구여야 한다. 재생성 도구를 쓰면 배치된 가구가 사라진다.
-            Assert.AreEqual("Assets/Scenes/Game.unity", PauseMenuSetup.ScenePath);
-            Assert.IsTrue(File.Exists(PauseMenuSetupPath), $"{PauseMenuSetupPath} 파일이 없습니다.");
         }
 
         [Test]

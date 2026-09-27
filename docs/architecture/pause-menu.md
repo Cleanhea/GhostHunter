@@ -1,5 +1,12 @@
 # 일시정지 메뉴 · 연결 끊김 처리 구현
 
+> **2026-09-28:** 이 문서의 `GhostHunter > …` 설치·생성·검증 메뉴와 `Editor/…Setup.cs` 도구는 [ADR-0020](decisions/ADR-0020-remove-one-off-editor-setup-tools.md)으로 삭제됐다.
+> 도구 실행 절차·결과는 구현 당시 기록이다. 지금은 저장된 씬·프리팹이 원본이고 직접 고친다.
+
+> **2026-09-28:** `스테이지 나가기`는 세션을 끊지 않고 `IStageSessionFlow.ReturnToInGameLobby()` 로 전원을 **인게임 로비**에 보낸다. 버튼은 Game 씬에서만 보인다. 인게임 로비 씬에도 같은 일시정지 메뉴가 있다(타이틀로·끊김 안내) → [ADR-0018](decisions/ADR-0018-persistent-session-in-game-lobby.md)
+
+> **설계 변경(2026-09-27):** [스테이지 시스템 기획서](../project/stage-system.md)의 `스테이지 나가기`·개인 `타이틀로`·호스트 이전 규칙이 기존 호스트 이탈 처리보다 우선한다. 이 문서의 기존 배선 설명은 현재 구현을 설명하며, 새 흐름은 구현 대기 중이다.
+
 > 상태: **구현 완료 (2026-09-04). 자동 테스트 통과, 수동 검증 대기.**
 > EditMode **141/142**(잔여 1건은 이 작업과 무관한 선재 실패) · PlayMode **12/12**.
 > 게임 규칙의 권위는 [일시정지 메뉴 시스템 기획서](../project/pause-menu-system.md)다.
@@ -22,7 +29,7 @@
 | 세션 종료와 로비 퇴장 분리 · 끊김 통지 | `Core/Networking/IConnectionService` · `Networking/ConnectionManager` |
 | 게스트의 NGO 씬 추적 | `Systems/SceneFlow/SceneFlowController.HandleSceneLoadedExternally` |
 | `Title` 로비 복귀 버튼 | `UI/MainMenuController._returnToLobbyButton` |
-| 씬 설치 도구 (Game 덧붙이기 + Title 버튼) | `Editor/PauseMenuSetup.cs` (신규, 메뉴 `GhostHunter > 일시정지 메뉴 설치`) |
+| ~~씬 설치 도구 (Game 덧붙이기 + Title 버튼)~~ | ~~`Editor/PauseMenuSetup.cs`~~ — ADR-0020으로 삭제 |
 | 회귀 테스트 6건 | `Tests/EditMode/PauseMenuTests.cs` (신규) |
 | `GhostHunter.UI` → `Unity.InputSystem` 참조 추가 | `Scripts/UI/GhostHunter.UI.asmdef` |
 
@@ -358,9 +365,9 @@ NGO `Shutdown()` 은 다음 업데이트의 `ShutdownInternal` 로 미뤄지고,
 | World Space 정신력 모니터 | `Game` 씬 Canvas 1개 | 있음 | World Space. `EventSystem` 없이 표시만 한다 |
 | 입력 액션 | `Assets/InputSystem_Actions.inputactions` | **`Player/Pause` 신규 필요**(§6.3) | 액션 추가 시 [player-controller.md](player-controller.md) 표를 같은 작업에서 갱신한다 |
 | `GrabController` 해제 공개 API | `Assets/Scripts/Gameplay/Interaction/GrabController.cs` | **수정 필요**(§6.5) | `ReleaseGrab()` 이 `private` 이라 메뉴가 부를 수 없다 |
-| **`Title` 로비 복귀 진입점** | `Title` 씬 + `Assets/Scripts/UI/MainMenuController.cs` | **신규 필요**(PM-14) | 버튼 1개. `_lobby.IsInLobby` 일 때만 `SetActive(true)`, 누르면 `ISceneFlow.Load(SceneId.Lobby)`. 씬 편집은 `MenuScenesSetup` 또는 Unity MCP 로 한다 |
+| **`Title` 로비 복귀 진입점** | `Title` 씬 + `Assets/Scripts/UI/MainMenuController.cs` | **신규 필요**(PM-14) | 버튼 1개. `_lobby.IsInLobby` 일 때만 `SetActive(true)`, 누르면 `ISceneFlow.Load(SceneId.Lobby)`. 씬 편집은 `MenuScenesSetup` 또는 씬 파일 직접 수정으로 한다 |
 | 튜닝 수치 | **없다** | — | PM-8이 "자동 이동 없음"으로 확정돼 지연 시간 값이 사라졌다. 나중에 수치가 생기면 **`ScriptableObject`** 에 둔다 |
-| 씬 편집 | `Game` 씬에 Canvas·EventSystem 추가 | — | **Unity MCP 또는 `Assets/Scripts/Editor/` 생성 도구로 한다.** `.unity` YAML 직접 편집 금지. `GhostHunter > 프로토타입 게임 생성` 재실행 금지(씬을 새로 만든다) |
+| 씬 편집 | `Game`(현 ProtoTypeGame) 씬에 Canvas·EventSystem 추가 | — | 씬 파일 직접 수정 또는 `Assets/Scripts/Editor/` 생성 도구(`PauseMenuSetup`). `GhostHunter > 프로토타입 게임 생성` 재실행 금지(씬을 새로 만든다) |
 
 > **⚠️ `EventSystem` 중복 주의.** `SceneFlowController.SuspendSceneInput` 이 씬 전환 중 이전 씬의
 > `EventSystem`·`AudioListener` 를 끈다. `Game` 씬에 `EventSystem` 을 추가하면 `Lobby → Game`
@@ -408,7 +415,7 @@ NGO `Shutdown()` 은 다음 업데이트의 `ShutdownInternal` 로 미뤄지고,
 | --- | --- | --- |
 | A-2 | `Player/Pause` 액션이 `<Keyboard>/escape` 에 바인딩되는가 | ✅ |
 | A-2b | 메뉴를 닫는 `UI/Cancel` 액션이 존재하는가 | ✅ |
-| A-4 | 메뉴 항목 순서가 **계속하기 → 설정 → 타이틀로 → 종료** 인가 | ✅ `PauseMenuSetup.MenuButtonOrder` 검사 |
+| A-4 | 메뉴 항목 순서가 **계속하기 → 설정 → 타이틀로 → 종료** 인가 | ❌ 자동 검사 없음 — `PauseMenuSetup.MenuButtonOrder` 검사는 ADR-0020으로 삭제, 씬에 저장된 버튼 순서가 원본 |
 | A-5 | 런타임 스크립트가 `Time.timeScale` 에 **값을 쓰지** 않는가 | ✅ 주석의 언급은 허용 |
 | A-6 | `PlayerLook` 에 `escapeKey` 참조가 남아 있지 않은가 | ✅ PM-3 회귀 방지 |
 | A-8 | 메뉴가 **잠그기 전에** 가구를 놓는가(`ForceRelease` → `SetGameplayInputLocked`) | ✅ PM-15 회귀 방지 |
@@ -417,8 +424,8 @@ NGO `Shutdown()` 은 다음 업데이트의 `ShutdownInternal` 로 미뤄지고,
 
 | # | 검증 | 비고 |
 | --- | --- | --- |
-| A-1 | `Game` 씬에 `EventSystem` 이 정확히 1개이고 `InputSystemUIInputModule` 을 갖는가 | 씬을 열어야 해 EditMode 로는 부담. 설치 도구의 `ValidateInstallation()` 이 대신 검사한다 |
-| A-3 | 메뉴 UI 에 `NetworkObject` 가 없는가 | 〃 (설치 도구가 검사) |
+| A-1 | `Game` 씬에 `EventSystem` 이 정확히 1개이고 `InputSystemUIInputModule` 을 갖는가 | 씬을 열어야 해 EditMode 로는 부담. 대신 검사하던 설치 도구 `ValidateInstallation()` 은 ADR-0020으로 삭제 — 자동 검사 없음 |
+| A-3 | 메뉴 UI 에 `NetworkObject` 가 없는가 | 〃 (자동 검사 없음) |
 | A-7 | `Title` 씬에 로비 복귀 버튼이 배선됐는가 | 〃 (설치 시 `SetObjectReference` 로 보장) |
 
 ### 10.3 자동 (PlayMode)

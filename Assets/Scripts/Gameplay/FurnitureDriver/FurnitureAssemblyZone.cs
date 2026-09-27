@@ -57,6 +57,12 @@ namespace GhostHunter.Gameplay.FurnitureDriver
         /// </summary>
         public Vector3 AimPoint => _trigger != null ? _trigger.bounds.center : transform.position;
 
+        /// <summary>판정 트리거의 월드 경계(AABB). 영역 표시(<c>FurnitureAssemblyZoneView</c>)가 그린다.</summary>
+        public Bounds TriggerBounds => _trigger != null ? _trigger.bounds : new Bounds(transform.position, Vector3.zero);
+
+        /// <summary>부품이 놓이는 바닥 높이 — 오브젝트 원점이 바닥이다(2026-09-17 트리거 재배치).</summary>
+        public float FloorHeight => transform.position.y;
+
         public FurnitureDisassemblyRecipe MatchedRecipe
         {
             get
@@ -96,6 +102,51 @@ namespace GhostHunter.Gameplay.FurnitureDriver
         {
             _catalog = catalog;
             _trigger = trigger;
+        }
+
+        /// <summary>재호스팅 직후 트리거 진입 이벤트 없이 이미 안에 있는 부품을 다시 찾는다.</summary>
+        public void ServerRefreshCandidates()
+        {
+            if (!IsServer || !IsSpawned || _trigger == null)
+                return;
+            _candidates.Clear();
+            foreach (FurnitureDriverPoolItem part in FindObjectsByType<FurnitureDriverPoolItem>(
+                FindObjectsSortMode.None))
+                if (part != null && part.IsActive
+                    && part.TryGetComponent(out Collider collider) && collider.enabled
+                    && _trigger.bounds.Intersects(collider.bounds))
+                    _candidates.Add(part);
+            RecomputeState();
+        }
+
+        /// <summary>
+        /// 재료를 조준해 조립할 때 그 재료가 들어 있는 영역을 찾는다. 서버는 트리거가 모은 후보를, 클라이언트는
+        /// 복제된 재료 위치와 트리거 경계를 본다(후보 집합은 서버에만 있다). 없으면 null.
+        /// </summary>
+        public static FurnitureAssemblyZone FindContaining(FurnitureDriverPoolItem part)
+        {
+            if (part == null)
+                return null;
+
+            foreach (FurnitureAssemblyZone zone in Registry)
+            {
+                if (zone != null && zone.IsSpawned && zone.ContainsPart(part))
+                    return zone;
+            }
+
+            return null;
+        }
+
+        /// <summary>재료가 이 영역 안에 있는가 — 트리거와 조금이라도 겹치면 안이다(트리거 진입과 같은 기준).</summary>
+        public bool ContainsPart(FurnitureDriverPoolItem part)
+        {
+            if (part == null || !part.IsActive)
+                return false;
+            if (IsServer)
+                return _candidates.Contains(part);
+            if (_trigger == null || !part.TryGetComponent(out Collider partCollider) || !partCollider.enabled)
+                return false;
+            return _trigger.bounds.Intersects(partCollider.bounds);
         }
 
         /// <summary>파손으로 콜라이더가 꺼질 때 이탈 콜백 없이 남을 수 있는 점유를 즉시 제거한다.</summary>
@@ -145,7 +196,7 @@ namespace GhostHunter.Gameplay.FurnitureDriver
             _candidates.RemoveWhere(item => item == null);
             foreach (FurnitureDriverPoolItem item in _candidates)
             {
-                if (!item.IsActive || !IsGrounded(item))
+                if (!item.IsActive || !IsGrounded(item) || IsLargeFurniture(item))
                     continue;
                 counts.TryGetValue(item.PoolKey, out int current);
                 counts[item.PoolKey] = current + 1;
@@ -171,6 +222,13 @@ namespace GhostHunter.Gameplay.FurnitureDriver
             return evaluation;
         }
 
+        /// <summary>
+        /// 완성된 큰 가구는 재료가 아니다. 세면 레시피 어디에도 없는 ID라 영역이 "혼입"(붉은 실루엣)이 되어,
+        /// 방금 조립한 가구가 영역 가운데 떨어진 채로는 다음 조립을 할 수 없었다(2026-09-27).
+        /// </summary>
+        private bool IsLargeFurniture(FurnitureDriverPoolItem item) =>
+            _catalog != null && _catalog.FindByLargeFurnitureId(item.PoolKey) != null;
+
         private bool IsGrounded(FurnitureDriverPoolItem item)
         {
             if (item.TryGetComponent(out FurnitureGrabTarget grab) && grab.State != FurnitureState.Idle)
@@ -184,14 +242,21 @@ namespace GhostHunter.Gameplay.FurnitureDriver
         /// 초록 실루엣이면 부품을 소비하고 큰 가구를 활성화한다. 실패하면 아무것도 바꾸지 않는다.
         /// </summary>
         public bool ServerTryAssemble(float dropHeight, out FurnitureDisassemblyRecipe recipe,
-            out int completedDurability)
+            out int completedDurability) =>
+            ServerTryAssemble(dropHeight, out recipe, out completedDurability, out _);
+
+        /// <param name="stateAtAttempt">시도 순간 다시 센 영역 상태 — 거절 이유(재료 부족·혼입)를 알릴 때 쓴다.</param>
+        public bool ServerTryAssemble(float dropHeight, out FurnitureDisassemblyRecipe recipe,
+            out int completedDurability, out FurnitureAssemblyState stateAtAttempt)
         {
             recipe = null;
             completedDurability = 0;
+            stateAtAttempt = FurnitureAssemblyState.Empty;
             if (!IsServer)
                 return false;
 
             FurnitureAssemblyEvaluation evaluation = RecomputeState();
+            stateAtAttempt = evaluation.State;
             if (evaluation.State != FurnitureAssemblyState.Ready || evaluation.MatchedRecipe == null)
                 return false;
             recipe = evaluation.MatchedRecipe;
@@ -235,5 +300,21 @@ namespace GhostHunter.Gameplay.FurnitureDriver
 
         private void HandleStateChanged(SilhouetteState previous, SilhouetteState current) =>
             SilhouetteChanged?.Invoke(previous.Silhouette, current.Silhouette);
+
+        /// <summary>Scene 뷰 확인용 — 트리거 전체(지면 아래 포함)를 선으로, 플레이 중이면 판정 상태 색으로 그린다.</summary>
+        private void OnDrawGizmos()
+        {
+            if (_trigger == null)
+                return;
+
+            Gizmos.color = !Application.isPlaying || !IsSpawned ? new Color(1f, 0.85f, 0.2f, 0.9f) : Silhouette switch
+            {
+                FurnitureAssemblyState.Ready => new Color32(120, 198, 100, 255),
+                FurnitureAssemblyState.Invalid => new Color32(214, 101, 101, 255),
+                _ => Color.white,
+            };
+            Bounds bounds = _trigger.bounds;
+            Gizmos.DrawWireCube(bounds.center, bounds.size);
+        }
     }
 }

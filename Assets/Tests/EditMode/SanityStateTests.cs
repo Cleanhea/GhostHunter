@@ -73,12 +73,36 @@ namespace GhostHunter.Tests.EditMode
         }
 
         [Test]
+        public void 귀신_본체_목격은_정신력을_5_감소시킨다()
+        {
+            Assert.IsTrue(_state.WitnessGhostBody());
+            Assert.AreEqual(95, _state.Value);
+        }
+
+        [Test]
         public void 같은_시체를_다시_목격해도_한_번만_20_감소한다()
         {
             Assert.IsTrue(_state.WitnessCorpse(17));
             Assert.IsFalse(_state.WitnessCorpse(17));
 
             Assert.AreEqual(80, _state.Value);
+        }
+
+        [Test]
+        public void 이전_정신력_상태는_사망과_어둠_누적과_시체_목격을_보존한다()
+        {
+            _state.TickDarkness(4f, true);
+            _state.WitnessCorpse(17);
+            _state.MarkDead();
+            SanityState.Snapshot snapshot = _state.CaptureSnapshot();
+
+            var restored = new SanityState(_settings);
+            restored.RestoreSnapshot(snapshot);
+            Assert.AreEqual(80, restored.Value);
+            Assert.IsFalse(restored.IsAlive);
+            Assert.AreEqual(4f, restored.DarknessExposureSeconds, 0.001f);
+            restored.Revive();
+            Assert.IsFalse(restored.WitnessCorpse(17));
         }
 
         [Test]

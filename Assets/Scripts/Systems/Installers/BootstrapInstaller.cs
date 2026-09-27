@@ -5,6 +5,7 @@ using GhostHunter.Core.Steam;
 using GhostHunter.Networking;
 using GhostHunter.Systems.Steam;
 using GhostHunter.Systems.SceneFlow;
+using GhostHunter.Data;
 using UnityEngine;
 
 namespace GhostHunter.Systems.Installers
@@ -21,13 +22,38 @@ namespace GhostHunter.Systems.Installers
         [SerializeField] private SteamLobbyManager _steamLobby;
         [SerializeField] private ConnectionManager _connection;
         [SerializeField] private SteamVoiceCapture _voiceCapture;
+        [SerializeField] private VoiceChatSettings _lobbyVoiceSettings;
 
         protected override void InstallBindings()
         {
             Bind<ISceneFlow>(_sceneFlow);
             Bind<ISteamLobbyService>(_steamLobby);
             Bind<IConnectionService>(_connection);
+            if (_sceneFlow != null)
+            {
+                // 인게임 로비 ⇄ 스테이지 전환(ADR-0018). 세션과 같이 앱 수명 동안 산다.
+                StageSessionFlow stageFlow = GetComponent<StageSessionFlow>();
+                if (stageFlow == null)
+                    stageFlow = gameObject.AddComponent<StageSessionFlow>();
+                stageFlow.Initialize(_sceneFlow);
+                Bind<IStageSessionFlow>(stageFlow);
+            }
+            if (_steamLobby != null && _connection != null && _sceneFlow != null)
+            {
+                StageRecoveryCoordinator recovery = GetComponent<StageRecoveryCoordinator>();
+                if (recovery == null)
+                    recovery = gameObject.AddComponent<StageRecoveryCoordinator>();
+                recovery.Initialize(_steamLobby, _connection, _sceneFlow);
+            }
             if (_voiceCapture != null) Bind<IVoiceCaptureService>(_voiceCapture);
+            if (_steamLobby != null && _voiceCapture != null && _sceneFlow != null)
+            {
+                LobbyVoiceService lobbyVoice = GetComponent<LobbyVoiceService>();
+                if (lobbyVoice == null)
+                    lobbyVoice = gameObject.AddComponent<LobbyVoiceService>();
+                lobbyVoice.Initialize(_steamLobby, _voiceCapture, _sceneFlow, _connection,
+                    _lobbyVoiceSettings);
+            }
         }
     }
 }

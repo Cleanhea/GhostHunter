@@ -389,6 +389,177 @@ namespace GhostHunter.Tests.PlayMode
             yield return null;
         }
 
+        [UnityTest]
+        public IEnumerator 영역_안의_아무_재료나_조준해_조립한다()
+        {
+            // 부품 B(2개 중 두 번째)를 겨눈다 — 영역 중심이 아니라 재료 자체가 조준 대상이다.
+            CreateScenario();
+            FurnitureAssemblyZone zone = CreateZone();
+            _large.ServerDeactivate();
+            foreach (FurnitureDriverPoolItem part in _parts)
+                ActivateInZone(zone, part, 80);
+            Recompute(zone);
+
+            AimAtPart(_parts[2]);
+            Assert.AreEqual(FurnitureDriverActionKind.Assemble, _driver.CurrentAction);
+            Assert.AreEqual(0, _driver.FeedbackSerial);
+
+            RequestAssemble(zone, _parts[2]);
+            Assert.IsTrue(_large.IsActive, "조준한 재료로 조립이 완료돼야 합니다.");
+            Assert.AreEqual(80, _large.Durability);
+            Assert.AreEqual(95, _driver.ItemDurability);
+            foreach (FurnitureDriverPoolItem part in _parts)
+                Assert.IsFalse(part.IsActive);
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator 재료가_부족하면_조립을_시작하지_않고_재료가_부족합니다를_띄운다()
+        {
+            CreateScenario();
+            FurnitureDriverActionHud hud = CreateActionHud();
+            FurnitureAssemblyZone zone = CreateZone();
+            _large.ServerDeactivate();
+            ActivateInZone(zone, _parts[0], 100);
+            ActivateInZone(zone, _parts[1], 100);
+            Recompute(zone);
+            yield return null;
+
+            AimAtPart(_parts[0]);
+            Assert.AreEqual(FurnitureDriverActionKind.None, _driver.CurrentAction, "재료가 모자라면 게이지를 시작하지 않는다");
+            Assert.AreEqual(FurnitureDriverFeedback.NotEnoughMaterials, _driver.LastFeedback);
+            yield return null;
+
+            Assert.IsTrue(GetPrivateField<RectTransform>(hud, "_gaugeRoot").gameObject.activeSelf);
+            Assert.AreEqual("재료가 부족합니다", GetPrivateField<Text>(hud, "_label").text);
+            Assert.IsFalse(GetPrivateField<Image>(hud, "_fill").enabled, "시작 못 한 행동이라 게이지 링은 숨긴다");
+            Assert.AreEqual(100, _driver.ItemDurability);
+        }
+
+        [UnityTest]
+        public IEnumerator 같은_재료가_너무_많으면_재료_구성이_맞지_않는다고_알린다()
+        {
+            CreateScenario(secondPartCount: 3);
+            FurnitureAssemblyZone zone = CreateZone();
+            _large.ServerDeactivate();
+            foreach (FurnitureDriverPoolItem part in _parts)
+                ActivateInZone(zone, part, 100);
+            Recompute(zone);
+
+            AimAtPart(_parts[0]);
+            Assert.AreEqual(FurnitureDriverActionKind.None, _driver.CurrentAction);
+            Assert.AreEqual(FurnitureDriverFeedback.MismatchedMaterials, _driver.LastFeedback);
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator 영역_밖의_재료를_조준하면_영역에_모아_달라고_알린다()
+        {
+            CreateScenario();
+            CreateZone();
+            _large.ServerDeactivate();
+            Assert.IsTrue(_parts[0].ServerActivate(Vector3.up, Quaternion.identity, 100));
+
+            AimAtPart(_parts[0]);
+            Assert.AreEqual(FurnitureDriverActionKind.None, _driver.CurrentAction);
+            Assert.AreEqual(FurnitureDriverFeedback.OutsideAssemblyZone, _driver.LastFeedback);
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator 영역에_완성된_큰_가구가_있어도_재료는_조립할_수_있다()
+        {
+            // 조립한 가구는 영역 가운데 떨어진다. 그 가구를 재료로 세면 영역이 혼입(붉은색)이 돼 다음 조립이 막혔다.
+            CreateScenario();
+            FurnitureAssemblyZone zone = CreateZone();
+            InvokePrivate(zone, "OnTriggerEnter", _large.GetComponent<Collider>());
+            FurnitureDriverPoolItem secondLarge = SpawnPoolItem("TestLarge", false);
+            foreach (FurnitureDriverPoolItem part in _parts)
+                ActivateInZone(zone, part, 100);
+            Recompute(zone);
+
+            Assert.AreEqual(FurnitureAssemblyState.Ready, zone.Silhouette);
+            RequestAssemble(zone, _parts[0]);
+            Assert.IsTrue(secondLarge.IsActive);
+            Assert.IsTrue(_large.IsActive, "이미 있던 완성 가구는 그대로 남는다");
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator 완료_순간_재료가_빠졌으면_서버가_거절하고_이유를_알린다()
+        {
+            CreateScenario();
+            FurnitureAssemblyZone zone = CreateZone();
+            _large.ServerDeactivate();
+            foreach (FurnitureDriverPoolItem part in _parts)
+                ActivateInZone(zone, part, 100);
+            Recompute(zone);
+            AimAtPart(_parts[0]);
+            Assert.AreEqual(FurnitureDriverActionKind.Assemble, _driver.CurrentAction);
+
+            // 게이지가 도는 동안 다른 플레이어가 재료 하나를 가져갔다(서버는 완료 시점에 다시 센다).
+            _parts[2].ServerDeactivate();
+            RequestAssemble(zone, _parts[0]);
+            yield return null;
+
+            Assert.IsFalse(_large.IsActive);
+            Assert.AreEqual(100, _driver.ItemDurability, "거절된 조립은 드라이버 내구도를 깎지 않는다");
+            Assert.AreEqual(FurnitureDriverFeedback.NotEnoughMaterials, _driver.LastFeedback);
+        }
+
+        [UnityTest]
+        public IEnumerator 조립_영역을_바닥부터_그리고_판정_상태에_따라_색을_바꾼다()
+        {
+            CreateScenario();
+            FurnitureAssemblyZone zone = CreateZone();
+            var uiSettings = Track(ScriptableObject.CreateInstance<FurnitureDriverUiSettings>());
+            var viewObject = Track(new GameObject("TestAssemblyZoneView"));
+            viewObject.SetActive(false);
+            var view = viewObject.AddComponent<FurnitureAssemblyZoneView>();
+            SetPrivateField(view, "_uiSettings", uiSettings);
+            viewObject.SetActive(true);
+            yield return null;
+
+            Transform drawn = zone.transform.Find("AssemblyZoneView");
+            Assert.IsNotNull(drawn, "영역마다 표시가 생긴다");
+            Assert.IsTrue(drawn.gameObject.activeSelf);
+            LineRenderer[] lines = drawn.GetComponentsInChildren<LineRenderer>();
+            Assert.AreEqual(6, lines.Length, "바닥·윗면 사각형과 세로 모서리 4개");
+            // 트리거(5m 정육면체, 원점 중심)는 지면 아래로 2.5m 뻗지만 보이는 바닥에서 자른다.
+            Assert.AreEqual(zone.FloorHeight + 0.02f, lines[0].GetPosition(0).y, 0.001f);
+            Assert.AreEqual(zone.TriggerBounds.max.y, lines[1].GetPosition(0).y, 0.001f);
+            AssertColor(uiSettings.ZoneColorFor(FurnitureAssemblyState.Empty), lines[0].startColor);
+
+            _large.ServerDeactivate();
+            foreach (FurnitureDriverPoolItem part in _parts)
+                ActivateInZone(zone, part, 100);
+            Recompute(zone);
+            yield return null;
+            AssertColor(uiSettings.ZoneColorFor(FurnitureAssemblyState.Ready), lines[0].startColor,
+                "조립 가능하면 초록으로 바뀐다");
+
+            SetPrivateField(uiSettings, "_showAssemblyZone", false);
+            yield return null;
+            Assert.IsFalse(drawn.gameObject.activeSelf, "설정으로 끌 수 있다");
+        }
+
+        // LineRenderer 는 색을 8비트로 저장한다(0.35 → 0.349).
+        private static void AssertColor(Color expected, Color actual, string message = null)
+        {
+            Assert.AreEqual(expected.r, actual.r, 0.005f, message);
+            Assert.AreEqual(expected.g, actual.g, 0.005f, message);
+            Assert.AreEqual(expected.b, actual.b, 0.005f, message);
+            Assert.AreEqual(expected.a, actual.a, 0.005f, message);
+        }
+
+        private void AimAtPart(FurnitureDriverPoolItem part) =>
+            InvokePrivate(_driver, "TryBeginAssembleOnPart", part);
+
+        private static void Recompute(FurnitureAssemblyZone zone) => InvokePrivate(zone, "RecomputeState");
+
+        private void RequestAssemble(FurnitureAssemblyZone zone, FurnitureDriverPoolItem part) =>
+            InvokePrivate(_driver, "RequestAssembleRpc", zone.NetworkObjectId, part.NetworkObjectId, default(RpcParams));
+
         /// <summary>조립 판정에 쓸 트리거 영역 하나를 만든다(실제 씬의 AssemblyZone과 같은 구성).</summary>
         private FurnitureAssemblyZone CreateZone()
         {

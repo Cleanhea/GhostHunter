@@ -1,5 +1,6 @@
 using GhostHunter.Gameplay.Player;
 using GhostHunter.Gameplay.Furniture;
+using GhostHunter.Gameplay.Recovery;
 using Unity.Netcode;
 using Unity.Netcode.Components;
 using UnityEngine;
@@ -13,6 +14,7 @@ namespace GhostHunter.Gameplay.Map
     {
         private const byte PlacedFlag = 1;
         private const byte TargetFlag = 2;
+        private const byte DeliveredFlag = 4;
 
         [SerializeField] private string _poolId = "Box";
         [SerializeField] private Bounds _localBounds = new(Vector3.zero, Vector3.one);
@@ -32,8 +34,57 @@ namespace GhostHunter.Gameplay.Map
         public string PoolId => _poolId;
         public Bounds LocalBounds => _localBounds;
         public bool IsPlaced => IsSpawned && (_placementState.Value & PlacedFlag) != 0;
+        public bool IsAssignedWorkTarget => IsPlaced && (_placementState.Value & TargetFlag) != 0;
+        public bool IsDelivered => IsAssignedWorkTarget && (_placementState.Value & DeliveredFlag) != 0;
         public bool IsWorkTarget => IsPlaced && (_physics == null || !_physics.IsBroken)
-            && (_placementState.Value & TargetFlag) != 0;
+            && IsAssignedWorkTarget && !IsDelivered;
+
+        public StageRecoverySnapshot.FurnitureState CaptureStageState()
+        {
+            return new StageRecoverySnapshot.FurnitureState
+            {
+                Placement = _placementState.Value,
+                Position = transform.position,
+                Rotation = transform.rotation,
+                LinearVelocity = _body != null ? _body.linearVelocity : Vector3.zero,
+                AngularVelocity = _body != null ? _body.angularVelocity : Vector3.zero,
+                Durability = _physics != null ? _physics.Durability : 100,
+            };
+        }
+
+        public bool ServerRestoreStageState(StageRecoverySnapshot.FurnitureState snapshot)
+        {
+            if (!IsServer || !IsSpawned || _networkTransform == null || !_networkTransform.IsSpawned)
+                return false;
+            GetComponent<FurnitureGrabTarget>()?.ServerResetForPool();
+            _networkTransform.Teleport(snapshot.Position, snapshot.Rotation, transform.localScale);
+            RoomPreset.TeleportBody(_body, snapshot.Position, snapshot.Rotation);
+            _placementState.Value = snapshot.Placement;
+            if (_physics != null)
+            {
+                _physics.ServerRestoreStageDurability(snapshot.Durability);
+                _physics.ServerProtectPlacement();
+            }
+            ApplyPresentation(IsPlaced, IsWorkTarget);
+            if (IsPlaced && _body != null && !_body.isKinematic)
+            {
+                _body.linearVelocity = snapshot.LinearVelocity;
+                _body.angularVelocity = snapshot.AngularVelocity;
+            }
+            return true;
+        }
+
+        /// <summary>서버가 반출 구역에 들어온 목표 가구를 한 번만 완료 처리한다.</summary>
+        public bool ServerCompleteDelivery()
+        {
+            if (!IsServer || !IsAssignedWorkTarget || IsDelivered
+                || !FurnitureDeliveryZone.Contains(transform.position))
+                return false;
+
+            _placementState.Value |= DeliveredFlag;
+            RefreshTargetVisibility();
+            return true;
+        }
 
         private void Awake()
         {
@@ -55,7 +106,7 @@ namespace GhostHunter.Gameplay.Map
         public override void OnNetworkSpawn()
         {
             _placementState.OnValueChanged += HandlePlacementChanged;
-            if (IsServer)
+            if (IsServer && !StageRecoveryGate.Restoring)
                 _placementState.Value = 0;
             ApplyPresentation(IsPlaced, IsWorkTarget);
         }

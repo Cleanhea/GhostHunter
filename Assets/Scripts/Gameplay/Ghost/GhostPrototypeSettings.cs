@@ -14,43 +14,41 @@ namespace GhostHunter.Gameplay.Ghost
     public sealed class GhostPrototypeSettings : ScriptableObject
     {
         [Header("Team sanity bands (§5.2)")]
-        [Tooltip("이 값 이하면 평상시 → 활동으로 즉시 전환한다.")]
-        [SerializeField] private int _activeTeamSanity = 80;
-
         [Tooltip("이 값 이하일 때만 활동 상태에서 어택 판정을 실행한다.")]
         [SerializeField] private int _attackTeamSanity = 60;
 
-        [Tooltip("고위험 구간. 프로토타입에서는 HUD 표시에만 쓰인다.")]
+        [Tooltip("이 값 이하이면 확률 판정 없이 고위험 어택을 시작한다.")]
         [SerializeField] private int _highRiskTeamSanity = 30;
 
         [Header("State durations (seconds)")]
         [SerializeField] private float _warningDuration = 5f;
-        [SerializeField] private float _attackMinDuration = 30f;
-        [SerializeField] private float _attackMaxDuration = 90f;
+        [SerializeField] private float _attackMaxDuration = 60f;
+        [SerializeField] private float _highRiskAttackDuration = 90f;
+        [SerializeField] private float _attackEarlyEndWindow = 20f;
 
-        [Tooltip("어택 30초 경과 후 팀 평균이 이 값 이상으로 회복되면 조기 종료한다.")]
-        [SerializeField] private int _attackEarlyEndTeamSanity = 70;
+        [Tooltip("어택 시작 후 20초 이내 팀 평균이 이 값 이상이면 조기 종료한다.")]
+        [SerializeField] private int _attackEarlyEndTeamSanity = 61;
 
         [SerializeField] private float _calmingDuration = 30f;
-        [SerializeField] private float _suppressionDuration = 10f;
 
         [Header("Attack roll (§7.2 · §7.3)")]
         [SerializeField] private float _attackRollInterval = 10f;
         [SerializeField, Range(0f, 1f)] private float _attackChance51To60 = 0.20f;
         [SerializeField, Range(0f, 1f)] private float _attackChance41To50 = 0.40f;
         [SerializeField, Range(0f, 1f)] private float _attackChance31To40 = 0.60f;
-        [SerializeField, Range(0f, 1f)] private float _attackChance0To30 = 0.80f;
+        [SerializeField, Range(0f, 1f)] private float _attackChance0To30 = 1f;
 
-        [Header("Cleaning progress trigger (§6.2 · F1 stub)")]
-        [Tooltip("청소 진행도가 이 값에 최초 도달하면 활동으로 전환하거나 방해 빈도를 올린다.")]
+        [Header("Cleaning progress attack condition (§7.1)")]
+        [Tooltip("실제 청소 진행도가 이 값에 한 번 도달하면 스테이지 동안 어택 조건이 유지된다.")]
         [SerializeField] private int _cleaningActivateProgress = 40;
-
-        [Tooltip("이미 활동 중에 40%에 도달했을 때 방해 빈도가 올라가는 시간.")]
-        [SerializeField] private float _cleaningBoostDuration = 90f;
 
         [Header("Vision detection (§8.1 · [TBD] G-3)")]
         [SerializeField] private float _visionDistance = 15f;
         [SerializeField, Range(1f, 180f)] private float _visionAngle = 120f;
+        [Tooltip("고위험 어택의 시야 거리. 확정 수치 대기 중이므로 현재는 일반 시야와 같다(G-18).")]
+        [SerializeField] private float _highRiskVisionDistance = 15f;
+        [Tooltip("고위험 어택의 시야 각도. 확정 수치 대기 중이므로 현재는 일반 시야와 같다(G-18).")]
+        [SerializeField, Range(1f, 180f)] private float _highRiskVisionAngle = 120f;
 
         [Tooltip("시야각·가림을 무시하는 근거리 감지. 기획서에는 없는 P1 보조값이라 0으로 꺼도 된다.")]
         [SerializeField] private float _nearDetectRadius = 3f;
@@ -69,7 +67,9 @@ namespace GhostHunter.Gameplay.Ghost
         [SerializeField] private float _walkHearingRadius = 6f;
 
         [Header("Chase / search AI (§9)")]
-        [SerializeField] private float _searchDuration = 7f;
+        [SerializeField] private float _searchDuration = 10f;
+        [SerializeField] private float _targetSelectionInterval = 0.2f;
+        [SerializeField] private float _targetSwitchDistance = 1f;
         [SerializeField] private float _roamSpeed = 1.6f;
         [SerializeField] private float _chaseSpeed = 3.4f;
         [SerializeField] private float _repathInterval = 0.5f;
@@ -130,33 +130,26 @@ namespace GhostHunter.Gameplay.Ghost
         [Tooltip("목격 판정에 쓰는 플레이어 눈높이(m).")]
         [SerializeField] private float _phenomenonWitnessEyeHeight = 1.5f;
 
-        [Header("Hiding spots (§9.5 · G-8 판정 시점·주기·재검사 미정 — 지금은 '최초 접근 시 1회'만 임시 구현)")]
-        [Tooltip("이 반경 안에 들어오면 은신처를 '발견'한 것으로 치고 검사를 시도한다.")]
-        [SerializeField] private float _hidingSpotCheckRadius = 2.5f;
-
-        [Tooltip("[임시] 은신처를 발견했을 때 실제로 안을 들여다볼 확률(§9.5 원문 30%).")]
-        [SerializeField, Range(0f, 1f)] private float _hidingSpotCheckChance = 0.3f;
-
         [Header("Bed hiding (§9.5 · 엎드려 침대 밑 — 사용자 확정 2026-09-03)")]
         [Tooltip("엎드려 침대 밑에 들어간 뒤, 귀신에게 안 쫓기고 시야에도 안 걸린 상태가 이 시간(초) " +
             "이상 이어지면 '완전히 숨은' 것으로 쳐서 탐지·잡힘·수색 훔쳐보기에서 전부 빠진다. " +
             "들어가는 걸 귀신이 봤으면(추격/수색 대상이면) 타이머가 돌지 않는다.")]
         [SerializeField, Min(0f)] private float _bedHideConcealSeconds = 1f;
 
-        public int ActiveTeamSanity => _activeTeamSanity;
         public int AttackTeamSanity => _attackTeamSanity;
         public int HighRiskTeamSanity => _highRiskTeamSanity;
         public float WarningDuration => _warningDuration;
-        public float AttackMinDuration => _attackMinDuration;
         public float AttackMaxDuration => _attackMaxDuration;
+        public float HighRiskAttackDuration => _highRiskAttackDuration;
+        public float AttackEarlyEndWindow => _attackEarlyEndWindow;
         public int AttackEarlyEndTeamSanity => _attackEarlyEndTeamSanity;
         public float CalmingDuration => _calmingDuration;
-        public float SuppressionDuration => _suppressionDuration;
         public float AttackRollInterval => _attackRollInterval;
         public int CleaningActivateProgress => _cleaningActivateProgress;
-        public float CleaningBoostDuration => _cleaningBoostDuration;
         public float VisionDistance => _visionDistance;
         public float VisionAngle => _visionAngle;
+        public float HighRiskVisionDistance => _highRiskVisionDistance;
+        public float HighRiskVisionAngle => _highRiskVisionAngle;
         public float NearDetectRadius => _nearDetectRadius;
         public float GhostEyeHeight => _ghostEyeHeight;
         public float TargetCenterHeight => _targetCenterHeight;
@@ -165,6 +158,8 @@ namespace GhostHunter.Gameplay.Ghost
         public float RunHearingRadius => _runHearingRadius;
         public float WalkHearingRadius => _walkHearingRadius;
         public float SearchDuration => _searchDuration;
+        public float TargetSelectionInterval => _targetSelectionInterval;
+        public float TargetSwitchDistance => _targetSwitchDistance;
         public float RoamSpeed => _roamSpeed;
         public float ChaseSpeed => _chaseSpeed;
         public float RepathInterval => _repathInterval;
@@ -188,8 +183,6 @@ namespace GhostHunter.Gameplay.Ghost
         public float PhenomenonWitnessDistance => _phenomenonWitnessDistance;
         public float PhenomenonWitnessAngle => _phenomenonWitnessAngle;
         public float PhenomenonWitnessEyeHeight => _phenomenonWitnessEyeHeight;
-        public float HidingSpotCheckRadius => _hidingSpotCheckRadius;
-        public float HidingSpotCheckChance => _hidingSpotCheckChance;
         public float BedHideConcealSeconds => _bedHideConcealSeconds;
 
         /// <summary>기획서 §7.3 의 팀 평균 정신력별 10초당 어택 확률.</summary>
@@ -209,22 +202,22 @@ namespace GhostHunter.Gameplay.Ghost
 
         private void OnValidate()
         {
-            _activeTeamSanity = Mathf.Clamp(_activeTeamSanity, 0, 100);
-            _attackTeamSanity = Mathf.Clamp(_attackTeamSanity, 0, _activeTeamSanity);
+            _attackTeamSanity = Mathf.Clamp(_attackTeamSanity, 0, 100);
             _highRiskTeamSanity = Mathf.Clamp(_highRiskTeamSanity, 0, _attackTeamSanity);
             _attackEarlyEndTeamSanity = Mathf.Clamp(_attackEarlyEndTeamSanity, 0, 100);
 
             _warningDuration = Mathf.Max(0.1f, _warningDuration);
-            _attackMinDuration = Mathf.Max(0.1f, _attackMinDuration);
-            _attackMaxDuration = Mathf.Max(_attackMinDuration, _attackMaxDuration);
+            _attackMaxDuration = Mathf.Max(0.1f, _attackMaxDuration);
+            _highRiskAttackDuration = Mathf.Max(_attackMaxDuration, _highRiskAttackDuration);
+            _attackEarlyEndWindow = Mathf.Clamp(_attackEarlyEndWindow, 0f, _attackMaxDuration);
             _calmingDuration = Mathf.Max(0.1f, _calmingDuration);
-            _suppressionDuration = Mathf.Max(0.1f, _suppressionDuration);
             _attackRollInterval = Mathf.Max(0.1f, _attackRollInterval);
 
             _cleaningActivateProgress = Mathf.Clamp(_cleaningActivateProgress, 1, 100);
-            _cleaningBoostDuration = Mathf.Max(0f, _cleaningBoostDuration);
 
             _visionDistance = Mathf.Max(0.1f, _visionDistance);
+            _highRiskVisionDistance = Mathf.Max(_visionDistance, _highRiskVisionDistance);
+            _highRiskVisionAngle = Mathf.Max(_visionAngle, _highRiskVisionAngle);
             _nearDetectRadius = Mathf.Max(0f, _nearDetectRadius);
             _ghostEyeHeight = Mathf.Max(0f, _ghostEyeHeight);
             _targetCenterHeight = Mathf.Max(0f, _targetCenterHeight);
@@ -235,6 +228,8 @@ namespace GhostHunter.Gameplay.Ghost
             _runHearingRadius = Mathf.Max(0f, _runHearingRadius);
 
             _searchDuration = Mathf.Max(0f, _searchDuration);
+            _targetSelectionInterval = Mathf.Max(0.05f, _targetSelectionInterval);
+            _targetSwitchDistance = Mathf.Max(0f, _targetSwitchDistance);
             _roamSpeed = Mathf.Max(0f, _roamSpeed);
             _chaseSpeed = Mathf.Max(0f, _chaseSpeed);
             _repathInterval = Mathf.Max(0.05f, _repathInterval);
@@ -259,7 +254,6 @@ namespace GhostHunter.Gameplay.Ghost
             _phenomenonWitnessDistance = Mathf.Max(0.1f, _phenomenonWitnessDistance);
             _phenomenonWitnessEyeHeight = Mathf.Max(0f, _phenomenonWitnessEyeHeight);
 
-            _hidingSpotCheckRadius = Mathf.Max(0.1f, _hidingSpotCheckRadius);
         }
     }
 }

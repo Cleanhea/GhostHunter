@@ -32,6 +32,12 @@ namespace GhostHunter.Gameplay.Ghost
             Granted = false;
         }
 
+        public void Restore(float concealTimer, bool granted)
+        {
+            _concealTimer = UnityEngine.Mathf.Max(0f, concealTimer);
+            Granted = granted;
+        }
+
         /// <param name="deltaTime">이번 틱 시간(초).</param>
         /// <param name="eligible">엎드림 + Idle 침대 밑 상자 안.</param>
         /// <param name="chasedByGhost">지금 이 플레이어가 귀신의 추격/수색 대상인가(= 들어가는 걸 봤다).</param>

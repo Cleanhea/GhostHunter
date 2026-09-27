@@ -1,5 +1,8 @@
 # 09. 맵 생성 시스템 기획서
 
+> **2026-09-28:** 이 문서의 `GhostHunter > …` 설치·생성·검증 메뉴와 `Editor/…Setup.cs` 도구는 [ADR-0020](decisions/ADR-0020-remove-one-off-editor-setup-tools.md)으로 삭제됐다.
+> 도구 실행 절차·결과는 구현 당시 기록이다. 지금은 저장된 씬·프리팹이 원본이고 직접 고친다.
+
 > 원본: 기획 문서(작성자 손민지) **v0.4 (2026.09.05)**. 저장소 반영일 **2026-09-12**.
 > 최신 규칙은 v0.4 원문을 기준으로 정리하고, 기존 문서의 절 번호·도면·구현 기록을 보존했다.
 > 원문에 없는 저장소 서술(구현 현황·실측값·충돌 분석)은 **[구현 메모]** 로 표시한다.
@@ -1162,7 +1165,7 @@ Target Furniture Count 결정
 | Spawn Point | `House_Prototype_PlanB/RandomFurniture/SpawnPoints` | **설치 완료.** Floor 안전 후보 91개를 풀/실제 크기·이동 경로·장애물로 필터링해 저장. Desk/Sofa/Wall 배선과 기존 프리셋의 고정 소품 전환은 별도 |
 | Target Furniture Type / Count | `RandomFurniture/Controller`·`FurniturePool` | **설치 완료.** 설정 기반 임시 4종 16개 풀, 서버 배치·대상 마커 복제·수량/중복/충돌 검사. 설치 내부 seed 0~15 통과. 최종 작업 판정·진행도는 MG-21~23 / D-14 대기 |
 | Content Spawn Point | — | **미구현** |
-| 귀신 본체 프로토타입 | `GhostPrototypeSystem/GhostSpawnPoint` | 거실 중앙 고정 지점에서 Tab HUD로 서버 동적 스폰. Content Spawn Point와는 미연동 → [ghost-prototype.md](ghost-prototype.md) |
+| 귀신 본체 프로토타입 | `GhostPrototypeSystem/GhostSpawnPoint` | Game 씬에서 Host가 기본 1마리를 자동 스폰. 거실 중앙 고정 지점 사용, Content Spawn Point와는 미연동 → [ghost-prototype.md](ghost-prototype.md) |
 
 **기존 House_01의 Spawn Point 자리는 소품 큐브로 미리 채워 두었다** — 해당 프리셋에는 아직 새 랜덤 선택 배선을 하지 않았으므로, 프리셋마다
 바닥 Spawn Point 자리(상자 · 쓰레기통 · 빨래바구니)와 책상/협탁 위 Spawn Point 자리(컵 · 책 ·
@@ -1249,7 +1252,7 @@ z=4.0, 세탁실 중심을 z=9.5로 조정했다. **2026-09-06에는 §2의 여�
 정해지면 이 설정 에셋을 통해서만 조정하고, 현재 B/C 비교 프로토타입이 해당 값을 정식 확정으로
 승격시키지는 않는다.
 
-**현재 상태 (2026-09-06 갱신):** Unity MCP로 메뉴를 실행해 `Game.unity`에 저장까지 완료했다.
+**현재 상태 (2026-09-06 갱신):** 에디터에서 메뉴를 실행해 `Game.unity`에 저장까지 완료했다.
 방 좌표는 원본 도면 값이 아니라 §2 "B·C안 적용된 실내 좌표"의 여백 정리 재설계 값이다 — 최초
 실행 시 `ValidateRoomBounds`가 외곽 벽 이탈을 잡아냈는데, 원인은 이 문서 §2에 적어 둔 대로
 **Unity 쪽 검증이 벽 두께 절반이 아니라 전체를 외곽선에서 뺀다**는 점을 처음에 놓쳤기 때문이다
@@ -1291,7 +1294,9 @@ z=4.0, 세탁실 중심을 z=9.5로 조정했다. **2026-09-06에는 §2의 여�
 
 **설치·검증 절차**
 
-1. Unity에서 Play를 종료하고 `Assets/Scenes/Game.unity`를 열어 활성 씬으로 선택한다. 스크립트 임포트와 컴파일을 기다린다.
+1. Unity에서 Play를 종료하고 `Assets/Scenes/ProtoTypeGame.unity`(구 `Game.unity` — ADR-0019)를 열어 활성 씬으로 선택한다. 스크립트 임포트와 컴파일을 기다린다.
+   B안은 스테이지 씬 `Stage1` 에도 복사되어 있다 — ProtoTypeGame 에서 고친 B안은 Stage1 에도 직접 반영한다
+   (`Stage1 씬 생성`·아래 2~3번 메뉴는 ADR-0020으로 삭제했다).
 2. `GhostHunter > 맵 B안 가구 랜덤 배치 설치`를 실행한다. 메뉴는 설정 에셋
    `Assets/Settings/Gameplay/FurnitureSpawnSettings_PlanB.asset`과 씬 배선을 만들고, seed 0~15 전체 배치·시작 위치 검사 후
    **Game 씬을 저장**한다. 이어 NGO 식별자 갱신·중복 검사를 수행한다. 기존 시스템이 있으면 가구·후보를 중복 생성하지 않고 검증·식별자 갱신·저장한다.
@@ -1309,7 +1314,33 @@ z=4.0, 세탁실 중심을 z=9.5로 조정했다. **2026-09-06에는 §2의 여�
 열린 Unity 에디터의 자동 임포트로 신규 `.meta`가 생성됐으며, Editor 로그에서 Gameplay·Editor·테스트 어셈블리의
 **컴파일·NGO IL 후처리·도메인 재로드 성공**도 확인했다. 이후 설치 메뉴가
 `FurnitureSpawnSettings_PlanB.asset`, 풀 16개, 안전 후보 91개와 B안 앞마당 시작 위치를 Game 씬에 저장했고 내부 seed 0~15 검증을 통과했다.
-MCP 로컬 서버·세션 연결도 확인했다. **Unity Test Runner·Host/Client Play 검증은 미실행**이다.
+**Unity Test Runner·Host/Client Play 검증은 미실행**이다.
+
+#### 10.1.4 Stage1 고정 가구 — 스폰 안 되는 종류 전부 배치 [구현 메모, 2026-09-28]
+
+사용자 요청: Stage1 에 **랜덤 스폰 풀에 없는 종류**(고정 가구 — 침대 등)를 **모든 종류 하나 이상** 쓰고, **방마다 1개 이상** 포함한다.
+
+- 스폰 풀 종류는 4종(`Sofa_2.2x0.9`·`Dresser_0.8x0.45`·`Chair_0.5x0.5`·`Crate_0.6`, `FurnitureSpawnSettings_PlanB`)이고
+  나머지 **29종**이 대상이다. 기존 B안 인테리어(`Furniture_TEMP`, 79개)가 이미 21개 방 + 현관 모두에 대상 종류를 1개 이상 두고 있었고,
+  한 번도 안 쓰인 12종을 방마다 `<종류>_Fixed` 로 하나씩 더했다(기존 79개는 그대로).
+
+| 방 | 추가 | 자리 |
+| --- | --- | --- |
+| 다락 Playroom | `SingleBed_1.0x2.0` · `BedsideTable_0.5x0.4` | 동쪽 벽에 머리, 협탁은 머리맡 |
+| 2층 Bedroom_01 | `SingleBed_1.1x2.0` | 남동쪽, 남쪽 벽에 머리 |
+| 2층 Bedroom_02 / 03 / 04 | `Wardrobe_1.5x0.6` / `Dresser_1.2x0.5` / `Desk_1.0x0.5` | 동쪽 벽(문과 떨어진 쪽) |
+| 2층 FamilyRoom | `Television` | 기존 `LivingConsole` 위, 소파를 향해 |
+| 1층 Storage / 다락 SecretStorage | `Crate_0.45` / `Crate_0.62` | 기존 상자 옆 북쪽 모서리 / 남쪽 벽 |
+| 1층 Kitchen / Study / Bathroom_SW | `Cup_0.12` / `Book_Stack_0.22` / `CosmeticBox_0.25` | 식탁 / 책상 / 세면대 위 |
+
+- 자리 규칙: 등(로컬 +z — 머리판·뒤판 쪽)을 벽에 붙이고, 기존 가구와 0.1m, 문 중심에서 1.1m 이상 띄우며,
+  **랜덤 스폰 후보마다 최대 치수(`_maximumSize`, 후보 회전 포함) + 0.1m 사각형과 겹치지 않게** 해 후보 91개를 하나도 잃지 않았다.
+- 씬 파일을 직접 고쳤다(ADR-0020). 인스턴스의 `GlobalObjectIdHash` 는 NGO 와 같은 식
+  `XXH32("GlobalObjectId_V1-2-<씬 GUID>-<프리팹 NetworkObject fileID>-<PrefabInstance fileID>")` 로 넣었다 — 기존 95개 인스턴스 값과 일치 확인.
+- 검증(복제 프로젝트): Stage1 NetworkObject 132개에 `OnValidate` 를 다시 돌려 해시 변동·0·중복 0, 새 가구 12개 충돌체 겹침 0·바닥/받침과
+  간격 0~5mm. PlayMode: 인게임 로비 → Stage1 흐름 테스트 통과, Stage1 을 3번 출발해 매번 랜덤 가구 16개 배치 완료(시드 3개).
+- ⚠️ CLAUDE.md "침실에 손으로 가구를 놓지 않는다"는 A안 `House_01` 의 `Room_Presets → RoomSlots` 전제다. B안(Stage1)에는 그 구조가 없어
+  사용자 요청대로 침실에도 직접 두었다 — 규칙 범위 정리는 사용자 결정 대기.
 
 ### 10.2 프로토타입에서 확인해야 할 것
 
@@ -1363,7 +1394,7 @@ B안 / C안 Graybox를 별도로 제작하여 비교한다.
 |---|---|---|
 | 귀신 이동·배회 | `GhostPrototypeSpawner` 가 넘겨주는 **상자 하나의 X/Z 경계**. NavMesh 없이 `CharacterController.Move` 직접 조향, **Y는 고려하지 않는다** | 계단을 오르내리지 못한다. 층 인식 또는 NavMesh 도입이 필요하다 → [roadmap MAP-11](../project/roadmap.md) |
 | 굴착 스킬 도약 | 4m [임시]. 기준은 "2층을 바로 올라갈 정도" | 층고가 정해지면 재환산 → [roadmap MAP-12](../project/roadmap.md) · [mole-skill-system.md §5.4](../project/mole-skill-system.md) |
-| 드릴 카 세이프 존 | 현관 앞 고정 상자 1개 | 층이 늘면 위치·개수 재검토 |
+| 드릴 카 세이프 존 | 상자 1개. Game 로드 때 스폰 줄 뒤쪽 땅으로 옮긴다(`DrillCarSafeZone.PlaceBehindSpawns`) — B안 앞마당(4m)을 비워 현관을 막지 않게 | 층이 늘면 위치·개수 재검토 |
 | 은신처 | 방 바닥 앵커에서 역산한 4개 | 방이 21개로 늘면 배치 규칙이 필요하다 |
 | 정신력 어둠 판정 | 집 내부 조명 기준 | 지하실·다락은 조명 전제가 다르다 |
 | 스폰 지점 | 1층 평면 | 층별 스폰·시작 층 결정 필요 |
@@ -1482,7 +1513,7 @@ B/C 비교·작업량 검증, 이전 Work Room 기준 정리. 후속 사용자 �
 
 이전 갱신: 2026-09-06 (B·C안 실내 여백 정리 재설계 적용 — 같은 날개 안 방-방 사이 간격을
 완전히 제거하고 외벽까지 채워 방+홀 비율을 층당 68.5~83.0%로 끌어올렸다. `PlanVariantPrototypeSetup.cs`
-좌표 갱신, Unity MCP로 기존 프로토타입 삭제 후 재생성·씬 저장·검증 통과 확인. 일부 서비스실이
+좌표 갱신, 기존 프로토타입 삭제 후 재생성·씬 저장·검증 통과 확인. 일부 서비스실이
 침실급으로 커진 트레이드오프는 사용자 확인 후 수용. 채택 여부 MG-20은 그대로 대기.
 
 2026-09-05: HousePlanB·C 도면 대조·비교 컨텍스트·이미지 목록 보완, B/C 실내 프로토타입

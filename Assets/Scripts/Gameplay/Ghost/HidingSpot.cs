@@ -7,8 +7,8 @@ namespace GhostHunter.Gameplay.Ghost
     /// 일반 은신처의 임시 버전(기획서 §9.5 — 옷장·침대 밑·책상 밑). 정식 가구가 아직
     /// 프리팹화되지 않아(docs/todo/TODO-미정.md) 특정 가구에 붙이지 않고, 방마다 순수 상자
     /// 경계만 둔다. 이 안에 있는 플레이어는 귀신의 일반 시야·소리 탐지·잡힘에서 제외된다 —
-    /// 대신 귀신이 수색 중 이 은신처를 발견하면 <see cref="GhostPrototypeSettings.HidingSpotCheckChance"/>
-    /// 확률로 직접 검사해 걸릴 수 있다(<see cref="GhostPrototypeController"/> 참고).
+    /// 귀신이 들어가는 장면을 봤다면 수색 중 해당 은신처로 이동해 확률 없이 처치한다
+    /// (<see cref="GhostPrototypeController"/> 참고).
     ///
     /// <c>NetworkObject</c> 가 아니다 — 판정은 서버 하나뿐이고 상자는 씬에 고정된 순수 기하라
     /// 복제할 게 없다(<see cref="DrillCarSafeZone"/> 과 동일한 패턴). 정식 은신처가 생기면

@@ -1,6 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using Cysharp.Threading.Tasks;
+using GhostHunter.Core;
+using GhostHunter.Core.Scenes;
+using GhostHunter.Gameplay.Cleaning;
+using GhostHunter.Gameplay.Ghost;
+using GhostHunter.Gameplay.Map;
+using GhostHunter.Gameplay.Player;
+using GhostHunter.Gameplay.Recovery;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -20,6 +28,29 @@ namespace GhostHunter.Gameplay.Sanity
         private string _lastStatus = "정신력 시스템 대기";
         private ulong _nextDebugCorpse = FirstDebugCorpse;
         private ulong _lastDebugCorpse = NoDebugCorpse;
+        private bool _teamWiped;
+        private bool _stageEnding;
+
+        public bool IsTeamWiped => _teamWiped;
+
+        public int DeadPlayerCount
+        {
+            get
+            {
+                int count = 0;
+                for (int i = 0; i < _states.Count; i++)
+                {
+                    SanityNetworkState state = _states[i];
+                    if (state != null && state.IsSpawned && !state.HasSanity)
+                        count++;
+                }
+
+                return count;
+            }
+        }
+
+        /// <summary>서버에서 마지막 생존자가 사망한 순간 한 번만 발생한다.</summary>
+        public event Action TeamWiped;
 
         public bool CanControl
         {
@@ -59,6 +90,147 @@ namespace GhostHunter.Gameplay.Sanity
         {
             if (state != null)
                 _states.Remove(state);
+
+            ServerEvaluateTeamWipe();
+        }
+
+        public void ServerEvaluateTeamWipe()
+        {
+            NetworkManager network = NetworkManager.Singleton;
+            if (_teamWiped || _stageEnding || StageRecoveryGate.Restoring
+                || network == null || !network.IsServer)
+                return;
+
+            int players = 0;
+            for (int i = _states.Count - 1; i >= 0; i--)
+            {
+                SanityNetworkState state = _states[i];
+                if (state == null)
+                {
+                    _states.RemoveAt(i);
+                    continue;
+                }
+
+                if (!state.IsSpawned)
+                    continue;
+
+                players++;
+                if (state.HasSanity)
+                    return;
+            }
+
+            if (players == 0)
+                return;
+
+            _teamWiped = true;
+            _stageEnding = true;
+            TeamWiped?.Invoke();
+
+            if (!Services.TryGet(out ISceneFlow sceneFlow)
+                || !sceneFlow.Current.IsStage() || sceneFlow.IsLoading)
+                return;
+
+            StageSettlementRecord settlement = BuildSettlement(true);
+            float presentationSeconds = 0f;
+            sceneFlow.RecordStageSettlement(settlement);
+            for (int i = 0; i < _states.Count; i++)
+            {
+                SanityNetworkState state = _states[i];
+                if (state == null || !state.IsSpawned)
+                    continue;
+
+                SpectatorController spectator = state.GetComponent<SpectatorController>();
+                if (spectator != null && spectator.Settings != null)
+                    presentationSeconds = Mathf.Max(presentationSeconds,
+                        spectator.Settings.DeathSequenceSeconds);
+                state.ServerBroadcastStageSettlement(settlement);
+                break;
+            }
+
+            LoadFailureResultAsync(sceneFlow, presentationSeconds).Forget();
+        }
+
+        public void ServerEndStageByExit()
+        {
+            NetworkManager network = NetworkManager.Singleton;
+            if (_stageEnding || network == null || !network.IsServer
+                || !Services.TryGet(out ISceneFlow sceneFlow)
+                || !sceneFlow.Current.IsStage() || sceneFlow.IsLoading)
+                return;
+
+            _stageEnding = true;
+            StageSettlementRecord settlement = BuildSettlement(false);
+            sceneFlow.RecordStageSettlement(settlement);
+            for (int i = 0; i < _states.Count; i++)
+            {
+                SanityNetworkState state = _states[i];
+                if (state == null || !state.IsSpawned)
+                    continue;
+                state.ServerBroadcastStageSettlement(settlement);
+                break;
+            }
+            LoadFailureResultAsync(sceneFlow, 0f).Forget();
+        }
+
+        private StageSettlementRecord BuildSettlement(bool wiped)
+        {
+            int survivors = 0;
+            int missing = 0;
+            int dead = 0;
+            for (int i = 0; i < _states.Count; i++)
+            {
+                SanityNetworkState state = _states[i];
+                if (state == null || !state.IsSpawned)
+                    continue;
+                if (!state.HasSanity)
+                    dead++;
+                else if (DrillCarSafeZone.Contains(state.transform.position))
+                    survivors++;
+                else
+                    missing++;
+            }
+
+            int targets = 0;
+            int delivered = 0;
+            FurnitureSpawnController furniture = FindFirstObjectByType<FurnitureSpawnController>();
+            if (furniture != null && furniture.Items != null)
+                foreach (RandomFurnitureItem item in furniture.Items)
+                    if (item != null && item.IsAssignedWorkTarget)
+                    {
+                        targets++;
+                        if (item.IsDelivered)
+                            delivered++;
+                    }
+
+            CleaningController cleaning = FindFirstObjectByType<CleaningController>();
+            int cleaned = cleaning != null ? cleaning.ProgressPercent : 0;
+            return new StageSettlementRecord(delivered, targets, cleaned,
+                survivors, missing, dead, wiped);
+        }
+
+        private async UniTaskVoid LoadFailureResultAsync(ISceneFlow sceneFlow, float delaySeconds)
+        {
+            if (delaySeconds > 0f)
+            {
+                try
+                {
+                    await UniTask.Delay(TimeSpan.FromSeconds(delaySeconds),
+                        cancellationToken: destroyCancellationToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    return;
+                }
+            }
+            else
+            {
+                // 정산 RPC를 씬의 NetworkObject가 언로드되기 전 네트워크 틱에 싣는다.
+                try { await UniTask.NextFrame(destroyCancellationToken); }
+                catch (OperationCanceledException) { return; }
+            }
+
+            if (sceneFlow.Current.IsStage() && !sceneFlow.IsLoading)
+                sceneFlow.Load(SceneId.Result);
         }
 
         public int CopyPlayerStates(SanityNetworkState[] destination)
@@ -267,6 +439,32 @@ namespace GhostHunter.Gameplay.Sanity
             _lastStatus = state.ServerMarkDead()
                 ? "플레이어 사망 처리: 팀 평균에서 제외."
                 : "사망 처리 적용 없음.";
+        }
+
+        public void MarkNextRemotePlayerDead()
+        {
+            NetworkManager network = NetworkManager.Singleton;
+            if (network == null || !network.IsServer)
+            {
+                _lastStatus = "원격 사망 처리 실패: 호스트가 필요합니다.";
+                return;
+            }
+
+            SanityNetworkState target = null;
+            for (int i = 0; i < _states.Count; i++)
+            {
+                SanityNetworkState candidate = _states[i];
+                if (candidate == null || !candidate.IsSpawned || !candidate.HasSanity
+                    || candidate.OwnerClientId == network.LocalClientId)
+                    continue;
+
+                if (target == null || candidate.OwnerClientId < target.OwnerClientId)
+                    target = candidate;
+            }
+
+            _lastStatus = target != null && target.ServerMarkDead()
+                ? $"원격 플레이어 {target.OwnerClientId} 사망 처리."
+                : "사망 처리할 생존 원격 플레이어가 없습니다.";
         }
 
         public void ReviveLocalPlayer()

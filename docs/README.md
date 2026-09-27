@@ -25,7 +25,9 @@ docs/
 │   ├── cleaning-system.md          대걸레·랜덤 얼룩·HUD 초기화, 상세 룰·진행도 미정
 │   ├── furniture-multidriver-system.md  가구 분해·조립 아이템 — MD-1·2·5·9·10·11·12 확정, FM-IMPL-1~3 구현
 │   ├── furniture-durability-system.md   가구 내구도 — 수직 상대 속도·초기값·복구 승인, 코드 구현·Unity 검증 대기
-│   ├── spectator-system.md         사망 후 능력 제한·자유시점·생존자 관전 — 핵심 요구 확정, 구현 미착수
+│   ├── death-system.md           죽음 판정·연출·시체·사망 상태·치료비·전멸 — 기획 0.1
+│   ├── stage-system.md           스테이지 시작·종료·정산·호스트 이전 — 기획 1.0과 2026-09-27 확정 사항
+│   ├── spectator-system.md         사망 후 능력 제한·자유시점·생존자 관전 — 코드 구현, Play 검증 대기
 │   ├── voice-chat-system.md        근접 음성 채팅(마이크) — 10m XZ 감쇠·벽 가림·층 차단, 기획 0.2 (선행 결정 4건 확정)
 │   └── roadmap.md                  마일스톤 & 태스크 보드
 ├── architecture/                   어떻게 구성되는가
@@ -42,6 +44,7 @@ docs/
 │   ├── quick-slot.md                퀵슬롯 휠 구현 — 입력 잠금·선택 계산·장착 전달
 │   ├── cleaning-system.md           서버 얼룩 상태·청소 검증·씬 풀·설치/검증
 │   ├── furniture-multidriver.md     분해·조립 서버 판정·씬 풀 재배치·행동 시간 HUD·설치/검증 — 손목 애니메이션·실루엣 렌더링 미구현
+│   ├── death-system.md              사망 연출·시체 물리·전멸 결과 데이터 흐름
 │   └── decisions/                  ADR (기술 결정 기록)
 ├── conventions/                    어떻게 쓰는가
 │   ├── code-style.md               C# / Unity 코딩 규약
@@ -50,7 +53,6 @@ docs/
 └── workflow/                       어떻게 일하는가
     ├── development-loop.md         작업 절차 & 완료 기준(DoD)
     ├── testing.md                  테스트 전략 & 실행법
-    ├── unity-mcp.md                Unity MCP — 에디터 직접 조작 규칙
     ├── spectator-implementation-prompt.md 사망 후 관전 구현 모델용 작업 지시
     ├── furniture-multidriver-implementation-prompt.md 가구 분해·조립 구현 모델용 작업 지시
     └── playbooks.md                반복 작업 레시피
@@ -69,6 +71,9 @@ docs/
 | [project/quick-slot-system.md](project/quick-slot-system.md) | 퀵슬롯 휠은 언제 열리고 무엇을 담는가 | 퀵슬롯 규칙·슬롯 구성 변경 |
 | [project/furniture-multidriver-system.md](project/furniture-multidriver-system.md) | 큰 가구를 어떻게 분해해서 옮기고 다시 조립하는가 | 분해·조립 규칙, 아이템 내구도, 부품 구성 확정 |
 | [project/furniture-durability-system.md](project/furniture-durability-system.md) | 가구 내구도는 언제 얼마나 깎이고 0이 되면 어떻게 되는가 | 충돌 파손 규칙·수치·0 도달 결과(FD-1~12) 확정 |
+| [project/death-system.md](project/death-system.md) | 언제 사망하고 시체·사망 상태·치료비·전멸을 어떻게 처리하는가 | 사망·시체·전멸·치료비 규칙 변경 |
+| [project/stage-system.md](project/stage-system.md) | 한 판을 어떻게 시작·종료·정산하고 호스트 이탈 후 이어 가는가 | 시작·종료·정산·세션 이전 규칙 변경 |
+| [architecture/death-system.md](architecture/death-system.md) | 임시 시체와 전멸 결과를 어떻게 동기화하는가 | 죽음 구현·검증 변경 |
 | [project/spectator-system.md](project/spectator-system.md) | 사망 후 무엇을 할 수 있고 두 관전 모드는 어떻게 전환하는가 | 사망·관전 규칙 확정 및 구현 |
 | [project/voice-chat-system.md](project/voice-chat-system.md) | 마이크 음성이 거리·벽·층에 따라 어떻게 들리는가 | 음성 감쇠·가림·전송 규칙(VC-1~20) 확정 및 구현 |
 | [workflow/spectator-implementation-prompt.md](workflow/spectator-implementation-prompt.md) | 구현 모델에 관전 기능 작업을 어떻게 지시하는가 | 관전 기획·구현 전제 변경 |
@@ -90,7 +95,6 @@ docs/
 | [conventions/git.md](conventions/git.md) | 커밋·브랜치·PR은 | 협업 방식 변경 |
 | [workflow/development-loop.md](workflow/development-loop.md) | 작업은 어떤 순서로, 언제 끝나는가 | 프로세스 변경 |
 | [workflow/testing.md](workflow/testing.md) | 무엇을 어떻게 테스트하는가 | 테스트 전략 변경 |
-| [workflow/unity-mcp.md](workflow/unity-mcp.md) | 에디터를 직접 조작해도 되는가, 어디까지 | MCP 버전·포트·규칙 변경 |
 | [workflow/playbooks.md](workflow/playbooks.md) | 이 작업 유형의 표준 절차는 | 반복 패턴 발견 시 |
 
 ## 3. 문서 작성 규칙 (에이전트가 읽기 좋은 문서)
@@ -110,17 +114,18 @@ docs/
 
 | 문서 | 상태 |
 | --- | --- |
-| project/overview.md | 🟡 본게임 범위 반영 — 정신력 코어 구현, 게임 루프·승패와 유령 세부 규칙 TBD |
-| project/gdd.md | 🟡 던지기·유령·정신력 방향 확정, 승패·루프·유령 세부 규칙 TBD |
-| project/sanity-system.md | 🟡 v0.5 규칙·코어·플레이 HUD 구현 / 상세 모니터 UI·실제 연출·콘텐츠 연결 TBD |
-| project/ghost-system.md | 🟡 공통 상태·정신력 구간·어택·탐지·추격 규칙 확정 / 15개 미결정(G-1~15), 구현은 P1 임시값 |
+| project/overview.md | 🟡 본게임 범위 반영 — 정신력 코어 구현, 게임 루프·승패와 귀신 원문 0.2의 잔여 규칙 TBD |
+| project/gdd.md | 🟡 던지기·정신력 방향과 귀신 원문 0.2 요약 반영, 승패·루프·귀신 세부 충돌 TBD |
+| project/sanity-system.md | 🟡 귀신 본체 목격 −5/5초 서버 연결 / 목격 범위 확정·Unity PlayMode 검증 TBD |
+| project/ghost-system.md | 🟡 손민지 원문 0.2 반영 — 활동·어택·자연 진정, 0~30 강제 어택, 10초 수색, 타깃 선정. 청소 조건·종료 충돌 등 결정 대기, 구현은 과거 규칙 기준 |
 | project/mole-skill-system.md | 🟢 **굴착: 기획서 1.0 규칙 구현 완료** (2026-09-05) — 키 T · 유지 5초 · 쿨타임 10초 · 조작 전부 잠금 · 감지 상태 매몰 시 은신 무효. 🟡 **탐지·공통 UI 코드 스캐폴드 + 시전 파란빛 오버레이 부분 구현** — Q·활성 판정·5초·10초·색상별 활성 마커·탐지/굴착 동시 게이지. **벽 투시는 없다**(시야에 보이는 표면만, 2026-09-05 확정). `Game` 씬·`Player` 프리팹·아이콘 배선은 정적 확인됐고 수동 Play 검증 대기, 손·레이저 포인터 애니메이션과 작업 시스템의 실제 대상 정의는 MS-14·MS-5. 마지막 완료 복제 batchmode EditMode **165/172**(탐지 신규 전부 통과 — 상태 머신 float 오차 버그 1건을 잡아 수정), 최신 재시도는 Licensing/오프라인 Git 패키지 단계에서 테스트 XML 전에 차단. 실패 1·skip 6은 복제 환경의 에셋 임포트 문제 |
 | project/pause-menu-system.md | 🟢 **규칙 확정 + 구현 완료.** PM-1~15 전부 확정. 설정 화면 **내용**(PM-6)만 설정 시스템 기획서로 이월 / 수동 검증 대기 |
 | project/quick-slot-system.md | 🟡 **대걸레·맨손 장착 연결(2026-09-12).** 일반 인벤토리·정식 아이콘은 별도 작업 |
 | project/cleaning-system.md | 🟡 **대걸레·좌클릭·랜덤 얼룩·HUD 초기화 구현.** 정식 얼룩 규칙·가구 완료·진행도는 미정 |
 | project/furniture-multidriver-system.md | 🟡 **1.1(2026-09-13) — 우클릭 유지·중앙 원형 게이지로 수정·구현.** MD-1·2·5·9·10·11·12 확정, FM-IMPL-1~3 + FM-IMPL-4 행동 UI 구현. 손목 애니메이션·실루엣 렌더링·원격 검증 남음. MD-3·4·6·13 여전히 TBD, 설명 이미지 2장 저장 대기 |
 | project/furniture-durability-system.md | 🟡 **0.3(2026-09-15).** 수직 상대 속도·초기값·F1/R 복구 승인. 코드·테스트 추가, C# 빌드 통과. Unity 실행·Host/Client 검증 대기. 제품 연출·정산 보류 |
-| project/spectator-system.md | 🟡 **사망 후 특수능력 제한 + 자유시점/생존자 관전 핵심 요구 확정(2026-09-12).** 세부 키·속도·전환/정리 정책 일부 TBD / 관전 구현 미착수 |
+| project/death-system.md | 🟡 **기획 0.1 기반 임시 외형·시체 물리·전멸 Result 코드 구현.** C# 빌드 통과, Unity Test Runner·Host/Client Play 검증 대기. 치료비 단가·개별 귀신 이벤트 사망 조건 TBD |
+| project/spectator-system.md | 🟡 **사망 후 특수능력 제한 + 자유시점/생존자 관전 코드 구현.** 죽음 연출 연결, Host/Client Play 검증 대기 |
 | project/roadmap.md | 🟢 M0~M7 + 마이그레이션 보드, M8 기획 부분 진행 |
 | architecture/overview.md | 🟢 씬·서비스·스크립트 레이어와 asmdef 구조 반영됨 |
 | architecture/networking.md | 🟢 규약 확정 |
@@ -128,7 +133,7 @@ docs/
 | architecture/player-controller.md | 🟢 구현됨 |
 | architecture/throw-system.md | 🟢 구현됨 / 플레이테스트 튜닝 대기 |
 | architecture/furniture-physics.md | 🟢 구현됨 |
-| architecture/ghost-prototype.md | 🟢 팀 평균 정신력 기반 5상태·어택 판정·탐지·추격·사망 구현, 자동 테스트 통과 / 은신처·드릴 카·초자연현상·NavMesh·수동 플레이 검증 TBD |
+| architecture/ghost-prototype.md | 🟡 원문 0.2 기반 상태·실제 청소 진행도·NavMesh 경로·목격·연출 코드 반영 / 고위험 수치·Unity PlayMode 검증 TBD |
 | architecture/sanity-system.md | 🟢 코어 P1·World Space 4인 숫자 모니터 구현 / 실제 연출·콘텐츠 연결 TBD |
 | architecture/map-generation.md | 🟡 **B안 선택 + 가구 랜덤 배치 1차 구현(2026-09-12, MAP-19).** 임시 4종 16개 설정·서버 재배치·대상 복제·B안 앞마당 시작 위치를 설치했다. 풀 16개·안전 후보 91개 저장 및 설치 내부 seed 0~15 검증 완료. C# 빌드 경고 0·오류 0, 순수 계획 테스트 13/13 통과. **Unity Test Runner·Host/Client Play 검증 대기**. 정식 작업량·운반 완료·계단 세부·열쇠는 TBD → [설치 절차 §10.1.3](architecture/map-generation.md), [ADR-0013](architecture/decisions/ADR-0013-plan-b-random-furniture.md) |
 | architecture/pause-menu.md | 🟢 **구현됨.** EditMode 141/142·PlayMode 12/12 통과 / **수동 검증(§10.4~10.6)과 선행 검증 D-1(클라이언트 씬 동기화 모드) 미수행** |
@@ -137,12 +142,13 @@ docs/
 | architecture/furniture-multidriver.md | 🟡 **FM-IMPL-1~3 + 행동 시간 HUD(1.1) 구현·씬 설치, 부품 위치 버그 수정(2026-09-13).** EditMode 235/235·PlayMode 32/32, 실제 Local Host 유지 완료·뗌 취소·부품 착지 확인. 원격 Host/Client·조립·손목 애니메이션·실루엣 렌더링 미수행. 식탁·선반 2종은 라이브 배치 인스턴스 0개 |
 | architecture/decisions/ | 🟡 ADR-0001~0011·0013 확정 / ADR-0012 Proposed |
 | conventions/* | 🟢 규약 확정 |
-| workflow/unity-mcp.md | 🟢 설치·연결·씬 편집 검증됨 |
 | workflow/* (그 외) | 🟢 규약 확정 |
 
 ---
 
-최종 갱신: 2026-09-12 (가구용 멀티 드라이버 MD-1·2·5·9·10·11·12 확정 + FM-IMPL-1~3 구현·씬 설치
+최종 갱신: 2026-09-27 (죽음 시스템 코드·구현 문서·검증 상태 연결.)
+
+이전 갱신: 2026-09-12 (가구용 멀티 드라이버 MD-1·2·5·9·10·11·12 확정 + FM-IMPL-1~3 구현·씬 설치
 반영, 신규 architecture/furniture-multidriver.md 라우팅 추가. 같은 날 사망 후 관전 기획서·구현
 프롬프트 라우팅 추가, 퀵슬롯 더미 스캐폴드 문서와 맵 v0.4·B안 선택·MAP-19 랜덤 가구 코드·검증/설치
 안내·ADR-0013 반영.)

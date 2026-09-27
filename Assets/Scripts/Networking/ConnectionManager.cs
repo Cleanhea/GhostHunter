@@ -56,6 +56,9 @@ namespace GhostHunter.Networking
 
         /// <summary>요청하지 않은 세션 종료. 일시정지 메뉴 UI가 끊김 모달을 띄우는 신호다.</summary>
         public event Action SessionEnded;
+        /// <summary>Game 호스트가 사라져, 다른 로비 멤버가 NGO 서버를 재구성해야 한다.</summary>
+        public event Action StageRecoveryRequired;
+        public bool IsStageRecovering => _stageRecovering;
 
         private NetworkManager Net => _networkManager != null ? _networkManager : NetworkManager.Singleton;
 
@@ -67,6 +70,20 @@ namespace GhostHunter.Networking
         /// 요청한 종료이므로 로비 퇴장·SessionEnded 를 하지 않는다.
         /// </summary>
         private bool _shutdownRequested;
+
+        /// <summary>게임 씬을 올린 뒤 StartHost 하려고 기다리는 중이다. 그 사이의 시작 요청은 거절한다.</summary>
+        private bool _hostStartPending;
+        private bool _stageRecovering;
+
+        public void CompleteStageRecovery() => _stageRecovering = false;
+
+        public void FailStageRecovery()
+        {
+            if (!_stageRecovering)
+                return;
+            _stageRecovering = false;
+            SessionEnded?.Invoke();
+        }
 
         private void Awake()
         {
@@ -157,7 +174,15 @@ namespace GhostHunter.Networking
 
             if (_transportMode == TransportMode.Local)
             {
-                StartHostInternal();
+                // 개발 HUD 의 Host 는 Title 위에서 눌린다. 그 자리에서 StartHost 하면 플레이어가
+                // Game 씬 서비스(스폰 레지스트리·로컬 플레이어 컨텍스트) 없이 스폰돼 조작이 전부 죽는다.
+                // 메뉴 흐름과 같은 순서(씬 로드 → StartHost)를 따른다 → docs/architecture/networking.md §3.6
+                // 메뉴 흐름처럼 인게임 로비에서 세션을 연다(ADR-0018) — 스테이지는 로비 단말기에서 시작한다.
+                if (ShouldLoadGameSceneBeforeLocalHost(_sceneFlow != null, _sceneFlow?.Current ?? SceneId.Bootstrap))
+                    StartHostInGameScene(SceneId.InGameLobby);
+                else
+                    StartHostInternal();
+
                 return;
             }
 
@@ -206,31 +231,54 @@ namespace GhostHunter.Networking
                 return;
             }
 
+            if (_transportMode == TransportMode.Steam)
+                _lobby?.MarkGameLoading();
+
             StartHostInGameSceneAsync(scene).Forget();
         }
 
         private async UniTaskVoid StartHostInGameSceneAsync(SceneId target)
         {
             SetStatus($"게임 씬 로드 중... ({target})");
+            _hostStartPending = true;
+            bool readyToStart = false;
 
             var loaded = new UniTaskCompletionSource();
+            var insufficientMembers = new UniTaskCompletionSource();
             Action<SceneId> onSceneChanged = id =>
             {
                 if (id == target)
                     loaded.TrySetResult();
             };
+            void CheckMemberCount()
+            {
+                if (_transportMode == TransportMode.Steam && _lobby != null
+                    && (!_lobby.IsInLobby || _lobby.GetMembers().Count < 2))
+                    insufficientMembers.TrySetResult();
+            }
 
             _sceneFlow.SceneChanged += onSceneChanged;
+            if (_transportMode == TransportMode.Steam && _lobby != null)
+                _lobby.LobbyUpdated += CheckMemberCount;
 
             try
             {
                 _sceneFlow.Load(target);
+                CheckMemberCount();
 
                 // Load 는 거부될 수 있고(전환 중·미배선) 그때는 SceneChanged 가 오지 않는다.
                 // 무한 대기 대신 시간 제한을 둬서 원인이 로그에 남게 한다.
                 int winner = await UniTask.WhenAny(
                     loaded.Task,
+                    insufficientMembers.Task,
                     UniTask.Delay(SceneLoadTimeout, cancellationToken: destroyCancellationToken));
+
+                if (winner == 1)
+                {
+                    SetStatus("참여 인원이 부족하여 시작이 취소되었습니다");
+                    CancelUnderpopulatedStartAsync().Forget();
+                    return;
+                }
 
                 if (winner != 0)
                 {
@@ -240,6 +288,14 @@ namespace GhostHunter.Networking
 
                 // 씬 오브젝트(스폰 레지스트리 등)의 Awake 가 끝난 다음 프레임에 시작한다.
                 await UniTask.NextFrame(destroyCancellationToken);
+                if (_transportMode == TransportMode.Steam && _lobby != null
+                    && (!_lobby.IsInLobby || _lobby.GetMembers().Count < 2))
+                {
+                    SetStatus("참여 인원이 부족하여 시작이 취소되었습니다");
+                    CancelUnderpopulatedStartAsync().Forget();
+                    return;
+                }
+                readyToStart = true;
             }
             catch (OperationCanceledException)
             {
@@ -248,12 +304,35 @@ namespace GhostHunter.Networking
             finally
             {
                 _sceneFlow.SceneChanged -= onSceneChanged;
+                if (_lobby != null)
+                    _lobby.LobbyUpdated -= CheckMemberCount;
+                _hostStartPending = false;
+                if (!readyToStart && _transportMode == TransportMode.Steam)
+                    _lobby?.MarkGameEnded();
             }
 
             StartHostInternal();
 
             if (IsRunning && _transportMode == TransportMode.Steam)
                 _lobby?.MarkGameStarted();
+            else if (_transportMode == TransportMode.Steam)
+                _lobby?.MarkGameEnded();
+        }
+
+        private async UniTaskVoid CancelUnderpopulatedStartAsync()
+        {
+            try
+            {
+                for (int frame = 0; frame < 300 && _sceneFlow != null
+                    && _sceneFlow.IsLoading; frame++)
+                    await UniTask.NextFrame(destroyCancellationToken);
+
+                _lobby?.LeaveLobby();
+                if (_sceneFlow != null && !_sceneFlow.IsLoading
+                    && _sceneFlow.Current != SceneId.Title)
+                    _sceneFlow.Load(SceneId.Title);
+            }
+            catch (OperationCanceledException) { }
         }
 
         /// <summary>
@@ -365,8 +444,24 @@ namespace GhostHunter.Networking
                 return false;
             }
 
+            // 씬 로드를 기다리는 동안은 IsRunning 이 아직 false 다. 두 번째 요청이 같은 SceneChanged 를
+            // 받아 StartHost 를 한 번 더 부르지 않게 막는다.
+            if (_hostStartPending)
+            {
+                SetStatus("게임 씬을 올리는 중입니다. 호스트가 곧 시작됩니다.");
+                return false;
+            }
+
             return true;
         }
+
+        /// <summary>
+        /// Local 호스트가 먼저 세션 씬(인게임 로비)을 올려야 하는가. 씬 흐름이 없으면(Bootstrap 없는 테스트 픽스처)
+        /// 지금 씬에서 바로 연다. 이미 스테이지·인게임 로비면(에디터에서 Bootstrap 과 함께 연 경우) 다시 올리지 않는다
+        /// — 같은 씬 Load 는 거부되고 SceneChanged 가 오지 않아 시간 제한까지 기다리게 된다.
+        /// </summary>
+        public static bool ShouldLoadGameSceneBeforeLocalHost(bool hasSceneFlow, SceneId currentScene)
+            => hasSceneFlow && !currentScene.IsStage() && currentScene != SceneId.InGameLobby;
 
         /// <summary>선택된 모드에 맞는 트랜스포트를 NetworkConfig 에 꽂는다.</summary>
         private bool ApplyTransport()
@@ -505,9 +600,10 @@ namespace GhostHunter.Networking
 
                 SetStatus($"서버와의 연결이 끊겼습니다. {reason}");
 
-                // 호스트가 사라진 로비에 남을 이유가 없다. 자발적 이탈(Disconnect)과 달리
-                // 여기서는 로비도 함께 나간다.
-                _lobby?.LeaveLobby();
+                // 진행 중/정산 중에는 새 Steam 오너가 선출될 수 있도록 로비 멤버십을 유지한다.
+                if (_sceneFlow == null || (_sceneFlow.Current != SceneId.Result
+                    && !_sceneFlow.Current.IsStage()))
+                    _lobby?.LeaveLobby();
                 RaiseSessionEnded();
                 return;
             }
@@ -528,7 +624,9 @@ namespace GhostHunter.Networking
             if (_shutdownRequested)
                 return;
 
-            _lobby?.LeaveLobby();
+            if (_sceneFlow == null || (_sceneFlow.Current != SceneId.Result
+                && !_sceneFlow.Current.IsStage()))
+                _lobby?.LeaveLobby();
             RaiseSessionEnded();
         }
 
@@ -542,6 +640,17 @@ namespace GhostHunter.Networking
         {
             if (_shutdownRequested)
                 return;
+
+            if (_transportMode == TransportMode.Steam && _lobby != null
+                && _lobby.IsInLobby && _lobby.IsGameStarted
+                && _sceneFlow != null && _sceneFlow.Current.IsStage())
+            {
+                if (_stageRecovering)
+                    return;
+                _stageRecovering = true;
+                StageRecoveryRequired?.Invoke();
+                return;
+            }
 
             SessionEnded?.Invoke();
         }

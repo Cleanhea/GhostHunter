@@ -1,5 +1,8 @@
 # 사망 후 관전 시스템 기획서
 
+> **2026-09-28:** 이 문서의 `GhostHunter > …` 설치·생성·검증 메뉴와 `Editor/…Setup.cs` 도구는 [ADR-0020](../architecture/decisions/ADR-0020-remove-one-off-editor-setup-tools.md)으로 삭제됐다.
+> 도구 실행 절차·결과는 구현 당시 기록이다. 지금은 저장된 씬·프리팹이 원본이고 직접 고친다.
+
 > 작성일: 2026-09-12. 근거: 사용자의 사망 후 특수능력 제한·자유시점·플레이어 관전 요청.
 > **핵심 요구 확정 + SP-1~SP-4 조작·전환 정책 확정(2026-09-12) / 코드 구현 완료, Host/Client Play 검증 대기.**
 > 이 문서는 사망 이후 관전 규칙의 SSOT다. 기존 사망 판정과 정신력 규칙은 각 시스템 문서를 따른다.
@@ -23,16 +26,16 @@
 - 사망 판정은 기존 서버의 `SanityNetworkState.ServerMarkDead()`를 유지한다.
   `HasSanity`는 현재 코드에서 생존 여부를 뜻한다. 정신력이 **0이어도 살아 있을 수 있으므로** 수치 0을 사망으로 해석하지 않는다.
 - 사망자의 정신력 UI `-%`, 팀 평균 제외, 정신력 디버프 종료는 [정신력 기획서](sanity-system.md)를 따른다.
-- 한 명이 사망해도 귀신 어택은 계속된다 → [귀신 기획서 §11.2](ghost-system.md#112-플레이어-사망-확정).
+- 한 명이 사망해도 귀신 어택은 계속된다(과거 저장소판의 보충 규칙) → [귀신 기획서 §11.2](ghost-system.md).
 - 퀵슬롯은 기존 [퀵슬롯 기획서 §4](quick-slot-system.md#4-동작-규격-구현-범위)에서도 생존자만 열도록 정의됐다.
   사망 시 열려 있던 휠은 선택을 확정하지 않고 닫아야 한다. **현재 코드에는 이 생존 검사가 빠져 있다.**
 - 사망 후에도 ESC 메뉴를 열 수 있다. 메뉴가 열리면 관전 이동·시점 조작·모드/대상 전환 입력도 잠근다.
   게임 시간은 계속 흐른다 → [일시정지 기획서](pause-menu-system.md). 메뉴 중 사망해도 메뉴를 강제로 닫지 않는다.
 - 진행 중인 스킬 취소, 가구 홀드 해제, 일반 상호작용의 상세 차단 범위는 §5 SP-2에서 확인한다.
 
-이번 요청은 관전 기능이다. 시체 오브젝트 생성·시체 목격 연결·부활 메커니즘·전원 사망 시 승패 판정·
-결과 씬 전환·음성 채팅 규칙은 새로 결정하거나 구현하지 않는다. 특히 **생존 관전 대상 0명**과
-**패배 확정**은 별개다. 승패는 [GDD §2](gdd.md#2-승리--패배-조건)의 TBD로 남긴다.
+이 문서의 구현 범위는 관전 기능이다. 시체 오브젝트 생성·시체 목격 연결·부활 메커니즘·전원 사망 시 승패 판정·
+결과 씬 전환·음성 채팅 규칙은 이 문서에서 구현하지 않는다. **생존 관전 대상 0명**일 때의 화면 처리와
+**전멸 판정**은 별개다. 전멸 조건과 처리 순서는 [죽음 시스템 기획서 §8](death-system.md#8-전멸했을-경우)를 따른다.
 
 ## 3. 구현 시 지켜야 할 경계
 
@@ -78,7 +81,7 @@ Unity EditMode(211건)·PlayMode(12건) 테스트는 통과했다 — **Host/Cli
 | 플레이어 조회 | 기존 `ISanityTeamService.CopyPlayerStates`를 그대로 재사용(새 전역 명부 없음) |
 
 Player 프리팹 배선(`SpectatorCamera` 자식, `SpectatorController` 컴포넌트, `SpectatorSettings_Default.asset`)은
-Unity MCP로 `Assets/Scripts/Editor/SpectatorSetup.cs`(멱등)를 실행해 완료·검증했다.
+`Assets/Scripts/Editor/SpectatorSetup.cs`(멱등)를 실행해 완료·검증했다.
 
 ## 5. 결정 사항 (2026-09-12 사용자 확정)
 
@@ -114,7 +117,13 @@ SP-3의 구체적 속도·감도 수치는 위 확정 범위에 포함되지 않
 관련: [GDD](gdd.md) · [두더지 스킬](mole-skill-system.md) · [로드맵 SP](roadmap.md#15-sp-사망-후-관전-todo) ·
 [구현 모델용 프롬프트](../workflow/spectator-implementation-prompt.md)
 
-최종 갱신: 2026-09-12 (SP-1~SP-4 사용자 확정 반영, §4 구현 완료로 갱신. SpectatorController·
+최종 갱신: 2026-09-27 (죽음 시스템 기획서 0.1의 전멸 조건과 관전 범위 연결.)
+
+죽음 시스템 구현에서는 `SpectatorController`가 사망 카메라 연출을 마친 뒤 자유시점에 진입한다.
+사망 직후 카메라 전환·부활 복구·Host/Client 중복 AudioListener는 Unity Play 검증 대기다.
+구현 흐름은 [죽음 시스템 구현](../architecture/death-system.md)을 참고한다.
+
+이전 갱신: 2026-09-12 (SP-1~SP-4 사용자 확정 반영, §4 구현 완료로 갱신. SpectatorController·
 SpectatorTargetSelector·사망 입력 잠금·서버 생존 검사·QS-사망 게이팅 코드 반영, Player 프리팹 배선
 (SpectatorSetup) 완료, EditMode 211/PlayMode 12 통과. Host/Client Play 검증은 §6 ★ 전부 대기 —
 진행 상황은 [roadmap.md §1.5](roadmap.md#15-sp-사망-후-관전-todo) 참고.)

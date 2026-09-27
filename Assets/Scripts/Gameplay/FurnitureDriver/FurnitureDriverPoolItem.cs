@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using GhostHunter.Gameplay.Furniture;
 using GhostHunter.Gameplay.Map;
+using GhostHunter.Gameplay.Recovery;
 using Unity.Netcode;
 using Unity.Netcode.Components;
 using UnityEngine;
@@ -67,7 +68,7 @@ namespace GhostHunter.Gameplay.FurnitureDriver
             _grabTarget = GetComponent<FurnitureGrabTarget>();
 
             _active.OnValueChanged += HandleActiveChanged;
-            if (IsServer)
+            if (IsServer && !StageRecoveryGate.Restoring)
                 _active.Value = _startActive;
             ApplyPresentation(_active.Value);
             Registry.Add(this);
@@ -101,6 +102,41 @@ namespace GhostHunter.Gameplay.FurnitureDriver
 
         /// <summary>에디터 설치 도구가 풀 키(큰 가구 종류 또는 부품 ID)를 지정한다.</summary>
         public void Configure(string poolKey) => _poolKey = poolKey;
+
+        public StageRecoverySnapshot.PoolFurnitureState CaptureStageState(string path)
+        {
+            return new StageRecoverySnapshot.PoolFurnitureState
+            {
+                Path = path,
+                PoolKey = _poolKey,
+                Active = _active.Value,
+                Position = transform.position,
+                Rotation = transform.rotation,
+                LinearVelocity = _body != null ? _body.linearVelocity : Vector3.zero,
+                AngularVelocity = _body != null ? _body.angularVelocity : Vector3.zero,
+                Durability = Durability,
+            };
+        }
+
+        public bool ServerRestoreStageState(StageRecoverySnapshot.PoolFurnitureState state)
+        {
+            if (!IsServer || !IsSpawned || _networkTransform == null
+                || !_networkTransform.IsSpawned || state.PoolKey != _poolKey)
+                return false;
+            _grabTarget?.ServerResetForPool();
+            _networkTransform.Teleport(state.Position, state.Rotation, transform.localScale);
+            RoomPreset.TeleportBody(_body, state.Position, state.Rotation);
+            _active.Value = state.Active;
+            _physics.ServerRestoreStageDurability(state.Durability);
+            ApplyPresentation(state.Active);
+            if (state.Active && !_body.isKinematic)
+            {
+                _body.linearVelocity = state.LinearVelocity;
+                _body.angularVelocity = state.AngularVelocity;
+                _physics.ServerProtectPlacement();
+            }
+            return true;
+        }
 
         /// <summary>서버에서 지정한 위치에 나타나 물리적으로 낙하한다(§6.2·§6.3).</summary>
         public bool ServerActivate(Vector3 dropPosition, Quaternion rotation, int durability)

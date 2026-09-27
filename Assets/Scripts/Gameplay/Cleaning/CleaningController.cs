@@ -2,6 +2,7 @@ using System;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using GhostHunter.Gameplay.Map;
+using GhostHunter.Gameplay.Recovery;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -24,6 +25,8 @@ namespace GhostHunter.Gameplay.Cleaning
         public bool CanReset => IsSpawned && IsServer && AllStainsSpawned()
             && (_furniture == null || _furniture.IsReady);
         public string Status => IsSpawned && !IsServer ? "초기화는 Host에서 할 수 있습니다." : _status;
+        public CleaningStain[] Stains => _stains;
+        public uint Revision => _revision;
         public int DirtyCount
         {
             get
@@ -35,6 +38,25 @@ namespace GhostHunter.Gameplay.Cleaning
                 return count;
             }
         }
+        public int ProgressPercent
+        {
+            get
+            {
+                int placed = 0;
+                int dirty = 0;
+                foreach (CleaningStain stain in _stains)
+                {
+                    if (stain == null || !stain.IsPlaced)
+                        continue;
+
+                    placed++;
+                    if (stain.IsDirty)
+                        dirty++;
+                }
+
+                return placed > 0 ? (placed - dirty) * 100 / placed : 0;
+            }
+        }
 
         private void Awake() => _order = new int[_points.Length];
 
@@ -43,8 +65,26 @@ namespace GhostHunter.Gameplay.Cleaning
             if (!IsServer)
                 return;
             _status = "가구·얼룩 풀 준비 대기 중";
+            if (StageRecoveryGate.Restoring)
+                return;
             _spawnCancellation = CancellationTokenSource.CreateLinkedTokenSource(destroyCancellationToken);
             InitializeAsync(_spawnCancellation.Token).Forget();
+        }
+
+        public bool ServerRestoreStageState(StageRecoverySnapshot snapshot)
+        {
+            if (!IsServer || !IsSpawned || snapshot == null || snapshot.Stains == null
+                || snapshot.Stains.Length != _stains.Length)
+                return false;
+            _revision = snapshot.StainRevision;
+            for (int i = 0; i < _stains.Length; i++)
+            {
+                if (_stains[i] == null || !_stains[i].IsSpawned)
+                    return false;
+                _stains[i].ServerRestoreStageState(snapshot.Stains[i]);
+            }
+            _status = "이전 호스트의 얼룩 상태를 복원했습니다.";
+            return true;
         }
 
         public override void OnNetworkDespawn()

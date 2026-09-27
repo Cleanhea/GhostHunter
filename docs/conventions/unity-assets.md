@@ -2,47 +2,34 @@
 
 > 씬·프리팹·ScriptableObject·리소스를 다루기 전 MUST 읽는다.
 
-## 1. 에이전트 제약 (중요)
+## 1. 에이전트 작업 방식
 
-**항상 금지 (MCP 연결 여부와 무관)**
+에이전트는 씬·프리팹·ScriptableObject(`.unity`·`.prefab`·`.asset`)를 **텍스트(YAML)로 직접 고치고**, 파일을 셸
+(`git mv`/`rm`)로 옮기거나 지울 수 있다(2026-09-28 사용자 결정).
 
-- `.unity`, `.prefab`, `.asset`(YAML)을 **직접 텍스트 편집하지 않는다.** GUID·fileID 파손 위험이 크다.
-- `.meta`를 만들거나 지우거나 고치지 않는다. Unity가 생성·관리한다.
-- 파일 이동/삭제는 MUST **Unity 에디터 안에서** 한다. 셸에서 `mv`/`rm` 하면 `.meta`가 고아로 남거나 GUID 참조가 끊긴다.
+- 옮기거나 지울 때는 `.meta`를 짝으로 함께 처리하고 짝으로 커밋한다. `.meta`의 `guid`를 바꾸면 그 에셋을 가리키는
+  참조(씬·프리팹·SO·Build Settings)가 모두 끊긴다.
+- 새 에셋의 `.meta`는 Unity가 임포트할 때 만든다. 직접 만들어야 하면 다른 에셋과 겹치지 않는 새 `guid`를 쓴다.
+- Unity 에디터가 열려 있으면 바깥에서 고친 파일은 에디터가 포커스를 받을 때 다시 임포트된다. 에디터에 같은 씬이
+  **저장하지 않은 변경과 함께** 열려 있으면 에디터 쪽 저장이 파일 수정을 덮어쓸 수 있다.
+- 씬 `NetworkObject`를 텍스트로 새로 넣거나 복사하면 `GlobalObjectIdHash`가 확정되지 않는다 → §5.2.
+- 씬·프리팹을 고쳤으면 무엇을 바꿨는지 보고한다.
 
-**에디터 조작은 Unity MCP 연결 여부에 따라 갈린다** → [../workflow/unity-mcp.md](../workflow/unity-mcp.md)
+### 1.1 에디터 생성 도구를 두지 않는다
 
-| 상황 | 방법 |
-| --- | --- |
-| Unity 에디터 실행 + MCP 연결됨 | MCP 도구로 직접 수행한다 (Unity API 경유이므로 GUID 안전). 안전 규칙 준수 |
-| 에디터가 꺼져 있거나 MCP 미연결 | 아래 형식의 **번호 매긴 지시**로 사용자에게 넘긴다 |
+씬·프리팹을 만들고 배선하던 일회성 설치·생성 메뉴(`GhostHunter > … 설치`/`… 생성`/`… 검증`)와 맵 생성기
+(`HousePrototypeBuilder`)는 2026-09-28에 모두 지웠다([ADR-0020](../architecture/decisions/ADR-0020-remove-one-off-editor-setup-tools.md)).
+**저장된 씬·프리팹·설정 에셋이 유일한 원본이다.**
 
-```
-예) 프리팹 배선 요청 형식
-1. Assets/Prefabs/Player.prefab 열기
-2. 루트에 PlayerMotor 컴포넌트 추가
-3. PlayerMotor의 Settings 슬롯에 Assets/Settings/Gameplay/PlayerMoveSettings.asset 할당
-4. 저장 후 Ctrl+S
-```
-
-MCP로 씬·프리팹을 바꿨다면 MUST **변경 내용과 저장 여부를 보고**한다.
-
-### 1.1 에디터 생성 도구
-
-이 프로젝트는 씬·프리팹 구성 상당 부분을 **`Assets/Scripts/Editor/`의 생성 도구**로 재현한다.
-손으로 만든 결과와 도구가 만든 결과가 갈라지면 안 되므로, 아래를 지킨다.
-
-- 도구가 만드는 대상(집 구조, 네트워크 리그, 메뉴 씬)은 MUST 도구를 고쳐서 바꾼다. 씬에서 직접 고치고 끝내지 않는다.
-- 도구가 만들지 않는 대상(방별 가구 배치)은 MUST 씬에서 손으로 배치한다. 도구에 좌표를 심지 않는다 — 손 배치와 겹친다.
-- 도구를 고쳤으면 MUST 재실행 결과를 검증 함수(`Validate…`)까지 통과시킨다.
-  **재실행 전에 `MapGeneratorTests`(EditMode)를 먼저 돌린다** — 씬을 버리지 않고 같은 검증을
-  통과하는지 볼 수 있다 → [../workflow/testing.md §4.3](../workflow/testing.md)
+- 씬·프리팹은 직접 고친다(§1). 다른 문서에 남은 메뉴 실행 절차는 구현 당시 기록이다.
+- 방별 가구 배치 좌표를 코드에 심지 않는다 — 침실은 `Room_Presets`를 서버가 옮겨 채운다([map-generation.md](../architecture/map-generation.md)).
+- 같은 배선을 여러 씬·프리팹에 반복해야 하면 그 작업에 한정한 도구를 만들고, 끝나면 지운다.
 
 ## 2. 네이밍
 
 | 대상 | 규칙 | 예 |
 | --- | --- | --- |
-| 씬 | PascalCase | `Bootstrap.unity`, `Game.unity` |
+| 씬 | PascalCase | `Bootstrap.unity`, `Stage1.unity` |
 | 프리팹 | PascalCase, 카테고리 접두 | `Furniture_Chair`, `UI_Crosshair`, `NetworkRig` |
 | 프리팹 배리언트 | `<Base>_<Variant>` | `Furniture_Chair_Heavy` |
 | ScriptableObject 에셋 | `<Type>_<이름>` | `FurnitureDefinition_HeavyCube` |
@@ -133,22 +120,25 @@ public sealed class PlayerMoveSettings : ScriptableObject
 (`buildIndex >= 0`) 해시를 계산한다. 생성 중인 새 씬은 둘 다 아니라 해시가 `0`으로 남고,
 `0`이 여럿이면 클라이언트가 씬 오브젝트를 찾지 못한다.
 
-- 씬 생성 도구는 MUST 저장·빌드목록 등록 뒤 씬을 다시 열어 `OnValidate`를 돌리고 한 번 더 저장한다
-  (`RefreshScenePlacedNetworkObjects()`).
+- 새 씬은 MUST 저장·Build Settings 등록 뒤 에디터에서 다시 열어 씬의 모든 `NetworkObject`에 `OnValidate`를 돌리고
+  한 번 더 저장한다.
 - 그다음 해시가 0/중복이 아니고 `m_InScenePlaced`가 참인지 MUST 검사한다.
+- 씬 파일을 **텍스트로 복사**하면(새 GUID) 안의 해시는 원본 씬 기준 값 그대로다. 텍스트로 `NetworkObject`를 새로 넣으면 해시가 없다.
+  어느 쪽이든 그 씬을 Build Settings에 넣고 위 절차로 확정·저장한다.
+- 이 절차를 하던 도우미(`PrototypeSceneSetup.RefreshScenePlacedNetworkObjectsInCurrentScene`)는 ADR-0020으로 지웠다.
+  필요하면 git 이력의 구현을 참고해 그 작업용 에디터 스크립트를 잠깐 만든다.
 
 **프리팹에도 같은 함정이 있다.** `PrefabUtility.SaveAsPrefabAsset`을 임시 **씬 오브젝트**에 대해 부르면
 `OnValidate`가 에셋이 아니라 씬 기준으로 해시를 계산해서 **모든 프리팹이 같은 해시**를 갖고
-`m_InScenePlaced`가 true로 박힌다. 저장 후 `ImportAsset(ForceUpdate)`로 재계산시키고
-`FlushNetworkPrefabIdentity()`로 디스크까지 내려보낸 뒤 `ValidateNetworkPrefabIdentity()`로 검사한다.
-네트워크 프리팹을 새로 추가하면 `NetworkPrefabPaths`에도 넣어야 이 검사에 걸린다.
+`m_InScenePlaced`가 true로 박힌다. 저장 후 `ImportAsset(ForceUpdate)`로 재계산시키고, 프리팹을 다시 더럽혀 저장해
+디스크까지 내려보낸 뒤 네트워크 프리팹마다 해시가 0/중복이 아니고 `m_InScenePlaced`가 거짓인지 검사한다.
 
 ## 6. 씬
 
 - 씬 계층 최상단은 카테고리 빈 오브젝트로 정리한다: `--- Environment ---`, `--- Lighting ---`, `--- Systems ---`, `--- UI ---`.
 - NGO `NetworkManager` GameObject는 중첩을 허용하지 않으므로 카테고리 parenting의 예외로 씬 root에 둔다.
 - 씬 간 참조를 만들지 않는다. 필요하면 서비스 로케이터를 경유한다 → [code-style.md §7.1](code-style.md).
-- **씬의 어떤 오브젝트도 트랜스폼 스케일이 1이 아니면 안 된다.** 맵 배율은 좌표에만 곱한다
+- **씬의 어떤 오브젝트도 트랜스폼 스케일이 1이 아니면 안 된다.** 크기는 메시·콜라이더 치수로 맞춘다
   → [../architecture/map-generation.md](../architecture/map-generation.md)
 - 씬 파일은 병합 충돌이 어렵다. 동시에 같은 씬을 편집하지 않는다 → [git.md](git.md)
 
@@ -177,4 +167,4 @@ public sealed class PlayerMoveSettings : ScriptableObject
 
 관련: [code-style.md](code-style.md) · [git.md](git.md)
 
-최종 갱신: 2026-08-21
+최종 갱신: 2026-09-28 (§1 에이전트가 씬·프리팹·에셋을 텍스트로 직접 수정·셸 이동 가능, §1.1 생성 도구 삭제(ADR-0020), §5.2 텍스트 복사 시 해시)

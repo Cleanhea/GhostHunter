@@ -19,6 +19,8 @@ namespace GhostHunter.DebugTools
     /// Local(UTP) 세션을 자동으로 열거나 접속하고, <c>-gh-leave-after=초</c> 가 있으면 일시정지 메뉴
     /// "타이틀로"와 같은 순서(세션 종료 → Title 로드)로 떠난다. <c>-gh-return-on-end</c> 가 있으면
     /// 요청하지 않은 세션 종료 뒤 끊김 모달의 확인과 같은 경로로 Title 로 돌아간다.
+    /// 클라이언트의 <c>-gh-bot-follow=번호</c>는 Host 추종 이동을 켜고,
+    /// <c>-gh-quit-on-end</c>와 <c>-gh-quit-after=초</c>는 봇 프로세스를 정리한다.
     /// 2초마다 세션·플레이어·씬 상태와 오류 수를 <c>[GhAuto]</c> 로그로 남긴다.
     /// </summary>
     [DisallowMultipleComponent]
@@ -30,6 +32,10 @@ namespace GhostHunter.DebugTools
         private const float ReturnDelay = 2f;
         private const int MaxStoredErrors = 8;
         private const int MaxTrackedPlayers = 8;
+        private const float BotFollowDistance = 2.5f;
+        private const float BotSideDistance = 1.2f;
+        private const float BotMoveSpeed = 2f;
+        private const float BotTurnSpeed = 360f;
 
         private enum Phase
         {
@@ -47,6 +53,16 @@ namespace GhostHunter.DebugTools
         private string _role;
         private float _leaveAfter = -1f;
         private bool _returnOnEnd;
+        private bool _quitOnEnd;
+        private int _botFollowSlot;
+        private float _quitAfter = -1f;
+        private float _createdAt;
+        private float _quitAt = -1f;
+        private bool _quitRequested;
+        private Transform _botTransform;
+        private Transform _hostTransform;
+        private CharacterController _botController;
+        private SanityNetworkState _botSanity;
 
         private IConnectionService _connection;
         private ISceneFlow _sceneFlow;
@@ -76,6 +92,12 @@ namespace GhostHunter.DebugTools
             LocalSessionAutomation automation = host.AddComponent<LocalSessionAutomation>();
             automation._role = role.ToLowerInvariant();
             automation._returnOnEnd = HasArgument("-gh-return-on-end");
+            automation._quitOnEnd = HasArgument("-gh-quit-on-end");
+            automation._createdAt = Time.realtimeSinceStartup;
+            if (automation._role == "client"
+                && TryGetArgument("-gh-bot-follow=", out string slot)
+                && int.TryParse(slot, out int parsedSlot))
+                automation._botFollowSlot = Mathf.Clamp(parsedSlot, 1, MaxTrackedPlayers);
             automation._watchFurniture = TryGetArgument("-gh-watch-furniture=", out string furnitureId)
                 && ulong.TryParse(furnitureId, out automation._watchedFurnitureId);
             automation._probeFurnitureAuthority = HasArgument("-gh-probe-furniture-authority");
@@ -86,10 +108,16 @@ namespace GhostHunter.DebugTools
                 automation._leaveAfter = parsed;
             }
 
+            if (TryGetArgument("-gh-quit-after=", out string quitSeconds)
+                && float.TryParse(quitSeconds, NumberStyles.Float, CultureInfo.InvariantCulture,
+                    out float parsedQuit))
+                automation._quitAfter = Mathf.Max(1f, parsedQuit);
+
             // 여러 인스턴스를 한 PC 에서 돌리므로 프레임을 제한해 CPU 를 나눠 쓴다.
             Application.targetFrameRate = 30;
+            Application.runInBackground = true;
             Debug.Log($"{LogTag} 시작 role={automation._role} leaveAfter={automation._leaveAfter} " +
-                $"returnOnEnd={automation._returnOnEnd}");
+                $"returnOnEnd={automation._returnOnEnd} botFollow={automation._botFollowSlot}");
         }
 
         private void OnEnable()
@@ -100,6 +128,18 @@ namespace GhostHunter.DebugTools
         private void Update()
         {
             float now = Time.realtimeSinceStartup;
+
+            if (!_quitRequested
+                && ((_quitAt >= 0f && now >= _quitAt)
+                    || (_quitAfter >= 0f && now - _createdAt >= _quitAfter)))
+            {
+                _quitRequested = true;
+                if (_connection != null && _connection.IsRunning)
+                    _connection.Disconnect(leaveLobby: false);
+                Debug.Log($"{LogTag} 봇 프로세스 종료");
+                Application.Quit();
+                return;
+            }
 
             switch (_phase)
             {
@@ -132,6 +172,47 @@ namespace GhostHunter.DebugTools
             }
         }
 
+        private void LateUpdate()
+        {
+            if (_botFollowSlot <= 0 || _phase != Phase.InSession
+                || _sceneFlow == null || !_sceneFlow.Current.IsStage()
+                || _botController == null || !_botController.enabled
+                || _botSanity == null || !_botSanity.HasSanity)
+                return;
+
+            NetworkManager net = NetworkManager.Singleton;
+            if (net == null || !net.IsClient || net.IsServer || net.SpawnManager == null)
+                return;
+
+            if (_hostTransform == null)
+            {
+                NetworkObject host = net.SpawnManager.GetPlayerNetworkObject(NetworkManager.ServerClientId);
+                if (host == null)
+                    return;
+                _hostTransform = host.transform;
+            }
+
+            if (_hostTransform == _botTransform)
+                return;
+
+            float side = (_botFollowSlot % 2 == 0 ? 1f : -1f)
+                * BotSideDistance * (1 + (_botFollowSlot - 1) / 2);
+            Vector3 target = _hostTransform.position
+                - _hostTransform.forward * BotFollowDistance + _hostTransform.right * side;
+            Vector3 planar = target - _botTransform.position;
+            planar.y = 0f;
+            if (planar.sqrMagnitude > 0.36f)
+                _botController.Move(Vector3.ClampMagnitude(planar, BotMoveSpeed * Time.deltaTime));
+
+            Vector3 faceHost = _hostTransform.position - _botTransform.position;
+            faceHost.y = 0f;
+            if (faceHost.sqrMagnitude > 0.01f)
+            {
+                _botTransform.rotation = Quaternion.RotateTowards(_botTransform.rotation,
+                    Quaternion.LookRotation(faceHost), BotTurnSpeed * Time.deltaTime);
+            }
+        }
+
         private void OnDisable()
         {
             Application.logMessageReceived -= HandleLogMessage;
@@ -157,13 +238,20 @@ namespace GhostHunter.DebugTools
         {
             NetworkManager net = NetworkManager.Singleton;
             bool joined = _connection.IsRunning
-                && _sceneFlow.Current == SceneId.Game
+                && _sceneFlow.Current.IsStage()
                 && net != null
                 && net.LocalClient != null
                 && net.LocalClient.PlayerObject != null;
 
             if (joined)
             {
+                if (_botFollowSlot > 0)
+                {
+                    NetworkObject player = net.LocalClient.PlayerObject;
+                    _botTransform = player.transform;
+                    player.TryGetComponent(out _botController);
+                    player.TryGetComponent(out _botSanity);
+                }
                 _phase = Phase.InSession;
                 _sessionStartedAt = now;
                 _retryAt = -1f;
@@ -181,6 +269,12 @@ namespace GhostHunter.DebugTools
 
         private void TickInSession(float now)
         {
+            if (_quitOnEnd && _botFollowSlot > 0 && _quitAt < 0f && !_connection.IsRunning)
+            {
+                _quitAt = now + 1f;
+                return;
+            }
+
             if (_returnAt > 0f)
             {
                 if (now < _returnAt)
@@ -210,7 +304,7 @@ namespace GhostHunter.DebugTools
             _connection.SetTransportMode(TransportMode.Local);
 
             if (_role == "host")
-                _connection.StartHostInGameScene(SceneId.Game);
+                _connection.StartHostInGameScene(SceneId.ProtoTypeGame);
             else
                 _connection.StartLocalClient();
 
@@ -223,6 +317,11 @@ namespace GhostHunter.DebugTools
             Debug.Log($"{LogTag} SessionEnded 수신 phase={_phase}");
 
             float now = Time.realtimeSinceStartup;
+            if (_quitOnEnd)
+            {
+                _quitAt = now + 1f;
+                return;
+            }
             if (_phase == Phase.Starting)
                 _retryAt = now + RetryDelay;
             else if (_phase == Phase.InSession && _returnOnEnd)

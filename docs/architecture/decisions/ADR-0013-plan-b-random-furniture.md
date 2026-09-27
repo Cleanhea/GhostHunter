@@ -4,6 +4,7 @@
 - **날짜**: 2026-09-12
 - **결정자**: 사용자(B안 선택·가구 랜덤 스폰 제작 지시), 구현은 기존 서버 권위·사전 배치 규약 적용
 - **관련**: [맵 생성 §10.1.3](../map-generation.md), [MAP-19](../../project/roadmap.md), [ADR-0009](ADR-0009-scene-placed-level-objects.md), [ADR-0010](ADR-0010-server-authoritative-furniture-physics.md)
+- **후속(2026-09-28)**: 이 ADR이 언급하는 설치·생성 도구(`HousePrototypeBuilder`·`…Setup`·`GhostHunter > …` 메뉴)는 [ADR-0020](ADR-0020-remove-one-off-editor-setup-tools.md)으로 삭제됐다.
 
 ## 배경 (Context)
 

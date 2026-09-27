@@ -7,6 +7,23 @@ namespace GhostHunter.Gameplay.Sanity
     /// <summary>개인 정신력의 감소 누적, 회복, 시체 중복 방지를 계산한다.</summary>
     internal sealed class SanityState
     {
+        internal readonly struct Snapshot
+        {
+            internal readonly int Value;
+            internal readonly bool IsAlive;
+            internal readonly float DarknessExposureSeconds;
+            internal readonly ulong[] WitnessedCorpses;
+
+            internal Snapshot(int value, bool isAlive, float darknessExposureSeconds,
+                ulong[] witnessedCorpses)
+            {
+                Value = value;
+                IsAlive = isAlive;
+                DarknessExposureSeconds = darknessExposureSeconds;
+                WitnessedCorpses = witnessedCorpses;
+            }
+        }
+
         private readonly SanitySystemSettings _settings;
         private readonly HashSet<ulong> _witnessedCorpses = new();
 
@@ -33,6 +50,25 @@ namespace GhostHunter.Gameplay.Sanity
             _witnessedCorpses.Clear();
         }
 
+        internal Snapshot CaptureSnapshot()
+        {
+            ulong[] corpses = new ulong[_witnessedCorpses.Count];
+            _witnessedCorpses.CopyTo(corpses);
+            Array.Sort(corpses);
+            return new Snapshot(Value, IsAlive, DarknessExposureSeconds, corpses);
+        }
+
+        internal void RestoreSnapshot(Snapshot snapshot)
+        {
+            Value = Mathf.Clamp(snapshot.Value, _settings.MinimumSanity, _settings.MaximumSanity);
+            IsAlive = snapshot.IsAlive;
+            DarknessExposureSeconds = Mathf.Max(0f, snapshot.DarknessExposureSeconds);
+            _witnessedCorpses.Clear();
+            if (snapshot.WitnessedCorpses != null)
+                foreach (ulong corpse in snapshot.WitnessedCorpses)
+                    _witnessedCorpses.Add(corpse);
+        }
+
         public bool TickDarkness(float deltaTime, bool isExposed)
         {
             if (!IsAlive || !isExposed || deltaTime <= 0f)
@@ -51,6 +87,11 @@ namespace GhostHunter.Gameplay.Sanity
         public bool ApplyGhostEvent()
         {
             return IsAlive && SetValue(Value - _settings.GhostEventDecrease);
+        }
+
+        public bool WitnessGhostBody()
+        {
+            return IsAlive && SetValue(Value - _settings.GhostBodyWitnessDecrease);
         }
 
         public bool WitnessCorpse(ulong corpseNetworkObjectId)

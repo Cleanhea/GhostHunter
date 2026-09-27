@@ -1,5 +1,8 @@
 # 청소 프로토타입 구현
 
+> **2026-09-28:** 이 문서의 `GhostHunter > …` 설치·생성·검증 메뉴와 `Editor/…Setup.cs` 도구는 [ADR-0020](decisions/ADR-0020-remove-one-off-editor-setup-tools.md)으로 삭제됐다.
+> 도구 실행 절차·결과는 구현 당시 기록이다. 지금은 저장된 씬·프리팹이 원본이고 직접 고친다.
+
 기획: [청소 시스템](../project/cleaning-system.md). 권위·풀 구성:
 [ADR-0014](decisions/ADR-0014-server-cleaning-prototype.md).
 
@@ -14,7 +17,7 @@
 | `Gameplay/Cleaning/ICleaningService.cs` | 플레이어·디버그 HUD 접근 계약. `GameInstaller`에서 등록 |
 | `Gameplay/Cleaning/CleaningSettings.cs` | 임시 수량·사거리·연출·충돌 설정 SO |
 | `Shaders/CleaningStain.shader` | 바닥 얼룩 모양과 방향성 닦임 연출 |
-| `Editor/CleaningSetup.cs` | `GhostHunter > 청소 시스템 설치/검증` 메뉴 |
+| ~~`Editor/CleaningSetup.cs`~~ | ~~`GhostHunter > 청소 시스템 설치/검증` 메뉴~~ — ADR-0020으로 삭제 |
 
 ## 2. 흐름과 권위
 
@@ -60,10 +63,9 @@
 | 화면 | `Logs/Cleaning/mop-before-clean.png`·`mop-after-clean.png`로 얼룩 표시/제거 확인 |
 | 남은 검증 | 사람의 닦기 조작감 평가, 실제 원격 Client·Steam 2PC 복제/후접속 검증 |
 
-최초 PlayMode 실행은 MCP가 완료 콜백을 놓쳐 초기화 타임아웃으로 보고했지만 Unity XML은
-15/15 통과였다. 재실행에서 MCP도 15/15 통과를 반환했다. 화면 캡처 때 나타난 PlayerLoop
-재귀 오류는 스택의 `MCPForUnity...ScreenshotUtility.CaptureCompositedAfterFrame`에서 발생했다.
-게임플레이 코드 오류와 구분하며, 화면 캡처를 포함한 세션 전체가 오류 0건이었다고 보고하지 않는다.
+최초 PlayMode 실행은 실행 도구가 완료 콜백을 놓쳐 초기화 타임아웃으로 보고했지만 Unity XML은
+15/15 통과였다. 재실행에서도 15/15 통과했다. 화면 캡처 때 나타난 PlayerLoop 재귀 오류는
+캡처 도구에서 발생한 것으로 게임플레이 코드 오류와 구분하며, 화면 캡처를 포함한 세션 전체가 오류 0건이었다고 보고하지 않는다.
 
 - EditMode: 조준 원점 거리·0/비정규화·NaN/Infinity 거부.
 - PlayMode: 서버 청소의 중복 거부, 초기화 전 세대 거부, 재배치 좌표 반영, 벽 가림·거리, 미스폰 변경 거부.

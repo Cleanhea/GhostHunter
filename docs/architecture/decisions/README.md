@@ -50,6 +50,11 @@
 | [0014](ADR-0014-server-cleaning-prototype.md) | 씬 얼룩 풀의 서버 랜덤 배치·청소·HUD 초기화 | Accepted | 2026-09-12 |
 
 | [0015](ADR-0015-steam-voice-ngo.md) | Steam Voice 캡처 + NGO 근접 음성 중계 | Accepted | 2026-09-17 |
+| [0016](ADR-0016-player-owned-corpse.md) | Player가 임시 서버 물리 시체를 복제한다 | Accepted | 2026-09-27 |
+| [0017](ADR-0017-host-migration.md) | Steam 로비 조정과 상태 복원으로 호스트를 이전한다 | Proposed | 2026-09-27 |
+| [0018](ADR-0018-persistent-session-in-game-lobby.md) | 인게임 로비에서 세션을 열고 스테이지 사이에도 유지한다 | Accepted | 2026-09-28 |
+| [0019](ADR-0019-stage1-scene-split.md) | Game 씬을 ProtoTypeGame 으로 남기고 스테이지 씬 Stage1 을 분리한다 | Accepted | 2026-09-28 |
+| [0020](ADR-0020-remove-one-off-editor-setup-tools.md) | 일회성 에디터 설치·생성 도구를 지우고 씬·프리팹 자체를 원본으로 삼는다 | Accepted | 2026-09-28 |
 
 ## 5. 작성 대기
 
@@ -62,4 +67,4 @@
 
 ---
 
-최종 갱신: 2026-09-12
+최종 갱신: 2026-09-28 (ADR-0018·0019·0020 추가)

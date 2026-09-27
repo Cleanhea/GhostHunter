@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using GhostHunter.Core;
+using GhostHunter.Core.Scenes;
 using GhostHunter.Gameplay.Sanity;
 using Unity.Netcode;
 using UnityEngine;
@@ -45,12 +46,20 @@ namespace GhostHunter.Gameplay.Player
         private PlayerLook _look;
         private SanityNetworkState _sanity;
         private ISanityTeamService _teamService;
+        private ISceneFlow _sceneFlow;
         private SpectatorMode _mode;
         private ulong? _currentTargetClientId;
         private int _teamStateCount;
         private float _freeFlyYaw;
         private float _freeFlyPitch;
         private bool _isSpectating;
+        public SpectatorSettings Settings => _settings;
+        private float _deathRemaining;
+        private Vector3 _deathViewPosition;
+        private Quaternion _deathViewRotation;
+        private Vector3 _survivorCameraLocalPosition;
+        private Quaternion _survivorCameraLocalRotation;
+        private bool _hasDeathView;
 
         private void Awake()
         {
@@ -81,6 +90,9 @@ namespace GhostHunter.Gameplay.Player
             }
 
             _teamService = Services.Get<ISanityTeamService>();
+            Services.TryGet(out _sceneFlow);
+            if (_sceneFlow != null)
+                _sceneFlow.SceneChanged += HandleSceneChanged;
 
             _spectatorCamera.enabled = false;
             if (_spectatorAudioListener != null)
@@ -100,7 +112,12 @@ namespace GhostHunter.Gameplay.Player
 
             if (_sanity != null)
                 _sanity.AliveStateChanged -= HandleAliveStateChanged;
+            if (_sceneFlow != null)
+                _sceneFlow.SceneChanged -= HandleSceneChanged;
             _sanity = null;
+            _sceneFlow = null;
+
+            CancelDeathSequence();
 
             if (_isSpectating)
                 ExitSpectate();
@@ -108,6 +125,12 @@ namespace GhostHunter.Gameplay.Player
 
         private void Update()
         {
+            if (_deathRemaining > 0f)
+            {
+                TickDeathSequence();
+                return;
+            }
+
             if (!_isSpectating || _input.IsGameplayInputLocked)
                 return;
 
@@ -129,9 +152,93 @@ namespace GhostHunter.Gameplay.Player
         private void HandleAliveStateChanged(bool alive)
         {
             if (alive)
+            {
+                CancelDeathSequence();
                 ExitSpectate();
+                _look?.SetSurvivorCameraActive(true);
+                _input.SetDeathInputLocked(false);
+            }
             else
+                BeginDeathSequence();
+        }
+
+        private void HandleSceneChanged(SceneId scene)
+        {
+            if (scene.IsStage())
+                return;
+
+            CancelDeathSequence();
+            _isSpectating = false;
+            _spectatorCamera.enabled = false;
+            if (_spectatorAudioListener != null)
+                _spectatorAudioListener.enabled = false;
+            _look?.SetSurvivorCameraActive(false);
+        }
+
+        private void BeginDeathSequence()
+        {
+            _input.SetDeathInputLocked(true);
+            Camera camera = _look != null ? _look.PlayerCamera : null;
+            if (camera != null)
+            {
+                _deathViewPosition = camera.transform.position;
+                _deathViewRotation = camera.transform.rotation;
+                _survivorCameraLocalPosition = camera.transform.localPosition;
+                _survivorCameraLocalRotation = camera.transform.localRotation;
+                _hasDeathView = true;
+            }
+
+            _deathRemaining = _settings.DeathSequenceSeconds;
+            if (_deathRemaining <= 0f)
                 EnterSpectate();
+        }
+
+        private void TickDeathSequence()
+        {
+            float duration = _settings.DeathSequenceSeconds;
+            _deathRemaining = Mathf.Max(0f, _deathRemaining - Time.deltaTime);
+            float progress = duration > 0f ? 1f - _deathRemaining / duration : 1f;
+
+            Camera camera = _look != null ? _look.PlayerCamera : null;
+            if (camera != null)
+            {
+                float shake = Mathf.Sin(Time.time * 56.55f) * _settings.DeathShakeDegrees
+                    * (1f - progress);
+                camera.transform.localRotation = _survivorCameraLocalRotation
+                    * Quaternion.Euler(65f * progress, shake, -shake);
+                camera.transform.localPosition = _survivorCameraLocalPosition
+                    + Vector3.up * (Mathf.Sin(progress * Mathf.PI) * 0.35f);
+            }
+
+            if (_deathRemaining <= 0f)
+            {
+                CancelDeathSequence();
+                EnterSpectate();
+            }
+        }
+
+        private void CancelDeathSequence()
+        {
+            _deathRemaining = 0f;
+            Camera camera = _look != null ? _look.PlayerCamera : null;
+            if (camera != null && _hasDeathView)
+            {
+                camera.transform.localPosition = _survivorCameraLocalPosition;
+                camera.transform.localRotation = _survivorCameraLocalRotation;
+            }
+        }
+
+        private void OnGUI()
+        {
+            if (_deathRemaining <= 0f || _settings == null
+                || _deathRemaining > _settings.BlackoutSeconds)
+                return;
+
+            float alpha = 1f - _deathRemaining / Mathf.Max(0.001f, _settings.BlackoutSeconds);
+            Color previous = GUI.color;
+            GUI.color = new Color(0f, 0f, 0f, alpha);
+            GUI.DrawTexture(new Rect(0f, 0f, Screen.width, Screen.height), Texture2D.whiteTexture);
+            GUI.color = previous;
         }
 
         private void EnterSpectate()
@@ -146,7 +253,9 @@ namespace GhostHunter.Gameplay.Player
             // 카메라의 월드 포즈를 그대로 스냅한다. PlayerLook이 이 프레임 안에서 자기 카메라를
             // 끄는 순서와 무관하도록, 값은 지금 읽어 둔다.
             Camera survivorCamera = _look != null ? _look.PlayerCamera : null;
-            if (survivorCamera != null)
+            if (_hasDeathView)
+                _spectatorCamera.transform.SetPositionAndRotation(_deathViewPosition, _deathViewRotation);
+            else if (survivorCamera != null)
             {
                 Transform survivorCameraTransform = survivorCamera.transform;
                 _spectatorCamera.transform.SetPositionAndRotation(
@@ -160,6 +269,8 @@ namespace GhostHunter.Gameplay.Player
 
             _mode = SpectatorMode.FreeFly;
             _currentTargetClientId = null;
+
+            _look?.SetSurvivorCameraActive(false);
 
             _spectatorCamera.enabled = true;
             if (_spectatorAudioListener != null)
@@ -178,6 +289,9 @@ namespace GhostHunter.Gameplay.Player
             _spectatorCamera.enabled = false;
             if (_spectatorAudioListener != null)
                 _spectatorAudioListener.enabled = false;
+
+            _hasDeathView = false;
+            _look?.SetSurvivorCameraActive(true);
 
             _input.SetDeathInputLocked(false);
         }

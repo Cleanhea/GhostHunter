@@ -14,8 +14,8 @@
    - `[SerializeField] private` 필드
    - `Awake`에서 참조 캐싱 + null 검증
    - 이벤트 구독은 `OnEnable`, 해제는 `OnDisable`
-6. 컴파일 검증 (MCP 또는 batchmode)
-7. SO 에셋 생성·프리팹 배선 — MCP 연결 시 직접 수행, 아니면 **번호 매긴 사용자 지시**로 넘긴다
+6. 컴파일 검증 (batchmode — 에디터가 열려 있으면 검증용 복제 프로젝트)
+7. SO 에셋 생성·프리팹 배선 — 에셋·프리팹 파일을 직접 고친다(새 SO 는 에디터 `Create` 메뉴로 만든다)
 8. 로드맵 상태 갱신
 
 ---
@@ -45,14 +45,8 @@
 ## PB-03. 새 씬 추가
 
 1. [../architecture/overview.md](../architecture/overview.md) §4의 씬 표에 행을 추가한다
-2. 씬 생성
-   - **MCP 연결됨**: MCP로 씬을 만든다. 만들기 전에 무엇을 만들지 사용자에게 알린다
-   - **MCP 미연결**: 사용자에게 지시한다
-     ```
-     1. Assets/Scenes/ 에서 우클릭 → Create → Scene
-     2. 이름: <SceneName>
-     3. File → Build Profiles → Scene List에 추가
-     ```
+2. 씬 생성 — 기존 씬을 복사하거나(셸로 `.unity` 복사 + 새 `guid`의 `.meta`) 에디터에서 새로 만든다.
+   Build Settings(`ProjectSettings/EditorBuildSettings.asset`) 씬 목록에 추가한다
 3. 계층 정리: `--- Environment ---`, `--- Lighting ---`, `--- Systems ---`, `--- UI ---`
 4. **`Assets/Settings/Scenes/SceneNameSO.asset`에 씬 에셋을 등록한다.**
    여기 등록한 씬은 MUST 빌드 씬 목록에도 있어야 한다 → [../conventions/unity-assets.md](../conventions/unity-assets.md)
@@ -83,7 +77,7 @@
 3. `Packages/packages-lock.json`이 갱신되므로 함께 커밋
 4. Unity 재임포트 필요함을 안내
 5. 프로젝트 전반에 영향이 크면 [ADR](../architecture/decisions/README.md) 작성
-6. `CLAUDE.md §1` 스냅샷 표 갱신
+6. `CLAUDE.md §1` 스택 줄 갱신
 
 ---
 

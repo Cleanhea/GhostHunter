@@ -1,4 +1,5 @@
 using Unity.Netcode;
+using GhostHunter.Gameplay.Recovery;
 using UnityEngine;
 using GhostHunter.Core;
 using GhostHunter.Gameplay.Sanity;
@@ -63,6 +64,13 @@ namespace GhostHunter.Gameplay.Player
             false,
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Owner);
+        private readonly NetworkVariable<int> _stagePhase = new(0,
+            NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+        private readonly NetworkVariable<float> _stageTimer = new(0f,
+            NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+        private readonly NetworkVariable<float> _stageCooldown = new(0f,
+            NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+        private float _nextStagePublishAt;
 
         private PlayerMotor _motor;
         private SanityNetworkState _sanity;
@@ -101,6 +109,43 @@ namespace GhostHunter.Gameplay.Player
         public float ActiveDurationSeconds => _settings != null ? _settings.MaxBurrowDuration : 0f;
         public float CooldownRemainingSeconds => _cooldownRemaining;
         public float CooldownDurationSeconds => _settings != null ? _settings.CooldownSeconds : 0f;
+
+        public void CaptureStageState(ref StageRecoverySnapshot.PlayerState snapshot)
+        {
+            snapshot.BurrowPhase = _stagePhase.Value;
+            snapshot.BurrowTimer = _stageTimer.Value;
+            snapshot.BurrowCooldown = _stageCooldown.Value;
+        }
+
+        public void ServerRestoreStageState(StageRecoverySnapshot.PlayerState snapshot)
+        {
+            if (IsServer && IsSpawned)
+                RestoreStageStateRpc(snapshot.BurrowPhase, snapshot.BurrowTimer,
+                    snapshot.BurrowCooldown);
+        }
+
+        [Rpc(SendTo.Owner)]
+        private void RestoreStageStateRpc(int phase, float timer, float cooldown)
+        {
+            if (!IsOwner || _motor == null || _input == null || _settings == null)
+                return;
+            _state = phase is >= 0 and <= 2 ? (State)phase : State.Idle;
+            _timer = Mathf.Max(0f, timer);
+            _cooldownRemaining = Mathf.Max(0f, cooldown);
+            _isBurrowed.Value = _state == State.Buried;
+            bool active = _state != State.Idle;
+            _motor.MovementLocked = active;
+            _motor.CameraHeightOverride = active ? _settings.BurrowedCameraHeight : null;
+            _input.SetSkillInputLocked(active);
+            PublishStageState();
+        }
+
+        private void PublishStageState()
+        {
+            _stagePhase.Value = (int)_state;
+            _stageTimer.Value = _timer;
+            _stageCooldown.Value = _cooldownRemaining;
+        }
 
         private void Awake()
         {
@@ -145,10 +190,16 @@ namespace GhostHunter.Gameplay.Player
 
         private void Update()
         {
-            if (!IsSpawned || !IsOwner || _settings == null || _input == null)
+            if (!IsSpawned || !IsOwner || _settings == null || _input == null
+                || StageRecoveryGate.Restoring)
                 return;
 
             OwnerTick(Time.deltaTime);
+            if (Time.unscaledTime >= _nextStagePublishAt)
+            {
+                _nextStagePublishAt = Time.unscaledTime + 0.1f;
+                PublishStageState();
+            }
         }
 
         private void OwnerTick(float deltaTime)

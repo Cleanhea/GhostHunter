@@ -4,6 +4,7 @@ using GhostHunter.Gameplay.FurnitureDriver;
 using GhostHunter.Gameplay.Ghost;
 using GhostHunter.Gameplay.Map;
 using GhostHunter.Gameplay.Player;
+using GhostHunter.Gameplay.Recovery;
 using Unity.Netcode;
 using Unity.Netcode.Components;
 using UnityEngine;
@@ -97,7 +98,7 @@ namespace GhostHunter.Gameplay.Furniture
         {
             _durability.OnValueChanged += HandleDurabilityChanged;
             Registry.Add(this);
-            if (IsServer)
+            if (IsServer && !StageRecoveryGate.Restoring)
             {
                 _durability.Value = FullDurability;
                 ServerProtectPlacement();
@@ -173,6 +174,15 @@ namespace GhostHunter.Gameplay.Furniture
                 return false;
             SetDurability(Mathf.Clamp(durability, minimum, FullDurability));
             return true;
+        }
+
+        /// <summary>이전 서버에서 확인된 0 포함 내구도를 복구한다.</summary>
+        public void ServerRestoreStageDurability(int durability)
+        {
+            if (!IsServer || !IsSpawned)
+                return;
+            SetDurability(Mathf.Clamp(durability, 0, FullDurability));
+            RefreshPresentation();
         }
 
         /// <summary>서버 배치 직후 보호 시간을 새로 시작하고 개발용 복귀 위치를 기록한다.</summary>

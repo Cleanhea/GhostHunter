@@ -50,5 +50,13 @@ namespace GhostHunter.Gameplay.Ghost
             _wasBurrowed = false;
             Exposed = false;
         }
+
+        public bool WasBurrowed => _wasBurrowed;
+
+        public void Restore(bool wasBurrowed, bool exposed)
+        {
+            _wasBurrowed = wasBurrowed;
+            Exposed = wasBurrowed && exposed;
+        }
     }
 }

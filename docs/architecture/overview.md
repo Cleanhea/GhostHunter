@@ -15,9 +15,12 @@ Gameplay·테스트에 기존 Unity.Collections 참조를 추가했다 → [voic
 
 ```
 Assets/
-├── Scenes/            Bootstrap, Title, Lobby, Game, Result
+├── Scenes/            Bootstrap, Title, Lobby(일반 로비), InGameLobby(세션 유지 — ADR-0018), Stage1(스테이지 — ADR-0019),
+│                      ProtoTypeGame(구 Game — 프로토타입 검증), Result
 ├── Scripts/           런타임 C# (§2)
 ├── Prefabs/           Player, Furniture_*, Ghost/Ghost_Prototype, UI_*
+├── Mesh/              캐릭터 모델·애니메이션 FBX — MainCharacter(두더지), Idle, Walking
+├── Animations/        AnimatorController — PlayerCharacter(대기↔걷기)
 ├── Settings/          URP RP Asset · Renderer, Gameplay SO, Scenes SO, PostProcessing Volume 프로필
 ├── Materials/         M_*
 ├── Shaders/           SH_*
@@ -53,7 +56,7 @@ Assets/Scripts/
 │   ├── Installers/    BootstrapInstaller, GameInstaller, SceneInstaller 파생
 │   └── Steam/         SteamLobbyManager. **Steamworks 참조는 여기에만 존재**
 ├── DebugTools/    개발 전용 HUD·스모크 테스트 (릴리스 빌드 대상 아님)
-└── Editor/        에디터 전용 도구 (별도 asmdef)
+└── Editor/        에디터 전용 도구 — 빌드 가드·로컬 테스트 봇·Scene Ruler (별도 asmdef, 일회성 설치 도구는 두지 않는다 — ADR-0020)
 ```
 
 > 폴더명이 `Debug`가 아니라 **`DebugTools`**인 이유: `GhostHunter.Debug` 네임스페이스는
@@ -147,8 +150,13 @@ additive로 얹었다 내린다 → [ADR-0004](decisions/ADR-0004-multi-scene-ad
 | `Bootstrap` | 최초 진입. 전역 서비스 등록 후 Title로 전환 | **빌드 인덱스 0. 언로드하지 않는다** |
 | `Title` | 타이틀/메뉴. 방 생성·방 코드 참가·설정·종료 | Additive (로컬) |
 | `Lobby` | 방 코드 표시·멤버 목록·준비·시작 | Additive (로컬) |
-| `Game` | 실제 매치. House_01 맵 | Additive — `NetworkManager.SceneManager` |
+| `InGameLobby` | 세션을 연 채 스테이지 사이에 머무는 방 — 상점·정산 이력·스테이지 출발([ADR-0018](decisions/ADR-0018-persistent-session-in-game-lobby.md)) | Additive — `NetworkManager.SceneManager` |
+| `Stage1` | 스테이지. B안 집·임시 드릴카 안전 구역·가구 조립 영역·정신력 UI. 귀신·청소 없음([ADR-0019](decisions/ADR-0019-stage1-scene-split.md)). ProtoTypeGame 에서 복사해 만들었다 | Additive — `NetworkManager.SceneManager` |
+| `ProtoTypeGame` | 프로토타입 검증 씬(구 `Game`). 비교용 집·테스트베드·귀신·청소까지 전부. 자동 검증 대상 | Additive — `NetworkManager.SceneManager` |
 | `Result` | 결과 정산 | Additive |
+
+"스테이지인가"는 `SceneIdExtensions.IsStage()`(ProtoTypeGame·Stage1) 한 곳에서 판정한다 — 정신력·사망·정산·호스트 이전·음성 그룹이
+이 판정을 쓴다. 2026-09-28 이전 문서의 "Game 씬"은 지금의 ProtoTypeGame 이다.
 
 **규칙**
 - `Bootstrap`은 MUST 언로드하지 않는다. 영속 시스템은 `Bootstrap`에 두면 되고, **`DontDestroyOnLoad`를 쓰지 않는다.**
@@ -217,6 +225,8 @@ Player 프리팹 (NetworkObject, 플레이어당 1개 스폰)
 ├─ PlayerInteractor         조준선 끝의 문을 찾아 E 입력을 넘김
 ├─ ClientNetworkTransform   소유자 권위 위치/회전 복제
 ├─ PlayerVisuals            원격 플레이어 몸통 표시, 로컬은 숨김
+├─ PlayerNameTag            닉네임 복제. 소유자가 Steam 이름을 1회 요청 → 서버가 정리해 NetworkVariable 확정
+├─ PlayerNameTagView        (UI 어셈블리) 원격 플레이어 머리 위 World Space 닉네임. 로컬은 숨김
 ├─ FurnitureTargeter        카메라 레이캐스트 → 현재 조준 대상 (로컬 전용)
 ├─ GrabController           투척 준비/2인 잡기 입력, Grab/Release RPC 송신
 ├─ DetectionSkillController 탐지 상태 머신. 로컬 소유자만 실행, NetworkVariable/RPC 없음
@@ -224,8 +234,8 @@ Player 프리팹 (NetworkObject, 플레이어당 1개 스폰)
 ├─ MoleBurrowController     굴착 상태·이동 잠금·매몰 상태
 └─ SanityNetworkState       서버 권위 개인 정신력·생존·어둠 노출 복제
 
-Game 씬 서비스
-├─ GameInstaller            Player·Ghost·Sanity Game 씬 서비스 등록
+스테이지 씬 서비스 (ProtoTypeGame·Stage1)
+├─ GameInstaller            Player·Sanity 스테이지 서비스 등록. Ghost·Cleaning 은 있으면 등록(Stage1 에는 없다)
 ├─ PlayerSpawnRegistry      clientId별 시작 위치
 ├─ LocalPlayerContext       로컬 소유 플레이어의 Targeter/Grab/Interactor 참조
 ├─ GhostPrototypeSpawner    F1 HUD의 Host 전용 귀신 동적 스폰·제거·어택 강제·강제 진정·청소 진행도 스텁
@@ -245,7 +255,7 @@ Furniture (씬 배치 NetworkObject, 프리팹 인스턴스)
 ├─ FurnitureLauncher        서버 전용. 발사 속도와 보정 각도 계산·적용
 └─ FurnitureOutline         클라이언트 전용. 조준/홀드 상태에 따라 윤곽선 표시
 
-RandomFurniture (B안 설치 메뉴로 Game 씬에 저장 완료)
+RandomFurniture (B안, ProtoTypeGame·Stage1 씬에 저장)
 ├─ FurniturePool            씬 프리팹 인스턴스. NetworkObject를 가진 부모를 두지 않음
 │  └─ RandomFurnitureItem   배치/대상 상태 복제, 미선택 가구 숨김·충돌/잡기 제한·탐지 마커 제어
 ├─ SpawnPoints              FurnitureSpawnPoint: 타입·크기·풀·방 지정
@@ -293,6 +303,7 @@ UI (씬별, 로컬 전용)
 | `SanitySystemSettings` | 시작 100%, 감소 시간·양, 디버프 임계값·속삭임 간격 |
 | `DetectionSkillSettings` | 탐지 시전 임시 구간, 5초 표시, 10초 쿨타임, 시전 화면 파란빛 색·최대 불투명도, 가구/얼룩 색, 렌더링 모드, 사망 취소 정책 |
 | `MoleSkillUiSettings` | 원형 게이지 크기·여백·간격, 배경/시전/쿨타임 색, 런타임 텍스처 해상도 |
+| `PlayerNameTagSettings` | 머리 위 닉네임 높이(눈높이 기준)·최대 표시 거리·글자 높이/해상도·색·외곽선 |
 | `SceneNameSO` | 씬 참조 목록 (문자열 대신) |
 
 경로: `Assets/Settings/Gameplay/`, `Assets/Settings/Scenes/`
@@ -324,4 +335,7 @@ UI (씬별, 로컬 전용)
 
 관련: [networking.md](networking.md) · [steam.md](steam.md) · [decisions/](decisions/README.md)
 
-최종 갱신: 2026-09-12 (B안 랜덤 가구 설정·후보·서버 배치 구조와 Game 씬 배선 반영. 풀 16개·후보 91개 저장, 기존 어셈블리 경계 유지.)
+최종 갱신: 2026-09-28 (일회성 에디터 설치·생성 도구 삭제 — ADR-0020, 어셈블리 경계 변경 없음. 씬 구성: `Game` → `ProtoTypeGame` 이름 변경, 스테이지 씬 `Stage1` 추가, `SceneId.IsStage()` 판정 — ADR-0019.
+어셈블리 경계 변경 없음. 이전: 2026-09-27 Player 프리팹에 머리 위 닉네임 `PlayerNameTag`·`PlayerNameTagView`와 설정 에셋 추가 —
+어셈블리 경계 변경 없음 → [player-controller.md](player-controller.md) "머리 위 닉네임". 이전: 2026-09-12 B안 랜덤 가구
+설정·후보·서버 배치 구조와 Game 씬 배선 반영. 풀 16개·후보 91개 저장, 기존 어셈블리 경계 유지.)

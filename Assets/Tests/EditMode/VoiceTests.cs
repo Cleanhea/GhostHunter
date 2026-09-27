@@ -41,6 +41,13 @@ namespace GhostHunter.Tests.EditMode
         [TestCase(false, true, 0f, 0f, false)] [TestCase(true, false, 0f, 0f, false)]
         public void Relay_EnforcesChannelAndMargins(bool speaker, bool listener, float horizontal, float vertical, bool expected)
             => Assert.That(VoiceAttenuation.CanRelay(speaker, listener, horizontal, vertical, 10f, 2.6f, 2f, 1f), Is.EqualTo(expected));
+        [TestCase(true, false)]
+        [TestCase(false, true)]
+        [TestCase(true, true)]
+        [TestCase(false, false)]
+        public void ResultRelay_CombinesAllPlayersWithoutDistanceLimit(bool speaker, bool listener)
+            => Assert.IsTrue(VoiceAttenuation.CanRelay(speaker, listener, 1000f, 1000f,
+                10f, 2.6f, 2f, 1f, resultChannel: true));
         [Test]
         public void Gate_HysteresisAndHangoverPreserveSentence()
         {
@@ -164,6 +171,54 @@ namespace GhostHunter.Tests.EditMode
             Assert.That(actions.FindAction("Player/SpectateToggleMode").bindings[0].path, Is.EqualTo("<Keyboard>/c"));
         }
         [Test]
-        public void Installation_HasRequiredReferences() => GhostHunter.EditorTools.VoiceChatSetup.ValidateInstallation();
+        public void Transmit_IgnoresLoudnessInOpenMicAndFollowsPttKey()
+        {
+            // 소리 크기는 인자에 없다 — 오픈 마이크는 조용한 소리도 그대로 보낸다(2026-09-27).
+            Assert.IsTrue(PlayerVoiceEmitter.ShouldTransmit(GhostHunter.Core.Voice.VoiceMode.OpenMic, false));
+            Assert.IsTrue(PlayerVoiceEmitter.ShouldTransmit(GhostHunter.Core.Voice.VoiceMode.PushToTalk, true));
+            Assert.IsFalse(PlayerVoiceEmitter.ShouldTransmit(GhostHunter.Core.Voice.VoiceMode.PushToTalk, false));
+        }
+        [Test]
+        public void Resampler_DoublesRateWithLinearInterpolation()
+        {
+            var resampler = new VoiceResampler(24000, 48000);
+            var output = new float[16];
+            int written = resampler.Process(new[] { 0f, 1f, 0f }, 3, output);
+            Assert.That(written, Is.EqualTo(4));
+            Assert.That(new[] { output[0], output[1], output[2], output[3] }, Is.EqualTo(new[] { 0f, 0.5f, 1f, 0.5f }));
+        }
+        [Test]
+        public void Resampler_KeepsPhaseAcrossPackets()
+        {
+            // 24kHz → 44.1kHz 처럼 나눠떨어지지 않는 비율에서도 패킷을 나눠 넣은 결과가 한 번에 넣은 결과와 같아야 한다.
+            var input = new float[480];
+            for (int i = 0; i < input.Length; i++) input[i] = (float)Math.Sin(i * 0.05);
+            var whole = new VoiceResampler(24000, 44100);
+            var split = new VoiceResampler(24000, 44100);
+            var expected = new float[whole.MaximumOutput(input.Length)];
+            int expectedCount = whole.Process(input, input.Length, expected);
+            var actual = new float[expected.Length];
+            var chunk = new float[160];
+            int actualCount = 0;
+            for (int offset = 0; offset < input.Length; offset += chunk.Length)
+            {
+                Array.Copy(input, offset, chunk, 0, chunk.Length);
+                var part = new float[split.MaximumOutput(chunk.Length)];
+                int count = split.Process(chunk, chunk.Length, part);
+                Array.Copy(part, 0, actual, actualCount, count);
+                actualCount += count;
+            }
+            Assert.That(actualCount, Is.EqualTo(expectedCount));
+            for (int i = 0; i < expectedCount; i++) Assert.That(actual[i], Is.EqualTo(expected[i]).Within(1e-5f));
+        }
+        [Test]
+        public void Buffer_ReadReportsHowManySamplesWereReal()
+        {
+            var buffer = new VoicePcmBuffer(16, 16);
+            buffer.Write(new[] { 1f, 2f, 3f }, 3);
+            var output = new float[8];
+            Assert.That(buffer.Read(output, 5), Is.EqualTo(3));
+            Assert.That(output, Is.EqualTo(new[] { 1f, 2f, 3f, 0f, 0f, 0f, 0f, 0f }));
+        }
     }
 }

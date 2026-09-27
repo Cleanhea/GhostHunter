@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
+using GhostHunter.Core.Scenes;
 using UnityEngine;
 
 namespace GhostHunter.Core.Steam
@@ -18,12 +19,26 @@ namespace GhostHunter.Core.Steam
         bool IsInLobby { get; }
         bool IsLobbyOwner { get; }
         bool IsGameStarted { get; }
+        bool IsGameLoading { get; }
+        int ShopBalance { get; }
+        int GetPurchasedTempItemCount(int itemIndex);
+        bool TryPurchaseTempItem(int itemIndex);
+        int PublishedSettlementCount { get; }
+        bool TryPublishStageSettlement(StageSettlementRecord record);
+        bool TryGetPublishedSettlement(int index, out StageSettlementRecord record);
 
         /// <summary>참가자에게 공유하는 사람이 읽는 방 코드. 로비에 없으면 빈 문자열.</summary>
         string CurrentRoomCode { get; }
 
         /// <summary>접속 대상 호스트 SteamId. 로비에 없으면 0.</summary>
         ulong CurrentHostSteamId { get; }
+        string CurrentStageId { get; }
+        int CurrentHostGeneration { get; }
+        bool IsMigratedHostReady { get; }
+        bool IsMigratedStageResumed { get; }
+        void MarkMigratedHostReady();
+        void MarkMigratedStageResumed();
+        bool TryGetAuthenticatedSteamId(ulong ngoClientId, out ulong steamId);
 
         /// <summary>사람이 읽는 진행 상황.</summary>
         event Action<string> StatusChanged;
@@ -43,12 +58,14 @@ namespace GhostHunter.Core.Steam
         UniTask JoinLobbyByCodeAsync(string rawCode);
         void OpenInviteOverlay();
         bool TrySetConnectionTarget(ulong hostSteamId);
+        void MarkGameLoading();
         void MarkGameStarted();
+        void MarkGameEnded();
         void LeaveLobby();
 
         void SetLocalReady(bool ready);
 
-        /// <summary>호스트를 제외한 전원이 준비 완료인가. 게스트가 없으면 true.</summary>
+        /// <summary>최소 2명이 참가했고 호스트를 제외한 전원이 준비 완료인가.</summary>
         bool AllGuestsReady();
 
         /// <summary>현재 로비 멤버. 방장이 항상 첫 번째다. 로비에 없으면 빈 목록.</summary>

@@ -374,7 +374,7 @@ namespace GhostHunter.DebugTools
         {
             if (_sanityDebug == null)
             {
-                GUILayout.Label("Game 씬의 정신력 서비스가 아직 없습니다.");
+                GUILayout.Label("스테이지 씬의 정신력 서비스가 아직 없습니다.");
                 return;
             }
 
@@ -406,6 +406,9 @@ namespace GhostHunter.DebugTools
             if (GUILayout.Button("부활"))
                 _sanityDebug.ReviveLocalPlayer();
             GUILayout.EndHorizontal();
+
+            if (GUILayout.Button("원격 플레이어 1명 사망 처리 (봇 검증)"))
+                _sanityDebug.MarkNextRemotePlayerDead();
 
             GUILayout.BeginHorizontal();
             if (GUILayout.Button("팀 전원 부활"))
@@ -551,7 +554,7 @@ namespace GhostHunter.DebugTools
         {
             if (_ghostDebug == null)
             {
-                GUILayout.Label("Game 씬의 귀신 서비스가 아직 없습니다.");
+                GUILayout.Label("이 씬에는 귀신 서비스가 없습니다.");
                 return;
             }
 
@@ -576,7 +579,7 @@ namespace GhostHunter.DebugTools
             GUILayout.EndHorizontal();
 
             GUILayout.BeginHorizontal();
-            if (GUILayout.Button("활동 강제"))
+            if (GUILayout.Button("활동 상태 확인"))
                 _ghostDebug.ToggleForceActive();
             if (GUILayout.Button(_ghostDebug.IsGhostForcedVisible ? "본체 숨기기" : "본체 보이기"))
                 _ghostDebug.ToggleGhostVisible();
@@ -646,7 +649,7 @@ namespace GhostHunter.DebugTools
         {
             if (_cleaning == null)
             {
-                GUILayout.Label("Game 씬 청소 시스템 대기 중");
+                GUILayout.Label("이 씬에는 청소 시스템이 없습니다.");
                 return;
             }
             GUILayout.Label($"남은 얼룩: {_cleaning.DirtyCount}개");

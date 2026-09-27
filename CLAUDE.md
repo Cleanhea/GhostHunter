@@ -1,266 +1,87 @@
 # CLAUDE.md
 
-> Claude Code가 이 저장소에서 작업을 시작할 때 **가장 먼저 읽는 파일**.
-> 도구 중립 에이전트 규약은 [AGENTS.md](AGENTS.md), 세부 컨텍스트는 [docs/](docs/README.md).
+> Claude Code가 이 저장소에서 가장 먼저 읽는 파일. **매 요청마다 컨텍스트에 실리므로 규칙과 안내만 둔다.**
+> 진행 상황은 [roadmap.md §0](docs/project/roadmap.md), 절차·세부는 [docs/](docs/README.md), 공통 규약은 [AGENTS.md](AGENTS.md).
 
-GhostHunter — 1인칭 멀티플레이 "가구 던지기" 게임.
+GhostHunter — 1인칭 멀티플레이 "가구 던지기" 게임. 규칙은 [gdd.md](docs/project/gdd.md) — **`TBD`는 임의로 정하지 않고 묻는다.**
 
----
+## 1. 스택
 
-## 1. 프로젝트 스냅샷
+Unity **6000.3.20f1** · URP 17.3 · Input System 1.19(신규 전용) · NGO **2.13.1**(서버 권위) ·
+Steam 트랜스포트 facepunch(임베드+패치) · 로컬 UTP 2.7.3(개발 전용, [ADR-0011](docs/architecture/decisions/ADR-0011-local-transport-path.md)) ·
+Facepunch.Steamworks 2.5.2 · UniTask 2.5.11 · PhysX · Force Text 직렬화.
+씬: Bootstrap(상주) → Title → Lobby(일반 로비) → InGameLobby ⇄ Stage1 → Result → InGameLobby …
+(additive, 세션은 스테이지 사이에도 유지 — [ADR-0018](docs/architecture/decisions/ADR-0018-persistent-session-in-game-lobby.md)).
+구 Game 씬은 프로토타입 검증용 **ProtoTypeGame**, 스테이지 판정은 `SceneId.IsStage()`([ADR-0019](docs/architecture/decisions/ADR-0019-stage1-scene-split.md)). 구조: [overview.md](docs/architecture/overview.md)
 
-| 항목 | 값 | 비고 |
-| --- | --- | --- |
-| Unity | **6000.3.20f1** (Unity 6.3) | 버전 변경 시 팀 전체 합의 필요 |
-| 렌더 파이프라인 | URP 17.3 | PC 프리셋(`Assets/Settings/PC_RPAsset.asset`) |
-| 입력 | Input System 1.19 (**신규 전용**, `activeInputHandler: 1`) | 레거시 `Input.*`는 런타임 예외 |
-| 네트워킹 | Netcode for GameObjects **2.13.1** | 서버 권위 |
-| Steam 트랜스포트 | `com.community.netcode.transport.facepunch` | **임베드 + 5건 패치** — 아래 주의 |
-| 로컬 트랜스포트 | `com.unity.transport` 2.7.3 (UTP) | 개발 전용으로 존치 + 빌드 가드 → [ADR-0011](docs/architecture/decisions/ADR-0011-local-transport-path.md) |
-| Steam 래퍼 | Facepunch.Steamworks 2.5.2 | 트랜스포트 패키지에 번들 |
-| 비동기 | **UniTask 2.5.11** | [ADR-0005](docs/architecture/decisions/ADR-0005-unitask-async.md) — 전환 완료 |
-| 에디터 브리지 | Unity MCP (CoplayDev) | [workflow/unity-mcp.md](docs/workflow/unity-mcp.md) — 연결됨. 버전 `#main` 추적 중 |
-| 물리 | PhysX (built-in 3D) | DOTS Physics 사용 안 함 |
-| 에셋 직렬화 | Force Text (`m_SerializationMode: 2`) | 유지할 것 |
-| 버전 | `0.1.0` | Company/Product = `GhostHunter` |
+## 2. 라우팅 — 해당 작업 행의 문서만, 관련 절부터 읽는다
 
-**게임의 목표·루프·승패 조건은 [docs/project/gdd.md](docs/project/gdd.md)에 정의한다.
-아직 `TBD`인 항목이 있으면 임의로 정하지 말고 사용자에게 확인한다.**
+전체 읽기 목록이 아니다. 공통 행도 그 작업을 할 때만 읽는다. 문서가 길면 목차에서 절을 찾는다.
+코드와 문서가 충돌하면 [AGENTS.md §1](AGENTS.md)대로 보고한다.
 
-> **⚠️ 아키텍처 정비 마무리 단계.** 씬 구조·서비스 수명·8개 asmdef 레이어·테스트 어셈블리·
-> 가구/문 프리팹화(굽기까지 완료, 커밋 `015f874`)가 끝났다. 남은 것은 로비 정책(MIG-11, 결정 대기)이다 →
-> [docs/project/roadmap.md §2](docs/project/roadmap.md)
->
-> **⚠️ 다음 큰 작업은 맵 생성 v0.4다.** Type·Count·생성/실패 처리·B/C 비교·작업량 검증을 반영했고,
-> **MAP-1 오른쪽 그레이박스 1차 생성까지 완료됐고, B/C 비교용 실내·계단·가구 생성기(MAP-15) 코드도 추가됐다.**
-> **B/C 메뉴 실행·씬 저장까지 완료했고(2026-09-06), 같은 날개 안 방-방 사이 여백을 없애는
-> 재설계도 반영했다(방+홀 비율 68.5~83.0%).** 수동 체감 확인 후 MAP-2로 진행한다. 착수 전
-> [roadmap.md §1.2 MAP](docs/project/roadmap.md)과 [map-generation.md §2·§12](docs/architecture/map-generation.md)를 읽는다.
-
----
-
-## 2. 컨텍스트 라우팅 — 작업 전 필독 문서
-
-작업을 시작하기 전, 아래 표에서 해당 행의 문서를 **먼저 읽는다**.
-
-| 작업 유형 | 필독 문서 |
+| 작업 | 문서 |
 | --- | --- |
-| 신규 기능 설계 / 스펙 논의 | `docs/project/overview.md`, `docs/project/gdd.md`, `docs/project/roadmap.md` |
-| 청소·대걸레·얼룩·HUD 초기화 | `docs/project/cleaning-system.md`, `docs/architecture/cleaning-system.md` — 가구 완료·진행도는 미정 유지 |
-| 시스템·폴더·어셈블리·씬 구조 변경 | `docs/architecture/overview.md`, `docs/architecture/decisions/README.md` |
-| 네트워크(RPC·NetworkVariable·동기화) | `docs/architecture/networking.md` |
-| Steam 연동(초기화·로비·연결·빌드) | `docs/architecture/steam.md` |
-| 플레이어 이동·시점·입력 | `docs/architecture/player-controller.md` |
-| 사망 처리·자유시점·플레이어 관전 | `docs/project/spectator-system.md`, `docs/architecture/player-controller.md`, `docs/architecture/networking.md` — **핵심 요구 확정 / 관전 구현 미착수.** 구현 지시는 `docs/workflow/spectator-implementation-prompt.md` |
-| 잡기·부양·발사 | `docs/architecture/throw-system.md` |
-| 가구 물리·아웃라인 | `docs/architecture/furniture-physics.md` |
-| 가구 내구도·충돌 파손 | `docs/project/furniture-durability-system.md`, `docs/architecture/throw-system.md` — **0.4(2026-09-16). 내구도 0에서 가구를 파괴하지 않는다(FD-10 재확정) — 파괴는 `FurnitureDefinition.DestroyAtZeroDurability` 스위치로 보존(기본 꺼짐). 조립 완성품은 0을 포함한 부품 내구도 평균. Unity 실행·Host/Client 검증 대기** |
-| 귀신 상태·어택·탐지·추격 | `docs/project/ghost-system.md`, `docs/architecture/ghost-prototype.md` |
-| 정신력 | `docs/project/sanity-system.md`, `docs/architecture/sanity-system.md` |
-| 플레이어 스킬(탐지·굴착) | `docs/project/mole-skill-system.md` — **초안. 미결정 15건(MS-1~15)** |
-| 일시정지 메뉴·나가기·연결 끊김 | `docs/project/pause-menu-system.md`, `docs/architecture/pause-menu.md` — **구현됨.** 수동 검증·선행 검증 D-1 대기 |
-| 퀵슬롯(라디얼 휠) | `docs/project/quick-slot-system.md`, `docs/architecture/quick-slot.md` — **대걸레·맨손 장착 연결.** 일반 인벤토리는 별도 작업, Local Host 입력 검증 완료 |
-| 가구 분해·조립(멀티 드라이버) | `docs/architecture/furniture-multidriver.md`(구현 상세), `docs/project/furniture-multidriver-system.md` — **FM-IMPL-1~3 구현·씬 설치. 기획서 1.1(2026-09-13): 우클릭을 끝까지 누르고 있어야 완료, 중앙 원형 게이지 HUD 구현. 분해 부품이 풀 보관 위치로 되돌아가던 버그 수정. EditMode 235개·PlayMode 32개 통과, 실제 Game Local Host에서 유지 완료·뗌 취소·부품 착지 확인.** **조립 영역 트리거가 지면에서 1.5m 떠 있어 조립이 시작될 수 없던 문제를 2026-09-17 수정(코드만) — Game 씬에서 `GhostHunter > 가구용 멀티 드라이버 조립 영역 재배치`를 실행해야 반영된다.** 손목 애니메이션·실루엣 렌더링·원격 Host/Client·조립 검증 남음. MD-3·4·6·13 TBD 유지 |
-| 마이크·근접 음성 채팅 | `docs/project/voice-chat-system.md`(기획 0.2), `docs/architecture/voice-chat.md`(구현) — **코드·배선 구현 완료, 자동 검증 통과(2026-09-17 재검증: EditMode 302/302 · PlayMode 57/57).** XZ 원형 10m 감쇠·벽 가림(레이 3개+로우패스)·\|ΔY\| 2.6m 층 차단. **Steam Voice 캡처(VC-1) · 기본 오픈 마이크+VAD(VC-3) · 가구 제외 마스크(VC-6) 확정, 정책 VC-8·10·13·16 승인, UI 1차(VC-11) 구현.** 남은 것은 **실기 수동 검증**(마이크·Steam 2PC·4인 대역폭·macOS)과 플레이테스트로 정할 수치(VC-4·7·21) |
-| 맵·방 프리셋·스폰 포인트·작업 대상 가구 | `docs/architecture/map-generation.md` — **기획서 v0.4 반영. Type·Count·B/C 비교·작업량 검증, 기존 도면·MAP-15 기록 포함. 미결정은 §12(MG-1~23)** |
-| C# 코드 작성 / 리팩터링 | `docs/conventions/code-style.md` |
-| 프리팹·씬·ScriptableObject·에셋 | `docs/conventions/unity-assets.md` |
-| 커밋·브랜치·PR | `docs/conventions/git.md` |
-| 작업 절차 / 완료 기준 | `docs/workflow/development-loop.md` |
-| 테스트 작성·실행 | `docs/workflow/testing.md` |
-| **Unity 에디터 조작(MCP 도구 사용)** | `docs/workflow/unity-mcp.md` — 사용 전 필독 |
-| 반복 작업(신규 시스템·NetworkBehaviour 등) | `docs/workflow/playbooks.md` |
-| 기술 선택의 배경이 궁금할 때 | `docs/architecture/decisions/` (ADR) |
+| 기능 설계·스펙 | `project/gdd.md`(규칙) · `project/overview.md`(범위) · `project/roadmap.md`(상태·우선순위) 중 해당하는 것 |
+| 시스템·폴더·어셈블리·씬 구조 | `architecture/overview.md`, `architecture/decisions/` |
+| 네트워크(RPC·NetworkVariable) | `architecture/networking.md` |
+| Steam·빠른 실행 절차 | `architecture/steam.md` |
+| 일반 로비·인게임 로비·상점·스테이지 전환·Stage1 씬 | `project/stage-system.md` §1.1, ADR-0018·ADR-0019 |
+| 스테이지 시작·종료·정산·호스트 이전 | `project/stage-system.md`, 구현 시 `architecture/networking.md`·ADR-0017 |
+| 플레이어 이동·시점·입력·캐릭터 모델 | `architecture/player-controller.md` |
+| 사망·시체·전멸 / 관전 | `project/death-system.md`·`architecture/death-system.md` / `project/spectator-system.md` |
+| 잡기·부양·발사 / 가구 물리 | `architecture/throw-system.md` / `architecture/furniture-physics.md` |
+| 가구 내구도 | `project/furniture-durability-system.md` |
+| 가구 분해·조립 | `architecture/furniture-multidriver.md`, `project/furniture-multidriver-system.md` |
+| 청소 | `project/cleaning-system.md`, `architecture/cleaning-system.md` |
+| 귀신 / 정신력 | `project/ghost-system.md`·`architecture/ghost-prototype.md` / `project/sanity-system.md`·`architecture/sanity-system.md` |
+| 플레이어 스킬 | `project/mole-skill-system.md` |
+| 일시정지·나가기·끊김 / 퀵슬롯 | `architecture/pause-menu.md` / `architecture/quick-slot.md` (기획은 `project/` 같은 이름) |
+| 음성 채팅 | `project/voice-chat-system.md`, `architecture/voice-chat.md` |
+| 맵·방 프리셋·스폰·작업 대상 가구 | `architecture/map-generation.md` (미결정 §12) |
+| C# / 에셋 / git | `conventions/code-style.md` / `conventions/unity-assets.md` / `conventions/git.md` |
+| 절차·완료 기준 / 테스트 / 반복 작업 | `workflow/development-loop.md` / `workflow/testing.md` / `workflow/playbooks.md` |
 
----
+(경로는 모두 `docs/` 아래)
 
 ## 3. 하드 룰 (위반 금지)
 
-### 3.1 파일 배치
-- **`Assets/_Project/` 래퍼를 쓰지 않는다.** 평면 배치 유지 → [ADR-0007](docs/architecture/decisions/ADR-0007-flat-assets-layout.md)
-- 서드파티 에셋은 `Assets/Plugins/` 또는 `Assets/ThirdParty/`에 두고 폴더 구조를 임의로 바꾸지 않는다.
-- 문서는 `docs/` (Assets 밖)에 둔다 — `.meta`가 생기지 않는다.
+**파일·에셋**
+- `Assets/_Project/` 래퍼 금지, 평면 배치([ADR-0007](docs/architecture/decisions/ADR-0007-flat-assets-layout.md)). 서드파티는 `Assets/Plugins/`·`Assets/ThirdParty/`(구조 변경 금지). 문서는 `docs/`.
+- `Packages/com.community.netcode.transport.facepunch/`는 벤더링 사본이다. 손대기 전 [PATCHES.md](Packages/com.community.netcode.transport.facepunch/PATCHES.md)를 읽고 수정은 거기 기록, 우리 기능 추가 금지([ADR-0006](docs/architecture/decisions/ADR-0006-facepunch-transport-embed.md)).
+- 씬·프리팹·에셋(`.unity`·`.prefab`·`.asset`)은 텍스트로 직접 고쳐도 되고, 파일은 셸(`git mv`/`rm`)로 옮기거나 지워도 된다.
+  이때 `.meta`는 짝으로 함께 옮기고·지우고·커밋하며 `guid`는 바꾸지 않는다. 저장된 씬·프리팹이 원본이다 — 설치·생성 도구는 없다([ADR-0020](docs/architecture/decisions/ADR-0020-remove-one-off-editor-setup-tools.md)).
+- `Library/`·`Temp/`·`Logs/`·`UserSettings/`·`*.csproj`·`*.sln*`은 생성물. `ProjectSettings/**`·`Packages/manifest.json` 수정은 사용자 확인 후(재임포트 고지).
+- **씬의 어떤 오브젝트도 스케일이 1이 아니면 안 된다.** 네트워크 프리팹·씬 `NetworkObject`의 GlobalObjectIdHash 함정은 `unity-assets.md`의 절차를 따른다.
 
-### 3.2 벤더링 패키지
-- **`Packages/com.community.netcode.transport.facepunch/`는 벤더링된 서드파티 사본이다.**
-  패치 없이는 컴파일되지 않는 upstream 버그가 있어 임베드했다. 손대기 전에
-  [PATCHES.md](Packages/com.community.netcode.transport.facepunch/PATCHES.md)를 읽고,
-  수정하면 거기에 기록한다. **이 폴더에 우리 기능을 추가하지 않는다.**
-  → [ADR-0006](docs/architecture/decisions/ADR-0006-facepunch-transport-embed.md)
+**코드**
+- 레거시 `Input.*`, `GameObject.Find`, `SendMessage`, 매 프레임 `Camera.main` 금지. 참조는 직렬화 또는 명시적 주입.
+- `async void` 금지 — `async UniTaskVoid` + `.Forget()`. 새 코루틴 금지. 레거시 `[ServerRpc]`/`[ClientRpc]` 금지 — `[Rpc(SendTo.…)]`.
+- `Steamworks` 네임스페이스는 Steam 레이어에만(Gameplay·UI는 `ISteamLobbyService`). 맥에는 Valve 폐기 API가 없다(`steam.md`).
+- 씬 전환은 `ISceneFlow` 경유. 서비스는 `static Instance` 금지, 등록은 `SceneInstaller`에서만.
+- 튜닝 수치는 `ScriptableObject` 설정 에셋에. 네임스페이스·폴더에 `Debug` 금지(`DebugTools` — `UnityEngine.Debug`를 가린다).
+- 트랜스포트 모드 직렬화 기본값은 항상 `Steam`. 로컬 검증은 F1 HUD로 바꾸고 저장하지 않는다(`TransportModeBuildGuard`).
+- 새 어셈블리 경계는 `.asmdef`와 함께 만들고 `architecture/overview.md`를 갱신한다.
 
-### 3.3 Unity 특수 파일
-- **`.meta` 파일을 직접 생성·삭제·편집하지 않는다.** Unity가 관리한다. **항상 짝으로 커밋**한다.
-- **`.unity` / `.prefab` / `.asset` YAML을 손으로 편집하지 않는다.**
-- 파일/폴더 이동·삭제는 **Unity 에디터 안에서** 한다. 셸에서 `mv`/`rm` 하지 않는다.
-- 씬·프리팹·에셋을 바꿔야 하면 **Unity MCP**(Unity API 경유라 GUID 안전) 또는
-  `Assets/Scripts/Editor/`의 생성 도구를 쓴다. 둘의 역할 구분은 `docs/workflow/unity-mcp.md` §4.1.
-- **C# 스크립트는 MCP가 아니라 일반 파일 도구(Read/Edit/Write)로 작성한다.**
-- `Library/`, `Temp/`, `Logs/`, `UserSettings/`, `*.csproj`, `*.sln*`은 **생성물**이다.
-- `ProjectSettings/**` 및 `Packages/manifest.json` 수정은 **사용자 확인 후** 진행하고, 재임포트가 필요함을 알린다.
+**게임플레이**
+- 물리 권위는 서버에만. 클라이언트는 의도만 RPC로 보내고 `Rigidbody`에 직접 힘을 가하지 않는다([ADR-0010](docs/architecture/decisions/ADR-0010-server-authoritative-furniture-physics.md)).
+  예외는 플레이어 이동뿐([ADR-0008](docs/architecture/decisions/ADR-0008-owner-authoritative-player-movement.md)) — 새 예외는 ADR 필요.
+- 던질 수 있는 가구는 씬에 배치된 실제 가구다. 런타임 스폰 금지([ADR-0009](docs/architecture/decisions/ADR-0009-scene-placed-level-objects.md)).
+  가구·문은 프리팹 인스턴스(한 종류 = 한 프리팹, 벽 방향은 회전으로, 종류 추가는 새 프리팹을 만들어 `Furniture_Library`에 진열).
+- 맵 기준은 **B안**(30×24m ×2층 + 다락 20×14m, `HousePlanC.png`). 작업량은 Target Furniture Type·Count로 관리한다.
+- 침실은 `Room_Presets`를 서버가 `RoomSlots`로 **옮겨** 채운다(스폰 아님) — 침실에 손으로 가구를 놓지 않는다(원본은 `Furniture_Library`).
+  세부: `map-generation.md`·`furniture-physics.md`.
+- 세션 시작 순서(씬 로드 → `StartHost` → 로비 신호)는 MUST 지킨다(`steam.md` "빠른 시작").
 
-### 3.4 코드
-- 레거시 `Input.GetKey` / `Input.GetAxis` 금지 — Input System만 사용한다.
-- `GameObject.Find`, `SendMessage`, `Camera.main`(매 프레임) 금지. 참조는 직렬화 또는 명시적 주입.
-- **`async void` 금지** — `async UniTaskVoid` + `.Forget()`. 새 코루틴 금지.
-- **레거시 `[ServerRpc]`/`[ClientRpc]` 금지** — `[Rpc(SendTo.…)]` 통합 속성을 쓴다.
-- **`Steamworks` 네임스페이스는 Steam 레이어에만 존재한다.** Gameplay·UI는 `ISteamLobbyService`로 받는다.
-- **씬 전환은 `ISceneFlow`를 경유한다.** `SceneManager`를 직접 호출하지 않는다.
-- 서비스는 자기 `static Instance`를 갖지 않는다. 등록은 `SceneInstaller`에서만.
-- 튜닝 수치는 코드 상수가 아니라 `ScriptableObject` 설정 에셋에 둔다.
-- **트랜스포트 모드의 직렬화 기본값은 항상 `Steam`이다.** 로컬 검증은 플레이 중 F1 HUD로 전환하고
-  저장하지 않는다. 릴리스 빌드는 `TransportModeBuildGuard`가 막는다.
-- 새 어셈블리 경계를 만들 땐 `.asmdef`를 함께 추가하고 `docs/architecture/overview.md`를 갱신한다.
+**문서**
+- 코드 변경이 문서 서술을 무효화하면 같은 작업 안에서 갱신한다. 되돌리기 어려운 선택은 ADR. 트리거: `playbooks.md` PB-07.
+- 진행 상황·검증 결과는 이 파일이 아니라 `roadmap.md` §0과 해당 문서에 적는다.
 
-### 3.5 게임플레이 규칙
-- **물리 상태의 권위는 서버(호스트)에만 있다.** 클라이언트는 입력/의도만 RPC로 보낸다.
-  **클라이언트에서 `Rigidbody`에 직접 힘을 가하지 않는다.** → [ADR-0010](docs/architecture/decisions/ADR-0010-server-authoritative-furniture-physics.md)
-- **예외는 플레이어 이동 하나뿐**(소유자 권위) → [ADR-0008](docs/architecture/decisions/ADR-0008-owner-authoritative-player-movement.md).
-  새 예외를 만들려면 ADR이 필요하다.
-- **던질 수 있는 가구는 씬에 배치된 실제 가구다.** 런타임 스폰하지 않는다 → [ADR-0009](docs/architecture/decisions/ADR-0009-scene-placed-level-objects.md)
-- **맵은 `HousePrototypeBuilder.MapScale`(현재 ×1.5)로 평면(X·Z)만 넓힌다.** 배율은 **좌표에만** 곱한다 —
-  트랜스폼 스케일을 쓰면 개구부 폭과 벽 높이까지 늘어난다. 벽 높이·두께·문 폭·창 크기·붙박이·계단·가구·
-  플레이어·투척 수치는 배율을 받지 않는다. **씬의 어떤 오브젝트도 스케일이 1이 아니면 안 된다.**
-- **현재 제작 기준은 B안 (2026-09-12 사용자 선택, MG-20 해결): 30×24m ×2층 + 다락 20×14m.**
-  도면 파일은 `HousePlanC.png`다. `House_Prototype_PlanB`의 2026-09-06 여백 정리 실내 좌표를 사용하며
-  추가 배율을 곱하지 않는다. 기존 A안 20×16m 결정(MG-2)은 과거 기록으로 보존한다.
-  `PlanBFurnitureSpawnSetup` 설치 메뉴가 가구 풀·후보·서버 생성기와 B안 앞마당 시작 위치를 연결한다.
-  **코드 구현·C# 빌드·Unity 메뉴 실행·씬/설정 저장 완료, Unity Test Runner·Host/Client Play 검증 대기** —
-  → [docs/architecture/map-generation.md §2](docs/architecture/map-generation.md) · [roadmap §1.2 MAP](docs/project/roadmap.md)
-- **맵 v0.4 작업량은 Target Furniture Type 수와 Type별 Count로 관리한다.**
-  Sofa 2 / Drawer 3 / Chair 5 / Box 6 = 16은 임시 예시다. 이전 Work Room 수치를 최신 기준으로 쓰지 않는다.
-  첫 구현은 별도 씬 가구 풀을 서버가 재배치하고 대상 마커를 복제한다. 최종 집계·반출 완료는 MG-22,
-  풀 소진 후 정책은 MG-23 대기 → [map-generation.md §10.1.3·§12](docs/architecture/map-generation.md).
-- **침실 2칸은 프리셋이 자동으로 채운다.** `Room_Presets` A·B·C 중 둘을 서버가 중복 없이 뽑아
-  `House_01/RoomSlots`로 **옮긴다**(스폰이 아니다 — 중첩 `NetworkObject` 방지).
-  침실에 손으로 가구를 놓지 않는다. 프리셋 가구는 방 남쪽 1.11m 띠를 비워야 한다.
-- 생성 도구는 **방을 비운 채로** 집을 만들고, 가구는 `Furniture_Library`에 종류별 한 개씩 놓는다.
-  방 배치는 거기서 복사해 붙여 넣는다 — **생성 도구에 방별 가구 좌표를 심지 않는다.**
-  예외는 도면 배율 비교용 집(`House_01_OriginalScale_Right`)뿐이다.
-- **가구·문은 프리팹 에셋의 인스턴스다.** 한 종류 = 한 프리팹이고, 벽 방향이 다른 자리는
-  치수를 바꾸지 말고 **회전으로** 맞춘다. 종류를 추가하려면 `HousePrototypeBuilder.FurnitureKinds()`
-  에 넣는다 → [docs/architecture/furniture-physics.md](docs/architecture/furniture-physics.md)
+## 4. 검증
 
-### 3.6 문서 동기화
-- **코드 변경이 문서의 서술을 무효화하면, 같은 작업 안에서 문서를 갱신한다.** 문서 갱신 없는 구조 변경은 미완료다.
-- 되돌리기 어려운 기술 선택은 **ADR을 남긴다** → [docs/architecture/decisions/](docs/architecture/decisions/README.md).
-- 갱신 트리거 표: [docs/workflow/playbooks.md PB-07](docs/workflow/playbooks.md)
+에디터가 열려 있으면 원본 프로젝트의 batchmode가 실패한다 — 에디터를 닫아 달라고 하기 전에 검증용 복제 프로젝트로 돌린다.
+명령과 복제본 검증은 [testing.md](docs/workflow/testing.md). 작업 절차는 [AGENTS.md §2](AGENTS.md) — 검증하지 못했으면 "동작한다"고 말하지 않는다.
 
----
+## 5. 사용자에게 반드시 확인할 것
 
-## 4. 폴더 구조
-
-```
-Assets/
-├─ Scenes/     Bootstrap(0) → Title → Lobby → Game → Result
-│              Bootstrap 은 언로드되지 않고, 나머지가 그 위에 additive 로 오르내린다
-├─ Scripts/    Core / Data / Gameplay / Networking / UI / Systems / DebugTools / Editor
-│              런타임 7개 + Editor 1개 asmdef로 분리됨
-├─ Prefabs/    Player, Furniture/(가구 33종), Map/(문 3종), UI_*
-├─ Settings/   URP 에셋, Gameplay SO, PostProcessing/(정신력 노이즈 Volume 프로필)
-├─ Materials/  Shaders/  Sprite/(UI 스프라이트 — Skill_icon/)  Tests/
-```
-
-- 폴더명이 `Debug`가 아니라 **`DebugTools`**인 이유: `GhostHunter.Debug` 네임스페이스는
-  `UnityEngine.Debug`를 가려 그 안의 모든 `Debug.Log` 호출을 깨뜨린다.
-- **macOS**: 네이티브 `libsteam_api.bundle`을 arm64 포함 유니버설로 교체했다(PATCHES.md 패치 4).
-  대신 Valve가 폐기한 API 49개가 맥에서만 없다 — `QuickStatus().Ping` 같은 걸 쓰면 맥에서만
-  `EntryPointNotFoundException`이 난다.
-
-상세: [docs/architecture/overview.md](docs/architecture/overview.md)
-
----
-
-## 5. 네트워크 프리팹의 GlobalObjectIdHash 함정
-
-`PrefabUtility.SaveAsPrefabAsset`을 임시 **씬 오브젝트**에 대해 부르면, `NetworkObject.OnValidate`가
-에셋이 아니라 씬 기준으로 해시를 계산해서 **모든 프리팹이 같은 해시**를 갖고 `m_InScenePlaced`가
-true로 박힌다. NGO가 프리팹을 구분하지 못하는데 에러 없이 엉뚱한 게 스폰되는 식으로 조용히 깨진다.
-
-**씬에 놓는 `NetworkObject`(가구, 문)도 같은 함정이 있다.** `OnValidate`는 씬이 저장되어 영구 ID가
-생기고 그 씬이 Build Settings에 들어 있어야만(`buildIndex >= 0`) 해시를 계산한다.
-생성 중인 새 씬은 둘 다 아니라 해시가 0으로 남는다.
-
-절차와 검증 함수: [docs/conventions/unity-assets.md](docs/conventions/unity-assets.md)
-
----
-
-## 6. 멀티플레이 빠른 시작
-
-**메뉴 흐름 (Steam 필요):** `Assets/Scenes/Bootstrap.unity`을 열고 플레이한다.
-Bootstrap 이 `Title` 을 additive 로 올린다.
-
-1. **방 생성** → Steam 로비 생성 + 6자리 방 코드 발급 → 로비 씬으로 이동
-2. 상대는 **방 참가**에 방 코드를 입력하거나, 호스트의 **초대** 오버레이로 들어온다
-3. 게스트가 **준비**를 누르면 호스트의 **게임 시작**이 활성화된다
-4. 호스트가 시작하면 게임 씬을 로드한 뒤 `StartHost` → 로비에 시작 신호 → 게스트 접속
-
-**세션 시작 순서(씬 로드 → StartHost → 로비 신호)는 MUST 지킨다.** 로비 씬에서 바로 `StartHost` 하면
-플레이어가 스폰 지점 없는 씬에 스폰되고, 신호를 먼저 보내면 게스트가 세션 없는 호스트에 접속한다.
-
-**단독 플레이 (Steam 없이):** `Bootstrap.unity`에서 플레이 → **F1** 접속 HUD → 모드 `Local` → **Host**.
-HUD 로 바꾼 모드는 저장하지 않는다. 저장하면 릴리스 빌드가 `TransportModeBuildGuard` 에 막힌다.
-
-**음성을 혼자 확인:** 게임 안에서 **F3** — 선 자리에 테스트 스피커가 놓이고 내 목소리가 서버를 거쳐
-그 자리에서 들린다. 거기서 걸어 나가며 거리·벽·층 감쇠를 듣는다. **헤드폰 필수**(하울링).
-마이크·Steam 이 없으면 **F1** 음성 창에서 사인파를 켠다 →
-[docs/architecture/voice-chat.md](docs/architecture/voice-chat.md) "혼자 검증"
-
-**정신력 감소 확인:** 집 **서쪽**(`Game/SanityTestbed`)에 시체 2구와 귀신 이벤트를 둔 임시 칸이 있다.
-칸 안으로 들어가 소품을 바라보면 서버가 목격을 판정해 정신력이 줄고, 20 이하가 되면 화면 테두리
-노이즈가 켜진다. 임시 공간이라 정식 시스템이 생기면 삭제한다 →
-[docs/architecture/sanity-system.md §7](docs/architecture/sanity-system.md)
-
-> ⚠️ **씬 생성 도구를 함부로 재실행하지 않는다.** `GhostHunter > 프로토타입 게임 생성`은
-> `Game` 씬을 **처음부터 다시 만든다.** 방에 손으로 배치한 가구가 사라진다(도구는 방을 비운 채 집을 만든다).
-> 재실행은 씬을 통째로 버려도 될 때만 한다.
-> MAP-1 검증용 `GhostHunter > 맵 v0.3 그레이박스 오른쪽에 추가`는 예외로, 기존 두 집을 보존하고
-> `House_01_V03_Graybox_Right`가 없을 때만 새 루트를 추가한다. 이미 있으면 덮어쓰지 않고 검증만 한다.
-
-상세: [docs/architecture/steam.md](docs/architecture/steam.md)
-
----
-
-## 7. 명령어
-
-Unity 에디터가 열려 있으면 프로젝트가 잠겨 batchmode 명령이 실패한다.
-**에디터를 닫아 달라고 요청하기 전에, Unity MCP로 해결되는 일인지 먼저 확인한다.**
-
-```powershell
-$UNITY = "C:\Program Files\Unity\Hub\Editor\6000.3.20f1\Editor\Unity.exe"
-$PROJ  = "C:\MainScreen\Dev\GitDirectory\GhostHunter"
-
-# 컴파일 검증
-& $UNITY -quit -batchmode -nographics -projectPath $PROJ -logFile -
-
-# 에디터가 켜져 있을 때 컴파일 오류 확인
-Get-Content "$env:LOCALAPPDATA\Unity\Editor\Editor.log" -Tail 80
-```
-
-테스트 실행: [docs/workflow/testing.md](docs/workflow/testing.md)
-
----
-
-## 8. 작업 루프 요약
-
-1. **컨텍스트 로드** — §2 라우팅 표의 문서를 읽는다
-2. **범위 확인** — 요구가 모호하면 추측 대신 질문한다(특히 `TBD` 항목)
-3. **계획** — 2단계 이상이면 변경할 파일 목록을 먼저 제시한다
-4. **구현** — 하드 룰(§3) 준수. 기존 코드 스타일에 맞춘다
-5. **검증** — 컴파일 → 테스트 → 필요 시 사용자에게 에디터 확인 요청.
-   **검증하지 못했으면 "동작한다"고 말하지 않는다**
-6. **기록** — 영향받은 문서 갱신, 필요 시 ADR 작성, 커밋 컨벤션 준수
-
-상세: [docs/workflow/development-loop.md](docs/workflow/development-loop.md)
-
----
-
-## 9. 사용자에게 반드시 확인할 것
-
-Claude가 단독으로 결정하지 않는 항목:
-
-- 게임 디자인 결정(밸런스 수치, 룰 변경, 신규 메커닉) — 특히 `gdd.md`의 `TBD`
-- 패키지 추가/삭제, Unity 버전 변경, 렌더 파이프라인 설정 변경
-- Steam App ID 변경, 트랜스포트 패치 추가
-- 씬/프리팹 대량 변경, 폴더 구조 대규모 이동(GUID 참조 깨질 위험)
-- `git push`, 브랜치 강제 갱신, 커밋 되돌리기
-- **`main` 직접 커밋은 금지다.** 브랜치를 먼저 판다 → [docs/conventions/git.md](docs/conventions/git.md)
+[AGENTS.md §6](AGENTS.md)에 더해: Steam App ID 변경·트랜스포트 패치 추가, 씬/프리팹 대량 변경,
+**`main` 직접 커밋 금지**(브랜치를 먼저 판다 → [git.md](docs/conventions/git.md)).

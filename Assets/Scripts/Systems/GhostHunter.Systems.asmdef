@@ -7,6 +7,7 @@
         "GhostHunter.Gameplay",
         "GhostHunter.Networking",
         "Unity.Netcode.Runtime",
+        "Unity.InputSystem",
         "UnityEngine.UI",
         "Facepunch Transport for Netcode for GameObjects",
         "UniTask"

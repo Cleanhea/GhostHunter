@@ -1,6 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.Collections;
+using System.Reflection;
 using Cysharp.Threading.Tasks;
+using GhostHunter.Core;
+using GhostHunter.Core.Scenes;
 using GhostHunter.Core.Steam;
 using GhostHunter.Networking;
 using Netcode.Transports.Facepunch;
@@ -40,12 +44,23 @@ namespace GhostHunter.Systems.Steam
 
         /// <summary>로비 데이터에 호스트 SteamId를 담는 키.</summary>
         public const string HostSteamIdKey = "gh_host_steam_id";
+        private const string HostGenerationKey = "gh_host_generation";
+        private const string StageIdKey = "gh_stage_id";
+        private const string MigratedHostReadyKey = "gh_migrated_host_ready";
+        private const string MigratedStageResumedKey = "gh_migrated_stage_resumed";
 
         /// <summary>로비 데이터에 방 코드를 담는 키. LobbyList 검색 필터로도 쓴다.</summary>
         public const string RoomCodeKey = "gh_room_code";
 
         /// <summary>호스트가 게임을 시작했음을 알리는 로비 데이터 키. 값 "1"이면 시작됨.</summary>
         public const string GameStartedKey = "gh_game_started";
+        private const string ShopStateKey = "gh_shop_state";
+        private const string SettlementCountKey = "gh_settlement_count";
+        private const string SettlementKeyPrefix = "gh_settlement_";
+        private const int ShopRequestChannel = 8;
+        private const int StartingShopBalance = 600;
+        private readonly byte[] _shopRequest = new byte[1];
+        private float _nextHostElectionCheck;
 
         /// <summary>멤버별 준비 상태를 담는 멤버 데이터 키. 값 "1"이면 준비 완료.</summary>
         public const string ReadyMemberKey = "gh_ready";
@@ -57,7 +72,7 @@ namespace GhostHunter.Systems.Steam
         /// 네트워크 직렬화에 영향을 주는 변경(NGO 업그레이드, 토폴로지 변경, 트랜스포트 패치 등)을
         /// 할 때 수동으로 올린다. 호스트와 값이 다르면 로비 참가 단계에서 걸러진다.
         /// </summary>
-        public const int NetProtocolVersion = 2;
+        public const int NetProtocolVersion = 6;
 
         /// <summary>0/O, 1/I 처럼 눈으로 헷갈리는 글자를 뺀 방 코드 문자셋.</summary>
         private const string RoomCodeAlphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -90,9 +105,176 @@ namespace GhostHunter.Systems.Steam
         public bool IsGameStarted =>
             CurrentLobby.HasValue && CurrentLobby.Value.GetData(GameStartedKey) == "1";
 
+        public bool IsGameLoading =>
+            CurrentLobby.HasValue && CurrentLobby.Value.GetData(GameStartedKey) == "2";
+
+        public int ShopBalance
+        {
+            get { ReadShopState(out int balance, out _, out _, out _); return balance; }
+        }
+
+        public int PublishedSettlementCount
+        {
+            get
+            {
+                return CurrentLobby.HasValue
+                    && int.TryParse(CurrentLobby.Value.GetData(SettlementCountKey), out int count)
+                    && count >= 0 ? count : 0;
+            }
+        }
+
+        public bool TryPublishStageSettlement(StageSettlementRecord record)
+        {
+            if (!CurrentLobby.HasValue || !IsLobbyOwner)
+                return false;
+            Lobby lobby = CurrentLobby.Value;
+            int index = PublishedSettlementCount;
+            if (!lobby.SetData(SettlementKeyPrefix + index, record.ToLobbyData()))
+                return false;
+            if (!lobby.SetData(SettlementCountKey, (index + 1).ToString()))
+                return false;
+            LobbyUpdated?.Invoke();
+            return true;
+        }
+
+        public bool TryGetPublishedSettlement(int index, out StageSettlementRecord record)
+        {
+            record = default;
+            return CurrentLobby.HasValue && index >= 0 && index < PublishedSettlementCount
+                && StageSettlementRecord.TryFromLobbyData(
+                    CurrentLobby.Value.GetData(SettlementKeyPrefix + index), out record);
+        }
+
+        public int GetPurchasedTempItemCount(int itemIndex)
+        {
+            ReadShopState(out _, out int first, out int second, out int third);
+            return itemIndex == 1 ? first : itemIndex == 2 ? second
+                : itemIndex == 3 ? third : 0;
+        }
+
+        /// <summary>
+        /// 상점은 <b>인게임 로비에서 방장만</b> 산다(2026-09-28, <see cref="StageShopRules"/>). 게스트는 잔액·보유만 본다.
+        /// 예전에는 일반 로비에서 누구나 샀고 게스트 요청을 P2P 로 방장에게 보냈다.
+        /// </summary>
+        public bool TryPurchaseTempItem(int itemIndex)
+        {
+            if (!CurrentLobby.HasValue || !CanPurchaseNow(itemIndex))
+                return false;
+
+            ReadShopState(out int balance, out int first, out int second, out int third);
+            if (itemIndex == 1) first++;
+            else if (itemIndex == 2) second++;
+            else third++;
+            string nextState = $"{balance - StageShopRules.PriceOf(itemIndex)},{first},{second},{third}";
+            if (!CurrentLobby.Value.SetData(ShopStateKey, nextState))
+                return false;
+            LobbyUpdated?.Invoke();
+            return true;
+        }
+
+        private bool CanPurchaseNow(int itemIndex)
+        {
+            Services.TryGet(out ISceneFlow sceneFlow);
+            return sceneFlow != null && StageShopRules.CanPurchase(IsLobbyOwner, sceneFlow.Current,
+                sceneFlow.IsLoading, ShopBalance, itemIndex);
+        }
+
+        private void ReadShopState(out int balance, out int first,
+            out int second, out int third)
+        {
+            balance = StartingShopBalance;
+            first = second = third = 0;
+            if (!CurrentLobby.HasValue)
+                return;
+            string[] fields = CurrentLobby.Value.GetData(ShopStateKey)?.Split(',');
+            if (fields == null || fields.Length != 4
+                || !int.TryParse(fields[0], out int parsedBalance)
+                || !int.TryParse(fields[1], out int parsedFirst)
+                || !int.TryParse(fields[2], out int parsedSecond)
+                || !int.TryParse(fields[3], out int parsedThird))
+                return;
+            balance = parsedBalance;
+            first = parsedFirst;
+            second = parsedSecond;
+            third = parsedThird;
+        }
+
+        private void HandleShopSessionRequest(SteamId sender)
+        {
+            if (!CurrentLobby.HasValue)
+                return;
+            foreach (Friend member in CurrentLobby.Value.Members)
+                if (member.Id.Value == sender.Value)
+                {
+                    SteamNetworking.AcceptP2PSessionWithUser(sender);
+                    return;
+                }
+        }
+
+        private void PollShopRequests()
+        {
+            if (!CurrentLobby.HasValue || !IsLobbyOwner)
+                return;
+
+            for (int i = 0; i < 8 && SteamNetworking.IsP2PPacketAvailable(out uint size,
+                ShopRequestChannel); i++)
+            {
+                if (size != 1)
+                {
+                    SteamNetworking.ReadP2PPacket(ShopRequestChannel);
+                    continue;
+                }
+                SteamId sender = default;
+                uint read = size;
+                if (!SteamNetworking.ReadP2PPacket(_shopRequest, ref read, ref sender,
+                    ShopRequestChannel))
+                    continue;
+                // 2026-09-28부터 방장만 산다. 이전 빌드의 게스트가 보낸 구매 요청은 읽어서 버린다.
+            }
+        }
+
         /// <summary>접속 대상 호스트 SteamId. 로비에 없으면 0.</summary>
         public ulong CurrentHostSteamId =>
             CurrentLobby.HasValue ? ResolveHostSteamId(CurrentLobby.Value).Value : 0UL;
+        public string CurrentStageId => CurrentLobby.HasValue
+            ? CurrentLobby.Value.GetData(StageIdKey) : string.Empty;
+        public int CurrentHostGeneration => CurrentLobby.HasValue
+            && int.TryParse(CurrentLobby.Value.GetData(HostGenerationKey), out int generation)
+                ? generation : 0;
+        public bool IsMigratedHostReady => CurrentLobby.HasValue
+            && CurrentLobby.Value.GetData(MigratedHostReadyKey)
+                == $"{CurrentStageId}:{CurrentHostGeneration}:{CurrentHostSteamId}";
+        public bool IsMigratedStageResumed => CurrentLobby.HasValue
+            && CurrentLobby.Value.GetData(MigratedStageResumedKey)
+                == $"{CurrentStageId}:{CurrentHostGeneration}:{CurrentHostSteamId}";
+
+        /// <summary>NGO가 매긴 clientId를 실제 Steam 소켓의 원격 신원과 대조한다.</summary>
+        public bool TryGetAuthenticatedSteamId(ulong ngoClientId, out ulong steamId)
+        {
+            steamId = 0;
+            if (!SteamClient.IsValid || _networkManager == null || !_networkManager.IsServer)
+                return false;
+            if (ngoClientId == _networkManager.LocalClientId)
+            {
+                steamId = LocalSteamId;
+                return true;
+            }
+            if (_steamTransport == null)
+                return false;
+            ulong transportId = _networkManager.GetTransportIdFromClientId(ngoClientId);
+            FieldInfo clientsField = typeof(FacepunchTransport).GetField("connectedClients",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            if (clientsField?.GetValue(_steamTransport) is not IDictionary clients
+                || !clients.Contains(transportId))
+                return false;
+            object client = clients[transportId];
+            FieldInfo steamIdField = client.GetType().GetField("steamId",
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            if (steamIdField?.GetValue(client) is not SteamId authenticated)
+                return false;
+            steamId = authenticated.Value;
+            return steamId != 0;
+        }
 
         /// <summary>사람이 읽는 진행 상황. 개발용 HUD가 그대로 표시한다.</summary>
         public event Action<string> StatusChanged;
@@ -149,7 +331,15 @@ namespace GhostHunter.Systems.Steam
             // asyncCallbacks: false 로 초기화했으므로 콜백 펌핑은 우리 몫이다.
             // 이걸 빠뜨리면 로비 콜백이 영원히 오지 않는다 - 가장 흔한 함정.
             if (SteamClient.IsValid)
+            {
                 SteamClient.RunCallbacks();
+                PollShopRequests();
+                if (Time.unscaledTime >= _nextHostElectionCheck)
+                {
+                    _nextHostElectionCheck = Time.unscaledTime + 0.5f;
+                    ElectRandomRemainingHostIfNeeded(0UL);
+                }
+            }
         }
 
         private void OnDestroy()
@@ -211,6 +401,7 @@ namespace GhostHunter.Systems.Steam
             SteamMatchmaking.OnLobbyDataChanged += HandleLobbyDataChanged;
             SteamMatchmaking.OnLobbyMemberDataChanged += HandleLobbyMemberDataChanged;
             SteamFriends.OnGameLobbyJoinRequested += HandleGameLobbyJoinRequested;
+            SteamNetworking.OnP2PSessionRequest += HandleShopSessionRequest;
 
             _callbacksSubscribed = true;
         }
@@ -227,6 +418,7 @@ namespace GhostHunter.Systems.Steam
             SteamMatchmaking.OnLobbyDataChanged -= HandleLobbyDataChanged;
             SteamMatchmaking.OnLobbyMemberDataChanged -= HandleLobbyMemberDataChanged;
             SteamFriends.OnGameLobbyJoinRequested -= HandleGameLobbyJoinRequested;
+            SteamNetworking.OnP2PSessionRequest -= HandleShopSessionRequest;
 
             _callbacksSubscribed = false;
         }
@@ -452,13 +644,16 @@ namespace GhostHunter.Systems.Steam
             return texture;
         }
 
-        /// <summary>호스트를 제외한 전원이 준비 완료인가. 게스트가 없으면 true(솔로 테스트).</summary>
+        /// <summary>최소 2명이 참가했고 호스트를 제외한 전원이 준비 완료인가.</summary>
         public bool AllGuestsReady()
         {
             if (!CurrentLobby.HasValue)
                 return false;
 
             Lobby lobby = CurrentLobby.Value;
+            if (lobby.MemberCount < 2)
+                return false;
+
             ulong ownerId = lobby.Owner.Id.Value;
 
             foreach (Friend member in lobby.Members)
@@ -487,19 +682,69 @@ namespace GhostHunter.Systems.Steam
         /// 호스트가 세션을 실제로 띄운 뒤에 부른다. 게스트는 이 신호(로비 데이터 변경)를 받고
         /// StartClient 한다 — 세션이 없는 호스트에게 미리 접속하는 것을 막기 위한 순서다.
         /// </summary>
+        public void MarkGameLoading()
+        {
+            if (!CurrentLobby.HasValue || !IsLobbyOwner)
+                return;
+
+            CurrentLobby.Value.SetData(StageIdKey, Guid.NewGuid().ToString("N"));
+            CurrentLobby.Value.SetData(MigratedHostReadyKey, string.Empty);
+            CurrentLobby.Value.SetData(MigratedStageResumedKey, string.Empty);
+            CurrentLobby.Value.SetData(GameStartedKey, "2");
+            CurrentLobby.Value.SetJoinable(false);
+            SetStatus("스테이지 로딩 중입니다.");
+        }
+
         public void MarkGameStarted()
         {
             if (!CurrentLobby.HasValue || !IsLobbyOwner)
                 return;
 
             CurrentLobby.Value.SetData(GameStartedKey, "1");
+            CurrentLobby.Value.SetJoinable(false);
             SetStatus("게임 시작을 로비에 알렸습니다.");
+        }
+
+        /// <summary>정산 또는 스테이지 나가기 후 로비 참가를 다시 연다.</summary>
+        public void MarkGameEnded()
+        {
+            if (!CurrentLobby.HasValue || !IsLobbyOwner)
+                return;
+
+            CurrentLobby.Value.SetData(GameStartedKey, "0");
+            CurrentLobby.Value.SetData(MigratedHostReadyKey, string.Empty);
+            CurrentLobby.Value.SetData(MigratedStageResumedKey, string.Empty);
+            CurrentLobby.Value.SetJoinable(true);
+            LobbyUpdated?.Invoke();
+        }
+
+        public void MarkMigratedHostReady()
+        {
+            if (!CurrentLobby.HasValue || !IsLobbyOwner || !IsGameStarted
+                || string.IsNullOrEmpty(CurrentStageId))
+                return;
+            CurrentLobby.Value.SetData(MigratedHostReadyKey,
+                $"{CurrentStageId}:{CurrentHostGeneration}:{LocalSteamId}");
+            LobbyUpdated?.Invoke();
+        }
+
+        public void MarkMigratedStageResumed()
+        {
+            if (!CurrentLobby.HasValue || !IsLobbyOwner || !IsGameStarted
+                || string.IsNullOrEmpty(CurrentStageId))
+                return;
+            CurrentLobby.Value.SetData(MigratedStageResumedKey,
+                $"{CurrentStageId}:{CurrentHostGeneration}:{LocalSteamId}");
+            LobbyUpdated?.Invoke();
         }
 
         public void LeaveLobby()
         {
             if (!CurrentLobby.HasValue)
                 return;
+
+            if (IsLobbyOwner)
+                ElectRandomRemainingHost(LocalSteamId);
 
             CurrentLobby.Value.Leave();
             CurrentLobby = null;
@@ -534,6 +779,8 @@ namespace GhostHunter.Systems.Steam
 
             // 480 공용 로비 목록에서 우리 방만 걸러 내는 1차 필터.
             lobby.SetData(GameKey, GameKeyValue);
+            lobby.SetData(ShopStateKey, $"{StartingShopBalance},0,0,0");
+            lobby.SetData(SettlementCountKey, "0");
 
             // 참가자가 검색으로 이 로비를 찾을 수 있게 방 코드를 심는다.
             CurrentRoomCode = GenerateRoomCode();
@@ -562,6 +809,15 @@ namespace GhostHunter.Systems.Steam
         {
             CurrentLobby = lobby;
             CurrentRoomCode = lobby.GetData(RoomCodeKey) ?? string.Empty;
+
+            string stageState = lobby.GetData(GameStartedKey);
+            if (stageState == "1" || stageState == "2")
+            {
+                SetStatus("진행 중인 스테이지에는 참가할 수 없습니다.");
+                LeaveLobby();
+                return;
+            }
+
             LobbyUpdated?.Invoke();
 
             // 호스트 자신도 자기 로비에 들어오면서 이 콜백을 받는다. 그 경우는 무시한다.
@@ -605,7 +861,9 @@ namespace GhostHunter.Systems.Steam
             string raw = lobby.GetData(HostSteamIdKey);
 
             if (!string.IsNullOrEmpty(raw) && ulong.TryParse(raw, out ulong parsed) && parsed != 0)
-                return parsed;
+                foreach (Friend member in lobby.Members)
+                    if (member.Id.Value == parsed)
+                        return parsed;
 
             return lobby.Owner.Id;
         }
@@ -618,6 +876,8 @@ namespace GhostHunter.Systems.Steam
 
         private void HandleLobbyMemberLeave(Lobby lobby, Friend friend)
         {
+            ElectRandomRemainingHostIfNeeded(friend.Id.Value);
+            RepairWaitingLobbyHostId();
             SetStatus($"{friend.Name} 님이 로비를 떠났습니다. ({lobby.MemberCount}/{_maxLobbyMembers})");
             LobbyUpdated?.Invoke();
         }
@@ -627,7 +887,58 @@ namespace GhostHunter.Systems.Steam
             if (!CurrentLobby.HasValue || CurrentLobby.Value.Id.Value != lobby.Id.Value)
                 return;
 
+            ElectRandomRemainingHostIfNeeded(0UL);
+            RepairWaitingLobbyHostId();
             LobbyUpdated?.Invoke();
+        }
+
+        private void ElectRandomRemainingHostIfNeeded(ulong departedId)
+        {
+            if (!CurrentLobby.HasValue || !IsLobbyOwner)
+                return;
+            Lobby lobby = CurrentLobby.Value;
+            string raw = lobby.GetData(HostSteamIdKey);
+            if (!ulong.TryParse(raw, out ulong recorded) || recorded == 0)
+                return;
+            bool present = false;
+            foreach (Friend member in lobby.Members)
+                if (member.Id.Value == recorded && member.Id.Value != departedId)
+                {
+                    present = true;
+                    break;
+                }
+            if (!present)
+                ElectRandomRemainingHost(departedId);
+        }
+
+        private void ElectRandomRemainingHost(ulong departingId)
+        {
+            if (!CurrentLobby.HasValue || !IsLobbyOwner)
+                return;
+            Lobby lobby = CurrentLobby.Value;
+            var candidates = new List<Friend>(3);
+            foreach (Friend member in lobby.Members)
+                if (member.Id.Value != departingId)
+                    candidates.Add(member);
+            if (candidates.Count == 0)
+                return;
+
+            Friend next = candidates[UnityEngine.Random.Range(0, candidates.Count)];
+            int.TryParse(lobby.GetData(HostGenerationKey), out int generation);
+            lobby.SetData(HostSteamIdKey, next.Id.Value.ToString());
+            lobby.SetData(HostGenerationKey, (generation + 1).ToString());
+            if (next.Id.Value != lobby.Owner.Id.Value)
+                lobby.Owner = next;
+            LobbyUpdated?.Invoke();
+        }
+
+        private void RepairWaitingLobbyHostId()
+        {
+            if (!IsLobbyOwner || IsGameStarted || IsGameLoading || !CurrentLobby.HasValue)
+                return;
+            string localId = LocalSteamId.ToString();
+            if (CurrentLobby.Value.GetData(HostSteamIdKey) != localId)
+                CurrentLobby.Value.SetData(HostSteamIdKey, localId);
         }
 
         private void HandleLobbyMemberDataChanged(Lobby lobby, Friend friend)

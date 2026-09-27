@@ -28,8 +28,7 @@ Assets/Tests/
 │   ├── GhostVisionTests.cs                원뿔 시야 각도·거리 판정, 시야 표시 메시 생성
 │   ├── GhostHouseBoundsTests.cs            집 내부 X/Z 활동 경계 판정·좌표 보정
 │   ├── SanityStateTests.cs                정신력 증감·누적·중복·평균·디버프
-│   ├── PlayerSpawnRegistryTests.cs        스폰 지점 빈자리 선택
-│   └── MapGeneratorTests.cs               맵 생성 도구 + 자체 검증 함수
+│   └── PlayerSpawnRegistryTests.cs        스폰 지점 빈자리 선택
 └── PlayMode/
     ├── GhostHunter.Tests.PlayMode.asmdef
     ├── NetworkFurnitureFixture.cs         호스트 세션 + 가구 스폰 토대
@@ -93,23 +92,17 @@ Steam 실경로(로비·초대·SDR 연결)는 사람이 2대로 확인한다 �
 `NetworkFurnitureFixture`는 가구를 `Assets/Prefabs/**`에서 불러오지 않고 코드로 조립한다.
 
 - 프리팹을 읽으려면 `AssetDatabase`가 필요해 **플레이어 빌드에서 돌릴 수 없게 된다.**
-- 검증 대상은 배치가 아니라 `FurnitureGrabTarget` 상태 기계다. 맵 생성 도구가 가구 치수를
-  바꿀 때마다 테스트가 흔들리면 안 된다.
+- 검증 대상은 배치가 아니라 `FurnitureGrabTarget` 상태 기계다. 씬·프리팹의 가구 치수가
+  바뀔 때마다 테스트가 흔들리면 안 된다.
 
 런타임에 만든 `NetworkObject`는 `GlobalObjectIdHash`가 0이라 NGO가 서로를 구분하지 못한다.
 픽스처가 인스턴스마다 고유 값을 리플렉션으로 넣어 준다 → [../conventions/unity-assets.md §5.2](../conventions/unity-assets.md)
 
-### 4.3 맵 생성 도구는 에셋 없이 검증한다
+### 4.3 (삭제) 맵 생성 도구 테스트
 
-`MapGeneratorTests` 는 `GhostHunter > 프로토타입 게임 생성` 이 하는 일 중 **씬 오브젝트를
-만들고 검증하는 부분만** 떼어 돌린다. 프리팹을 굽거나 씬을 저장하지 않는다.
-
-- 설정 SO·머티리얼은 `ScriptableObject.CreateInstance` / `new Material` 로 만든다.
-- 가구 원본은 `FurnitureCatalog` 에 **메모리 오브젝트로** 등록한다. 실제 생성 도구는 같은
-  자리에 프리팹 에셋을 등록한다 — 카탈로그가 둘을 구분하지 않는 덕분에 배치·검증 로직이
-  그대로 돌아간다.
-- 따라서 **프리팹 굽기와 씬 저장은 이 테스트가 검증하지 않는다.** 그 두 가지는 §5.3 때문에
-  batchmode 에서 아예 되지 않으므로, 에디터에서 생성 도구를 실행해 확인해야 한다.
+맵 생성 도구와 `MapGeneratorTests` 는 2026-09-28 에 지웠다
+([ADR-0020](../architecture/decisions/ADR-0020-remove-one-off-editor-setup-tools.md)). 설치 결과를 검사하던
+`…Setup.ValidateInstallation` 호출 테스트도 함께 지웠다 — 씬·프리팹 배선은 런타임 `Awake` 오류 로그와 PlayMode 흐름 테스트로 드러난다.
 
 ### 4.4 접속하지 않은 홀더로 2인 경로를 흉내 낼 때
 
@@ -130,18 +123,41 @@ Steam 실경로(로비·초대·SDR 연결)는 사람이 2대로 확인한다 �
 
 | 인자 | 동작 |
 | --- | --- |
-| `-gh-auto=host` / `-gh-auto=client` | Title 이 뜨면 Local 모드로 `StartHostInGameScene(Game)` / `StartLocalClient()` |
+| `-gh-auto=host` / `-gh-auto=client` | Title 이 뜨면 Local 모드로 `StartHostInGameScene(ProtoTypeGame)`(구 Game — ADR-0019) / `StartLocalClient()` |
 | `-gh-leave-after=초` | 세션 참여 후 그 시간이 지나면 "타이틀로"와 같은 순서로 떠난다(게스트는 로비 유지, 호스트는 로비 퇴장) |
 | `-gh-return-on-end` | 요청하지 않은 종료(호스트 이탈 등) 뒤 끊김 모달 "확인"과 같은 경로로 Title 로드 |
+| `-gh-bot-follow=번호` | 실제 Local 클라이언트가 자기 플레이어를 Host 뒤에서 따라간다. 개발 빌드의 봇 모드 |
+| `-gh-quit-on-end` / `-gh-quit-after=초` | 세션 종료 뒤 / 지정 시간이 지나면 해당 클라이언트 프로세스를 종료 |
 
 2초마다 `[GhAuto] t phase net connected players team flow scenes errors sessionEnded` 한 줄을 남기고,
 오류·예외 로그를 세어 앞 8건을 함께 찍는다.
 
 절차: 빌드 씬 전체로 **Development** 빌드(`Build/SessionTest/`, gitignore 대상) → `-batchmode -nographics
 -logFile <경로>` 로 인스턴스를 띄운다. **호스트를 먼저 띄워 `phase=InSession` 을 확인한 뒤 클라이언트를
-띄운다** — 호스트가 떠나기 전에 클라이언트가 붙을 만큼 `-gh-leave-after` 를 넉넉히 준다. 에디터를 한쪽
-피어로 섞으면 서버 상태를 Unity MCP `execute_code` 로 직접 볼 수 있다. 같은 PC 에서 PlayMode 테스트를
+띄운다** — 호스트가 떠나기 전에 클라이언트가 붙을 만큼 `-gh-leave-after` 를 넉넉히 준다. 같은 PC 에서 PlayMode 테스트를
 동시에 돌리면 초기화 시간 초과가 난다. 결과 기록 → [pause-menu.md §10.5](../architecture/pause-menu.md)
+
+#### 혼자 하는 Local Host + 봇 검증 (Windows)
+
+`GhostHunter > 로컬 테스트 봇` 메뉴는 위 자동 클라이언트를 개발 빌드로 띄운다. 각 봇은
+**별도 NGO 클라이언트 프로세스**이고, Host의 플레이어를 따라 이동한다. 씬 전환·플레이어
+스폰·원격 위치 복제·정신력 사망·전멸 Result를 한 PC에서 확인할 수 있다.
+
+1. Play 모드를 끄고 `GhostHunter > 로컬 테스트 봇 > 1. 개발 빌드 만들기` 실행.
+   활성 Build Settings 씬의 첫 항목이 `Bootstrap`이어야 한다. 출력은 `Build/LocalBots/`.
+2. `Bootstrap`에서 Play → **Tab** 접속 HUD → `Local` 모드 → `Host`. 인게임 로비에서 단말기(E)로 스테이지를 출발해
+   `Stage1` 진입을 기다린다(봇 메뉴는 스테이지 씬 — Stage1·ProtoTypeGame — 에서만 동작한다).
+3. `GhostHunter > 로컬 테스트 봇 > 2. 봇 1명 추가` 또는 `3. 봇 2명 추가` 실행.
+   메뉴를 다시 실행해 총 3명까지 붙일 수 있다. Host HUD의 접속 수와 스테이지 화면의 원격
+   캐릭터를 확인한다. 봇 로그는 `Build/LocalBots/Logs/bot-N.log`에 남는다.
+4. 사망 흐름은 Host의 Tab HUD → 정신력 → `원격 플레이어 1명 사망 처리 (봇 검증)`으로 확인한다.
+   마지막에는 Host도 사망 처리해 전멸 Result → Lobby를 확인한다.
+5. `4. 실행한 봇 종료`로 정리한다. Play를 끝내거나 에디터를 종료해도 실행한 봇을 종료한다.
+
+봇 이동은 테스트용 `CharacterController.Move`이며 사람이 누르는 입력·경로 찾기를 재현하지
+않는다. 시체를 **두 명이 함께 운반하는 입력**과 마이크/음성, Steam P2P는 검증하지 못한다.
+시체 목격은 봇이 시체를 시야에 두었을 때만 발생한다. 벽이나 복도에 막히면 봇은 따라오지
+못할 수 있다. 빌드를 새로 만든 뒤에야 코드 변경이 봇에 반영된다.
 
 ## 5. 실행
 
@@ -149,8 +165,6 @@ Steam 실경로(로비·초대·SDR 연결)는 사람이 2대로 확인한다 �
 
 `Window > General > Test Runner`. 에디터가 켜져 있으면 이쪽이 **정답**이다 —
 §5.3 때문에 batchmode 에서는 일부 검사를 할 수 없다.
-
-Unity MCP 가 연결돼 있으면 도구로도 돌릴 수 있다 → [unity-mcp.md](unity-mcp.md)
 
 ### 5.2 batchmode CLI (에디터를 끌 수 있을 때 / CI)
 
@@ -202,9 +216,8 @@ $PROJ  = "C:\MainScreen\Dev\GitDirectory\GhostHunter"
   에디터 Test Runner 에서는 93/93 통과했다.
   **2026-09-17 재측정에서는 검증용 복제 프로젝트 batchmode 에서 EditMode 302/302 · PlayMode 57/57 로
   스킵이 남지 않았다.** 위 `Assert.Ignore` 장치는 그대로 두되, 스킵 건수를 기대값으로 삼지 않는다.
-- **씬 생성 도구를 `-executeMethod`로 batchmode 에서 돌리지 않는다.**
-  `LoadOrCreateAsset`이 기존 설정 에셋을 못 찾아 새로 만들어 버린다.
-  생성 도구는 MUST 에디터 메뉴에서 실행한다 → [../conventions/unity-assets.md §1.1](../conventions/unity-assets.md)
+- **씬·에셋을 만드는 에디터 스크립트를 `-executeMethod`로 batchmode 에서 돌리지 않는다.**
+  `AssetDatabase` 로드가 기존 설정 에셋을 못 찾아 새로 만들어 버린다(2026-08 생성 도구에서 확인).
 - `-quit -batchmode -nographics ... -logFile -` 로 하는 **컴파일 검증은 영향받지 않는다.**
 
 ### 5.4 batchmode 한계 — 입력이 `InputAction` 까지 오지 않는다
@@ -243,9 +256,20 @@ InputSystem.settings.editorInputBehaviorInPlayMode =
 4. 클라이언트에서 이동 시 호스트 화면에서도 위치가 따라오는지
 ```
 
+### 스테이지 시스템 (Steam PC 2대·계정 2개 이상 필요)
+
+1. 방장 혼자 시작 버튼이 비활성화이고, 게스트가 들어와 준비하면 활성화되는지 확인한다.
+2. 로비에서 양쪽 마이크가 들리고 Temp1·2·3 구매 시 공동 잔액·보유 수량이 양쪽에 같게 보이는지 확인한다.
+3. 시작 로딩 중 방 코드·초대 재참가가 거절되고, 스폰 후 드릴카 구역·조립 구역이 네 시작 지점과 겹치는지 확인한다.
+4. 목표 가구를 녹색 반출 구역에 들였을 때만 완료되고, 빨간 종료 장치에서 확인 후 가구·청소·생존·실종·사망 수치가 양쪽 Result에 같은지 확인한다.
+5. Result에서 생존·사망 음성이 서로 들리고, 방장만 **인게임 로비** 복귀를 진행하며(세션 유지), 인게임 로비에서 이력이 유지되는지 확인한다.
+6. 방장의 `스테이지 나가기`가 정산 없이 양쪽을 **인게임 로비**로 보내는지(세션 유지·플레이어 재스폰), 인게임 로비 단말기에서 방장만 구매·출발할 수 있는지 확인한다(ADR-0018).
+7. 로딩 중 방장이 이탈했을 때 2명 이상이면 새 방장이 이어서 시작하고, 1명이면 취소되는지 확인한다.
+8. 진행 중 호스트 이탈과 상태 복구는 ADR-0017의 재호스팅 구현이 끝난 뒤 검증한다. 현재 완료로 판정하지 않는다.
+
 ## 7. 현재 상태
 
-> 2026-08-31 기준. Unity MCP로 열린 에디터의 Test Runner를 실행한 결과다.
+> 2026-08-31 기준. 열린 에디터의 Test Runner를 실행한 결과다.
 
 | 항목 | 상태 |
 | --- | --- |
@@ -282,4 +306,4 @@ PlayMode 테스트는 개발용 Local Host의 기본 포트 `7777`과 충돌하�
 
 관련: [development-loop.md](development-loop.md)
 
-최종 갱신: 2026-08-31
+최종 갱신: 2026-09-28 (§2·§4.3·§5.3 생성 도구·MapGeneratorTests 삭제 반영 — ADR-0020)

@@ -41,7 +41,10 @@
 
 ### 왜 아직 날짜를 못 정하는가
 
-**생성 도구 재실행은 `Game` 씬을 처음부터 다시 만든다**(CLAUDE.md §6). 지금 씬에는 생성 도구가
+> **2026-09-28:** 전체 생성기·B/C 덧붙이기 메뉴·각 설치 도구는 [ADR-0020](../architecture/decisions/ADR-0020-remove-one-off-editor-setup-tools.md)으로
+> 삭제됐다. "씬 재생성" 경로가 없어졌으므로 그레이박스는 씬을 직접 고쳐 만든다 — 아래의 재생성·메뉴 관련 서술과 착수 조건은 기록이다.
+
+**생성 도구 재실행은 `Game` 씬을 처음부터 다시 만든다**(CLAUDE.md §3). 지금 씬에는 생성 도구가
 만들지 않은 것들이 붙어 있다 — 정신력 테스트베드, 드릴 카 세이프 존, 은신처 4개, 일시정지 메뉴
 배선, 굴착 카메라 Volume. 각각 설치 도구(`SanityTestbedSetup`·`GhostPrototypeSetup`·
 `PauseMenuSetup`·`MoleBurrowPostProcessingSetup`)가 있지만, **전부 다시 깔리는지 확인 전에는

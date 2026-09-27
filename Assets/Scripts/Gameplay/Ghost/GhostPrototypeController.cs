@@ -3,8 +3,11 @@ using GhostHunter.Core;
 using GhostHunter.Gameplay.Furniture;
 using GhostHunter.Gameplay.Interaction;
 using GhostHunter.Gameplay.Sanity;
+using GhostHunter.Gameplay.Recovery;
 using Unity.Netcode;
+using Unity.AI.Navigation;
 using UnityEngine;
+using UnityEngine.AI;
 
 namespace GhostHunter.Gameplay.Ghost
 {
@@ -40,12 +43,17 @@ namespace GhostHunter.Gameplay.Ghost
         [SerializeField] private Light _stateLight;
         [SerializeField] private GameObject _visionConeRoot;
         [SerializeField] private MeshFilter _visionConeFilter;
+        [SerializeField] private AudioClip _warningHeartbeatClip;
 
         [Header("Phenomena")]
         [SerializeField] private GhostPhenomenaPlayer _phenomenaPlayer;
 
         private readonly NetworkVariable<GhostPhase> _phase = new(
-            GhostPhase.Idle,
+            GhostPhase.Active,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Server);
+        private readonly NetworkVariable<bool> _highRisk = new(
+            false,
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Server);
 
@@ -58,12 +66,16 @@ namespace GhostHunter.Gameplay.Ghost
         private readonly SanityNetworkState[] _players = new SanityNetworkState[MaxTrackedPlayers];
         private readonly Dictionary<ulong, Vector3> _previousPlayerPositions = new();
         private readonly Dictionary<ulong, float> _playerSpeeds = new();
+        private readonly Dictionary<ulong, float> _bodyWitnessTimers = new();
 
         private CharacterController _controller;
         private GhostStateMachine _machine;
         private GhostPhenomenaDirector _phenomena;
         private ISanityTeamService _sanity;
+        private SanityNetworkState _localViewer;
         private Mesh _generatedConeMesh;
+        private AudioSource _warningAudio;
+        private AudioClip _generatedHeartbeat;
         private bool _serverReady;
 
         private FurnitureGrabTarget[] _sceneFurniture;
@@ -95,8 +107,10 @@ namespace GhostHunter.Gameplay.Ghost
 
         private Pursuit _pursuit;
         private SanityNetworkState _target;
+        private bool _targetWasVisible;
+        private SanityNetworkState _witnessedHidingPlayer;
+        private SanityNetworkState _witnessedBurrowPlayer;
         private Vector3 _lastKnownPosition;
-        private readonly HashSet<HidingSpot> _checkedHidingSpots = new();
 
         // 플레이어별 '침대 밑 은신' 성립 판정(§9.5, 사용자 확정 2026-09-03). 어택 중에만 돈다.
         private readonly Dictionary<ulong, BedHideEvaluator> _bedHide = new();
@@ -105,17 +119,175 @@ namespace GhostHunter.Gameplay.Ghost
         // 감지된 상태에서 매몰하면 땅속에서도 계속 감지된다. 어택 중에만 돈다.
         private readonly Dictionary<ulong, BurrowExposureTracker> _burrowExposure = new();
         private float _searchRemaining;
+        private float _targetSelectionRemaining;
         private float _repathRemaining;
+        private float _pathRebuildRemaining;
         private float _catchCooldownRemaining;
+        private NavMeshPath _navPath;
+        private readonly Vector3[] _pathCorners = new Vector3[64];
+        private int _pathCornerCount;
+        private int _pathCornerIndex;
+        private Vector3 _pathDestination;
+        private bool _hasPath;
+        private bool _navigationWarningLogged;
 
         private int _cleaningProgress;
-        private bool _forceActive;
+        private StageRecoverySnapshot.GhostState _pendingRecoveryState;
 
         public GhostPhase Phase => _phase.Value;
         public float SecondsUntilNextRoll => _machine != null ? _machine.SecondsUntilNextRoll : 0f;
         public bool CleaningBoostActive => _machine != null && _machine.CleaningBoostActive;
         public int CleaningProgress => _cleaningProgress;
-        public bool ForceActive => _forceActive;
+
+        public StageRecoverySnapshot.GhostState CaptureStageState()
+        {
+            var snapshot = new StageRecoverySnapshot.GhostState
+            {
+                Exists = IsSpawned,
+                Position = transform.position,
+                Rotation = transform.rotation,
+                PhenomenonCooldown = _phenomena != null ? _phenomena.SecondsUntilNext : 0f,
+                LastPhenomenon = (int)_lastPhenomenon,
+                CleaningProgress = _cleaningProgress,
+                Pursuit = (int)_pursuit,
+                TargetSteamId = SteamIdOf(_target),
+                WitnessedHidingSteamId = SteamIdOf(_witnessedHidingPlayer),
+                WitnessedBurrowSteamId = SteamIdOf(_witnessedBurrowPlayer),
+                TargetWasVisible = _targetWasVisible,
+                LastKnownPosition = _lastKnownPosition,
+                RoamDestination = _roamDestination,
+                RoamGiveUpRemaining = Mathf.Max(0f, _roamGiveUpAt - Time.time),
+                SearchRemaining = _searchRemaining,
+                TargetSelectionRemaining = _targetSelectionRemaining,
+                RepathRemaining = _repathRemaining,
+                PathRebuildRemaining = _pathRebuildRemaining,
+                CatchCooldownRemaining = _catchCooldownRemaining,
+            };
+            var tracked = new List<StageRecoverySnapshot.GhostTrackedPlayerState>(4);
+            for (int i = 0; i < _players.Length; i++)
+            {
+                SanityNetworkState player = _players[i];
+                ulong steamId = SteamIdOf(player);
+                if (steamId == 0)
+                    continue;
+                ulong clientId = player.OwnerClientId;
+                _bedHide.TryGetValue(clientId, out BedHideEvaluator bed);
+                _burrowExposure.TryGetValue(clientId, out BurrowExposureTracker burrow);
+                _bodyWitnessTimers.TryGetValue(clientId, out float witness);
+                tracked.Add(new StageRecoverySnapshot.GhostTrackedPlayerState
+                {
+                    SteamId = steamId,
+                    BodyWitnessRemaining = witness,
+                    BedConcealTimer = bed != null ? bed.ConcealTimer : 0f,
+                    BedGranted = bed != null && bed.Granted,
+                    WasBurrowed = burrow != null && burrow.WasBurrowed,
+                    BurrowExposed = burrow != null && burrow.Exposed,
+                });
+            }
+            snapshot.TrackedPlayers = tracked.ToArray();
+            if (_machine != null)
+            {
+                GhostStateMachine.Snapshot machine = _machine.CaptureSnapshot();
+                snapshot.Phase = (int)machine.Phase;
+                snapshot.PhaseElapsed = machine.PhaseElapsed;
+                snapshot.NextRoll = machine.SecondsUntilNextRoll;
+                snapshot.CleaningThresholdReached = machine.CleaningThresholdReached;
+                snapshot.HighRiskAttack = machine.HighRiskAttack;
+                snapshot.AttackStartedBelowRecoveryThreshold =
+                    machine.AttackStartedBelowRecoveryThreshold;
+                snapshot.LastTeamSanity = machine.LastTeamSanity;
+            }
+            return snapshot;
+        }
+
+        public void ServerRestoreStageState(StageRecoverySnapshot.GhostState snapshot)
+        {
+            if (!IsServer || !IsSpawned || _machine == null)
+                return;
+            _machine.RestoreSnapshot(new GhostStateMachine.Snapshot((GhostPhase)snapshot.Phase,
+                snapshot.PhaseElapsed, snapshot.NextRoll, snapshot.CleaningThresholdReached,
+                snapshot.HighRiskAttack, snapshot.AttackStartedBelowRecoveryThreshold,
+                snapshot.LastTeamSanity));
+            _phenomena?.RestoreStageState(snapshot.PhenomenonCooldown,
+                (GhostPhenomenonKind)snapshot.LastPhenomenon);
+            _lastPhenomenon = (GhostPhenomenonKind)snapshot.LastPhenomenon;
+            _cleaningProgress = snapshot.CleaningProgress;
+            _pendingRecoveryState = snapshot;
+            _phase.Value = _machine.Phase;
+            _highRisk.Value = _machine.IsHighRiskAttack;
+            _controller.enabled = false;
+            transform.SetPositionAndRotation(snapshot.Position, snapshot.Rotation);
+            _controller.enabled = true;
+            _roamDestination = snapshot.RoamDestination;
+            _roamGiveUpAt = Time.time + Mathf.Max(0f, snapshot.RoamGiveUpRemaining);
+            _lastKnownPosition = snapshot.LastKnownPosition;
+            _target = null;
+            _witnessedHidingPlayer = null;
+            _witnessedBurrowPlayer = null;
+            _pursuit = snapshot.Pursuit is >= 0 and <= 2
+                ? (Pursuit)snapshot.Pursuit : Pursuit.Roam;
+            _targetWasVisible = snapshot.TargetWasVisible;
+            _searchRemaining = snapshot.SearchRemaining;
+            _targetSelectionRemaining = snapshot.TargetSelectionRemaining;
+            _repathRemaining = snapshot.RepathRemaining;
+            _pathRebuildRemaining = snapshot.PathRebuildRemaining;
+            _catchCooldownRemaining = snapshot.CatchCooldownRemaining;
+            _hasPath = false;
+            _bedHide.Clear();
+            _burrowExposure.Clear();
+            _bodyWitnessTimers.Clear();
+            _serverReady = true;
+        }
+
+        public void ServerRebindRecoveredPlayers()
+        {
+            if (!IsServer || !IsSpawned || _pendingRecoveryState.TrackedPlayers == null)
+                return;
+            if (_target == null)
+                _target = FindPlayerBySteamId(_pendingRecoveryState.TargetSteamId);
+            if (_witnessedHidingPlayer == null)
+                _witnessedHidingPlayer = FindPlayerBySteamId(
+                    _pendingRecoveryState.WitnessedHidingSteamId);
+            if (_witnessedBurrowPlayer == null)
+                _witnessedBurrowPlayer = FindPlayerBySteamId(
+                    _pendingRecoveryState.WitnessedBurrowSteamId);
+            foreach (StageRecoverySnapshot.GhostTrackedPlayerState state
+                in _pendingRecoveryState.TrackedPlayers)
+            {
+                SanityNetworkState player = FindPlayerBySteamId(state.SteamId);
+                if (player == null)
+                    continue;
+                ulong id = player.OwnerClientId;
+                if (!_bedHide.ContainsKey(id))
+                {
+                    var bed = new BedHideEvaluator();
+                    bed.Restore(state.BedConcealTimer, state.BedGranted);
+                    _bedHide[id] = bed;
+                }
+                if (!_burrowExposure.ContainsKey(id))
+                {
+                    var burrow = new BurrowExposureTracker();
+                    burrow.Restore(state.WasBurrowed, state.BurrowExposed);
+                    _burrowExposure[id] = burrow;
+                }
+                if (state.BodyWitnessRemaining > 0f && !_bodyWitnessTimers.ContainsKey(id))
+                    _bodyWitnessTimers[id] = state.BodyWitnessRemaining;
+            }
+        }
+
+        private static ulong SteamIdOf(SanityNetworkState player)
+            => player != null ? player.GetComponent<Player.PlayerNameTag>()?.SteamId ?? 0 : 0;
+
+        private static SanityNetworkState FindPlayerBySteamId(ulong steamId)
+        {
+            if (steamId == 0)
+                return null;
+            foreach (Player.PlayerNameTag tag in FindObjectsByType<Player.PlayerNameTag>(
+                FindObjectsSortMode.None))
+                if (tag.IsSpawned && tag.SteamId == steamId)
+                    return tag.GetComponent<SanityNetworkState>();
+            return null;
+        }
 
         public GhostPhenomenonKind LastPhenomenon => _lastPhenomenon;
         public float SecondsUntilNextPhenomenon => _phenomena != null ? _phenomena.SecondsUntilNext : 0f;
@@ -132,7 +304,17 @@ namespace GhostHunter.Gameplay.Ghost
 
         private void Awake()
         {
+            _navPath = new NavMeshPath();
             _controller = GetComponent<CharacterController>();
+            _warningAudio = GetComponent<AudioSource>();
+            if (_warningAudio == null)
+                _warningAudio = gameObject.AddComponent<AudioSource>();
+            _warningAudio.spatialBlend = 0f;
+            _warningAudio.playOnAwake = false;
+            _warningAudio.loop = true;
+            _warningAudio.volume = 0.5f;
+            _generatedHeartbeat = _warningHeartbeatClip == null ? CreateHeartbeatClip() : null;
+            _warningAudio.clip = _warningHeartbeatClip != null ? _warningHeartbeatClip : _generatedHeartbeat;
             IgnoreLevelActorCollisions();
 
             if (_settings == null)
@@ -168,7 +350,9 @@ namespace GhostHunter.Gameplay.Ghost
             IgnoreLevelActorCollisions();
 
             _phase.OnValueChanged += HandlePhaseChanged;
+            _highRisk.OnValueChanged += HandleHighRiskChanged;
             _debugForceVisible.OnValueChanged += HandleDebugVisibleChanged;
+            TryBindLocalViewer();
             ApplyPhaseVisual(_phase.Value);
 
             if (!IsServer)
@@ -188,14 +372,18 @@ namespace GhostHunter.Gameplay.Ghost
             _phenomena = new GhostPhenomenaDirector(_settings);
             _roamCenter = transform.position;
             _roamDestination = transform.position;
-            _phase.Value = GhostPhase.Idle;
+            _phase.Value = GhostPhase.Active;
             _serverReady = true;
         }
 
         public override void OnNetworkDespawn()
         {
             _phase.OnValueChanged -= HandlePhaseChanged;
+            _highRisk.OnValueChanged -= HandleHighRiskChanged;
             _debugForceVisible.OnValueChanged -= HandleDebugVisibleChanged;
+            if (_localViewer != null)
+                _localViewer.AliveStateChanged -= HandleLocalViewerAliveChanged;
+            _localViewer = null;
             _sanity = null;
             _machine = null;
             _phenomena = null;
@@ -207,30 +395,49 @@ namespace GhostHunter.Gameplay.Ghost
             _serverReady = false;
             _previousPlayerPositions.Clear();
             _playerSpeeds.Clear();
-            _checkedHidingSpots.Clear();
+            _bodyWitnessTimers.Clear();
             _bedHide.Clear();
             _burrowExposure.Clear();
+            ApplyEnvironmentLights(GhostPhase.Active);
+            if (_warningAudio != null)
+                _warningAudio.Stop();
 
             if (_generatedConeMesh != null)
             {
                 Destroy(_generatedConeMesh);
                 _generatedConeMesh = null;
             }
+            if (_generatedHeartbeat != null)
+            {
+                Destroy(_generatedHeartbeat);
+                _generatedHeartbeat = null;
+            }
         }
 
         private void Update()
         {
-            if (IsSpawned && _phase.Value == GhostPhase.Warning)
-                PulseWarningLight();
+            if (IsSpawned && _localViewer == null)
+                TryBindLocalViewer();
 
-            if (!IsServer || !_serverReady)
+            if (IsSpawned && _phase.Value == GhostPhase.Warning)
+            {
+                PulseWarningLight();
+                ApplyEnvironmentLights(GhostPhase.Warning);
+            }
+            else if (IsSpawned && _phase.Value == GhostPhase.Attack)
+            {
+                ApplyEnvironmentLights(GhostPhase.Attack);
+            }
+
+            if (!IsServer || !_serverReady || StageRecoveryGate.Restoring)
                 return;
 
             ServerTick(Time.deltaTime);
         }
 
         /// <summary>스포너가 스폰 직후 집 내부 배회 범위를 넣어 준다.</summary>
-        public void ServerConfigureRoam(Vector3 center, Vector3 size)
+        /// <summary>스폰 직후 스포너가 부른다. 집 경계를 정하고, 경로가 없으면 집 루트의 NavMesh 를 굽는다.</summary>
+        public void ServerConfigureRoam(Vector3 center, Vector3 size, Transform navigationRoot)
         {
             if (!IsServer)
                 return;
@@ -242,21 +449,13 @@ namespace GhostHunter.Gameplay.Ghost
                 Mathf.Max(0.5f, size.z * 0.5f));
             _roamGiveUpAt = 0f;
             ClampToHouseBounds();
+            EnsureNavMesh(navigationRoot);
         }
 
         public void ServerSetCleaningProgress(int percent)
         {
             if (IsServer)
                 _cleaningProgress = Mathf.Clamp(percent, 0, 100);
-        }
-
-        public void ServerSetForceActive(bool forceActive)
-        {
-            if (!IsServer)
-                return;
-
-            _forceActive = forceActive;
-            _machine?.SetForceActive(forceActive);
         }
 
         public bool ServerForceSpecialAttack()
@@ -290,6 +489,9 @@ namespace GhostHunter.Gameplay.Ghost
 
             GhostPhase previous = _phase.Value;
             GhostPhase current = _machine.Tick(deltaTime, teamSanity, hasLiving, _cleaningProgress);
+            if (_highRisk.Value != _machine.IsHighRiskAttack)
+                _highRisk.Value = _machine.IsHighRiskAttack;
+            ServerTickBodyWitness(deltaTime, playerCount, current);
             if (current != previous)
             {
                 _phase.Value = current;
@@ -324,6 +526,61 @@ namespace GhostHunter.Gameplay.Ghost
 
             if (fired != GhostPhenomenonKind.None)
                 ServerExecutePhenomenon(fired);
+        }
+
+        private void ServerTickBodyWitness(float deltaTime, int playerCount, GhostPhase phase)
+        {
+            for (int i = 0; i < playerCount; i++)
+            {
+                SanityNetworkState player = _players[i];
+                if (player == null || !player.IsSpawned)
+                    continue;
+
+                ulong id = player.OwnerClientId;
+                if (phase != GhostPhase.Active || !CanWitnessGhostBody(player))
+                {
+                    _bodyWitnessTimers.Remove(id);
+                    continue;
+                }
+
+                if (!_bodyWitnessTimers.TryGetValue(id, out float remaining))
+                {
+                    player.ServerApplyGhostBodyWitnessed();
+                    _bodyWitnessTimers[id] = 5f;
+                    continue;
+                }
+
+                remaining -= deltaTime;
+                if (remaining <= 0f)
+                {
+                    player.ServerApplyGhostBodyWitnessed();
+                    remaining = 5f;
+                }
+
+                _bodyWitnessTimers[id] = remaining;
+            }
+        }
+
+        private bool CanWitnessGhostBody(SanityNetworkState player)
+        {
+            if (!player.HasSanity || player.IsBurrowed
+                || HidingSpot.Contains(player.transform.position)
+                || (player.IsProne && BedHideZone.Contains(player.transform.position)))
+            {
+                return false;
+            }
+
+            Vector3 eye = player.transform.position + Vector3.up * _settings.PhenomenonWitnessEyeHeight;
+            Vector3 ghostCenter = transform.position + Vector3.up * _settings.GhostEyeHeight;
+            Vector3 toGhost = ghostCenter - eye;
+            float distance = toGhost.magnitude;
+            return GhostVision.IsInsideCone(
+                    player.transform.forward,
+                    toGhost,
+                    _settings.PhenomenonWitnessAngle,
+                    distance,
+                    _settings.PhenomenonWitnessDistance)
+                && HasLineOfSight(eye, ghostCenter, transform);
         }
 
         /// <summary>F1 디버그 — 주기를 무시하고 현상 하나를 즉시 실행한다.</summary>
@@ -652,19 +909,56 @@ namespace GhostHunter.Gameplay.Ghost
             EvaluateBurrowExposure(playerCount);
 
             _repathRemaining -= deltaTime;
-            bool detected = TryDetectPlayer(playerCount, out SanityNetworkState seen);
+            _targetSelectionRemaining -= deltaTime;
+            if (_pursuit == Pursuit.Chase && _target != null
+                && HidingSpot.Contains(_target.transform.position))
+            {
+                if (_targetWasVisible)
+                {
+                    _witnessedHidingPlayer = _target;
+                    _lastKnownPosition = _target.transform.position;
+                }
 
-            if (detected)
-            {
-                _target = seen;
-                _pursuit = Pursuit.Chase;
-                _lastKnownPosition = seen.transform.position;
-            }
-            else if (_pursuit == Pursuit.Chase)
-            {
+                _target = null;
                 _pursuit = Pursuit.Search;
                 _searchRemaining = _settings.SearchDuration;
-                _checkedHidingSpots.Clear();
+            }
+
+            if (_targetSelectionRemaining <= 0f)
+            {
+                _targetSelectionRemaining = _settings.TargetSelectionInterval;
+                SanityNetworkState detected;
+                bool hasTarget = false;
+                if (_witnessedHidingPlayer == null && _witnessedBurrowPlayer == null)
+                {
+                    hasTarget = _pursuit == Pursuit.Roam
+                        ? TryDetectPlayer(playerCount, out detected)
+                        : TrySelectChaseTarget(playerCount, out detected);
+                }
+                else
+                {
+                    detected = null;
+                }
+
+                if (hasTarget)
+                {
+                    _target = detected;
+                    _pursuit = Pursuit.Chase;
+                    _witnessedHidingPlayer = null;
+                    _lastKnownPosition = detected.transform.position;
+                }
+                else if (_pursuit == Pursuit.Chase)
+                {
+                    _target = null;
+                    _pursuit = Pursuit.Search;
+                    _searchRemaining = _settings.SearchDuration;
+                }
+            }
+
+            if (_pursuit == Pursuit.Chase && _target != null)
+            {
+                _lastKnownPosition = _target.transform.position;
+                _targetWasVisible = IsVisibleInVisionCone(_target);
             }
 
             switch (_pursuit)
@@ -675,13 +969,19 @@ namespace GhostHunter.Gameplay.Ghost
                     break;
 
                 case Pursuit.Search:
-                    _searchRemaining -= deltaTime;
+                    if (_witnessedHidingPlayer == null && _witnessedBurrowPlayer == null)
+                        _searchRemaining -= deltaTime;
+                    if (_witnessedHidingPlayer != null)
+                        _lastKnownPosition = _witnessedHidingPlayer.transform.position;
+                    else if (_witnessedBurrowPlayer != null)
+                        _lastKnownPosition = _witnessedBurrowPlayer.transform.position;
                     MoveToward(_lastKnownPosition, _settings.ChaseSpeed, deltaTime);
                     // 들어가는 걸 본 침대 밑 대상은 은신이 성립하기 전까지 수색 중에도 잡는다
                     // (IsBedHidden 이면 TryCatch 가 건너뛴다).
                     TryCatch();
-                    ServerTickHidingSpots(playerCount);
-                    if (_searchRemaining <= 0f)
+                    ServerTickWitnessedShelter();
+                    if (_searchRemaining <= 0f && _witnessedHidingPlayer == null
+                        && _witnessedBurrowPlayer == null)
                         ResetPursuit();
                     break;
 
@@ -698,55 +998,36 @@ namespace GhostHunter.Gameplay.Ghost
             }
         }
 
-        /// <summary>
-        /// §9.5 일반 은신처. 수색 중 은신처에 처음 접근하면 그 자리에서 딱 1회,
-        /// <see cref="GhostPrototypeSettings.HidingSpotCheckChance"/>(30% [임시]) 확률로 안을
-        /// 들여다본다. 이번 수색(<see cref="Pursuit.Search"/>) 동안은 같은 은신처를 다시
-        /// 확인하지 않는다 — G-8(판정 시점·주기·재검사)이 아직 미정이라, 사용자 확정(2026-08-31)에
-        /// 따라 "최초 접근 시 1회"만 임시로 구현했다. 정식 규칙이 정해지면 이 메서드를 고친다.
-        /// </summary>
-        private void ServerTickHidingSpots(int playerCount)
+        /// <summary>목격한 일반 은신처와 굴착 은신을 확률 없이 검사한다.</summary>
+        private void ServerTickWitnessedShelter()
         {
-            IReadOnlyList<HidingSpot> spots = HidingSpot.Registry;
-            if (spots.Count == 0)
-                return;
-
-            float radiusSqr = _settings.HidingSpotCheckRadius * _settings.HidingSpotCheckRadius;
-
-            for (int i = 0; i < spots.Count; i++)
+            bool hidingSpot = _witnessedHidingPlayer != null;
+            SanityNetworkState player = hidingSpot
+                ? _witnessedHidingPlayer
+                : _witnessedBurrowPlayer;
+            if (player == null || !player.IsSpawned || !player.HasSanity
+                || !IsInsideHouseBounds(player.transform.position)
+                || DrillCarSafeZone.Contains(player.transform.position)
+                || (hidingSpot
+                    ? !HidingSpot.Contains(player.transform.position)
+                    : !player.IsBurrowed))
             {
-                HidingSpot spot = spots[i];
-                if (spot == null || _checkedHidingSpots.Contains(spot))
-                    continue;
+                if (hidingSpot)
+                    _witnessedHidingPlayer = null;
+                else
+                    _witnessedBurrowPlayer = null;
+                return;
+            }
 
-                if ((spot.transform.position - transform.position).sqrMagnitude > radiusSqr)
-                    continue;
-
-                // 발견 자체는 확인 여부와 무관하게 이번 수색에서 소모한다 — 실패해도 다시 안 본다.
-                _checkedHidingSpots.Add(spot);
-
-                if (Random.value >= _settings.HidingSpotCheckChance)
-                    continue;
-
-                for (int p = 0; p < playerCount; p++)
-                {
-                    SanityNetworkState player = _players[p];
-                    if (player == null || !player.IsSpawned || !player.HasSanity)
-                        continue;
-
-                    if (!spot.ContainsPoint(player.transform.position))
-                        continue;
-
-                    if (player.ServerMarkDead())
-                    {
-                        Debug.Log(
-                            $"[GhostPrototype] 은신처 검사 성공 — Client {player.OwnerClientId} 를 잡았습니다. " +
-                            "어택은 계속됩니다.",
-                            this);
-                    }
-
-                    break; // 은신처 하나엔 한 명만 있다고 가정한다.
-                }
+            Vector3 offset = player.transform.position - transform.position;
+            offset.y = 0f;
+            if (offset.magnitude <= _settings.CatchRadius)
+            {
+                player.ServerMarkDead();
+                if (hidingSpot)
+                    _witnessedHidingPlayer = null;
+                else
+                    _witnessedBurrowPlayer = null;
             }
         }
 
@@ -795,10 +1076,35 @@ namespace GhostHunter.Gameplay.Ghost
                 return;
 
             target = ClampToHouseBounds(target, _roamCenter, _roamExtents);
+            _pathRebuildRemaining -= deltaTime;
+            if (_pathRebuildRemaining <= 0f
+                || (target - _pathDestination).sqrMagnitude >
+                    _settings.ReachDistance * _settings.ReachDistance)
+            {
+                RebuildPath(target);
+            }
 
-            Vector3 flat = target - transform.position;
+            if (!_hasPath)
+            {
+                _controller.Move(Vector3.down * _settings.Gravity * deltaTime);
+                return;
+            }
+
+            Vector3 waypoint = _pathCornerIndex < _pathCornerCount
+                ? _pathCorners[_pathCornerIndex]
+                : target;
+            Vector3 flat = waypoint - transform.position;
             flat.y = 0f;
             float distance = flat.magnitude;
+
+            while (distance <= _settings.ReachDistance && _pathCornerIndex < _pathCornerCount - 1)
+            {
+                _pathCornerIndex++;
+                waypoint = _pathCorners[_pathCornerIndex];
+                flat = waypoint - transform.position;
+                flat.y = 0f;
+                distance = flat.magnitude;
+            }
 
             Vector3 direction = distance > 1e-3f ? flat / distance : Vector3.zero;
             if (direction != Vector3.zero)
@@ -817,6 +1123,62 @@ namespace GhostHunter.Gameplay.Ghost
             ClampToHouseBounds();
         }
 
+        private void EnsureNavMesh(Transform house)
+        {
+            if (NavMesh.SamplePosition(transform.position, out _, 1f, NavMesh.AllAreas))
+                return;
+
+            if (house == null)
+            {
+                Debug.LogError("[GhostPrototype] 집 루트가 없어 경로를 만들 수 없습니다.", this);
+                return;
+            }
+
+            NavMeshSurface surface = house.GetComponent<NavMeshSurface>();
+            if (surface == null)
+                surface = house.gameObject.AddComponent<NavMeshSurface>();
+
+            surface.collectObjects = CollectObjects.Children;
+            surface.useGeometry = NavMeshCollectGeometry.PhysicsColliders;
+            int includedLayers = ~0;
+            if (GameLayers.Player >= 0)
+                includedLayers &= ~(1 << GameLayers.Player);
+            if (GameLayers.Furniture >= 0)
+                includedLayers &= ~(1 << GameLayers.Furniture);
+            if (GameLayers.GhostPrototype >= 0)
+                includedLayers &= ~(1 << GameLayers.GhostPrototype);
+            surface.layerMask = includedLayers;
+            surface.BuildNavMesh();
+
+            if (!NavMesh.SamplePosition(transform.position, out _, 1f, NavMesh.AllAreas))
+                Debug.LogError("[GhostPrototype] 집 내부 NavMesh 생성 후에도 스폰 위치를 찾지 못했습니다.", this);
+        }
+
+        private void RebuildPath(Vector3 target)
+        {
+            _pathRebuildRemaining = _settings.RepathInterval;
+            _pathDestination = target;
+            _hasPath = false;
+
+            if (!NavMesh.SamplePosition(transform.position, out NavMeshHit from, 1f, NavMesh.AllAreas)
+                || !NavMesh.SamplePosition(target, out NavMeshHit to, 1f, NavMesh.AllAreas)
+                || !NavMesh.CalculatePath(from.position, to.position, NavMesh.AllAreas, _navPath)
+                || _navPath.status != NavMeshPathStatus.PathComplete)
+            {
+                if (!_navigationWarningLogged)
+                {
+                    Debug.LogWarning("[GhostPrototype] 이동 가능한 NavMesh 경로가 없어 이동을 멈춥니다.", this);
+                    _navigationWarningLogged = true;
+                }
+                return;
+            }
+
+            _pathCornerCount = _navPath.GetCornersNonAlloc(_pathCorners);
+            _pathCornerIndex = _pathCornerCount > 1 ? 1 : 0;
+            _hasPath = _pathCornerCount > 0;
+            _navigationWarningLogged = false;
+        }
+
         private bool TryDetectPlayer(int playerCount, out SanityNetworkState detected)
         {
             detected = null;
@@ -826,29 +1188,7 @@ namespace GhostHunter.Gameplay.Ghost
             for (int i = 0; i < playerCount; i++)
             {
                 SanityNetworkState player = _players[i];
-                if (player == null || !player.IsSpawned || !player.HasSanity)
-                    continue;
-
-                // 두더지 스킬 시스템 기획서 §5.2 — 굴착으로 땅속에 있는 동안은 탐지되지 않는다.
-                // 단 §5.2.1(사용자 확정 2026-09-05): 감지된 상태에서 들어갔으면 땅속에서도 감지된다.
-                if (player.IsBurrowed && !IsBurrowExposed(player))
-                    continue;
-
-                // 침대 밑 은신이 성립하면(들어가는 걸 귀신이 못 봤다) 완전히 탐지에서 빠진다
-                // (§9.5, 사용자 확정 2026-09-03). 성립 전에는 아래 일반 판정을 그대로 받는다.
-                if (IsBedHidden(player))
-                    continue;
-
-                // 귀신은 집 밖 플레이어를 탐지·추격하지 않는다(기획서 §3.1·§11.1).
-                if (!IsInsideHouseBounds(player.transform.position))
-                    continue;
-
-                // 드릴 카 세이프 존 안의 플레이어는 탐지 대상에서 제외한다(§11.1, 임시 구현).
-                if (DrillCarSafeZone.Contains(player.transform.position))
-                    continue;
-
-                // 일반 은신처(§9.5) 안이면 정상 탐지에서 제외된다 — 수색 중 명시적 검사만 통한다.
-                if (HidingSpot.Contains(player.transform.position))
+                if (!CanChasePlayer(player))
                     continue;
 
                 Vector3 center = player.transform.position + Vector3.up * _settings.TargetCenterHeight;
@@ -869,9 +1209,13 @@ namespace GhostHunter.Gameplay.Ghost
                 bool inCone = GhostVision.IsInsideCone(
                     transform.forward,
                     toTarget,
-                    _settings.VisionAngle,
+                    _machine != null && _machine.IsHighRiskAttack
+                        ? _settings.HighRiskVisionAngle
+                        : _settings.VisionAngle,
                     distance,
-                    _settings.VisionDistance);
+                    _machine != null && _machine.IsHighRiskAttack
+                        ? _settings.HighRiskVisionDistance
+                        : _settings.VisionDistance);
 
                 if ((nearby || inCone) && HasLineOfSight(eye, center, player.transform))
                 {
@@ -881,6 +1225,48 @@ namespace GhostHunter.Gameplay.Ghost
             }
 
             return detected != null;
+        }
+
+        private bool TrySelectChaseTarget(int playerCount, out SanityNetworkState selected)
+        {
+            selected = CanChasePlayer(_target) ? _target : null;
+            bool retainingCurrent = selected != null;
+            float bestDistance = selected != null
+                ? Vector3.Distance(transform.position, selected.transform.position)
+                : float.MaxValue;
+
+            for (int i = 0; i < playerCount; i++)
+            {
+                SanityNetworkState candidate = _players[i];
+                if (candidate == selected || !CanChasePlayer(candidate))
+                    continue;
+
+                float distance = Vector3.Distance(transform.position, candidate.transform.position);
+                if (selected == null || (retainingCurrent
+                        ? ShouldSwitchTarget(bestDistance, distance, _settings.TargetSwitchDistance)
+                        : distance < bestDistance))
+                {
+                    selected = candidate;
+                    bestDistance = distance;
+                }
+            }
+
+            return selected != null;
+        }
+
+        internal static bool ShouldSwitchTarget(float currentDistance, float candidateDistance, float margin)
+        {
+            return candidateDistance + margin <= currentDistance;
+        }
+
+        private bool CanChasePlayer(SanityNetworkState player)
+        {
+            return player != null && player.IsSpawned && player.HasSanity
+                && !player.IsBurrowed
+                && !IsBedHidden(player)
+                && IsInsideHouseBounds(player.transform.position)
+                && !DrillCarSafeZone.Contains(player.transform.position)
+                && !HidingSpot.Contains(player.transform.position);
         }
 
         /// <summary>
@@ -922,9 +1308,8 @@ namespace GhostHunter.Gameplay.Ghost
         }
 
         /// <summary>
-        /// 어택 틱마다 플레이어별 '굴착 은신 무효' 여부를 갱신한다
-        /// (두더지 스킬 기획서 §5.2.1, 사용자 확정 2026-09-05).
-        /// <see cref="EvaluateBedHide"/> 와 같은 이유로 <see cref="TryDetectPlayer"/> 보다 먼저 부른다.
+        /// 어택 틱마다 감지된 상태에서 굴착했는지 기록하고, 목격한 구멍을 별도 수색 대상으로 둔다.
+        /// 굴착 중에는 일반 추격 타깃 후보에서 제외한다.
         /// </summary>
         private void EvaluateBurrowExposure(int playerCount)
         {
@@ -950,18 +1335,18 @@ namespace GhostHunter.Gameplay.Ghost
                 // 침대 밑과 같은 기준의 "귀신이 봤다" — 쫓는 중이거나 마지막 위치를 수색 중이다.
                 bool chased = _pursuit != Pursuit.Roam && _target == player;
                 tracker.Tick(player.IsBurrowed, chased);
+                if (tracker.Exposed && _witnessedBurrowPlayer == null
+                    && IsInsideHouseBounds(player.transform.position)
+                    && !DrillCarSafeZone.Contains(player.transform.position))
+                {
+                    _witnessedBurrowPlayer = player;
+                    _lastKnownPosition = player.transform.position;
+                    _target = null;
+                    _targetWasVisible = false;
+                    _pursuit = Pursuit.Search;
+                    _searchRemaining = _settings.SearchDuration;
+                }
             }
-        }
-
-        /// <summary>
-        /// 땅속에 있지만 <b>감지된 채로 들어가서</b> 은신이 무효인가(§5.2.1).
-        /// 참이면 탐지·포획 판정에서 땅속이 아닌 것처럼 다룬다.
-        /// </summary>
-        private bool IsBurrowExposed(SanityNetworkState player)
-        {
-            return player != null
-                && _burrowExposure.TryGetValue(player.OwnerClientId, out BurrowExposureTracker tracker)
-                && tracker.Exposed;
         }
 
         /// <summary>침대 밑 은신이 성립해 귀신의 탐지·잡힘·수색 훔쳐보기에서 완전히 빠지는가.</summary>
@@ -983,9 +1368,13 @@ namespace GhostHunter.Gameplay.Ghost
             bool inCone = GhostVision.IsInsideCone(
                 transform.forward,
                 toTarget,
-                _settings.VisionAngle,
+                _machine != null && _machine.IsHighRiskAttack
+                    ? _settings.HighRiskVisionAngle
+                    : _settings.VisionAngle,
                 distance,
-                _settings.VisionDistance);
+                _machine != null && _machine.IsHighRiskAttack
+                    ? _settings.HighRiskVisionDistance
+                    : _settings.VisionDistance);
 
             return inCone && HasLineOfSight(eye, center, player.transform);
         }
@@ -1072,9 +1461,8 @@ namespace GhostHunter.Gameplay.Ghost
             if (IsBedHidden(_target))
                 return;
 
-            // 땅속도 같다(§5.2·§5.2.1) — 감지되지 않은 채 숨었으면 못 잡고, 감지된 채로 들어갔으면
-            // 그대로 잡는다. 탐지에서 빠져도 _target 은 수색 동안 남으므로 여기서 따로 봐야 한다.
-            if (_target.IsBurrowed && !IsBurrowExposed(_target))
+            // 굴착 중에는 일반 잡힘 판정에서 빠진다. 목격한 굴착은 수색의 별도 검사로 처치한다.
+            if (_target.IsBurrowed)
                 return;
 
             Vector3 delta = _target.transform.position - transform.position;
@@ -1123,8 +1511,10 @@ namespace GhostHunter.Gameplay.Ghost
         {
             _pursuit = Pursuit.Roam;
             _target = null;
+            _targetWasVisible = false;
+            _witnessedHidingPlayer = null;
+            _witnessedBurrowPlayer = null;
             _searchRemaining = 0f;
-            _checkedHidingSpots.Clear();
         }
 
         /// <summary>집 내부 활동 경계는 평면(X/Z)만 제한한다. 높이는 계단·단차를 위해 보존한다.</summary>
@@ -1165,8 +1555,8 @@ namespace GhostHunter.Gameplay.Ghost
                 Destroy(_generatedConeMesh);
 
             _generatedConeMesh = GhostVision.BuildConeMesh(
-                _settings.VisionDistance,
-                _settings.VisionAngle);
+                _highRisk.Value ? _settings.HighRiskVisionDistance : _settings.VisionDistance,
+                _highRisk.Value ? _settings.HighRiskVisionAngle : _settings.VisionAngle);
             _visionConeFilter.sharedMesh = _generatedConeMesh;
         }
 
@@ -1175,7 +1565,28 @@ namespace GhostHunter.Gameplay.Ghost
             ApplyPhaseVisual(current);
         }
 
+        private void HandleHighRiskChanged(bool previous, bool current)
+        {
+            RebuildVisionCone();
+        }
+
         private void HandleDebugVisibleChanged(bool previous, bool current)
+        {
+            ApplyPhaseVisual(_phase.Value);
+        }
+
+        private void TryBindLocalViewer()
+        {
+            if (!Services.TryGet(out ISanityTeamService team)
+                || !team.TryGetLocalState(out SanityNetworkState viewer))
+                return;
+
+            _localViewer = viewer;
+            _localViewer.AliveStateChanged += HandleLocalViewerAliveChanged;
+            ApplyPhaseVisual(_phase.Value);
+        }
+
+        private void HandleLocalViewerAliveChanged(bool alive)
         {
             ApplyPhaseVisual(_phase.Value);
         }
@@ -1183,7 +1594,9 @@ namespace GhostHunter.Gameplay.Ghost
         private void ApplyPhaseVisual(GhostPhase phase)
         {
             // §3.3: 평소엔 본체를 숨긴다. 경고·어택에만 노출. 디버그 토글은 그 위에 얹힌다.
-            bool visible = phase is GhostPhase.Warning or GhostPhase.Attack || _debugForceVisible.Value;
+            bool visible = phase is GhostPhase.Active or GhostPhase.Warning or GhostPhase.Attack
+                || _debugForceVisible.Value
+                || (_localViewer != null && !_localViewer.HasSanity);
 
             if (_body != null)
                 _body.SetActive(visible);
@@ -1199,6 +1612,20 @@ namespace GhostHunter.Gameplay.Ghost
 
             if (_visionConeRoot != null)
                 _visionConeRoot.SetActive(phase == GhostPhase.Attack);
+
+            ApplyEnvironmentLights(phase);
+            if (_warningAudio != null)
+            {
+                if (phase == GhostPhase.Warning)
+                {
+                    if (!_warningAudio.isPlaying)
+                        _warningAudio.Play();
+                }
+                else if (_warningAudio.isPlaying)
+                {
+                    _warningAudio.Stop();
+                }
+            }
 
             if (_stateLight == null)
                 return;
@@ -1229,6 +1656,60 @@ namespace GhostHunter.Gameplay.Ghost
 
             // 심장 박동 연출(§10.3)의 시각 버전. 오디오 에셋이 나오면 소리를 얹는다.
             _stateLight.intensity = Mathf.Lerp(1.2f, 4.5f, Mathf.PingPong(Time.time * 2.4f, 1f));
+        }
+
+        private void ApplyEnvironmentLights(GhostPhase phase)
+        {
+            IReadOnlyList<GhostAmbientLight> lights = GhostAmbientLight.Registry;
+            bool warningOn = Mathf.PingPong(Time.time * 2.4f, 1f) >= 0.5f;
+            for (int i = 0; i < lights.Count; i++)
+            {
+                GhostAmbientLight ambient = lights[i];
+                if (ambient == null || ambient.Light == null)
+                    continue;
+
+                Light light = ambient.Light;
+                switch (phase)
+                {
+                    case GhostPhase.Warning:
+                        light.color = ambient.BaseColor;
+                        light.intensity = warningOn ? ambient.BaseIntensity : 0f;
+                        break;
+                    case GhostPhase.Attack:
+                        light.color = Color.red;
+                        light.intensity = ambient.BaseIntensity;
+                        break;
+                    default:
+                        light.color = ambient.BaseColor;
+                        light.intensity = ambient.BaseIntensity;
+                        break;
+                }
+            }
+        }
+
+        private static AudioClip CreateHeartbeatClip()
+        {
+            const int sampleRate = 22050;
+            float[] samples = new float[sampleRate];
+            for (int i = 0; i < samples.Length; i++)
+            {
+                float time = i / (float)sampleRate;
+                float first = HeartbeatPulse(time - 0.08f);
+                float second = HeartbeatPulse(time - 0.36f) * 0.7f;
+                samples[i] = first + second;
+            }
+
+            AudioClip clip = AudioClip.Create("GhostWarningHeartbeat", sampleRate, 1, sampleRate, false);
+            clip.SetData(samples, 0);
+            return clip;
+        }
+
+        private static float HeartbeatPulse(float time)
+        {
+            if (time < 0f || time > 0.18f)
+                return 0f;
+
+            return Mathf.Sin(2f * Mathf.PI * 68f * time) * Mathf.Exp(-time * 25f);
         }
     }
 }

@@ -22,5 +22,14 @@ namespace GhostHunter.Gameplay.FurnitureDriver
                     return recipe;
             return null;
         }
+
+        /// <summary>부품(재료) ID가 속한 레시피. 크기가 다른 변형끼리는 부품 ID가 달라 하나로 정해진다(MD-1).</summary>
+        public FurnitureDisassemblyRecipe FindByPartId(string partId)
+        {
+            foreach (FurnitureDisassemblyRecipe recipe in _recipes)
+                if (recipe != null && recipe.ContainsPart(partId))
+                    return recipe;
+            return null;
+        }
     }
 }

@@ -15,6 +15,7 @@ namespace GhostHunter.Systems.Steam
         private MemoryStream _inputStream;
         private MemoryStream _outputStream;
         private bool _failed;
+        private float _nextOversizeWarning;
         public bool IsAvailable => !_failed && SteamClient.IsValid;
         public bool IsRecording { get; private set; }
         public string Status => _failed ? "음성 API 사용 불가" : !SteamClient.IsValid ? "Steam 미연결" : IsRecording ? "마이크 켜짐 (입력 장치는 Steam 설정)" : "마이크 꺼짐";
@@ -60,7 +61,17 @@ namespace GhostHunter.Systems.Steam
                 if (!SteamUser.HasVoiceData) return 0;
                 _captureStream.Position = 0;
                 int count = SteamUser.ReadVoiceData(_captureStream);
-                if (count <= 0 || count > destination.Length) return 0;
+                if (count > destination.Length)
+                {
+                    // 압축 블록은 잘라 보낼 수 없어 통째로 버린다. 조용히 버리면 끊김 원인을 찾을 수 없다.
+                    if (Time.unscaledTime >= _nextOversizeWarning)
+                    {
+                        Debug.LogWarning($"[SteamVoiceCapture] 음성 블록 {count}B 가 패킷 한도 {destination.Length}B 를 넘어 버렸다 (프레임 끊김 추정)", this);
+                        _nextOversizeWarning = Time.unscaledTime + 5f;
+                    }
+                    return 0;
+                }
+                if (count <= 0) return 0;
                 Buffer.BlockCopy(_compressed, 0, destination, 0, count);
                 return count;
             }

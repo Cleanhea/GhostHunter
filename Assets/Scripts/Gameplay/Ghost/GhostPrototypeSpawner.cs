@@ -1,15 +1,17 @@
 using System.Text;
 using GhostHunter.Core;
+using GhostHunter.Gameplay.Cleaning;
 using GhostHunter.Gameplay.Sanity;
+using GhostHunter.Gameplay.Recovery;
 using Unity.Netcode;
 using UnityEngine;
 
 namespace GhostHunter.Gameplay.Ghost
 {
     /// <summary>
-    /// Game 씬의 Host 전용 서비스. F1 HUD에서 귀신 프로토타입 프리팹을 동적으로 스폰·제거하고,
-    /// 특수 어택·강제 진정·활동 강제·청소 진행도 스텁으로 <see cref="GhostStateMachine"/> 전이를
-    /// 시험한다. 팀 정신력 표시는 <see cref="ISanityTeamService"/> 값을 그대로 읽는다.
+    /// 스테이지 씬의 Host 전용 서비스. 기본 귀신 1마리를 자동 생성하고 실제 청소 진행도를 전달한다.
+    /// F1 HUD는 스폰·제거와 어택·청소 조건을 시험한다. 팀 정신력 표시는
+    /// <see cref="ISanityTeamService"/> 값을 그대로 읽는다.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class GhostPrototypeSpawner : MonoBehaviour, IGhostDebug
@@ -17,21 +19,26 @@ namespace GhostHunter.Gameplay.Ghost
         [SerializeField] private GameObject _ghostPrefab;
         [SerializeField] private Transform _spawnPoint;
 
+        [Tooltip("귀신 경로(NavMesh)를 구울 집 루트. 자식의 물리 충돌체로 굽는다 — 스테이지 씬마다 그 씬의 집을 넣는다.")]
+        [SerializeField] private Transform _navigationRoot;
+
         [Header("집 내부 활동 경계 (§3.1 · §9.1)")]
         [Tooltip("귀신의 이동·탐지·잡힘을 제한하는 집 내부 X/Z 상자. 집 밖 플레이어는 대상에서 제외한다.")]
         [SerializeField] private Vector3 _roamCenter = new(0f, 0.1f, -1f);
+        [Tooltip("높이는 배회 목적지 레이의 시작점(중심 + 높이/2 + 2m)만 정한다. 시작점이 위층 바닥보다 낮으면 그 층에서만 배회한다.")]
         [SerializeField] private Vector3 _roamSize = new(16f, 3f, 9f);
 
         private readonly StringBuilder _summaryBuilder = new(256);
 
         private ISanityTeamService _sanity;
+        private ICleaningService _cleaning;
         private GhostPrototypeController _active;
         private NetworkObject _activeObject;
 
         private int _cleaningProgress;
-        private bool _forceActive;
+        private int _debugCleaningProgress;
+        private bool _initialSpawnAttempted;
         private int _pushedCleaningProgress = -1;
-        private bool _pushedForceActive;
         private string _lastStatus = "귀신 프로토타입 대기";
 
         public bool CanControl
@@ -44,6 +51,7 @@ namespace GhostHunter.Gameplay.Ghost
         }
 
         public bool HasGhost => _active != null && _active.IsSpawned;
+        public GhostPrototypeController ActiveGhost => HasGhost ? _active : null;
 
         public bool IsGhostForcedVisible => HasGhost && _active.DebugForceVisible;
 
@@ -61,16 +69,37 @@ namespace GhostHunter.Gameplay.Ghost
         private void Awake()
         {
             Services.TryGet(out _sanity);
+            Services.TryGet(out _cleaning);
 
             if (_ghostPrefab == null)
                 Debug.LogError($"{nameof(GhostPrototypeSpawner)}: 귀신 프리팹이 배선되지 않았습니다.", this);
+            if (_navigationRoot == null)
+                Debug.LogError($"{nameof(GhostPrototypeSpawner)}: 경로를 구울 집 루트가 배선되지 않았습니다.", this);
         }
 
         private void Update()
         {
             PruneDeadGhost();
 
-            if (_active == null || !CanControl)
+            if (!CanControl || StageRecoveryGate.Restoring)
+                return;
+
+            if (_cleaning == null)
+                Services.TryGet(out _cleaning);
+            if (_sanity == null)
+                Services.TryGet(out _sanity);
+            _cleaningProgress = Mathf.Max(
+                _debugCleaningProgress,
+                _cleaning != null ? _cleaning.ProgressPercent : 0);
+
+            if (!_initialSpawnAttempted)
+            {
+                _initialSpawnAttempted = true;
+                if (_active == null)
+                    SpawnGhost();
+            }
+
+            if (_active == null)
                 return;
 
             if (_pushedCleaningProgress != _cleaningProgress)
@@ -79,11 +108,6 @@ namespace GhostHunter.Gameplay.Ghost
                 _pushedCleaningProgress = _cleaningProgress;
             }
 
-            if (_pushedForceActive != _forceActive)
-            {
-                _active.ServerSetForceActive(_forceActive);
-                _pushedForceActive = _forceActive;
-            }
         }
 
         public void SpawnGhost()
@@ -91,6 +115,20 @@ namespace GhostHunter.Gameplay.Ghost
             Vector3 position = _spawnPoint != null ? _spawnPoint.position : transform.position;
             Quaternion rotation = _spawnPoint != null ? _spawnPoint.rotation : Quaternion.identity;
             SpawnGhostAt(position, rotation, "스폰 지점");
+        }
+
+        public bool ServerRestoreStageState(StageRecoverySnapshot.GhostState snapshot)
+        {
+            if (!CanControl)
+                return false;
+            _initialSpawnAttempted = true;
+            if (!snapshot.Exists)
+                return true;
+            SpawnGhostAt(snapshot.Position, snapshot.Rotation, "호스트 이전");
+            if (_active == null || !_active.IsSpawned)
+                return false;
+            _active.ServerRestoreStageState(snapshot);
+            return true;
         }
 
         /// <summary>Host 로컬 플레이어의 현재 위치에 바로 스폰한다(디버그). 배회 경계 밖이면 안으로 보정된다.</summary>
@@ -130,10 +168,8 @@ namespace GhostHunter.Gameplay.Ghost
             _active = instance.GetComponent<GhostPrototypeController>();
             _activeObject.Spawn();
 
-            _active.ServerConfigureRoam(_roamCenter, _roamSize);
-            _pushedForceActive = _forceActive;
+            _active.ServerConfigureRoam(_roamCenter, _roamSize, _navigationRoot);
             _pushedCleaningProgress = _cleaningProgress;
-            _active.ServerSetForceActive(_forceActive);
             _active.ServerSetCleaningProgress(_cleaningProgress);
 
             _lastStatus = $"귀신을 스폰했습니다 ({source}).";
@@ -188,8 +224,8 @@ namespace GhostHunter.Gameplay.Ghost
                 return;
 
             _lastStatus = _active.ServerForceSuppression()
-                ? "강제 진정: 어택을 끊고 10초 억제합니다."
-                : "이미 강제 진정 중입니다.";
+                ? "강제 진정: 어택을 끊고 30초 자연 진정에 들어갑니다."
+                : "어택 중에만 강제 종료할 수 있습니다.";
         }
 
         public void ForcePhenomenon()
@@ -234,8 +270,7 @@ namespace GhostHunter.Gameplay.Ghost
                 return;
             }
 
-            _forceActive = !_forceActive;
-            _lastStatus = _forceActive ? "활동 강제 ON." : "활동 강제 OFF.";
+            _lastStatus = "귀신은 스테이지 시작부터 활동 상태입니다.";
         }
 
         public void AddCleaningProgress(int delta)
@@ -246,8 +281,8 @@ namespace GhostHunter.Gameplay.Ghost
                 return;
             }
 
-            _cleaningProgress = Mathf.Clamp(_cleaningProgress + delta, 0, 100);
-            _lastStatus = $"청소 진행도 {_cleaningProgress}%.";
+            _debugCleaningProgress = Mathf.Clamp(_debugCleaningProgress + delta, 0, 100);
+            _lastStatus = $"디버그 청소 진행도 {_debugCleaningProgress}%.";
         }
 
         public void ResetCleaningProgress()
@@ -258,8 +293,8 @@ namespace GhostHunter.Gameplay.Ghost
                 return;
             }
 
-            _cleaningProgress = 0;
-            _lastStatus = "청소 진행도를 0%로 되돌렸습니다.";
+            _debugCleaningProgress = 0;
+            _lastStatus = "디버그 청소 진행도를 0%로 되돌렸습니다.";
         }
 
         private bool RequireGhost()
@@ -325,8 +360,8 @@ namespace GhostHunter.Gameplay.Ghost
             }
 
             _summaryBuilder.Append("Cleaning Progress: ").Append(_cleaningProgress).Append('%');
-            if (_active != null && _active.IsSpawned && _active.CleaningBoostActive)
-                _summaryBuilder.Append("  (방해 증가)");
+            if (_cleaningProgress >= 40)
+                _summaryBuilder.Append("  (어택 조건 충족)");
             _summaryBuilder.AppendLine();
 
             if (_active != null && _active.IsSpawned && _active.Phase == GhostPhase.Attack)
@@ -338,8 +373,6 @@ namespace GhostHunter.Gameplay.Ghost
                 _summaryBuilder.Append("Phenomena        : ").AppendLine(_active.PhenomenonSummary);
             }
 
-            if (_forceActive)
-                _summaryBuilder.AppendLine("(활동 강제 ON)");
         }
     }
 }

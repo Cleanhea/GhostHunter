@@ -35,7 +35,8 @@ namespace GhostHunter.Tests.EditMode
 
         private static readonly SceneId[] AllSceneIds =
         {
-            SceneId.Bootstrap, SceneId.Title, SceneId.Lobby, SceneId.Game, SceneId.Result,
+            SceneId.Bootstrap, SceneId.Title, SceneId.Lobby, SceneId.ProtoTypeGame, SceneId.Result,
+            SceneId.InGameLobby, SceneId.Stage1,
         };
 
         /// <summary>
@@ -357,7 +358,7 @@ namespace GhostHunter.Tests.EditMode
         public void Ghost_Prototype_프리팹의_네트워크_식별자가_확정되어_있다()
         {
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(GhostPrefabPath);
-            Assert.IsNotNull(prefab, $"{GhostPrefabPath} 를 찾지 못했습니다. 'GhostHunter > 귀신 프로토타입 설치'를 실행하세요.");
+            Assert.IsNotNull(prefab, $"{GhostPrefabPath} 를 찾지 못했습니다.");
 
             var networkObject = prefab.GetComponent<NetworkObject>();
             Assert.IsNotNull(networkObject, "Ghost_Prototype 루트에 NetworkObject 가 없습니다.");

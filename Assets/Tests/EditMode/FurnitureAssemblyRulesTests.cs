@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using GhostHunter.Gameplay.FurnitureDriver;
+using GhostHunter.Gameplay.Player;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -128,6 +129,20 @@ namespace GhostHunter.Tests.EditMode
             FurnitureAssemblyEvaluation result = FurnitureAssemblyRules.Evaluate(
                 Counts(("Mattress", 0), ("BedHead", 0)), _recipes);
             Assert.AreEqual(FurnitureAssemblyState.Empty, result.State);
+        }
+
+        [Test]
+        public void 조립_가능할_때만_시작하고_나머지는_이유를_알린다()
+        {
+            Assert.AreEqual(FurnitureDriverFeedback.None,
+                PlayerFurnitureDriverController.FeedbackFor(FurnitureAssemblyState.Ready));
+            Assert.AreEqual(FurnitureDriverFeedback.NotEnoughMaterials,
+                PlayerFurnitureDriverController.FeedbackFor(FurnitureAssemblyState.Partial));
+            Assert.AreEqual(FurnitureDriverFeedback.NotEnoughMaterials,
+                PlayerFurnitureDriverController.FeedbackFor(FurnitureAssemblyState.Empty),
+                "방금 내려놓아 아직 흔들리는 재료만 있으면 영역이 비어 보인다 — 재료 부족으로 안내한다");
+            Assert.AreEqual(FurnitureDriverFeedback.MismatchedMaterials,
+                PlayerFurnitureDriverController.FeedbackFor(FurnitureAssemblyState.Invalid));
         }
     }
 }

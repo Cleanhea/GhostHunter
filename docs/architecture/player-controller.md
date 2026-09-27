@@ -1,5 +1,8 @@
 # 04. 플레이어 컨트롤러 (1인칭 + 동기화)
 
+> **2026-09-28:** 이 문서의 `GhostHunter > …` 설치·생성·검증 메뉴와 `Editor/…Setup.cs` 도구는 [ADR-0020](decisions/ADR-0020-remove-one-off-editor-setup-tools.md)으로 삭제됐다.
+> 도구 실행 절차·결과는 구현 당시 기록이다. 지금은 저장된 씬·프리팹이 원본이고 직접 고친다.
+
 ## 구성
 
 | 컴포넌트 | 실행 위치 | 역할 |
@@ -9,7 +12,10 @@
 | `PlayerMotor` | 로컬 소유자만(카메라 높이 복제는 전원) | `CharacterController`로 이동·중력·점프 |
 | `PlayerInteractor` | 로컬 소유자만 | 조준선 끝의 문을 찾아 E 입력을 넘김 |
 | `ClientNetworkTransform` | 전원 | 소유자가 쓰고 나머지가 읽는 트랜스폼 복제 |
-| `PlayerVisuals` | 전원 | 원격 플레이어 몸통 표시, 로컬은 숨김 |
+| `PlayerVisuals` | 전원 | 생존 몸(두더지 모델) 표시. 로컬 몸은 자기 Game 카메라에서만 가리고 Scene 뷰에는 표시한다. 사망 시 모델째 복제해 시체를 만든다 |
+| `PlayerCharacterAnimator` | 전원 | 루트 이동 속도로 몸 모델의 대기·걷기를 고른다 — 아래 "캐릭터 모델·애니메이션" |
+| `PlayerNameTag` | 전원(요청은 소유자, 확정은 서버) | 닉네임 복제 — 아래 "머리 위 닉네임" |
+| `PlayerNameTagView` | 전원(표시는 원격 플레이어만) | 머리 위 World Space 닉네임. `GhostHunter.UI` 어셈블리 |
 | `SpectatorController` | 로컬 소유자만 | 사망 후 관전(자유시점·생존자 추종) — `docs/project/spectator-system.md` |
 
 ## 이동 방식: CharacterController
@@ -83,8 +89,7 @@
 - 상태 변경은 서버만 한다. 문은 아무도 소유하지 않으므로 소유권 대신 **요청자와 문 사이 거리**로
   검증한다(`_maxInteractDistance`, 기본 4m).
 - 씬에 저장된 각도가 곧 열린 상태이고 닫힘은 항상 로컬 Y 0°(벽과 나란함)다. 초기 상태는
-  `_startsOpen`(기본 켬)이 정한다. `HousePrototypeBuilder`의 통로/연결성 검증은 항상 문을 연
-  상태로 돌린 뒤 원래 각도로 되돌리므로, 초기 상태를 닫힘으로 바꿔도 생성 검증은 깨지지 않는다.
+  `_startsOpen`(기본 켬)이 정한다.
 - 문짝은 런타임에 회전하므로 **정적 배칭에서 빼고**(배칭된 메시는 정점이 월드 좌표로 구워진다)
   경첩에 **키네마틱 `Rigidbody`**를 달아 PhysX가 정적 콜라이더 트리를 매 프레임 다시 만들지 않게 한다.
 
@@ -92,6 +97,8 @@
 
 ```
 Player (root)          ← 요(Y) 회전. ClientNetworkTransform이 복제
+├─ RemoteBody          ← 몸 컨테이너(발밑 원점). 자세에 따라 Y 스케일, 굴착 중 비활성
+│  └─ Character        ← MainCharacter.fbx 인스턴스 + Animator(원격 피어에게만 보임)
 └─ CameraPivot         ← 피치(X) 회전. 로컬이 계산, NetworkVariable<float>로 전원에 복제
    └─ Main Camera      ← 로컬 소유자만 enabled = true
 ```
@@ -191,9 +198,75 @@ Player (root)          ← 요(Y) 회전. ClientNetworkTransform이 복제
 - 침대 밑에서 완전히 숨으면 귀신 탐지가 끊긴다 — 규칙과 "들어가는 걸 봤을 때"의 처리는
   [ghost-prototype.md](ghost-prototype.md)의 침대 밑 은신 절을 본다.
 
+## 머리 위 닉네임 (2026-09-27)
+
+멀티플레이 중 각 플레이어의 닉네임을 그 캐릭터 머리 위에 띄운다. Player 프리팹에 배선되어 있다
+(배선하던 설치 메뉴 `PlayerNameTagSetup` 은 ADR-0020으로 삭제).
+
+| 항목 | 규칙 |
+|---|---|
+| 이름 출처 | 소유자의 `ISteamLobbyService.LocalName`(Steam 표시 이름). Steam 이 준비되지 않았으면(Local 단독 검증) 빈 이름을 보내고 서버가 `Player {clientId}` 를 붙인다 — 음성 HUD 의 원격 화자 표기와 같다 |
+| 복제 | `PlayerNameTag` 의 `NetworkVariable<FixedString128Bytes>`, **쓰기 권한 Server**. 소유자가 스폰 직후 `RequestDisplayNameRpc`(`InvokePermission = Owner`)로 **스폰당 한 번** 요청하고, 두 번째부터는 서버가 무시한다 |
+| 서버 검증 | `PlayerNameRules.Resolve` — 제어·서식 문자(줄바꿈, 폭 없는 공백, 방향 뒤집기) 제거, 앞뒤 공백 제거, 32자(Steam 한도)로 자르되 서로게이트 쌍은 쪼개지 않음, 비면 대체 이름. 32자는 UTF-8 최대 96바이트라 `FixedString128Bytes`(125바이트)에 잘리지 않는다 |
+| 표시 | `PlayerNameTagView` 가 런타임에 자식 `NameTag`(World Space `Canvas` + `LegacyRuntime.ttf` `Text` + `Outline`)를 만든다. 리치 텍스트는 끈다(이름의 `<color>` 가 서식으로 먹지 않게) |
+| 보이는 조건 | 스폰됨 · **로컬 소유자가 아님**(1인칭이라 자기 몸처럼 자기 이름도 숨긴다) · 이름 확정 · 굴착으로 땅속에 숨지 않음(`IsBurrowed` — 몸이 숨는 조건과 같다) · 설정 거리 이내. **사망한 플레이어는 몸이 남아 있으므로 이름도 유지한다** |
+| 위치 | `PlayerMotor.CameraLocalHeight + HeightAboveEyes`. 복제된 눈높이를 쓰므로 웅크리기·엎드리기에 따라 같이 내려간다. 몸통(`RemoteBody`)은 자세에 따라 스케일이 바뀌어 그 밑에 달지 않는다 |
+| 방향 | **플레이어 화면 카메라**와 같은 회전(화면 정렬 빌보드) — 켜진 카메라 중 렌더 텍스처 없는 게임 카메라, 여럿이면 depth 최대. 생존 중엔 PlayerCamera, 사망 후엔 SpectatorCamera 가 잡힌다. `Canvas.willRenderCanvases`(배치 굽기 직전, 시점·관전 카메라 이동이 끝난 뒤)에 맞춰 시선을 돌린 그 프레임에 따라온다. `Camera.main` 을 찾지 않는다. **카메라마다 렌더 직전에 돌리면 안 된다** — UGUI 캔버스는 프레임당 한 번 구운 회전을 모든 카메라가 같이 써서, 직전 프레임에 마지막으로 그린 카메라 쪽을 본다. 처음 구현이 그랬고 에디터 Game 뷰에서 Scene 뷰 카메라 쪽을 봐 종이처럼 옆면이 보였다(2026-09-27 수정). Scene 뷰에서는 Game 카메라 쪽을 본다 |
+| 가림 | World Space 캔버스는 깊이 테스트를 하므로 **벽·가구 너머의 이름은 보이지 않는다** |
+| 수치 | `Assets/Settings/Gameplay/PlayerNameTagSettings.asset` — 눈 위 0.45m, 최대 거리 20m(0=무제한), 글자 높이 0.16m, 래스터 64px. F2 튜닝 창에 자동 노출된다. 글자 크기·색은 스폰 시점에 한 번 적용한다 |
+
+자동 검증(2026-09-27, 검증용 복제 프로젝트 batchmode — 설치 메뉴 실행 후): EditMode **314/314**
+(`PlayerNameTagTests` 7건), PlayMode **64/64**(`PlayerNameTagFlowTests` 6건 — 서버 정리·확정, Steam 미연결 대체 이름,
+두 번째 요청 무시, 원격 소유 미요청, 원격 표시·크기·높이, 자기 이름 숨김). 설치 전후 Player `GlobalObjectIdHash` 동일.
+
+방향 수정 검증(2026-09-27, 검증용 복제 프로젝트): `PlayerNameTagFlowTests` 에 2건 추가 — 화면 카메라(40° 비스듬히) 뒤에
+옆 카메라가 같은 프레임에 그려도 화면 카메라를 본다(같은 자리 렌더 텍스처에서 이름표 폭 40px 초과), 시선을 돌린 프레임에
+바로 따라온다. **수정 전 코드에서는 두 건 모두 실패**했다(옆 카메라 쪽으로 정확히 90°). PlayMode **74/74**.
+batchmode 에서는 화면(렌더 텍스처 없음) 카메라가 렌더되지 않으므로, 시선 카메라는 렌더 이벤트가 아니라 켜진 카메라 목록에서 고른다.
+
+미검증: 실제 Host/Client Play 에서의 표시·가림·한글 글꼴 폴백은 아직 눈으로 확인하지 않았다.
+
+## 캐릭터 모델·애니메이션 (2026-09-27)
+
+원격 플레이어의 몸을 캡슐에서 두더지 모델로 바꾸고 대기·걷기 애니메이션을 붙였다. 모델·Animator Controller·
+Player 프리팹 배선은 저장된 에셋이 원본이다(설치 메뉴 `PlayerCharacterSetup` 은 ADR-0020으로 삭제 — 모델을 바꾸면 직접 다시 배선한다).
+자기 몸은 1인칭 Game 카메라에서만 숨기고, 에디터 Scene 뷰에는 표시한다.
+
+| 항목 | 규칙 |
+|---|---|
+| 에셋 | 모델 `Assets/Mesh/MainCharacter.fbx`(Blender), 애니메이션 `Idle.fbx`·`Walking.fbx`(Mixamo, 스킨 없음). 클립 이름 `A_Player_Idle`·`A_Player_Walk`, 컨트롤러 `Assets/Animations/PlayerCharacter.controller` |
+| 리그 | **세 파일 모두 Humanoid, 아바타는 각자 생성.** 모델은 본이 `Armature` 아래 43개, 애니메이션은 Mixamo 원본이라 루트 `Hips` 아래 57개다. 본 경로가 달라 Generic 으로는 바인딩되지 않는다 |
+| 크기 | 모델 높이를 서 있는 캡슐(`PlayerMoveSettings.StandingHeight` 1.8m)에 맞춰 **임포트 배율**(`globalScale`)로 키운다. 트랜스폼 스케일은 1로 둔다. 원본 높이는 1.30m 였다 |
+| 루트 모션 | `Animator.applyRootMotion` 끔 — 이동은 `PlayerMotor` 가 한다. 걷기 클립은 XZ 를 포즈에 굽지 않아 전진량이 루트 모션으로 빠졌다가 버려진다(제자리 걸음). 회전·높이는 포즈에 굽는다(원본 기준) |
+| 상태 | `Idle`(기본) ↔ `Walk`. 파라미터 `IsMoving`(Bool, 전환 0.15초·Exit Time 없음), `WalkSpeed`(Float, Walk 상태 재생 배속) |
+| 속도 입력 | `PlayerCharacterAnimator` 가 **자기 화면의 루트 변위**로 수평 속도를 잰다. 소유자는 CharacterController, 원격은 ClientNetworkTransform 보간이 루트를 옮기므로 **새 NetworkVariable·RPC 가 없다.** 순간이동(스폰·텔레포트) 프레임은 무시한다 |
+| 컬링 | 기본 Animator는 `CullCompletely`. 에디터에서 로컬 소유자의 Animator만 `AlwaysAnimate`로 바꿔 Scene 뷰에서 대기·걷기를 확인한다. Game 카메라 렌더 직전에 로컬 몸의 `forceRenderingOff`를 켰다가 렌더 뒤 해제한다. 굴착 중(`RemoteBody` 비활성)에는 파라미터를 쓰지 않는다 |
+| 자세 | 웅크리기·엎드리기는 아직 애니메이션이 없어 **기존처럼 `RemoteBody` 를 Y 로 눌러** 표현한다 |
+| 시체 | `PlayerVisuals._corpseModel`(모델 루트)을 **본까지** 복제해 캡슐 중심 루트 `Corpse_{id}` 아래 절반 높이만큼 내려 둔다. 모든 피어가 같은 자세로 눕도록 Idle 첫 프레임으로 되감아 Animator 를 멈춘다. 콜라이더는 `SpectatorSettings.CorpseHeight`(1.8m)·`CorpseRadius`(0.35m) |
+
+`Assets/Settings/Gameplay/PlayerCharacterAnimationSettings.asset`(F2 튜닝 창 자동 노출, 구현자 임시값):
+
+| 값 | 초기값 | 비고 |
+|---|---|---|
+| `MoveThreshold` | 0.2 m/s | 넘으면 걷기 |
+| `SpeedSmoothTime` | 0.1 s | 원격 보간 흔들림이 대기↔걷기를 깜빡이지 않게 |
+| `TeleportSpeed` | 30 m/s | 한 프레임 변위가 이보다 빠르면 무시 |
+| `WalkClipSpeed` | 1.05 m/s | 1배속에서 발이 미끄러지지 않는 속도. 1.8m 두더지 실측: 디딤발 0.98~1.01, 루트 모션 평균 1.08 |
+| `MinWalkPlaybackSpeed` / `MaxWalkPlaybackSpeed` | 0.6 / 2.0 | 걷기 5m/s 는 발 속도대로면 4.8배속이라 상한 2배속에서 자른다 — **그 이상은 발이 미끄러진다** |
+
+자동 검증(2026-09-27, 검증용 복제 프로젝트 batchmode — 설치 메뉴 실행 후): 설치 2회 실행 시 Player 프리팹 동일(멱등),
+Player `GlobalObjectIdHash` 유지. EditMode **315/316** — `PlayerCharacterAnimationTests` 6건 통과, 유일한 실패
+`MoleSkillWiringTests.귀신이_탐지와_포획_양쪽에서_굴착_노출을_본다` 는 작업 트리의 커밋되지 않은
+`GhostPrototypeController.cs` 변경 때문으로 이 작업과 무관하다. PlayMode **72/72**(`PlayerCharacterAnimatorTests` 2건,
+`DeathSystemFlowTests` 스킨 모델 시체 1건 추가). 사본에서 실제 프리팹에 Idle·Walk 를 재생해 렌더링으로 자세·방향(+Z)·
+지면 접지를 확인했다.
+
+미검증: 실제 Host/Client Play 에서 원격 두더지의 걷기 전환·재생 배속 체감, 시체 눕는 모습, 웅크리기·엎드리기 때
+눌린 모습은 아직 눈으로 확인하지 않았다.
+
 ---
 
-최종 갱신: 2026-09-12 (퀵슬롯 휠 `QuickSlot`(Tab) 액션과 세 번째 입력 잠금 `SetWheelInputLocked`
+최종 갱신: 2026-09-28 (닉네임·캐릭터 모델 설치 메뉴 삭제 — ADR-0020. 이전: 2026-09-27 로컬 몸을 Scene 뷰에 표시하고 자기 Game 카메라에서만 숨김. 이전: 캐릭터 모델·애니메이션 — 캡슐 몸을 두더지 모델로 교체, `PlayerCharacterAnimator` 추가. 이전: 머리 위 닉네임 `PlayerNameTag`·`PlayerNameTagView` 추가. 이전: 2026-09-12 퀵슬롯 휠 `QuickSlot`(Tab) 액션과 세 번째 입력 잠금 `SetWheelInputLocked`
 추가 — 우선순위 메뉴 > 굴착 > 휠 → [quick-slot.md](quick-slot.md). 이전: 2026-09-04 ESC 커서
 토글을 제거하고 일시정지 메뉴가 커서를 관리하도록 **해소안 A를 구현**
 — `Player/Pause` 신설·입력 잠금 포함. 이전: 엎드리기(Z 토글)

@@ -1,5 +1,8 @@
 # 사망 후 관전 기능 구현 모델용 프롬프트
 
+> **2026-09-28:** 이 문서의 `GhostHunter > …` 설치·생성·검증 메뉴와 `Editor/…Setup.cs` 도구는 [ADR-0020](../architecture/decisions/ADR-0020-remove-one-off-editor-setup-tools.md)으로 삭제됐다.
+> 도구 실행 절차·결과는 구현 당시 기록이다. 지금은 저장된 씬·프리팹이 원본이고 직접 고친다.
+
 GhostHunter 저장소에서 사망 후 관전 기능을 구현하라. 아래 내용을 작업 지시로 사용하되,
 게임 규칙의 최신 권위는 `docs/project/spectator-system.md`다. **기획서만 다시 쓰고 끝내지 말고,
 확정된 범위의 코드·배선·검증·문서 갱신까지 수행하라.**
@@ -14,7 +17,7 @@ GhostHunter 저장소에서 사망 후 관전 기능을 구현하라. 아래 내
    - `docs/project/mole-skill-system.md` §3.1·§4·§5·MS-20, `quick-slot-system.md` §4·§7,
      `pause-menu-system.md`의 입력 잠금·사망 중 메뉴 규칙.
    - `docs/conventions/code-style.md`, `docs/workflow/development-loop.md`, `testing.md`.
-   - 씬·프리팹·SO 배선 전에 `docs/conventions/unity-assets.md`, `docs/workflow/unity-mcp.md`.
+   - 씬·프리팹·SO 배선 전에 `docs/conventions/unity-assets.md`.
 3. **관전 기획서 §5의 미결정 사항을 먼저 확인하라.** 이미 사용자 답변으로 확정된 내용은 다시 묻지 마라.
    남은 조작키·기본 모드·대상 무효 처리·진행 중 스킬/홀드 정리·속도·대상 순서·복귀 위치는
    한 번에 묶어 사용자에게 물어라. 제안값을 확정값처럼 코드나 테스트에 고정하지 마라.
@@ -90,9 +93,7 @@ GhostHunter 저장소에서 사망 후 관전 기능을 구현하라. 아래 내
    정리하거나 복구하라. 사망자 몸의 위치를 관전 카메라 위치로 옮겨 복구하지 마라.
    호스트 플레이어가 죽어도 서버·세션·귀신 업데이트가 계속되게 하라.
 5. 필요하면 현재 Editor 설치 도구 패턴을 따라 **멱등 설치·배선 검증**을 추가하라.
-   `.meta`를 직접 만들거나 수정하지 말고, `.unity`·`.prefab`·`.asset`을 텍스트로 고치지 마라.
-   MCP 사용 전 실제 연결을 확인하고 씬·에셋 변경 내용을 고지하라. 전체 `Game` 씬 재생성은 하지 마라.
-   MCP가 없으면 수행할 배선을 번호로 안내하고 미실행으로 기록하라.
+   씬·에셋 변경 내용을 알리고 보고하라. 전체 `Game`(현 ProtoTypeGame) 씬 재생성은 하지 마라.
 
 새 패키지·Unity/URP 버전·프로젝트 설정·Steam 설정·맵 규모는 바꾸지 마라. 가구 물리는 서버 권위를
 유지하고 입력은 신규 Input System, RPC는 `[Rpc(SendTo.…)]`를 사용하라. 새 `static Instance`,
@@ -105,7 +106,7 @@ GhostHunter 저장소에서 사망 후 관전 기능을 구현하라. 아래 내
 관전 기획서 §6 AC-1~9를 완료 기준으로 사용하라.
 
 - **컴파일** → 관련 **EditMode** → **PlayMode/Host·Client 확인** 순으로 검증하라.
-  에디터가 열려 있으면 MCP 경로부터 확인하고 잠긴 프로젝트에 batchmode를 실행하지 마라.
+  에디터가 열려 있으면 잠긴 프로젝트에 batchmode를 실행하지 말고 검증용 복제 프로젝트를 써라.
 - 의미 있는 자동 검증에 집중하라: 생존 0 정신력과 사망 구분, 유효 대상 필터/순회·0명 처리,
   잠금 충돌·사망/부활 전이, 사망자 서버 요청 거절과 홀더 정리. 구현을 그대로 베끼는 테스트는 피하라.
 - 수동 검증은 Host 사망→Client 관전과 Client 사망→Host/다른 Client 관전 양방향으로 수행하라.

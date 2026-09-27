@@ -17,6 +17,8 @@ namespace GhostHunter.Gameplay.Sanity
         void WitnessSameCorpse();
         void RestoreLocalSanity();
         void MarkLocalPlayerDead();
+        /// <summary>호스트가 첫 생존 원격 플레이어 한 명을 사망 처리한다. 로컬 봇 검증용.</summary>
+        void MarkNextRemotePlayerDead();
 
         /// <summary>사망한 로컬 플레이어를 정신력 값은 유지한 채 생존으로 되돌린다.</summary>
         void ReviveLocalPlayer();

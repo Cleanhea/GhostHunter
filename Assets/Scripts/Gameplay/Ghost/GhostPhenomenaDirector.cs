@@ -39,6 +39,12 @@ namespace GhostHunter.Gameplay.Ghost
         /// <summary>다음 현상 발생까지 남은 시간(초). 발생 불가 상태에서는 현재 구간의 주기.</summary>
         internal float SecondsUntilNext => _cooldownRemaining;
 
+        internal void RestoreStageState(float cooldown, GhostPhenomenonKind last)
+        {
+            _cooldownRemaining = Mathf.Max(0f, cooldown);
+            _last = last;
+        }
+
         internal void ResetForStage()
         {
             _last = GhostPhenomenonKind.None;

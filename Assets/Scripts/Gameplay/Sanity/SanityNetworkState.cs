@@ -1,6 +1,8 @@
 using System;
 using GhostHunter.Core;
+using GhostHunter.Core.Scenes;
 using GhostHunter.Gameplay.Player;
+using GhostHunter.Gameplay.Recovery;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -123,7 +125,8 @@ namespace GhostHunter.Gameplay.Sanity
 
         private void Update()
         {
-            if (!IsSpawned || !IsServer || _serverState == null)
+            if (!IsSpawned || !IsServer || _serverState == null
+                || StageRecoveryGate.Restoring)
                 return;
 
             if (_serverState.TickDarkness(Time.deltaTime, _isDarknessExposed.Value))
@@ -133,7 +136,7 @@ namespace GhostHunter.Gameplay.Sanity
         /// <summary>스테이지 시작 시 개인 정신력과 목격 기록을 초기화한다.</summary>
         public bool ServerResetForStage()
         {
-            if (!CanMutateOnServer())
+            if (!CanMutateOnServer() || (_teamService != null && _teamService.IsTeamWiped))
                 return false;
 
             _serverState.ResetForStage();
@@ -156,6 +159,12 @@ namespace GhostHunter.Gameplay.Sanity
         public bool ServerApplyGhostEventWitnessed()
         {
             return ApplyServerMutation(_serverState != null && _serverState.ApplyGhostEvent());
+        }
+
+        /// <summary>활동 중 귀신 본체를 마주친 플레이어의 정신력을 5 감소시킨다.</summary>
+        public bool ServerApplyGhostBodyWitnessed()
+        {
+            return ApplyServerMutation(_serverState != null && _serverState.WitnessGhostBody());
         }
 
         /// <summary>시체를 처음 목격했을 때만 정신력 20을 감소시킨다.</summary>
@@ -189,6 +198,7 @@ namespace GhostHunter.Gameplay.Sanity
 
             _isDarknessExposed.Value = false;
             PublishServerState();
+            _teamService?.ServerEvaluateTeamWipe();
             return true;
         }
 
@@ -199,12 +209,75 @@ namespace GhostHunter.Gameplay.Sanity
         /// </summary>
         public bool ServerRevive()
         {
-            if (!CanMutateOnServer() || !_serverState.Revive())
+            if (!CanMutateOnServer()
+                || (_teamService != null && _teamService.IsTeamWiped)
+                || !_serverState.Revive())
                 return false;
 
             _isDarknessExposed.Value = false;
             PublishServerState();
             return true;
+        }
+
+        /// <summary>서버 전용 누적 값까지 복구해 전멸 판정 전에 현재 플레이어에 적용한다.</summary>
+        public void ServerRestoreStageState(StageRecoverySnapshot.PlayerState snapshot)
+        {
+            if (!CanMutateOnServer())
+                return;
+            _serverState.RestoreSnapshot(new SanityState.Snapshot(snapshot.Sanity,
+                snapshot.Alive, snapshot.DarknessSeconds, snapshot.WitnessedCorpses));
+            _isDarknessExposed.Value = snapshot.DarknessExposed && snapshot.Alive;
+            PublishServerState();
+        }
+
+        public void CaptureStageState(ref StageRecoverySnapshot.PlayerState snapshot)
+        {
+            if (IsServer && _serverState != null)
+            {
+                SanityState.Snapshot state = _serverState.CaptureSnapshot();
+                snapshot.Sanity = state.Value;
+                snapshot.Alive = state.IsAlive;
+                snapshot.DarknessSeconds = state.DarknessExposureSeconds;
+                snapshot.WitnessedCorpses = state.WitnessedCorpses;
+            }
+            else
+            {
+                snapshot.Sanity = _sanity.Value;
+                snapshot.Alive = _isAlive.Value;
+            }
+            snapshot.DarknessExposed = _isDarknessExposed.Value;
+        }
+
+        /// <summary>Result 씬을 열기 전에 모든 피어에 전멸 집계를 보낸다.</summary>
+        public void ServerBroadcastStageFailure(int deadCount)
+        {
+            if (IsSpawned && IsServer)
+                RecordStageFailureRpc(deadCount);
+        }
+
+        /// <summary>정상 종료 결과를 Result 씬 전환 전에 모든 피어에 전달한다.</summary>
+        public void ServerBroadcastStageSettlement(StageSettlementRecord record)
+        {
+            if (IsSpawned && IsServer)
+                RecordStageSettlementRpc(record.DeliveredFurniture, record.TargetFurniture,
+                    record.CleaningPercent, record.Survivors, record.Missing, record.Dead,
+                    record.TeamWiped);
+        }
+
+        [Rpc(SendTo.Everyone)]
+        private void RecordStageSettlementRpc(int deliveredFurniture, int targetFurniture,
+            int cleaningPercent, int survivors, int missing, int dead, bool teamWiped)
+        {
+            if (Services.TryGet(out ISceneFlow sceneFlow))
+                sceneFlow.RecordStageSettlement(new StageSettlementRecord(deliveredFurniture,
+                    targetFurniture, cleaningPercent, survivors, missing, dead, teamWiped));
+        }
+
+        [Rpc(SendTo.Everyone)]
+        private void RecordStageFailureRpc(int deadCount)
+        {
+            if (Services.TryGet(out ISceneFlow sceneFlow))
+                sceneFlow.RecordStageFailure(deadCount);
         }
 
         private bool ApplyServerMutation(bool changed)

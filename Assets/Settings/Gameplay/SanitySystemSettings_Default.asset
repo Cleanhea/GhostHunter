@@ -18,6 +18,7 @@ MonoBehaviour:
   _darknessInterval: 10
   _darknessDecrease: 1
   _ghostEventDecrease: 15
+  _ghostBodyWitnessDecrease: 5
   _corpseWitnessDecrease: 20
   _cameraNoiseThreshold: 20
   _whisperThreshold: 10

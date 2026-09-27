@@ -1,5 +1,8 @@
 # 가구용 멀티 드라이버 구현
 
+> **2026-09-28:** 이 문서의 `GhostHunter > …` 설치·생성·검증 메뉴와 `Editor/…Setup.cs` 도구는 [ADR-0020](decisions/ADR-0020-remove-one-off-editor-setup-tools.md)으로 삭제됐다.
+> 도구 실행 절차·결과는 구현 당시 기록이다. 지금은 저장된 씬·프리팹이 원본이고 직접 고친다.
+
 기획: [가구용 멀티 드라이버](../project/furniture-multidriver-system.md). 구현 지시:
 [furniture-multidriver-implementation-prompt.md](../workflow/furniture-multidriver-implementation-prompt.md).
 
@@ -16,7 +19,9 @@
 | `Gameplay/Player/PlayerFurnitureDriverController.cs` | 장착 요청·소유자 행동 타이머·취소 판정·서버 분해/조립 실행 |
 | `Gameplay/FurnitureDriver/FurnitureDriverSettings.cs` | 행동 시간(3초/9초)·임계값(15)·내구도 감소량(5)·조준 사거리·낙하 높이 SO |
 | `Gameplay/FurnitureDriver/FurnitureDriverUiSettings.cs` | 행동 시간 원형 게이지의 지름·두께·색·문구·중단 흔들림 수치 SO |
-| `UI/FurnitureDriverActionHud.cs` | 화면 중앙 원형 게이지 — 진행도 채움, 중단 시 멈춤·좌우 흔들림·"분해 실패/조립 실패" |
+| `UI/FurnitureDriverActionHud.cs` | 화면 중앙 원형 게이지 — 진행도 채움, 중단 시 멈춤·좌우 흔들림·"분해 실패/조립 실패". 조립을 시작 못 하면 이유 문구만("재료가 부족합니다" 등) |
+| `Gameplay/Player/FurnitureDriverFeedback.cs` | 조립을 시작 못 한 이유(재료 부족·구성 불일치·영역 밖) — 2026-09-27 |
+| `UI/FurnitureAssemblyZoneView.cs` | 조립 영역 판정 트리거를 게임 화면에 바닥 채움 + 윤곽선으로 표시, 판정 상태 색 — 2026-09-27 (§2.7) |
 | `Gameplay/FurnitureDriver/FurnitureDisassemblyRecipe.cs` | 큰 가구 1종의 부품 구성(부품 ID·개수) |
 | `Gameplay/FurnitureDriver/FurniturePartRequirement.cs` | 레시피 안 부품 하나(ID·개수) |
 | `Gameplay/FurnitureDriver/FurnitureDriverCatalog.cs` | 레시피 6종 묶음 SO. 서버·조립 판정이 공유 |
@@ -26,7 +31,7 @@
 | `Gameplay/FurnitureDriver/FurnitureDurability.cs` | 아이템 내구도 감소, 가구 내구도 상속·평균 순수 함수 |
 | `Gameplay/Furniture/FurnitureGrabTarget.cs` | `IsPlacementReady`에 `FurnitureDriverPoolItem` 활성 여부 추가(기존 `RandomFurnitureItem` 게이트와 병렬) |
 | `Gameplay/Interaction/GrabController.cs` | 드라이버 장착 중 가구 잡기 차단(대걸레와 같은 자리) |
-| `Editor/FurnitureMultiDriverSetup.cs` | `GhostHunter > 가구용 멀티 드라이버 설치/검증` 메뉴, UI만 붙이는 `가구용 멀티 드라이버 행동 UI 설치` 메뉴 |
+| ~~`Editor/FurnitureMultiDriverSetup.cs`~~ | ~~설치/검증·행동 UI 설치·조립 영역 재배치 메뉴~~ — ADR-0020으로 삭제 |
 | `Assets/InputSystem_Actions.inputactions` | `Player/UseDriver`(마우스 우클릭) 액션 신설 — 사망 중 전용 `SpectateNext`와 별개. `PlayerInputReader`가 누른 프레임(`UseDriverPressedThisFrame`)과 유지 상태(`UseDriverHeld`)를 함께 읽는다 |
 
 ## 2. 흐름과 권위
@@ -99,8 +104,8 @@
 > 소용없다.
 >
 > 설치 도구가 세이프 존의 **바닥**(`AssemblyZoneOrigin` = 중심 − 높이/2)에 영역을 놓도록 고치고,
-> `Validate()`에 트리거 바닥과 지면이 어긋나면 실패하는 검사를 넣었다. 회귀 테스트는
-> `FurnitureAssemblyZonePlacementTests`(EditMode 3건)다.
+> `Validate()`에 트리거 바닥과 지면이 어긋나면 실패하는 검사를 넣었다(설치 도구와 그 회귀 테스트 3건은
+> ADR-0020으로 삭제 — `FurnitureAssemblyZonePlacementTests` 에는 조준점 테스트 2건만 남았다).
 >
 > **뒤따른 수정(같은 날): 조준 기준점도 바닥으로 내려가 있었다.** 영역을 지면으로 내리자
 > `PlayerFurnitureDriverController`가 조준 기준으로 쓰던 `zone.transform.position`이 발밑이 되어,
@@ -109,9 +114,26 @@
 > (트리거 상자의 월드 중심, 지면 위 1.25m)를 조준 기준으로 바꿔 서 있는 어느 거리에서나 잡히게 했다.
 > 이 수정은 코드만 바뀌므로 메뉴 재실행이 필요 없다.
 >
-> **영역 트리거 수정은 코드에만 반영돼 있다.** 씬의 영역을 실제로 옮기려면 Game 씬을 열고
-> **`GhostHunter > 가구용 멀티 드라이버 조립 영역 재배치`** 를 실행한다 — 영역 트랜스폼과 트리거만
-> 고쳐 씬을 저장하므로 프리팹·부품 풀·NGO 해시는 건드리지 않는다.
+> **2026-09-27 조립 조작 변경(기획서 1.2, 사용자 결정 — 영역 유지):**
+> - **조준:** 크로스헤어가 **영역 안의 아무 재료(부품)나** 가리키면 조립한다
+>   (`PlayerFurnitureDriverController.TryBeginAssembleOnPart`). 영역 중심 조준은 가까이 서거나 5m로 넓힌 영역
+>   가장자리에서 원뿔을 벗어나 반응하지 않았다. 영역 중심 조준도 조립 가능할 때는 그대로 받는다.
+> - **어느 영역인지:** `FurnitureAssemblyZone.FindContaining` 이 찾는다. 서버는 트리거 후보 집합, 클라이언트는
+>   복제된 재료 위치와 트리거 경계 겹침으로 판단한다(후보 집합은 서버에만 있다).
+> - **시작 못 하는 경우:** 영역이 Ready 가 아니면 게이지를 시작하지 않고 `FurnitureDriverFeedback`
+>   (재료 부족·구성 불일치·영역 밖)을 `FeedbackSerial` 로 알린다(§2.6).
+> - **서버 거리 검사:** 영역 중심이 아니라 **조준한 재료** 기준 `UseDistance × 1.5` 다. 재료가 그 영역 후보인지도
+>   다시 본다. 완료 순간 재계산이 Ready 가 아니면 `AssembleRejectedRpc` 로 소유자에게 이유를 돌려준다
+>   — 예전에는 조용히 끝났다.
+> - **완성된 큰 가구는 재료로 세지 않는다**(`IsLargeFurniture`). 세면 레시피에 없는 ID라 영역이 Invalid 가 되어,
+>   방금 조립한 가구가 영역 가운데 떨어진 채로는 다음 조립이 막혔다.
+>
+> 씬의 `AssemblyZone` 트리거는 현재 **5×5×5m**(center y 1.25)로 저장돼 있다. 설치 도구 기본값 3×2.5×3m와 다르므로
+> 손으로 넓힌 것으로 보인다. 설치 도구의 바닥 정렬 검증은 이 값에서 어긋난다(바닥 y −1.25). 판정에는 문제가 없어
+> 이번에 건드리지 않았다.
+>
+> 영역을 옮기던 `조립 영역 재배치` 메뉴는 ADR-0020으로 삭제했다. 영역을 다시 놓으려면 씬에서 직접 고친다 —
+> 원점 = 세이프 존 중심 − 높이/2(지면), 트리거 center y = size.y/2. 프리팹·부품 풀·NGO 해시는 건드리지 않는다.
 
 ### 2.5 씬 풀 재배치 — ADR-0009 준수
 
@@ -127,9 +149,8 @@
 > 우클릭도 대상을 못 찾아 아무 반응이 없는 버그**였다. `_startActive` 직렬화 필드를 추가해
 > 이미 배치된 실제 인스턴스만 시작부터 활성화하도록 고쳤다(`FurnitureMultiDriverSetup.
 > MarkLiveLargeFurnitureActive`가 `Furniture_Library`·`Furniture_TEMP`·비교용 집 아래는
-> 제외하고 표시). **`GhostHunter > 가구용 멀티 드라이버 설치`를 다시 실행해 씬에 반영해야
-> 한다** — 코드만 고치고 재설치 전까지는 씬의 `_startActive`가 여전히 꺼져 있어 침대가 계속
-> 숨어 있다.
+> 제외하고 표시). 씬의 `_startActive`가 꺼져 있으면 침대가 계속 숨어 있다 —
+> 설치 메뉴는 ADR-0020으로 삭제됐으므로 씬 인스턴스에서 직접 켠다.
 >
 > **2026-09-13 재검증:** 현재 저장된 Game 씬에는 실제 침대 1개·옷장 2개의 `_startActive=true`가
 > 반영돼 있다. 실제 Local Host에서도 세 가구 모두 활성·렌더러 표시·콜라이더 활성 상태를 확인했다.
@@ -146,11 +167,31 @@
 | `CurrentAction ≠ None` | 조준점 주위 원형 게이지를 12시부터 시계 방향으로 `ActionProgress`(0~1)만큼 채움 + "분해 중/조립 중" |
 | `ActionCancelSerial` 증가 | `LastCancelledProgress`에서 채움을 멈추고 실패색으로 바꾼 뒤 좌우 2회 감쇠 흔들림 + "분해 실패/조립 실패", `FailDisplaySeconds` 후 숨김 |
 | 행동 없음(정상 완료 포함) | 숨김 |
+| `FeedbackSerial` 증가(2026-09-27) | 링을 숨기고 이유 문구만 실패색으로 같은 흔들림·표시 시간으로 — "재료가 부족합니다" / "재료 구성이 맞지 않습니다" / "조립 영역 안에 재료를 모아 주세요"(`FurnitureDriverUiSettings`) |
 
 중단 기록은 `CancelAction()`이 **진행 중인 행동이 있었을 때만** 남긴다 — 행동 없이 부르는 장착
-해제·디스폰 정리는 실패 연출을 띄우지 않는다. 완료 후 서버가 요청을 거절한 경우(부품 풀 부족 등)는
-중단이 아니라서 실패 연출이 없다. HUD는 로컬 플레이어가 바뀌면 그 시점의 일련번호를 기준으로 삼아
+해제·디스폰 정리는 실패 연출을 띄우지 않는다. 완료 후 서버가 요청을 거절한 경우는 중단이 아니라서 실패 연출이
+없다 — 단 조립 거절은 이유 문구(`FeedbackSerial`)로 알린다. 분해의 부품 풀 부족은 여전히 로그만 남는다. HUD는 로컬 플레이어가 바뀌면 그 시점의 일련번호를 기준으로 삼아
 이전 기록을 새 중단으로 오인하지 않는다.
+
+### 2.7 조립 영역 표시 — `FurnitureAssemblyZoneView` (2026-09-27)
+
+사용자 요청("조립 콜라이더 시각화")으로 판정 트리거를 게임 화면에 그린다. 기획서 §6.4의 **큰 가구 실루엣은
+여전히 미구현**이고, 이것은 그 대신 **영역 자체**를 보여 준다.
+
+| 항목 | 규칙 |
+| --- | --- |
+| 모양 | 트리거 월드 경계(AABB)의 윤곽선 12개(LineRenderer 6개: 바닥·윗면 사각형 + 세로 4) + 바닥 반투명 채움. 트리거는 지면 아래로도 뻗지만(씬 저장값 center y 1.25·size 5 → y −1.25~3.75) **바닥(`FloorHeight` = 영역 원점)에서 잘라** 그린다 |
+| 색 | 서버가 복제한 판정 상태 — 빈 영역 옅은 흰색(α 0.35), 일부만 흰색 α 0.5(§6.4), 조립 가능 초록 `#78C664`, 혼입·초과 빨강 `#D66565`. 채움은 같은 색 × `ZoneFillAlphaScale`(0.3) |
+| 렌더 | 머티리얼 에셋 없이 항상 포함 셰이더 `Sprites/Default`(GraphicsSettings 10753)로 런타임 생성 — 벽에 가려지고 뒷면도 보인다. 표시 오브젝트는 **영역 밑 자식**이라 Game 씬과 함께 사라진다 |
+| 대상 | `FurnitureAssemblyZone.All`(스폰 등록부) — 전역 검색 없음. 로컬 표시 전용, 네트워크 상태 추가 없음 |
+| 설정 | `FurnitureDriverUiSettings` "조립 영역 표시" — 켜기(`ShowAssemblyZone`, 기본 켬)·상태별 색·선 두께 0.04m·채움 배율 |
+| Scene 뷰 | `FurnitureAssemblyZone.OnDrawGizmos` 가 트리거 전체(지면 아래 포함)를 와이어 박스로, 플레이 중이면 상태 색으로 그린다 — 설치 불필요 |
+| 설치 | HUD 와 함께 `PrototypeUI` 에 붙어 있다(붙이던 `행동 UI 설치` 메뉴는 ADR-0020으로 삭제) |
+
+검증(검증용 복제 프로젝트): PlayMode `조립_영역을_바닥부터_그리고_판정_상태에_따라_색을_바꾼다` 통과 —
+표시 생성·바닥 자름(바닥 +0.02m)·윗면 높이·빈 영역 색 → 조립 가능 초록·설정으로 끄기. 같은 테스트에 카메라를 붙여
+빈 영역·일부·조립 가능 세 상태를 실제로 렌더해 윤곽선·채움·색 변화를 눈으로 확인했다. 실제 Game 씬 표시는 메뉴 실행 후 확인 대기.
 
 ## 3. 에셋과 설치
 
@@ -180,7 +221,7 @@
 
 - **조립은 아직 한 번도 끝까지 돌아간 적이 없다.** §2.4의 뜬 트리거 때문에 그동안 불가능했고,
   수정은 코드에만 있다 — 씬에 반영(재배치 메뉴)한 뒤 실기로 확인해야 "된다"고 말할 수 있다.
-  **Ready 상태를 화면에서 볼 방법이 아직 없다**(아래 실루엣 미구현)는 점이 확인을 어렵게 만든다.
+  Ready 상태는 2026-09-27부터 **영역 표시 색**(초록)으로 볼 수 있다(§2.7 — 행동 UI 설치 메뉴 실행 후). 큰 가구 실루엣은 여전히 없다.
 - **FM-IMPL-4 일부 미구현.** 손목 애니메이션, 3색 실루엣의 실제 렌더링(현재는 상태값만 복제됨)이
   없다. 행동 시간 원형 게이지·중단 연출은 구현됐다(§2.6).
 - 게이지 크기·색·흔들림 폭 기본값(`FurnitureDriverUiSettings_Default`)은 임시 UI 값이다. 기획서는
@@ -219,7 +260,7 @@ PlayMode 테스트는 기존 `NetworkFurnitureFixture`의 단일 Local Host 세�
 조립 실행, 부품 잡기·던지기 전체 흐름, 원격 플레이어 동기화는 이 테스트가 다루지 않는다.
 PlayMode 테스트 어셈블리에 `GhostHunter.UI` 참조를 추가해 장착 전달 경로도 회귀 검증한다.
 
-MCP 테스트 작업 ID(2026-09-13 1.1): EditMode `697065b6f71c4b75adc767a6125dd725`, PlayMode
+테스트 작업 ID(2026-09-13 1.1): EditMode `697065b6f71c4b75adc767a6125dd725`, PlayMode
 `834be60db49a47f5a66af1576f09adaa`. 이전 작업 ID: EditMode `749bff44d4f64e8a966f7cf6ad346eb3`,
 PlayMode `b882b841227c4a1fbf4025154a9f530b`. 가상 입력 장치를 제거하고 플레이 모드를 종료해
 Bootstrap 씬으로 복귀했다.
@@ -241,7 +282,11 @@ Host·Client 수동 검증(Steam 2PC 포함), MD-7·MD-8 사용자 확정, 식�
 [roadmap.md §1.6](../project/roadmap.md) · [ADR-0009](decisions/ADR-0009-scene-placed-level-objects.md) ·
 [ADR-0010](decisions/ADR-0010-server-authoritative-furniture-physics.md)
 
-최종 갱신: 2026-09-17 (조립 영역 트리거가 지면에서 1.5m 떠 있어 조립이 시작될 수 없던 문제를
+최종 갱신: 2026-09-28 (설치·재배치 메뉴와 설치 수치 회귀 테스트 3건 삭제 — ADR-0020. 이전: 2026-09-27 조립 영역 표시 `FurnitureAssemblyZoneView`·Scene 뷰 기즈모 추가 — §2.7, 행동 UI 설치 메뉴로 설치. 같은 날: 기획서 1.2 — 영역 안 아무 재료나 조준해 조립, 조립 불가 이유 문구("재료가 부족합니다" 등),
+서버 거리 검사를 조준 재료 기준으로, 완성 가구를 재료에서 제외. 검증용 복제 프로젝트 PlayMode `FurnitureDisassemblyFlowTests`
+28/28(새 6건), EditMode 새 1건 통과. **실제 Game 씬에서의 조립 실기 확인은 여전히 남아 있다.**)
+
+이전 갱신: 2026-09-17 (조립 영역 트리거가 지면에서 1.5m 떠 있어 조립이 시작될 수 없던 문제를
 설치 도구에서 수정 — §2.4. 재배치 전용 메뉴·설치 검증·EditMode 회귀 테스트 3건 추가, EditMode
 305/305 통과. **씬 반영과 조립 실기 확인은 남아 있다.**)
 

@@ -70,6 +70,7 @@ namespace GhostHunter.DebugTools
             ("탐지 스킬  (DetectionSkillSettings)", "탐지", typeof(DetectionSkillController)),
             ("가구 투척  (FurnitureThrowSettings)", "투척", typeof(FurnitureGrabTarget)),
             ("정신력  (SanitySystemSettings)", "정신력", typeof(SanityNetworkState)),
+            ("캐릭터 애니메이션  (PlayerCharacterAnimationSettings)", "애니", typeof(PlayerCharacterAnimator)),
         };
 
         private const BindingFlags FieldFlags =

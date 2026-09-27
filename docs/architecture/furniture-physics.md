@@ -10,14 +10,14 @@
 ### 가구는 프리팹 하나에서 나온다
 
 가구·문 원본은 `Assets/Prefabs/Furniture/` · `Assets/Prefabs/Map/` 에 **종류별로 하나씩**
-있고, 맵에 놓인 것은 전부 그 인스턴스다. 원본 목록과 배치는 `FurnitureCatalog` 가 잇는다.
+있고, 맵에 놓인 것은 전부 그 인스턴스다.
 
 | | 규칙 |
 | --- | --- |
 | 한 종류 = 한 프리팹 | 같은 이름의 가구가 자리마다 다른 치수를 갖지 않는다 |
 | 벽 방향은 **회전으로** 맞춘다 | X·Z 치수를 바꿔 넘기면 같은 이름이 두 가지 모양이 된다 |
 | 인스턴스 오버라이드는 위치·회전에 한정 | 그 외 값을 씬에서 바꾸면 프리팹 수정이 반영되지 않는다 |
-| 종류를 추가하려면 | `HousePrototypeBuilder.FurnitureKinds()` 에 넣는다. 라이브러리 진열은 자동 |
+| 종류를 추가하려면 | 새 프리팹을 `Assets/Prefabs/Furniture/`에 만들고(스케일 1) `Furniture_Library`에 인스턴스를 하나 진열한다. 진열·배선을 자동으로 하던 `HousePrototypeBuilder`는 삭제했다([ADR-0020](decisions/ADR-0020-remove-one-off-editor-setup-tools.md)) |
 
 가구 치수·질량·컴포넌트를 바꿀 때는 **프리팹을 고친다.** 씬 인스턴스를 하나씩 고치면
 같은 가구가 자리마다 달라진다.
@@ -27,13 +27,13 @@
 > 콜라이더 없음)을 단다 — 엎드린 플레이어가 기어 들어가 숨는 공간이다
 > ([ghost-prototype.md](ghost-prototype.md), [player-controller.md](player-controller.md)).
 > `Frame` 파츠는 이름·평면 치수(w × l)를 유지한다(생성 검증 `ValidateFootprint`·`RequireBedHideZone`).
-> 기존 프리팹 3개는 씬 인스턴스가 소스 해시를 참조하므로(CLAUDE.md §5) 전체 재굽기가 아니라
-> `GlobalObjectIdHash` 를 보존하는 **제자리 편집**으로 갱신했다 — 다리 아웃라인 셸은 다음 전체
-> 생성 때 `CreateBed` 가 채운다.
+> 기존 프리팹 3개는 씬 인스턴스가 소스 해시를 참조하므로(`conventions/unity-assets.md`의 GlobalObjectIdHash 함정) 전체 재굽기가 아니라
+> `GlobalObjectIdHash` 를 보존하는 **제자리 편집**으로 갱신했다. 다리 아웃라인 셸은 아직 없다 — 전체 생성기가
+> 삭제됐으므로(ADR-0020) 필요하면 프리팹을 직접 고쳐 채운다.
 
 ### 가구 라이브러리에서 복사해 배치한다
 
-생성 도구(`GhostHunter > 프로토타입 게임 생성`)는 **방을 비운 채로** 집을 만든다.
+게임플레이용 집은 **방을 비운 채로** 저장되어 있다.
 가구는 집 북쪽(z ≈ 9.5) `Furniture_Library`에 **카탈로그 전 종류를 한 개씩 일렬로** 진열해
 두고, 방 배치는 이것을 복사해 `House_01/PhysicsFurniture` 아래에 붙여 넣는 방식이다.
 
@@ -41,8 +41,7 @@
 - 줄에서의 자리와 간격은 실제 콜라이더 크기로 계산한다. 가구 치수를 바꿔도 줄이 알아서 맞는다.
 - 받침 `Library_Ground/Library_Floor`가 없으면 세션 시작과 동시에 전부 허공으로 떨어진다.
 - 새로 붙여 넣은 가구는 `FurnitureReset`(R) 목록에 없다. 필요하면 인스펙터에서 직접 넣는다.
-- 생성 검증이 "집 안에 물리 가구 0개"를 강제한다. 생성 도구에 방별 가구 좌표를 되살리면
-  손으로 한 배치와 겹쳐서 시작하자마자 물리가 폭발한다.
+- 방별 가구 좌표를 코드에 심지 않는다. 손으로 한 배치와 겹쳐서 시작하자마자 물리가 폭발한다.
 - **침실 2칸은 손대지 않는다.** 세션이 시작되면 방 프리셋이 옮겨 오므로 손으로 놓은 가구와
   겹친다. 침실 배치를 바꾸려면 `Room_Presets`의 프리셋을 고친다
   ([map-generation.md §10.1](map-generation.md#101-구현-현황-2026-09-05)).
@@ -157,13 +156,13 @@ if (!IsServer) {
   안의 사용 가능한 가구마다 켜진 콜라이더 경계 윗면 위에 `내구도 N`을 띄운다. 글자색은 0 빨강 → 100 초록.
   복제된 값을 읽는 로컬 IMGUI 표시라 Host·Client 모두 보이며, 벽 뒤 가구도 가리지 않는다.
   파손·풀 대기 가구는 표시하지 않는다. HUD 가구 내구도 섹션의 토글로 라벨만 끌 수 있다.
-  검증: `.NET` C# 빌드(Gameplay·DebugTools) 경고 0·오류 0. **에디터 Play 화면 확인은 미수행**(Unity MCP 미연결).
+  검증: `.NET` C# 빌드(Gameplay·DebugTools) 경고 0·오류 0. **에디터 Play 화면 확인은 미수행**.
 
 ### 검증 상태
 
 **2026-09-16 파괴 끄기 변경분:** `dotnet build`로 `GhostHunter.Gameplay`·`GhostHunter.Tests.PlayMode`·
 `GhostHunter.Tests.EditMode` 경고 0·오류 0. **Unity Test Runner와 에디터 Play는 미실행**
-(에디터가 열려 있어 batchmode 잠김, Unity MCP 미연결). 추가한 테스트도 아직 실행되지 않았다:
+(에디터가 열려 있어 batchmode 잠김). 추가한 테스트도 아직 실행되지 않았다:
 `FurnitureCollisionFlowTests.없애지_않는_설정에서는_내구도가_0이어도_가구가_그대로_남는다`,
 `FurnitureDisassemblyFlowTests.조립하면_완성_가구가_부품_내구도의_평균을_가진다`·
 `내구도가_0인_부품도_조립에_쓰이고_평균이_그대로_적용된다`,
@@ -179,7 +178,7 @@ if (!IsServer) {
   보호 대상과 충돌, Held 중 파손과 홀더 해제, 복구.
 - `FurnitureDisassemblyFlowTests`: 파손 풀 재사용 차단·복구, 대기 부품의 복구 후 비활성 유지,
   이탈 콜백 없이도 조립 영역 후보에서 파손 부품 제거 추가.
-- **2026-09-15 Unity MCP 실행:** EditMode `FurnitureDurabilityTests` **18/18**,
+- **2026-09-15 에디터 Test Runner 실행:** EditMode `FurnitureDurabilityTests` **18/18**,
   PlayMode `FurnitureCollisionFlowTests` **8/8** + `FurnitureDisassemblyFlowTests` **20/20** +
   `FurnitureThrowFlowTests` **19/19** 통과. 합계 **65 통과·0 실패·0 스킵**.
   실제 PhysX 가구 간 충돌의 양쪽 피해·1m 낙하·바닥 안착·플레이어/귀신 레이어 충돌 제외를 포함한다.
@@ -226,7 +225,7 @@ if (!IsServer) {
 | `Room_Presets/BedroomPreset_A·B·C` | 침실 프리셋 3종(집 남쪽 바깥). 세션 시작 시 둘이 슬롯으로 간다 |
 | `RoomSlotAssigner` | 서버가 프리셋을 중복 없이 뽑아 슬롯에 배치 ([09](map-generation.md)) |
 | `House_01_OriginalScale_Right` | 도면 치수 그대로(배율 ×1) 지은 비교용 집. 집 동쪽 3m 옆 |
-| `House_01_OriginalScale_Right/PhysicsFurniture` | **여기는 생성 도구가 가구를 깔아 둔다** (29개) |
+| `House_01_OriginalScale_Right/PhysicsFurniture` | **여기만 가구가 깔려 있다** (29개) |
 | `PlayerSpawnPoints` | 빈 오브젝트 4개 |
 | `FurnitureReset` | 개발용. 호스트가 `R`을 누르면 가구를 초기 위치로 되돌린다 |
 
@@ -238,18 +237,16 @@ if (!IsServer) {
 
 `House_01_OriginalScale_Right`는 "도면 치수(12.8 × 10.4m)에서 사람과 가구가 어떻게 느껴지는가"를
 보려고 세워 둔 집이라, 라이브러리에서 복사해 넣을 때까지 비워 둘 이유가 없다. 그래서
-생성 도구가 방마다 가구를 깔아 준다 — 침실 2칸(도면 Bedroom_A · Bedroom_C 구성), 주방 식탁,
+방마다 가구가 깔려 있다 — 침실 2칸(도면 Bedroom_A · Bedroom_C 구성), 주방 식탁,
 거실 소파·좌탁·TV장, 창고 선반·상자. **게임플레이용 `House_01`은 지금도 비어 있어야 한다.**
 
-`ValidateFurnishedHouse`가 이 집만 따로 검사한다: 가구 배선·겹침, 문짝이 도는 동안 가구를
+삭제된 생성 도구(ADR-0020)의 `ValidateFurnishedHouse`가 이 집만 따로 검사했다: 가구 배선·겹침, 문짝이 도는 동안 가구를
 쓸지 않는지, 문 개구부와 방 한가운데를 가구가 막지 않는지. 통행 판정은 **가구 레이어만** 본다 —
 벽·붙박이는 도면 그대로라 여기서 걸리면 안 되기 때문이다.
-`GhostHunter > Place Original Scale House Right` 메뉴로 이 집만 다시 놓을 수도 있고,
-그때도 같은 검증과 `R` 목록 재배선이 함께 돈다.
 
 벽·바닥·붙박이는 `Static` 체크. `Rigidbody` 없음.
 
-`FurnitureResetter`는 씬 생성 도구가 가구 목록을 직접 꽂아준다(런타임 탐색 없음). 물리 권위가
+`FurnitureResetter`의 가구 목록은 씬에 직렬화되어 있다(런타임 탐색 없음 — 새 가구는 인스펙터에서 넣는다). 물리 권위가
 서버에 있으므로 호스트에서만 동작하고, 큰 이동이 보간되지 않도록 `NetworkTransform.Teleport`를 쓴다.
 
 ## 윤곽선 (아웃라인)
@@ -307,4 +304,4 @@ heavy는 혼자 던지면 `heavySoloMultiplier`만큼 약해진다 ([05-throw-sy
 
 ---
 
-최종 갱신: 2026-09-04 (침대 3종을 다리로 띄우고 `UnderBedHide`/`BedHideZone` 추가 — 엎드려 침대 밑 은신. 이전: 2026-08-23)
+최종 갱신: 2026-09-28 (생성 도구 삭제 반영 — 종류 추가·라이브러리·비교용 집 서술, ADR-0020. 이전: 2026-09-04 침대 3종을 다리로 띄우고 `UnderBedHide`/`BedHideZone` 추가 — 엎드려 침대 밑 은신. 이전: 2026-08-23)

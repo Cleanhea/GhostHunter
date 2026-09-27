@@ -113,11 +113,18 @@ namespace GhostHunter.Gameplay.Player
         /// </summary>
         private void HandleAliveStateChanged(bool alive)
         {
-            if (_playerCamera != null)
-                _playerCamera.enabled = alive;
+            // 사망 순간에는 연출이 끝날 때까지 생존 카메라를 유지한다. 관전 컨트롤러가
+            // 카메라를 넘기는 시점에 SetSurvivorCameraActive(false)를 호출한다.
+            if (alive)
+                SetSurvivorCameraActive(true);
+        }
 
+        public void SetSurvivorCameraActive(bool active)
+        {
+            if (_playerCamera != null)
+                _playerCamera.enabled = active;
             if (_audioListener != null)
-                _audioListener.enabled = alive;
+                _audioListener.enabled = active;
         }
 
         /// <summary>

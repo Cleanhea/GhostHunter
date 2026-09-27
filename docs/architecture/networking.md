@@ -58,7 +58,7 @@ Host는 `IsServer && IsClient`가 **모두 참**이다. 서버 권위 원칙(§1
 
 ### 2.4 하지 않는 것
 
-- 호스트 마이그레이션을 지원하지 않는다(호스트가 나가면 세션 종료). 변경하려면 ADR이 필요하다.
+- **목표 규칙 변경(2026-09-27):** 로딩 중·스테이지 진행 중 호스트 이탈 시 남은 플레이어 중 무작위로 새 호스트를 선정하고 진행 상태를 유지한다 → [스테이지 시스템 기획서](../project/stage-system.md). Steam P2P 채널 9의 스냅샷·동일 Game 씬 NGO 재호스트 코드를 추가했다. 직전 변경 보장과 다중 PC 실기 검증은 [ADR-0017](decisions/ADR-0017-host-migration.md)에 남아 있다.
 - Unity Relay / Lobby 서비스를 쓰지 않는다. Steam이 같은 역할을 한다.
 - IP/포트 직접 입력 접속 UI를 **제품 UI에** 만들지 않는다. 플레이어에게 노출되는 연결 진입점은 Steam Lobby뿐이다.
   개발용 HUD의 로컬 경로는 §5의 예외 규정을 따른다.
@@ -171,6 +171,9 @@ private readonly NetworkVariable<bool> _isOpen =
 - **NGO가 올린 씬은 MUST `NetworkManager.SceneManager.UnloadScene`으로 내린다.** 로컬로 올린 씬은 각 피어가 직접 내린다.
 - additive 전환 중 이전/다음 씬이 공존하므로 `SceneFlowController`가 이전 씬의 `EventSystem`과
   `AudioListener`를 로드 전에 비활성화한다. 전환 시작 실패 시 원상 복구한다.
+- **인게임 로비 ⇄ 스테이지(Stage1·ProtoTypeGame)는 이전 씬을 먼저 내린다**(`SceneFlowController.UnloadsBeforeLoad`, 2026-09-28). 두 씬의 설치 컴포넌트가
+  같은 서비스를 등록해 겹치면 충돌한다. 이 전환은 `IStageSessionFlow` 가 플레이어를 디스폰한 뒤 시작하고, 새 씬이 올라오면
+  접속자마다 플레이어를 다시 스폰한다 → [ADR-0018](decisions/ADR-0018-persistent-session-in-game-lobby.md)
 
 ### 3.6 세션 시작 순서 (MUST)
 
@@ -178,8 +181,16 @@ private readonly NetworkVariable<bool> _isOpen =
 씬 로드 → StartHost → 로비에 시작 신호
 ```
 
+올리는 씬은 **인게임 로비**다(2026-09-28, ADR-0018). 세션은 여기서 한 번 열리고 스테이지 사이에도 유지된다 —
+스테이지는 인게임 로비에서 `IStageSessionFlow.StartStage()` 로 NGO 씬 전환해 들어간다.
+
 - 로비 씬에서 바로 `StartHost` 하면 플레이어가 스폰 지점 없는 씬에 스폰된다.
 - 신호를 먼저 보내면 게스트가 **세션 없는 호스트**에 접속한다.
+- **개발 HUD의 Local → Host도 같은 순서를 따른다.** `ConnectionManager.StartHost()`는 Local 모드에서
+  현재 씬이 스테이지(`SceneId.IsStage()`)·인게임 로비가 아니면 `StartHostInGameScene(InGameLobby)`로 넘긴다(`ShouldLoadGameSceneBeforeLocalHost`).
+  2026-09-27 이전에는 Title 위에서 바로 `StartHost` 해서 플레이어가 `GameInstaller` 서비스
+  (`IPlayerSpawnRegistry`·`ILocalPlayerContext`·`ISanityTeamService`·`IVoiceChatService`) 없이 스폰됐고,
+  `OnNetworkSpawn` 예외로 입력·잡기·스폰 위치가 전부 죽었다. 씬 로드를 기다리는 동안의 두 번째 시작 요청은 거절한다.
 
 ### 3.6.1 세션 종료 순서 (MUST)
 
@@ -248,7 +259,7 @@ Facepunch 고유 `targetSteamId` 설정은 `ISteamLobbyService.TrySetConnectionT
 **MUST**
 - **게임 로직은 트랜스포트 구현을 직접 참조하지 않는다.** `FacepunchTransport`/`UnityTransport`/`SteamClient`
   타입이 `Gameplay`·`UI`에 등장하면 안 된다 → [steam.md](steam.md)
-- 로컬 경로는 **개발용 HUD(F1) 뒤에** 둔다. 제품 메뉴(`Title`/`Lobby`)에 노출하지 않는다.
+- 로컬 경로는 **개발용 HUD(Tab) 뒤에** 둔다. 제품 메뉴(`Title`/`Lobby`)에 노출하지 않는다.
 - 트랜스포트 전환은 **세션 정지 중에만** 허용한다.
 - **리그의 직렬화된 기본값은 항상 `Steam`이다.** 로컬 검증은 플레이 중 HUD 로 전환하고 저장하지 않는다.
 
@@ -262,6 +273,11 @@ Facepunch 고유 `targetSteamId` 설정은 `ISteamLobbyService.TrySetConnectionT
 개발 빌드는 면제된다.
 
 > 이 가드는 실제로 필요했다. 도입 시점에 `NetworkRig.prefab`이 이미 Local 로 커밋되어 있었다.
+
+한 PC에서 별도 Local 클라이언트 최대 3명을 붙이는 Windows 개발 빌드 메뉴는
+`Assets/Scripts/Editor/LocalTestBotLauncher.cs`에 있다. 실제 NGO 클라이언트의 접속·씬·
+플레이어 복제는 검증할 수 있으나 Steam P2P 검증을 대신하지 않는다.
+실행 절차와 로그 위치는 [testing.md §4.5](../workflow/testing.md)를 따른다.
 
 ## 6. 테스트
 

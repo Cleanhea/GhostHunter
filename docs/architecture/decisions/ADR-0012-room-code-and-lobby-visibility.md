@@ -94,6 +94,8 @@ Steam의 `ELobbyType` 중 **로비 목록 검색(`RequestLobbyList`)에 잡히�
 
 ## 4. 난입(Mid-match Join) — 사실 확인부터
 
+> **2026-09-27 결정:** 스테이지 시작 뒤에는 초대·방 코드·Steam 로비를 통한 중도 참가를 모두 막는다 → [스테이지 시스템 기획서](../../project/stage-system.md). 아래는 결정 이전의 코드 상태와 검토 기록이다. 로비의 `SetJoinable(false)` 및 진입 검증 반영은 진행 중이다.
+
 **"난입을 허용할까"가 아니라 "이미 허용되어 있는 것을 유지할까"가 정확한 질문이다.**
 
 현재 [`LobbyController.TryConnectToStartedGame()`](../../../Assets/Scripts/UI/LobbyController.cs)은

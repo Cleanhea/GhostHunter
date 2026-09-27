@@ -10,6 +10,9 @@ namespace GhostHunter.UI
     /// 가구용 멀티 드라이버 행동 시간을 화면 중앙의 원형 게이지로 표시한다. 우클릭을 누르고 있는 동안
     /// 게이지가 채워지고, 행동이 중단되면 멈춘 게이지가 좌우로 흔들리며 실패 문구를 띄운 뒤 사라진다
     /// → docs/project/furniture-multidriver-system.md §6.1.
+    ///
+    /// <para>조립을 시작조차 못 한 경우(재료 부족·재료 구성 불일치·영역 밖)는 게이지 없이 같은 자리에 문구만
+    /// 같은 방식으로 흔들어 띄운다(<see cref="PlayerFurnitureDriverController.FeedbackSerial"/>).</para>
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class FurnitureDriverActionHud : MonoBehaviour
@@ -22,12 +25,14 @@ namespace GhostHunter.UI
         private ILocalPlayerContext _localPlayer;
         private PlayerFurnitureDriverController _observedDriver;
         private int _observedCancelSerial;
+        private int _observedFeedbackSerial;
 
         private Canvas _canvas;
         private Font _font;
         private Texture2D _ringTexture;
         private Sprite _ringSprite;
         private RectTransform _gaugeRoot;
+        private Image _track;
         private Image _fill;
         private Text _label;
 
@@ -64,6 +69,7 @@ namespace GhostHunter.UI
                 // 로컬 플레이어가 바뀌면 이전 기록을 새 중단으로 오인하지 않도록 기준을 다시 잡는다.
                 _observedDriver = driver;
                 _observedCancelSerial = driver != null ? driver.ActionCancelSerial : 0;
+                _observedFeedbackSerial = driver != null ? driver.FeedbackSerial : 0;
                 _isShowingFailure = false;
             }
 
@@ -71,6 +77,12 @@ namespace GhostHunter.UI
             {
                 _observedCancelSerial = driver.ActionCancelSerial;
                 BeginFailure(driver.LastCancelledAction, driver.LastCancelledProgress);
+            }
+
+            if (driver != null && driver.FeedbackSerial != _observedFeedbackSerial)
+            {
+                _observedFeedbackSerial = driver.FeedbackSerial;
+                BeginFeedback(driver.LastFeedback);
             }
 
             if (driver != null && driver.CurrentAction != FurnitureDriverActionKind.None)
@@ -100,6 +112,8 @@ namespace GhostHunter.UI
         {
             _gaugeRoot.gameObject.SetActive(true);
             _gaugeRoot.anchoredPosition = Vector2.zero;
+            SetRingVisible(true);
+            _label.color = _uiSettings.TextColor;
             _fill.color = _uiSettings.FillColor;
             _fill.fillAmount = progress;
             _label.text = kind == FurnitureDriverActionKind.Assemble
@@ -112,12 +126,41 @@ namespace GhostHunter.UI
             _isShowingFailure = true;
             _failureStartedAt = Time.unscaledTime;
             _gaugeRoot.gameObject.SetActive(true);
+            SetRingVisible(true);
+            _label.color = _uiSettings.TextColor;
             _fill.color = _uiSettings.FailColor;
             // §6.1 — 중단된 지점에서 게이지 채움을 멈춘 채로 보여 준다.
             _fill.fillAmount = progress;
             _label.text = kind == FurnitureDriverActionKind.Assemble
                 ? _uiSettings.AssembleFailText
                 : _uiSettings.DisassembleFailText;
+        }
+
+        /// <summary>행동을 시작하지 못한 이유 — 게이지 없이 문구만 실패색으로 흔들어 보여 준다.</summary>
+        private void BeginFeedback(FurnitureDriverFeedback feedback)
+        {
+            string text = feedback switch
+            {
+                FurnitureDriverFeedback.NotEnoughMaterials => _uiSettings.NotEnoughMaterialsText,
+                FurnitureDriverFeedback.MismatchedMaterials => _uiSettings.MismatchedMaterialsText,
+                FurnitureDriverFeedback.OutsideAssemblyZone => _uiSettings.OutsideAssemblyZoneText,
+                _ => null,
+            };
+            if (string.IsNullOrEmpty(text))
+                return;
+
+            _isShowingFailure = true;
+            _failureStartedAt = Time.unscaledTime;
+            _gaugeRoot.gameObject.SetActive(true);
+            SetRingVisible(false);
+            _label.color = _uiSettings.FailColor;
+            _label.text = text;
+        }
+
+        private void SetRingVisible(bool visible)
+        {
+            _track.enabled = visible;
+            _fill.enabled = visible;
         }
 
         private void UpdateFailure()
@@ -175,10 +218,10 @@ namespace GhostHunter.UI
             _gaugeRoot.sizeDelta = new Vector2(_uiSettings.RingDiameter, _uiSettings.RingDiameter);
             _gaugeRoot.anchoredPosition = Vector2.zero;
 
-            Image track = rootObject.AddComponent<Image>();
-            track.sprite = _ringSprite;
-            track.color = _uiSettings.TrackColor;
-            track.raycastTarget = false;
+            _track = rootObject.AddComponent<Image>();
+            _track.sprite = _ringSprite;
+            _track.color = _uiSettings.TrackColor;
+            _track.raycastTarget = false;
 
             GameObject fillObject = new("Fill");
             fillObject.transform.SetParent(rootObject.transform, false);

@@ -32,11 +32,10 @@ MonoBehaviour:
   _openThreshold: -42
   _closeThreshold: -48
   _hangoverSeconds: 0.35
-  _preRollSeconds: 0.15
   _mode: 0
   _sendHz: 20
   _serverPacketsPerSecond: 30
-  _jitterSeconds: 0.08
-  _maximumJitterSeconds: 0.2
-  _silenceTimeout: 0.2
+  _jitterSeconds: 0.1
+  _maximumJitterSeconds: 0.4
+  _silenceTimeout: 0.5
   _outputGroup: {fileID: -5496812739555830242, guid: 8706371e2bcc47c4a91e68bd78327bd3, type: 2}

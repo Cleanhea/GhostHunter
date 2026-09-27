@@ -1,5 +1,8 @@
 # 가구 재조립(조립 스테이션) 구현 컨텍스트
 
+> **2026-09-28:** 이 문서의 `GhostHunter > …` 설치·생성·검증 메뉴와 `Editor/…Setup.cs` 도구는 [ADR-0020](../architecture/decisions/ADR-0020-remove-one-off-editor-setup-tools.md)으로 삭제됐다.
+> 도구 실행 절차·결과는 구현 당시 기록이다. 지금은 저장된 씬·프리팹이 원본이고 직접 고친다.
+
 > 목적: **분해한 가구를 특정 위치에서 다시 합치는 기능**을 플레이 가능한 수준까지 완성하기 위한
 > 작업 컨텍스트다. 게임 규칙의 권위는 [가구용 멀티 드라이버 기획서](../project/furniture-multidriver-system.md)
 > §4.2·§4.3·§5·§6.3·§6.4이고, 이 문서는 그 규칙을 **실제로 돌아가게 만들기 위해 무엇이 있고
@@ -117,7 +120,6 @@ Empty(부품 0개) 영역은 조준 대상이 아니다.
 - 씬에서 전역 검색 금지 — 트리거 후보 집합 방식 유지.
 - 실루엣은 **시각 전용 로컬 오브젝트**여야 한다. 네트워크 오브젝트로 만들면 스폰 규칙과 충돌한다.
 - 수치는 SO(`FurnitureDriverSettings` / `FurnitureDriverUiSettings`)에. 코드 상수 금지.
-- 씬·프리팹 편집은 Unity MCP 또는 `Assets/Scripts/Editor/` 생성 도구로만.
 
 ---
 

@@ -29,8 +29,9 @@ namespace GhostHunter.Gameplay.Voice
             return current + (target - current) * (1f - (float)Math.Exp(-Math.Max(0f, deltaTime) / timeConstant));
         }
         public static bool CanRelay(bool speakerAlive, bool listenerAlive, float horizontal, float vertical,
-            float maximum, float cut, float marginXZ, float marginY)
+            float maximum, float cut, float marginXZ, float marginY, bool resultChannel = false)
         {
+            if (resultChannel) return true;
             if (speakerAlive != listenerAlive) return false;
             return !speakerAlive || (horizontal <= maximum + marginXZ && Math.Abs(vertical) <= cut + marginY);
         }

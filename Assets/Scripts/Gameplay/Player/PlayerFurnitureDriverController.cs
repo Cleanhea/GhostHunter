@@ -3,6 +3,7 @@ using GhostHunter.Core;
 using GhostHunter.Gameplay.FurnitureDriver;
 using GhostHunter.Gameplay.Interaction;
 using GhostHunter.Gameplay.Sanity;
+using GhostHunter.Gameplay.Recovery;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -36,6 +37,10 @@ namespace GhostHunter.Gameplay.Player
     ///
     /// <para><b>서버 재검증은 완료 시점에만 일어난다.</b> 시작 요청 RPC가 없다 — 굴착과 같은
     /// 신뢰 경계다. 완료 RPC에서 발신자·장착·생존·거리·대상 유효성을 전부 다시 확인한다.</para>
+    ///
+    /// <para><b>조립은 영역 안의 아무 재료나 조준해서 시작한다</b>(2026-09-27 사용자 결정 — 영역은 유지).
+    /// 보이지 않는 영역 중심을 겨누던 방식은 가까이 서거나 영역 가장자리에서 반응하지 않았다. 영역이 조립
+    /// 가능하지 않으면 행동을 시작하지 않고 이유(<see cref="FurnitureDriverFeedback"/>)를 알린다.</para>
     /// </summary>
     [DefaultExecutionOrder(90)]
     [DisallowMultipleComponent]
@@ -61,16 +66,28 @@ namespace GhostHunter.Gameplay.Player
 
         private FurnitureDriverActionKind _actionKind = FurnitureDriverActionKind.None;
         private ulong _targetObjectId;
+        private ulong _assemblyPartObjectId;
         private float _actionTimer;
         private float _actionDurationTotal;
         private int _cancelSerial;
         private FurnitureDriverActionKind _lastCancelledAction = FurnitureDriverActionKind.None;
         private float _lastCancelledProgress;
+        private int _feedbackSerial;
+        private FurnitureDriverFeedback _lastFeedback = FurnitureDriverFeedback.None;
 
         public int EquippedSlot => _equippedSlot;
         public bool IsDriverEquipped => IsDriverSlot(_equippedSlot);
         public bool ServerHasDriver => IsServer && IsDriverSlot(_serverSlot);
         public int ItemDurability => _itemDurability.Value;
+
+        public void CaptureStageState(ref StageRecoverySnapshot.PlayerState snapshot)
+            => snapshot.DriverDurability = _itemDurability.Value;
+
+        public void ServerRestoreStageState(StageRecoverySnapshot.PlayerState snapshot)
+        {
+            if (IsServer && IsSpawned)
+                _itemDurability.Value = Mathf.Clamp(snapshot.DriverDurability, 0, 100);
+        }
         public FurnitureDriverActionKind CurrentAction => _actionKind;
         public float ActionSecondsRemaining => _actionTimer;
         public float ActionSecondsTotal => _actionDurationTotal;
@@ -88,6 +105,21 @@ namespace GhostHunter.Gameplay.Player
 
         /// <summary>마지막으로 중단된 행동이 멈춘 시점의 진행도(0~1).</summary>
         public float LastCancelledProgress => _lastCancelledProgress;
+
+        /// <summary>행동을 시작하지 못해(또는 서버가 조립을 거절해) 이유를 알릴 때마다 1씩 증가한다. HUD가 읽는다.</summary>
+        public int FeedbackSerial => _feedbackSerial;
+
+        /// <summary>마지막으로 알린 이유.</summary>
+        public FurnitureDriverFeedback LastFeedback => _lastFeedback;
+
+        /// <summary>조립 영역 상태 → 조립을 시작할 수 없는 이유. 조립 가능이면 <see cref="FurnitureDriverFeedback.None"/>.</summary>
+        public static FurnitureDriverFeedback FeedbackFor(FurnitureAssemblyState state) => state switch
+        {
+            FurnitureAssemblyState.Ready => FurnitureDriverFeedback.None,
+            FurnitureAssemblyState.Invalid => FurnitureDriverFeedback.MismatchedMaterials,
+            // 일부만 있음, 또는 방금 내려놓아 아직 흔들리는 재료만 있어 비어 보이는 경우.
+            _ => FurnitureDriverFeedback.NotEnoughMaterials,
+        };
 
         private void Awake()
         {
@@ -170,15 +202,24 @@ namespace GhostHunter.Gameplay.Player
 
         private void TryBeginAction()
         {
-            if (_targeter != null && _targeter.CurrentTarget != null
+            if (_catalog != null && _targeter != null && _targeter.CurrentTarget != null
                 && _targeter.CurrentTarget.TryGetComponent(out FurnitureDriverPoolItem poolItem)
-                && poolItem.IsActive
-                && _catalog != null && _catalog.FindByLargeFurnitureId(poolItem.PoolKey) != null)
+                && poolItem.IsActive)
             {
-                BeginAction(FurnitureDriverActionKind.Disassemble, poolItem.NetworkObjectId);
-                return;
+                if (_catalog.FindByLargeFurnitureId(poolItem.PoolKey) != null)
+                {
+                    BeginAction(FurnitureDriverActionKind.Disassemble, poolItem.NetworkObjectId);
+                    return;
+                }
+
+                if (_catalog.FindByPartId(poolItem.PoolKey) != null)
+                {
+                    TryBeginAssembleOnPart(poolItem);
+                    return;
+                }
             }
 
+            // 예전 방식 — 영역 중심(실루엣 자리)을 겨눈 경우. 재료를 겨누는 편이 확실해 조립 가능할 때만 받는다.
             if (_camera == null)
                 return;
 
@@ -200,10 +241,41 @@ namespace GhostHunter.Gameplay.Player
             }
         }
 
+        /// <summary>
+        /// 조준한 재료가 들어 있는 조립 영역이 조립 가능하면 조립을 시작하고, 아니면 이유만 알린다.
+        /// 영역 상태는 서버가 0.2초마다 복제한 값이다 — 완료 시점에 서버가 다시 센다.
+        /// </summary>
+        private void TryBeginAssembleOnPart(FurnitureDriverPoolItem part)
+        {
+            FurnitureAssemblyZone zone = FurnitureAssemblyZone.FindContaining(part);
+            if (zone == null)
+            {
+                ShowFeedback(FurnitureDriverFeedback.OutsideAssemblyZone);
+                return;
+            }
+
+            FurnitureDriverFeedback feedback = FeedbackFor(zone.Silhouette);
+            if (feedback != FurnitureDriverFeedback.None)
+            {
+                ShowFeedback(feedback);
+                return;
+            }
+
+            BeginAction(FurnitureDriverActionKind.Assemble, zone.NetworkObjectId);
+            _assemblyPartObjectId = part.NetworkObjectId;
+        }
+
+        private void ShowFeedback(FurnitureDriverFeedback feedback)
+        {
+            _lastFeedback = feedback;
+            _feedbackSerial++;
+        }
+
         private void BeginAction(FurnitureDriverActionKind kind, ulong targetObjectId)
         {
             _actionKind = kind;
             _targetObjectId = targetObjectId;
+            _assemblyPartObjectId = 0;
             _actionDurationTotal = _settings.ActionSecondsFor(_itemDurability.Value);
             _actionTimer = _actionDurationTotal;
         }
@@ -231,14 +303,16 @@ namespace GhostHunter.Gameplay.Player
 
             FurnitureDriverActionKind kind = _actionKind;
             ulong targetId = _targetObjectId;
+            ulong partId = _assemblyPartObjectId;
             _actionKind = FurnitureDriverActionKind.None;
             _actionTimer = 0f;
             _actionDurationTotal = 0f;
+            _assemblyPartObjectId = 0;
 
             if (kind == FurnitureDriverActionKind.Disassemble)
                 RequestDisassembleRpc(targetId);
             else if (kind == FurnitureDriverActionKind.Assemble)
-                RequestAssembleRpc(targetId);
+                RequestAssembleRpc(targetId, partId);
         }
 
         private bool IsTargetStillValid()
@@ -271,6 +345,7 @@ namespace GhostHunter.Gameplay.Player
             _actionKind = FurnitureDriverActionKind.None;
             _actionTimer = 0f;
             _actionDurationTotal = 0f;
+            _assemblyPartObjectId = 0;
         }
 
         [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
@@ -317,23 +392,55 @@ namespace GhostHunter.Gameplay.Player
                 _itemDurability.Value, _settings.DurabilityDecreasePerUse);
         }
 
+        /// <param name="partObjectId">
+        /// 조준한 재료. 0이면 예전 방식(영역 중심 조준)이다. 거리는 조준한 재료 기준으로 잰다 — 영역 중심 기준이면
+        /// 넓은 영역 가장자리의 재료 옆에 서서 조립할 때 거절됐다.
+        /// </param>
         [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
-        private void RequestAssembleRpc(ulong zoneObjectId, RpcParams rpcParams = default)
+        private void RequestAssembleRpc(ulong zoneObjectId, ulong partObjectId, RpcParams rpcParams = default)
         {
             if (!IsServer || rpcParams.Receive.SenderClientId != OwnerClientId || !ServerHasDriver
                 || _settings == null || !CanUseGate()
-                || !TryResolve(zoneObjectId, out FurnitureAssemblyZone zone)
-                || Vector3.Distance(transform.position, zone.transform.position) > _settings.UseDistance * 1.5f)
+                || !TryResolve(zoneObjectId, out FurnitureAssemblyZone zone))
             {
                 return;
             }
 
-            if (!zone.ServerTryAssemble(_settings.DropHeight, out _, out _))
+            float maxDistance = _settings.UseDistance * 1.5f;
+            if (partObjectId != 0)
+            {
+                if (!TryResolve(partObjectId, out FurnitureDriverPoolItem part)
+                    || Vector3.Distance(transform.position, part.transform.position) > maxDistance)
+                {
+                    return;
+                }
+
+                if (!zone.ContainsPart(part))
+                {
+                    AssembleRejectedRpc(FurnitureDriverFeedback.OutsideAssemblyZone);
+                    return;
+                }
+            }
+            else if (Vector3.Distance(transform.position, zone.transform.position) > maxDistance)
+            {
                 return;
+            }
+
+            if (!zone.ServerTryAssemble(_settings.DropHeight, out _, out _, out FurnitureAssemblyState state))
+            {
+                // 시작할 땐 조립 가능이었지만 그사이 재료가 빠지거나 섞였다 — 조용히 끝내지 않고 이유를 알린다.
+                FurnitureDriverFeedback feedback = FeedbackFor(state);
+                if (feedback != FurnitureDriverFeedback.None)
+                    AssembleRejectedRpc(feedback);
+                return;
+            }
 
             _itemDurability.Value = FurnitureDurability.ApplyItemUse(
                 _itemDurability.Value, _settings.DurabilityDecreasePerUse);
         }
+
+        [Rpc(SendTo.Owner)]
+        private void AssembleRejectedRpc(FurnitureDriverFeedback feedback) => ShowFeedback(feedback);
 
         private bool CanUseLocally() => IsDriverEquipped && !_input.IsGameplayInputLocked && !_input.IsDeathInputLocked
             && !_input.IsSkillInputLocked && !_input.IsWheelInputLocked && CanUseGate();

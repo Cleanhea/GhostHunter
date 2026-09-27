@@ -21,9 +21,15 @@ MonoBehaviour:
   _lobby:
     _sceneAsset: {fileID: 102900000, guid: 80a935596d39e1b47bb4c3e5ab97f416, type: 3}
     _sceneName: Lobby
-  _game:
+  _protoTypeGame:
     _sceneAsset: {fileID: 102900000, guid: 03c9f03fcb0c65a429b389ff270bc325, type: 3}
-    _sceneName: Game
+    _sceneName: ProtoTypeGame
   _result:
     _sceneAsset: {fileID: 102900000, guid: fa90e54293374e94c89dabf9b455411e, type: 3}
     _sceneName: Result
+  _inGameLobby:
+    _sceneAsset: {fileID: 102900000, guid: 4ffa401b9fcb99549825b92ec4a91429, type: 3}
+    _sceneName: InGameLobby
+  _stage1:
+    _sceneAsset: {fileID: 102900000, guid: 986f861abfc59b44880d617d17438f1d, type: 3}
+    _sceneName: Stage1

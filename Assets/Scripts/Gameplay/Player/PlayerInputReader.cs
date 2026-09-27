@@ -399,7 +399,7 @@ namespace GhostHunter.Gameplay.Player
             VoiceHeld = _voiceAction.IsPressed();
             VoiceMutePressedThisFrame = _voiceMuteAction.WasPressedThisFrame();
 
-            if (_inputLocked)
+            if (_inputLocked || GhostHunter.Gameplay.Recovery.StageRecoveryGate.Restoring)
             {
                 // 잠긴 동안에는 액션을 읽지 않는다. CrouchHeld 는 마지막 값 그대로 두어
                 // 메뉴를 여는 것만으로 자세가 바뀌지 않게 한다. 관전 입력도 함께 잠근다

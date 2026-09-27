@@ -4,7 +4,7 @@ using UnityEngine.Audio;
 
 namespace GhostHunter.Data
 {
-    /// <summary>근접 음성의 감쇠·가림·전송·VAD 초기 설정.</summary>
+    /// <summary>근접 음성의 감쇠·가림·전송·수신 버퍼·발화 표시 초기 설정.</summary>
     [CreateAssetMenu(menuName = "GhostHunter/Gameplay/Voice Chat Settings", fileName = "VoiceChatSettings")]
     public sealed class VoiceChatSettings : ScriptableObject
     {
@@ -25,16 +25,17 @@ namespace GhostHunter.Data
         [SerializeField] private float _occlusionHz = 10f;
         [SerializeField] private float _serverMarginXZ = 2f;
         [SerializeField] private float _serverMarginY = 1f;
+        // 아래 세 값은 "말하는 중" 표시에만 쓴다. 송신은 소리 크기로 거르지 않는다(2026-09-27).
         [SerializeField] private float _openThreshold = -42f;
         [SerializeField] private float _closeThreshold = -48f;
         [SerializeField] private float _hangoverSeconds = 0.35f;
-        [SerializeField] private float _preRollSeconds = 0.15f;
         [SerializeField] private VoiceMode _mode = VoiceMode.OpenMic;
         [SerializeField] private float _sendHz = 20f;
         [SerializeField] private int _serverPacketsPerSecond = 30;
-        [SerializeField] private float _jitterSeconds = 0.08f;
-        [SerializeField] private float _maximumJitterSeconds = 0.2f;
-        [SerializeField] private float _silenceTimeout = 0.2f;
+        // 수신 선버퍼(재생 시작 전 모을 양)와 최대 적체. 넘치면 오래된 샘플부터 건너뛴다.
+        [SerializeField] private float _jitterSeconds = 0.1f;
+        [SerializeField] private float _maximumJitterSeconds = 0.4f;
+        [SerializeField] private float _silenceTimeout = 0.5f;
         [SerializeField] private AudioMixerGroup _outputGroup;
         public float MinimumDistance => Mathf.Max(0.01f, _minimumDistance);
         public float FadeDistance => Mathf.Clamp(_fadeDistance, MinimumDistance, MaximumDistance - 0.01f);
@@ -56,12 +57,11 @@ namespace GhostHunter.Data
         public float OpenThreshold => Mathf.Clamp(_openThreshold, -80f, 0f);
         public float CloseThreshold => Mathf.Min(OpenThreshold, _closeThreshold);
         public float HangoverSeconds => Mathf.Max(0f, _hangoverSeconds);
-        public float PreRollSeconds => Mathf.Clamp(_preRollSeconds, 0f, 0.15f);
         public VoiceMode Mode => _mode;
         public float SendHz => Mathf.Clamp(_sendHz, 1f, 20f);
         public int ServerPacketsPerSecond => Mathf.Clamp(_serverPacketsPerSecond, 1, 30);
         public float JitterSeconds => Mathf.Clamp(_jitterSeconds, 0.04f, MaximumJitterSeconds);
-        public float MaximumJitterSeconds => Mathf.Clamp(_maximumJitterSeconds, 0.04f, 0.2f);
+        public float MaximumJitterSeconds => Mathf.Clamp(_maximumJitterSeconds, 0.04f, 1f);
         public float SilenceTimeout => Mathf.Max(MaximumJitterSeconds, _silenceTimeout);
         public AudioMixerGroup OutputGroup => _outputGroup;
     }

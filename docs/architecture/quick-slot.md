@@ -1,5 +1,8 @@
 # 퀵슬롯(라디얼 휠) 구현
 
+> **2026-09-28:** 이 문서의 `GhostHunter > …` 설치·생성·검증 메뉴와 `Editor/…Setup.cs` 도구는 [ADR-0020](decisions/ADR-0020-remove-one-off-editor-setup-tools.md)으로 삭제됐다.
+> 도구 실행 절차·결과는 구현 당시 기록이다. 지금은 저장된 씬·프리팹이 원본이고 직접 고친다.
+
 > 상태: **대걸레·드라이버 장착 연결 (2026-09-13).** 일반 인벤토리는 미구현.
 > [청소 구현](cleaning-system.md) · [가구 분해 구현](furniture-multidriver.md) 참조.
 > 게임 규칙의 권위는 [퀵슬롯 시스템 기획서](../project/quick-slot-system.md)다.
@@ -15,7 +18,7 @@
 | 각도→인덱스 순수 계산 | `Gameplay/Player/QuickSlotSelection.cs` |
 | UI 수치 설정 | `Gameplay/Player/QuickSlotUiSettings.cs` |
 | 런타임 HUD(휠·확정·표시) | `UI/QuickSlotWheelUi.cs` |
-| 씬 설치 도구 | `Editor/QuickSlotSetup.cs` (메뉴 `GhostHunter/퀵슬롯 HUD 설치`, 멱등) |
+| ~~씬 설치 도구~~ | ~~`Editor/QuickSlotSetup.cs`~~ — ADR-0020으로 삭제 |
 | 테스트 | `Tests/EditMode/QuickSlotTests.cs` |
 
 ## 2. 입력 — 세 번째 독립 잠금
@@ -135,7 +138,7 @@ UI 자체는 로컬 MonoBehaviour이며 RPC를 소유하지 않는다. 플레이
 
 | 항목 | 결과 |
 | --- | --- |
-| 컴파일 | Unity 6000.3.20f1 에디터, MCP 경유 강제 재컴파일 — 오류·경고 0건 |
+| 컴파일 | Unity 6000.3.20f1 에디터 강제 재컴파일 — 오류·경고 0건 |
 | EditMode | **197/197 통과**(신규 12건 포함). 이전에 기록된 선재 실패(`Player_굴착_액션은_R키에...`)는
   현재 저장소 상태에서 재현되지 않는다 — 이미 T로 정리된 것으로 보인다 |
 | 설치 도구 | `GhostHunter > 퀵슬롯 HUD 설치` 실행 성공, `ValidateInstallation()` 통과, `Game.unity` 저장 |

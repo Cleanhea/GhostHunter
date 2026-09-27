@@ -41,11 +41,9 @@ namespace GhostHunter.UI
                 GUILayout.Label("음성 음량");
                 float volume = GUILayout.HorizontalSlider(_chat.MasterVolume, 0f, 1f);
                 if (!Mathf.Approximately(volume, _chat.MasterVolume)) _chat.MasterVolume = volume;
-                GUILayout.Label($"마이크 감지 임계값: {_chat.OpenThreshold:F0} dBFS");
-                float threshold = GUILayout.HorizontalSlider(_chat.OpenThreshold, -70f, -10f);
-                if (!Mathf.Approximately(threshold, _chat.OpenThreshold)) _chat.OpenThreshold = threshold;
-                // 입력 장치·게인은 Steam 이 쥐고 있다(기획 §5.1 제약 1). 버튼이 실패하면 경로를 알려준다.
-                if (GUILayout.Button("Steam 음성 설정 열기 (입력 장치·게인)"))
+                if (_chat.Mode == VoiceMode.OpenMic) GUILayout.Label("오픈 마이크: 잡힌 소리를 거르지 않고 전부 보낸다");
+                // 입력 장치·게인·노이즈 처리는 Steam 이 쥐고 있다(기획 §5.1 제약 1). 버튼이 실패하면 경로를 알려준다.
+                if (GUILayout.Button("Steam 음성 설정 열기 (입력 장치·게인·노이즈 처리)"))
                     _settingsHint = _chat.Capture.OpenSettings()
                         ? null
                         : "Steam 오버레이를 열 수 없다. Steam 친구 → 음성 설정에서 바꾼다.";
