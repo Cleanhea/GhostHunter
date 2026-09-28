@@ -50,6 +50,7 @@ namespace GhostHunter.Gameplay.Player
             NetworkVariableWritePermission.Owner);
 
         private HeadlampBattery _state;
+        private PlayerLighter _lighter;
         private Light _light;
         private AudioSource _audio;
         private ISceneFlow _sceneFlow;
@@ -102,6 +103,8 @@ namespace GhostHunter.Gameplay.Player
             if (_motor == null || _look == null)
                 Debug.LogError($"{nameof(PlayerHeadlamp)}: PlayerMotor·PlayerLook 이 배선되지 않았습니다.", this);
 
+            // 어둠 판정에서 라이터도 빛으로 친다 — SanityNetworkState 가 헤드라이트를 찾는 방식과 같다.
+            _lighter = GetComponent<PlayerLighter>();
             BuildLight();
         }
 
@@ -198,8 +201,9 @@ namespace GhostHunter.Gameplay.Player
         }
 
         /// <summary>
-        /// 정신력 기획서 §4.3 — 어둠 = 자기 헤드라이트가 꺼진 상태. 드릴카 안은 어둠이 아니다. 인게임 로비처럼
-        /// 스테이지가 아닌 씬에서는 판정하지 않는다. 결과가 바뀔 때만 서버 API 를 부른다.
+        /// 정신력 기획서 §4.3 — 어둠 = 자기 헤드라이트와 라이터가 모두 꺼진 상태(라이터는 사용자 확정 2026-09-29,
+        /// lighter-system.md). 드릴카 안은 어둠이 아니다. 인게임 로비처럼 스테이지가 아닌 씬에서는 판정하지 않는다.
+        /// 결과가 바뀔 때만 서버 API 를 부른다.
         /// </summary>
         private void ServerUpdateDarkness()
         {
@@ -208,6 +212,7 @@ namespace GhostHunter.Gameplay.Player
 
             bool exposed = IsStageScene()
                 && !IsOn
+                && (_lighter == null || !_lighter.IsLit)
                 && !DrillCarSafeZone.Contains(transform.position);
             if (exposed != _sanity.IsDarknessExposed)
                 _sanity.ServerSetDarknessExposed(exposed);

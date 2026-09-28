@@ -35,6 +35,7 @@ namespace GhostHunter.Gameplay.Sanity
         private PlayerMotor _playerMotor;
         private MoleBurrowController _burrowController;
         private PlayerHeadlamp _headlamp;
+        private PlayerLighter _lighter;
 
         public int Sanity => _sanity.Value;
         public int MinimumSanity => _settings != null ? _settings.MinimumSanity : 0;
@@ -53,12 +54,13 @@ namespace GhostHunter.Gameplay.Sanity
         /// 이 값을 보고 완전히 건너뛴다 — <see cref="IsCrouching"/> 과 같은 Owner-authoritative
         /// 패턴이라 서버에서도 신뢰할 수 있다.
         ///
-        /// <para>땅굴 안에서 헤드라이트를 켜 두면 숨은 것이 아니다(§5.2.1 ②) — 이 값이 false 가 되어 귀신은
+        /// <para>땅굴 안에서 헤드라이트나 라이터를 켜 두면 숨은 것이 아니다(§5.2.1 ②, 라이터는 lighter-system.md) — 이 값이 false 가 되어 귀신은
         /// 땅 위에 서 있는 플레이어처럼 탐지·포획한다. 몸 숨기기·이름표처럼 "땅속에 있는가" 자체가 필요한 곳은
         /// <see cref="MoleBurrowController.IsBurrowed"/> 를 직접 읽는다.</para>
         /// </summary>
         public bool IsBurrowed => _burrowController != null && _burrowController.IsBurrowed
-            && (_headlamp == null || !_headlamp.IsOn);
+            && (_headlamp == null || !_headlamp.IsOn)
+            && (_lighter == null || !_lighter.IsLit);
         public bool IsDarknessExposed => _isDarknessExposed.Value;
         public float DarknessExposureSeconds =>
             _serverState != null ? _serverState.DarknessExposureSeconds : 0f;
@@ -85,6 +87,7 @@ namespace GhostHunter.Gameplay.Sanity
             _playerMotor = GetComponent<PlayerMotor>();
             _burrowController = GetComponent<MoleBurrowController>();
             _headlamp = GetComponent<PlayerHeadlamp>();
+            _lighter = GetComponent<PlayerLighter>();
 
             if (_settings != null)
                 return;

@@ -58,6 +58,31 @@ ADR-0010(서버 권위 가구 물리) 예외에 해당하지 않는다. 서버�
 - EditMode `HeadlampBatteryTests`(배터리·토글·충전·깜빡임), `ProjectWiringTests`(F 바인딩·프리팹 배선).
 - 실제 화면·효과음·Host/Client·Steam 2PC는 미검증.
 
+## 7. 라이터 (2026-09-29)
+
+규칙은 [lighter-system.md](../project/lighter-system.md). 헤드라이트와 같은 권위·복제 구조를 그대로 쓰는 두 번째 광원이다.
+
+| 대상 | 경로 | 역할 |
+| --- | --- | --- |
+| `PlayerLighter` | `Assets/Scripts/Gameplay/Player/PlayerLighter.cs` | Player 프리팹. 켜짐·연료 진행(소유자), `NetworkVariable` 복제(켜짐 즉시·연료 0.25초), 불빛·모양 표시(전 피어) |
+| 연료 규칙 | `HeadlampBattery` 재사용 | 켜져 있을 때 소모·드릴카 충전·0이면 꺼짐이 배터리와 같다. 깜빡임은 쓰지 않는다 |
+| `LighterSettings` | `Assets/Settings/Gameplay/LighterSettings_Default.asset` | 연료·불빛·흔들림·재질·효과음 [TEMP] |
+| `LighterFuelHud` | `Assets/Scripts/UI/LighterFuelHud.cs` | Player 프리팹. 헤드라이트 충전 칸(2) 아래 칸(3)에 "라이터 nn%" |
+| 퀵슬롯 아이템 | `QuickSlotItem_Lighter.asset` (`IsLighter`) | `QuickSlotLoadout_Default` 3번(빈 칸이던 자리) |
+| 불꽃 재질 | `Assets/Materials/M_LighterFlame.mat` (URP Unlit 주황) | 몸체는 `Map_Trim` |
+
+- **켜짐 = 들고 있음.** 입력 액션이 없다. 소유자가 매 프레임 `PlayerCleaningController.EquippedSlot`(서버가 확인해 돌려준 퀵슬롯 장착 —
+  대걸레 컨트롤러가 모든 슬롯의 장착을 맞춘다)의 아이템이 `IsLighter` 인지 보고, `생존 && 은신 위치 아님`이면 붙인다.
+  연료가 0이면 붙지 않고, 든 채로 드릴카에서 연료가 차면 다시 붙는다.
+- **판정 연결** — 헤드라이트 어둠 판정(§3)이 `!헤드라이트 && !라이터`로, `SanityNetworkState.IsBurrowed` 가 `… && !라이터 켜짐`으로 바뀌었다.
+  둘 다 같은 오브젝트의 `PlayerLighter` 를 `GetComponent` 로 찾는다(없으면 헤드라이트만 본다).
+- **불빛** — 스폰 시 Player 루트 아래 `Lighter`(몸체·불꽃 도형 + 점광원 `FlameLight`)를 만들고, 소리는 항상 켜져 있는 `LighterAudio` 에 둔다
+  (꺼질 때 `Lighter` 가 비활성화되므로 "집어넣는 소리"를 내려면 분리해야 한다). 위치는 헤드라이트와 같은 방식
+  `(0, 눈높이, 0) + 피치 × LocalOffset(0.22, −0.2, 0.42)`. 밝기는 Perlin 잡음으로 흔든다 — 피어마다 `NetworkObjectId` 씨앗이 달라 박자가 다르다.
+  도형은 런타임 생성물이라 충돌체를 지우고 그림자를 끈다.
+- **호스트 이전** — `PlayerState.LighterDrained`(쓴 연료)를 싣는다. 켜짐은 장착에서 다시 나오므로 싣지 않는다.
+- 검증: `ProjectWiringTests.Player_프리팹에_라이터와_연료_HUD_가_배선되고_퀵슬롯에_라이터가_있다`. 실제 화면·Host/Client 는 미검증.
+
 ---
 
 관련: [headlamp-system.md](../project/headlamp-system.md) · [sanity-system.md](sanity-system.md) ·

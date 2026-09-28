@@ -231,7 +231,9 @@ namespace GhostHunter.UI
                 ? "대걸레 · 좌클릭 청소\nTab 장비 변경"
                 : _equippedItem != null && _equippedItem.IsDriver
                     ? "드라이버 · 우클릭 유지 분해/조립\nTab 장비 변경"
-                    : "Tab 장비 선택";
+                    : _equippedItem != null && _equippedItem.IsLighter
+                        ? "라이터 · 들고 있는 동안 켜짐\nTab 장비 변경"
+                        : "Tab 장비 선택";
             if (_equippedItem == null)
             {
                 _equippedIcon.enabled = false;

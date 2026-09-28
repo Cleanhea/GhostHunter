@@ -376,6 +376,32 @@ namespace GhostHunter.Tests.EditMode
         }
 
         [Test]
+        public void Player_프리팹에_라이터와_연료_HUD_가_배선되고_퀵슬롯에_라이터가_있다()
+        {
+            var player = AssetDatabase.LoadAssetAtPath<GameObject>(PlayerPrefabPath);
+            Assert.IsNotNull(player, $"{PlayerPrefabPath} 를 찾지 못했습니다.");
+
+            PlayerLighter lighter = GetProjectComponentOrIgnore<PlayerLighter>(player, PlayerPrefabPath);
+            var serialized = new SerializedObject(lighter);
+            foreach (string reference in new[] { "_settings", "_loadout", "_equipment", "_look", "_motor", "_sanity" })
+                Assert.IsNotNull(serialized.FindProperty(reference).objectReferenceValue,
+                    $"Player 라이터의 {reference} 가 배선되지 않았습니다.");
+
+            var settings = (LighterSettings)serialized.FindProperty("_settings").objectReferenceValue;
+            Assert.IsNotNull(settings.FlameMaterial, "라이터 불꽃 재질이 비어 있습니다.");
+
+            var loadout = (QuickSlotLoadout)serialized.FindProperty("_loadout").objectReferenceValue;
+            bool hasLighter = false;
+            for (int i = 0; i < loadout.SlotCount; i++)
+                hasLighter |= loadout.GetSlot(i) != null && loadout.GetSlot(i).IsLighter;
+            Assert.IsTrue(hasLighter, "퀵슬롯 로드아웃에 라이터 아이템이 없습니다.");
+
+            GhostHunter.UI.LighterFuelHud hud = GetProjectComponentOrIgnore<GhostHunter.UI.LighterFuelHud>(player, PlayerPrefabPath);
+            Assert.AreEqual(lighter, new SerializedObject(hud).FindProperty("_lighter").objectReferenceValue,
+                "라이터 연료 HUD 가 Player 라이터를 가리키지 않습니다.");
+        }
+
+        [Test]
         public void Player_웅크리기_설정과_프리팹_참조가_배선되어_있다()
         {
             Assert.IsTrue(File.Exists(PlayerMoveSettingsPath), $"{PlayerMoveSettingsPath} 파일이 없습니다.");

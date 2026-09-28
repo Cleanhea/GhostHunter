@@ -46,6 +46,8 @@ namespace GhostHunter.Gameplay.Recovery
             public bool HeadlampOn;
             /// <summary>쓴 배터리 양. 남은 양이 아니라서 이 필드가 없는 스냅샷은 가득 찬 배터리로 복원된다.</summary>
             public float HeadlampDrained;
+            /// <summary>쓴 라이터 연료. 헤드라이트와 같은 이유로 남은 양이 아니라 쓴 양이다.</summary>
+            public float LighterDrained;
             public int DriverDurability;
         }
 

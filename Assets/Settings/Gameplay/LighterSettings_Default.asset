@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 46263425e58e405b8d3ddef5bb4076ec, type: 3}
+  m_Name: LighterSettings_Default
+  m_EditorClassIdentifier: GhostHunter.Gameplay::GhostHunter.Gameplay.Player.LighterSettings
+  _maxFuel: 100
+  _drainPerSecond: 0.8
+  _rechargePerSecond: 5
+  _localOffset: {x: 0.22, y: -0.2, z: 0.42}
+  _range: 4.5
+  _intensity: 1.6
+  _color: {r: 1, g: 0.62, b: 0.28, a: 1}
+  _flickerAmount: 0.18
+  _flickerSpeed: 9
+  _shadows: 2
+  _shadowStrength: 0.85
+  _flameMaterial: {fileID: 2100000, guid: 2c7e34687e0a479498172d693cfba23c, type: 2}
+  _bodyMaterial: {fileID: 2100000, guid: eb0f318771172bf4797a321f1d2bdda5, type: 2}
+  _onClip: {fileID: 0}
+  _offClip: {fileID: 0}
+  _emptyClip: {fileID: 0}
+  _sfxVolume: 0.8
