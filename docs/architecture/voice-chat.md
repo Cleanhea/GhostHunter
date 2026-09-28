@@ -70,6 +70,8 @@ batchmode, 24kHz 클립, 출력 48kHz·DSP 1024). 링버퍼는 최대 200ms만 �
 - 필터는 **인스펙터 순서대로** 걸린다(측정: 뒤에 붙은 300Hz 로우패스가 우리 신호를 거의 0으로 걸렀다).
   벽 로우패스가 음성에 걸리려면 VoiceReceiver 가 AudioLowPassFilter 보다 **위**에 있어야 한다.
   순서가 어긋나면 런타임 `Initialize` 가 에러를 남긴다(순서를 맞추던 `VoiceChatSetup` 은 ADR-0020으로 삭제).
+  일반 로비의 `LobbyVoiceService` 가 런타임에 만드는 화자 오브젝트도 같다 — `AddComponent` 를
+  VoiceReceiver → AudioLowPassFilter 순서로 부른다(2026-09-28, 거꾸로 붙여 로비 입장마다 에러가 났다).
 - 24kHz 음성은 수신 RPC(메인 스레드)에서 `VoiceResampler`(선형 보간, 패킷 경계 위상 유지)로 출력 레이트로 바꿔
   링에 넣는다. 오디오 스레드는 1:1로 꺼내기만 한다. Unity API·lock·할당을 쓰지 않는다.
 - 선버퍼 `JitterSeconds`(100ms)가 찰 때까지 무음이고, 바닥나면 다시 찰 때까지 무음이다(찔끔찔끔 재생하지 않는다).

@@ -43,6 +43,9 @@ namespace GhostHunter.Gameplay.Recovery
             public int BurrowPhase;
             public float BurrowTimer;
             public float BurrowCooldown;
+            public bool HeadlampOn;
+            /// <summary>쓴 배터리 양. 남은 양이 아니라서 이 필드가 없는 스냅샷은 가득 찬 배터리로 복원된다.</summary>
+            public float HeadlampDrained;
             public int DriverDurability;
         }
 

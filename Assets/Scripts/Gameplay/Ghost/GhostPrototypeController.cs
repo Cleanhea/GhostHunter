@@ -5,7 +5,6 @@ using GhostHunter.Gameplay.Interaction;
 using GhostHunter.Gameplay.Sanity;
 using GhostHunter.Gameplay.Recovery;
 using Unity.Netcode;
-using Unity.AI.Navigation;
 using UnityEngine;
 using UnityEngine.AI;
 
@@ -24,7 +23,15 @@ namespace GhostHunter.Gameplay.Ghost
     {
         private const float TurnSpeedDegrees = 540f;
         private const int MaxTrackedPlayers = 4;
-        private const float RoamGiveUpSeconds = 10f;
+        private const float MinRoamGiveUpSeconds = 4f;
+        private const int RoamPickAttempts = 12;
+        private const int SearchWanderPickAttempts = 6;
+        private const float NavSampleRadius = 1f;
+        private const float NavSampleFallbackRadius = 2.5f;
+        // 층고 3m 보다 작게 — 경로 코너·목적지가 바로 위/아래 층이면 '도착'으로 치지 않는다.
+        private const float ArrivalVerticalTolerance = 1.2f;
+        private const float StuckCheckInterval = 1f;
+        private const float StuckMinProgress = 0.25f;
         private const float ShakePulseInterval = 0.05f;
         private const float ShakeAngularFrequency = Mathf.PI * 2f * 9f; // 초당 9회 좌우 왕복
 
@@ -125,11 +132,25 @@ namespace GhostHunter.Gameplay.Ghost
         private float _catchCooldownRemaining;
         private NavMeshPath _navPath;
         private readonly Vector3[] _pathCorners = new Vector3[64];
+        private readonly Vector3[] _probeCorners = new Vector3[64];
         private int _pathCornerCount;
         private int _pathCornerIndex;
         private Vector3 _pathDestination;
         private bool _hasPath;
         private bool _navigationWarningLogged;
+        private float _stuckCheckRemaining;
+        private Vector3 _stuckCheckPosition;
+
+        // 서버가 집 루트로 구운 귀신 전용 NavMesh 와, 배회 목적지를 면적 비례로 뽑기 위한 삼각형 캐시.
+        private NavMeshData _navMeshData;
+        private NavMeshDataInstance _navMeshInstance;
+        private Vector3[] _navVertices;
+        private int[] _navIndices;
+        private float[] _navCumulativeArea;
+        private float _navTotalArea;
+
+        private Vector3 _searchDestination;
+        private bool _searchWandering;
 
         private int _cleaningProgress;
         private StageRecoverySnapshot.GhostState _pendingRecoveryState;
@@ -398,6 +419,7 @@ namespace GhostHunter.Gameplay.Ghost
             _bodyWitnessTimers.Clear();
             _bedHide.Clear();
             _burrowExposure.Clear();
+            RemoveNavMesh();
             ApplyEnvironmentLights(GhostPhase.Active);
             if (_warningAudio != null)
                 _warningAudio.Stop();
@@ -412,6 +434,13 @@ namespace GhostHunter.Gameplay.Ghost
                 Destroy(_generatedHeartbeat);
                 _generatedHeartbeat = null;
             }
+        }
+
+        public override void OnDestroy()
+        {
+            // NavMesh 데이터는 씬과 무관하게 전역에 남으므로 despawn 없이 파괴되는 경우도 치운다.
+            RemoveNavMesh();
+            base.OnDestroy();
         }
 
         private void Update()
@@ -435,8 +464,10 @@ namespace GhostHunter.Gameplay.Ghost
             ServerTick(Time.deltaTime);
         }
 
-        /// <summary>스포너가 스폰 직후 집 내부 배회 범위를 넣어 준다.</summary>
-        /// <summary>스폰 직후 스포너가 부른다. 집 경계를 정하고, 경로가 없으면 집 루트의 NavMesh 를 굽는다.</summary>
+        /// <summary>
+        /// 스폰 직후 스포너가 부른다. 집 X/Z 경계를 정하고 집 루트의 충돌체로 귀신 전용 NavMesh 를 굽는다.
+        /// 배회 목적지는 이 NavMesh 에서 뽑으므로 계단으로 이어진 모든 층이 대상이다(MAP-11).
+        /// </summary>
         public void ServerConfigureRoam(Vector3 center, Vector3 size, Transform navigationRoot)
         {
             if (!IsServer)
@@ -944,6 +975,7 @@ namespace GhostHunter.Gameplay.Ghost
                 {
                     _target = detected;
                     _pursuit = Pursuit.Chase;
+                    _searchWandering = false;
                     _witnessedHidingPlayer = null;
                     _lastKnownPosition = detected.transform.position;
                 }
@@ -964,7 +996,9 @@ namespace GhostHunter.Gameplay.Ghost
             switch (_pursuit)
             {
                 case Pursuit.Chase:
-                    MoveToward(_lastKnownPosition, _settings.ChaseSpeed, deltaTime);
+                    // 닿을 수 없는 곳(가구 위·공중)에 있어도 멈추지 않고 가장 가까운 지점까지 간다.
+                    if (!MoveToward(_lastKnownPosition, _settings.ChaseSpeed, deltaTime, allowPartial: true))
+                        _repathRemaining = 0f;
                     TryCatch();
                     break;
 
@@ -975,7 +1009,7 @@ namespace GhostHunter.Gameplay.Ghost
                         _lastKnownPosition = _witnessedHidingPlayer.transform.position;
                     else if (_witnessedBurrowPlayer != null)
                         _lastKnownPosition = _witnessedBurrowPlayer.transform.position;
-                    MoveToward(_lastKnownPosition, _settings.ChaseSpeed, deltaTime);
+                    MoveSearch(deltaTime);
                     // 들어가는 걸 본 침대 밑 대상은 은신이 성립하기 전까지 수색 중에도 잡는다
                     // (IsBedHidden 이면 TryCatch 가 건너뛴다).
                     TryCatch();
@@ -990,12 +1024,52 @@ namespace GhostHunter.Gameplay.Ghost
                     break;
             }
 
+            // 어택 중에는 배회하다가도 막힌 방문을 연다(§9.4) — 진행 방향 앞을 본다.
             if (_repathRemaining <= 0f)
             {
                 _repathRemaining = _settings.RepathInterval;
-                if (_pursuit != Pursuit.Roam)
-                    TryOpenBlockingDoor(_lastKnownPosition);
+                TryOpenBlockingDoor();
             }
+        }
+
+        /// <summary>
+        /// §9.3 수색 이동. 목격한 은신·굴착은 그 플레이어에게 곧장 간다. 아니면 마지막 위치로 간 뒤
+        /// 그 주변(`SearchWanderRadius`)을 돌아다니며 시야·소리 재탐지 기회를 만든다.
+        /// </summary>
+        private void MoveSearch(float deltaTime)
+        {
+            if (_witnessedHidingPlayer != null || _witnessedBurrowPlayer != null)
+            {
+                MoveToward(_lastKnownPosition, _settings.ChaseSpeed, deltaTime, allowPartial: true);
+                return;
+            }
+
+            Vector3 destination = _searchWandering ? _searchDestination : _lastKnownPosition;
+            if (HasArrived(destination)
+                || !MoveToward(destination, _settings.ChaseSpeed, deltaTime, allowPartial: true))
+            {
+                PickSearchWanderPoint();
+            }
+        }
+
+        private void PickSearchWanderPoint()
+        {
+            _searchWandering = true;
+            for (int attempt = 0; attempt < SearchWanderPickAttempts; attempt++)
+            {
+                Vector2 offset = Random.insideUnitCircle * _settings.SearchWanderRadius;
+                Vector3 probe = _lastKnownPosition + new Vector3(offset.x, 0f, offset.y);
+                if (NavMesh.SamplePosition(probe, out NavMeshHit hit, 1.5f, NavMesh.AllAreas)
+                    && Mathf.Abs(hit.position.y - _lastKnownPosition.y) <= ArrivalVerticalTolerance
+                    && !HasArrived(hit.position)
+                    && TryMeasurePath(hit.position, out _))
+                {
+                    _searchDestination = hit.position;
+                    return;
+                }
+            }
+
+            _searchDestination = transform.position;
         }
 
         /// <summary>목격한 일반 은신처와 굴착 은신을 확률 없이 검사한다.</summary>
@@ -1033,47 +1107,150 @@ namespace GhostHunter.Gameplay.Ghost
 
         private void ServerTickRoam(float deltaTime, float speed)
         {
-            Vector3 flat = _roamDestination - transform.position;
-            flat.y = 0f;
+            if (HasArrived(_roamDestination) || Time.time >= _roamGiveUpAt)
+                PickRoamDestination(speed);
 
-            if (flat.magnitude <= _settings.ReachDistance || Time.time >= _roamGiveUpAt)
-                PickRoamDestination();
-
-            MoveToward(_roamDestination, speed, deltaTime);
+            // 경로가 끊겼거나(닫힌 문 등) 제자리에 걸렸으면 다음 틱에 다른 목적지를 고른다.
+            if (!MoveToward(_roamDestination, speed, deltaTime, allowPartial: false))
+                _roamGiveUpAt = 0f;
         }
 
-        private void PickRoamDestination()
+        /// <summary>
+        /// NavMesh 삼각형을 면적 비례로 뽑아 배회 목적지를 정한다. 계단으로 이어진 모든 층이 후보이고,
+        /// 완전한 경로가 있는 곳만 고른다(지붕 위 같은 끊긴 섬 제외). `RoamMinDistance` 이상 떨어진 곳을 우선한다.
+        /// </summary>
+        private void PickRoamDestination(float speed)
         {
-            _roamGiveUpAt = Time.time + RoamGiveUpSeconds;
+            float minSqr = _settings.RoamMinDistance * _settings.RoamMinDistance;
+            bool hasFallback = false;
+            Vector3 fallback = default;
+            float fallbackLength = 0f;
 
-            for (int attempt = 0; attempt < 8; attempt++)
+            for (int attempt = 0; attempt < RoamPickAttempts; attempt++)
             {
-                float x = Random.Range(_roamCenter.x - _roamExtents.x, _roamCenter.x + _roamExtents.x);
-                float z = Random.Range(_roamCenter.z - _roamExtents.z, _roamCenter.z + _roamExtents.z);
-                var origin = new Vector3(x, _roamCenter.y + _roamExtents.y + 2f, z);
-                float rayLength = _roamExtents.y * 2f + 5f;
+                if (!TryRandomNavPoint(out Vector3 candidate))
+                    break;
+                if (!TryMeasurePath(candidate, out float length))
+                    continue;
 
-                if (Physics.Raycast(
-                        origin,
-                        Vector3.down,
-                        out RaycastHit hit,
-                        rayLength,
-                        GameLayers.NonGhostPrototypeRaycastMask,
-                        QueryTriggerInteraction.Ignore)
-                    && hit.collider.gameObject.layer != GameLayers.Player)
+                if ((candidate - transform.position).sqrMagnitude >= minSqr)
                 {
-                    _roamDestination = new Vector3(x, hit.point.y, z);
+                    SetRoamDestination(candidate, length, speed);
                     return;
+                }
+
+                if (!hasFallback)
+                {
+                    hasFallback = true;
+                    fallback = candidate;
+                    fallbackLength = length;
                 }
             }
 
-            _roamDestination = _roamCenter;
+            if (hasFallback)
+            {
+                SetRoamDestination(fallback, fallbackLength, speed);
+                return;
+            }
+
+            _roamDestination = transform.position;
+            _roamGiveUpAt = Time.time + 1f;
         }
 
-        private void MoveToward(Vector3 target, float speed, float deltaTime)
+        private void SetRoamDestination(Vector3 destination, float pathLength, float speed)
+        {
+            _roamDestination = destination;
+            _roamGiveUpAt = Time.time + RoamGiveUpSeconds(pathLength, speed);
+        }
+
+        /// <summary>경로 길이를 걸어갈 시간에 여유를 더한 배회 포기 시간. 층을 건너는 긴 경로도 끝까지 간다.</summary>
+        internal static float RoamGiveUpSeconds(float pathLength, float speed)
+        {
+            if (speed <= 0.01f)
+                return MinRoamGiveUpSeconds;
+            return Mathf.Max(MinRoamGiveUpSeconds, pathLength / speed * 1.5f + 2f);
+        }
+
+        /// <summary>평면 거리가 도착 반경 안이고 같은 층(높이 차 <see cref="ArrivalVerticalTolerance"/> 이하)인가.</summary>
+        internal static bool HasArrived(Vector3 position, Vector3 destination, float reachDistance)
+        {
+            Vector3 flat = destination - position;
+            if (Mathf.Abs(flat.y) > ArrivalVerticalTolerance)
+                return false;
+            flat.y = 0f;
+            return flat.sqrMagnitude <= reachDistance * reachDistance;
+        }
+
+        private bool HasArrived(Vector3 destination)
+        {
+            return HasArrived(transform.position, destination, _settings.ReachDistance);
+        }
+
+        private bool TryRandomNavPoint(out Vector3 point)
+        {
+            point = default;
+            if (_navCumulativeArea == null || _navCumulativeArea.Length == 0)
+                return false;
+
+            int triangle = System.Array.BinarySearch(_navCumulativeArea, Random.value * _navTotalArea);
+            if (triangle < 0)
+                triangle = ~triangle;
+            triangle = Mathf.Min(triangle, _navCumulativeArea.Length - 1);
+
+            Vector3 a = _navVertices[_navIndices[triangle * 3]];
+            Vector3 b = _navVertices[_navIndices[triangle * 3 + 1]];
+            Vector3 c = _navVertices[_navIndices[triangle * 3 + 2]];
+            float u = Random.value;
+            float v = Random.value;
+            if (u + v > 1f)
+            {
+                u = 1f - u;
+                v = 1f - v;
+            }
+
+            point = a + (b - a) * u + (c - a) * v;
+            return true;
+        }
+
+        /// <summary>현재 위치에서 목적지까지 완전한 경로가 있으면 그 길이를 돌려준다. 현재 경로는 건드리지 않는다.</summary>
+        private bool TryMeasurePath(Vector3 destination, out float length)
+        {
+            length = 0f;
+            if (!TrySampleNavMesh(transform.position, out Vector3 from)
+                || !TrySampleNavMesh(destination, out Vector3 to)
+                || !NavMesh.CalculatePath(from, to, NavMesh.AllAreas, _navPath)
+                || _navPath.status != NavMeshPathStatus.PathComplete)
+            {
+                return false;
+            }
+
+            int count = _navPath.GetCornersNonAlloc(_probeCorners);
+            for (int i = 1; i < count; i++)
+                length += Vector3.Distance(_probeCorners[i - 1], _probeCorners[i]);
+            return true;
+        }
+
+        private static bool TrySampleNavMesh(Vector3 position, out Vector3 onMesh)
+        {
+            if (NavMesh.SamplePosition(position, out NavMeshHit hit, NavSampleRadius, NavMesh.AllAreas)
+                || NavMesh.SamplePosition(position, out hit, NavSampleFallbackRadius, NavMesh.AllAreas))
+            {
+                onMesh = hit.position;
+                return true;
+            }
+
+            onMesh = position;
+            return false;
+        }
+
+        /// <summary>
+        /// NavMesh 경로의 코너를 따라 이동한다. 경로가 없거나 1초 동안 거의 못 움직였으면(닫힌 문·걸림)
+        /// false 를 돌려주고 다음 틱에 경로를 다시 만든다.
+        /// </summary>
+        private bool MoveToward(Vector3 target, float speed, float deltaTime, bool allowPartial)
         {
             if (deltaTime <= 0f)
-                return;
+                return true;
 
             target = ClampToHouseBounds(target, _roamCenter, _roamExtents);
             _pathRebuildRemaining -= deltaTime;
@@ -1081,13 +1258,14 @@ namespace GhostHunter.Gameplay.Ghost
                 || (target - _pathDestination).sqrMagnitude >
                     _settings.ReachDistance * _settings.ReachDistance)
             {
-                RebuildPath(target);
+                RebuildPath(target, allowPartial);
             }
 
             if (!_hasPath)
             {
                 _controller.Move(Vector3.down * _settings.Gravity * deltaTime);
-                return;
+                ResetStuckCheck();
+                return false;
             }
 
             Vector3 waypoint = _pathCornerIndex < _pathCornerCount
@@ -1097,7 +1275,8 @@ namespace GhostHunter.Gameplay.Ghost
             flat.y = 0f;
             float distance = flat.magnitude;
 
-            while (distance <= _settings.ReachDistance && _pathCornerIndex < _pathCornerCount - 1)
+            while (_pathCornerIndex < _pathCornerCount - 1
+                && HasArrived(waypoint))
             {
                 _pathCornerIndex++;
                 waypoint = _pathCorners[_pathCornerIndex];
@@ -1121,25 +1300,40 @@ namespace GhostHunter.Gameplay.Ghost
             move.y = -_settings.Gravity;
             _controller.Move(move * deltaTime);
             ClampToHouseBounds();
+
+            return !IsStuck(target, deltaTime);
+        }
+
+        private bool IsStuck(Vector3 target, float deltaTime)
+        {
+            _stuckCheckRemaining -= deltaTime;
+            if (_stuckCheckRemaining > 0f)
+                return false;
+
+            bool stuck = (transform.position - _stuckCheckPosition).sqrMagnitude
+                    < StuckMinProgress * StuckMinProgress
+                && !HasArrived(target);
+            ResetStuckCheck();
+            if (stuck)
+                _pathRebuildRemaining = 0f;
+            return stuck;
+        }
+
+        private void ResetStuckCheck()
+        {
+            _stuckCheckRemaining = StuckCheckInterval;
+            _stuckCheckPosition = transform.position;
         }
 
         private void EnsureNavMesh(Transform house)
         {
-            if (NavMesh.SamplePosition(transform.position, out _, 1f, NavMesh.AllAreas))
-                return;
-
+            RemoveNavMesh();
             if (house == null)
             {
                 Debug.LogError("[GhostPrototype] 집 루트가 없어 경로를 만들 수 없습니다.", this);
                 return;
             }
 
-            NavMeshSurface surface = house.GetComponent<NavMeshSurface>();
-            if (surface == null)
-                surface = house.gameObject.AddComponent<NavMeshSurface>();
-
-            surface.collectObjects = CollectObjects.Children;
-            surface.useGeometry = NavMeshCollectGeometry.PhysicsColliders;
             int includedLayers = ~0;
             if (GameLayers.Player >= 0)
                 includedLayers &= ~(1 << GameLayers.Player);
@@ -1147,36 +1341,161 @@ namespace GhostHunter.Gameplay.Ghost
                 includedLayers &= ~(1 << GameLayers.Furniture);
             if (GameLayers.GhostPrototype >= 0)
                 includedLayers &= ~(1 << GameLayers.GhostPrototype);
-            surface.layerMask = includedLayers;
-            surface.BuildNavMesh();
 
-            if (!NavMesh.SamplePosition(transform.position, out _, 1f, NavMesh.AllAreas))
+            _navMeshData = BuildHouseNavMesh(
+                house,
+                includedLayers,
+                _settings.NavAgentRadius,
+                _controller.height,
+                Mathf.Max(0.3f, _controller.stepOffset));
+            if (_navMeshData == null)
+            {
+                Debug.LogError("[GhostPrototype] 집 루트에서 NavMesh 를 만들 충돌체를 찾지 못했습니다.", this);
+                return;
+            }
+
+            _navMeshInstance = NavMesh.AddNavMeshData(_navMeshData);
+            CacheRoamTriangles();
+
+            if (!NavMesh.SamplePosition(transform.position, out _, NavSampleFallbackRadius, NavMesh.AllAreas))
                 Debug.LogError("[GhostPrototype] 집 내부 NavMesh 생성 후에도 스폰 위치를 찾지 못했습니다.", this);
         }
 
-        private void RebuildPath(Vector3 target)
+        /// <summary>
+        /// 집 루트 자식의 물리 충돌체로 귀신 전용 NavMesh 를 굽는다. 에이전트 종류는 기본(0)을 쓰되
+        /// 반경·높이·턱 높이만 귀신에 맞춘다 — 기본 Humanoid 반경 0.5 로는 1.0m 문틀이 막힌다.
+        /// 트리거(은신처·세이프 존)와 문(열고 닫혀 움직임)은 장애물에서 뺀다. 닫힌 문은 이동 중에 연다.
+        /// </summary>
+        internal static NavMeshData BuildHouseNavMesh(
+            Transform root, int layerMask, float agentRadius, float agentHeight, float agentClimb)
+        {
+            var sources = new List<NavMeshBuildSource>();
+            NavMeshBuilder.CollectSources(
+                root,
+                layerMask,
+                NavMeshCollectGeometry.PhysicsColliders,
+                0,
+                new List<NavMeshBuildMarkup>(),
+                sources);
+
+            for (int i = sources.Count - 1; i >= 0; i--)
+            {
+                if (sources[i].component is Collider collider
+                    && (collider.isTrigger || collider.GetComponentInParent<DoorInteractable>() != null))
+                {
+                    sources.RemoveAt(i);
+                }
+            }
+
+            bool hasBounds = false;
+            Bounds bounds = default;
+            foreach (Collider collider in root.GetComponentsInChildren<Collider>())
+            {
+                if (collider.isTrigger || (layerMask & (1 << collider.gameObject.layer)) == 0)
+                    continue;
+                if (hasBounds)
+                {
+                    bounds.Encapsulate(collider.bounds);
+                }
+                else
+                {
+                    bounds = collider.bounds;
+                    hasBounds = true;
+                }
+            }
+
+            if (!hasBounds || sources.Count == 0)
+                return null;
+
+            bounds.Expand(1f);
+            NavMeshBuildSettings settings = NavMesh.GetSettingsByID(0);
+            settings.agentRadius = agentRadius;
+            settings.agentHeight = agentHeight;
+            settings.agentClimb = agentClimb;
+            return NavMeshBuilder.BuildNavMeshData(
+                settings, sources, bounds, Vector3.zero, Quaternion.identity);
+        }
+
+        /// <summary>집 X/Z 경계 안의 NavMesh 삼각형과 누적 면적을 캐시한다(배회 목적지 추첨용).</summary>
+        private void CacheRoamTriangles()
+        {
+            NavMeshTriangulation triangulation = NavMesh.CalculateTriangulation();
+            Vector3[] vertices = triangulation.vertices;
+            int[] indices = triangulation.indices;
+            var kept = new List<int>(indices.Length);
+            var cumulative = new List<float>(indices.Length / 3);
+            float total = 0f;
+
+            for (int i = 0; i + 2 < indices.Length; i += 3)
+            {
+                Vector3 a = vertices[indices[i]];
+                Vector3 b = vertices[indices[i + 1]];
+                Vector3 c = vertices[indices[i + 2]];
+                if (!IsInsideHouseBounds((a + b + c) / 3f))
+                    continue;
+
+                float area = Vector3.Cross(b - a, c - a).magnitude * 0.5f;
+                if (area <= 1e-4f)
+                    continue;
+
+                total += area;
+                kept.Add(indices[i]);
+                kept.Add(indices[i + 1]);
+                kept.Add(indices[i + 2]);
+                cumulative.Add(total);
+            }
+
+            _navVertices = vertices;
+            _navIndices = kept.ToArray();
+            _navCumulativeArea = cumulative.ToArray();
+            _navTotalArea = total;
+        }
+
+        private void RemoveNavMesh()
+        {
+            if (_navMeshInstance.valid)
+                _navMeshInstance.Remove();
+            _navMeshInstance = default;
+            if (_navMeshData != null)
+            {
+                Destroy(_navMeshData);
+                _navMeshData = null;
+            }
+
+            _navVertices = null;
+            _navIndices = null;
+            _navCumulativeArea = null;
+            _navTotalArea = 0f;
+            _hasPath = false;
+        }
+
+        private bool RebuildPath(Vector3 target, bool allowPartial)
         {
             _pathRebuildRemaining = _settings.RepathInterval;
             _pathDestination = target;
             _hasPath = false;
 
-            if (!NavMesh.SamplePosition(transform.position, out NavMeshHit from, 1f, NavMesh.AllAreas)
-                || !NavMesh.SamplePosition(target, out NavMeshHit to, 1f, NavMesh.AllAreas)
-                || !NavMesh.CalculatePath(from.position, to.position, NavMesh.AllAreas, _navPath)
-                || _navPath.status != NavMeshPathStatus.PathComplete)
+            if (!TrySampleNavMesh(transform.position, out Vector3 from)
+                || !TrySampleNavMesh(target, out Vector3 to)
+                || !NavMesh.CalculatePath(from, to, NavMesh.AllAreas, _navPath)
+                || _navPath.status == NavMeshPathStatus.PathInvalid
+                || (!allowPartial && _navPath.status != NavMeshPathStatus.PathComplete))
             {
                 if (!_navigationWarningLogged)
                 {
-                    Debug.LogWarning("[GhostPrototype] 이동 가능한 NavMesh 경로가 없어 이동을 멈춥니다.", this);
+                    Debug.LogWarning(
+                        $"[GhostPrototype] {target} 까지 NavMesh 경로가 없습니다. 다른 목적지·경로를 찾습니다.",
+                        this);
                     _navigationWarningLogged = true;
                 }
-                return;
+                return false;
             }
 
             _pathCornerCount = _navPath.GetCornersNonAlloc(_pathCorners);
             _pathCornerIndex = _pathCornerCount > 1 ? 1 : 0;
             _hasPath = _pathCornerCount > 0;
             _navigationWarningLogged = false;
+            return _hasPath;
         }
 
         private bool TryDetectPlayer(int playerCount, out SanityNetworkState detected)
@@ -1484,23 +1803,31 @@ namespace GhostHunter.Gameplay.Ghost
             _searchRemaining = _settings.SearchDuration;
         }
 
-        private void TryOpenBlockingDoor(Vector3 destination)
+        /// <summary>
+        /// 진행 방향(다음 경로 코너) 앞 `DoorOpenRange` 안의 닫힌 방문을 연다(§9.4). 목적지까지의 직선이
+        /// 아니라 경로를 보므로 다른 층·모퉁이 너머의 대상을 쫓을 때도 길을 막은 문을 연다.
+        /// NavMesh 는 문을 장애물로 굽지 않으므로 닫힌 문은 이렇게 열어야 지나간다.
+        /// </summary>
+        private void TryOpenBlockingDoor()
         {
-            Vector3 from = transform.position + Vector3.up;
-            Vector3 to = destination + Vector3.up;
+            Vector3 waypoint = _hasPath && _pathCornerIndex < _pathCornerCount
+                ? _pathCorners[_pathCornerIndex]
+                : _lastKnownPosition;
+            Vector3 direction = waypoint - transform.position;
+            direction.y = 0f;
+            if (direction.sqrMagnitude < 1e-4f)
+                direction = transform.forward;
 
-            if (!Physics.Linecast(
-                    from,
-                    to,
+            if (!Physics.Raycast(
+                    transform.position + Vector3.up,
+                    direction.normalized,
                     out RaycastHit hit,
+                    _settings.DoorOpenRange,
                     GameLayers.NonGhostPrototypeRaycastMask,
                     QueryTriggerInteraction.Ignore))
             {
                 return;
             }
-
-            if (Vector3.Distance(transform.position, hit.point) > _settings.DoorOpenRange)
-                return;
 
             DoorInteractable door = hit.collider.GetComponentInParent<DoorInteractable>();
             if (door != null && !door.IsOpen)
@@ -1510,6 +1837,7 @@ namespace GhostHunter.Gameplay.Ghost
         private void ResetPursuit()
         {
             _pursuit = Pursuit.Roam;
+            _searchWandering = false;
             _target = null;
             _targetWasVisible = false;
             _witnessedHidingPlayer = null;
@@ -1630,6 +1958,8 @@ namespace GhostHunter.Gameplay.Ghost
             if (_stateLight == null)
                 return;
 
+            // 불 꺼진 집에서 몸 조명이 크면 귀신이 등불을 들고 다니는 꼴이 된다 — 반경·밝기는 설정에서 작게.
+            _stateLight.range = _settings.StateLightRange;
             switch (phase)
             {
                 case GhostPhase.Warning:
@@ -1640,7 +1970,7 @@ namespace GhostHunter.Gameplay.Ghost
                 case GhostPhase.Attack:
                     _stateLight.enabled = true;
                     _stateLight.color = new Color(1f, 0.15f, 0.12f);
-                    _stateLight.intensity = 5f;
+                    _stateLight.intensity = _settings.AttackLightIntensity;
                     break;
 
                 default:
@@ -1655,7 +1985,10 @@ namespace GhostHunter.Gameplay.Ghost
                 return;
 
             // 심장 박동 연출(§10.3)의 시각 버전. 오디오 에셋이 나오면 소리를 얹는다.
-            _stateLight.intensity = Mathf.Lerp(1.2f, 4.5f, Mathf.PingPong(Time.time * 2.4f, 1f));
+            _stateLight.intensity = Mathf.Lerp(
+                _settings.WarningLightMin,
+                _settings.WarningLightMax,
+                Mathf.PingPong(Time.time * 2.4f, 1f));
         }
 
         private void ApplyEnvironmentLights(GhostPhase phase)

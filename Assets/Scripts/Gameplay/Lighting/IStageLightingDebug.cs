@@ -25,6 +25,15 @@ namespace GhostHunter.Gameplay.Lighting
 
         void SetAllOn(bool on);
 
+        /// <summary>씬 환경광(Trilight)에 곱하는 배율. 0 ~ <see cref="StageLightingSettings.AmbientScaleMax"/>.</summary>
+        float AmbientScale { get; set; }
+
+        /// <summary>검은 안개(Exponential Squared) 스위치.</summary>
+        bool FogOn { get; set; }
+
+        /// <summary>검은 안개 밀도. 0 ~ <see cref="StageLightingSettings.FogDensityMax"/>.</summary>
+        float FogDensity { get; set; }
+
         /// <summary>켜진 개수·설정 요약 한 줄.</summary>
         string StatusSummary { get; }
     }

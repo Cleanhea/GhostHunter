@@ -221,8 +221,8 @@ namespace GhostHunter.Gameplay.Voice
             if (_filter == null || _filter.gameObject != gameObject) return;
             Component[] components = GetComponents<Component>();
             if (Array.IndexOf(components, _filter) < Array.IndexOf(components, this))
-                Debug.LogError("[VoiceReceiver] AudioLowPassFilter 가 VoiceReceiver 보다 위에 있어 벽 로우패스가 음성에 걸리지 않는다. " +
-                               "Player 프리팹에서 AudioLowPassFilter 를 VoiceReceiver 아래로 옮겨라.", this);
+                Debug.LogError($"[VoiceReceiver] '{name}' 에서 AudioLowPassFilter 가 VoiceReceiver 보다 위에 있어 벽 로우패스가 음성에 걸리지 않는다. " +
+                               "프리팹이면 컴포넌트 순서를, 런타임 생성이면 AddComponent 순서를 VoiceReceiver → AudioLowPassFilter 로 바꿔라.", this);
         }
     }
 }

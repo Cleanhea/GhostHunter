@@ -71,7 +71,8 @@ Game/SanitySystem/SanityTeamService
   현재 `ServerRevive()` 는 **개발 HUD 전용**이며 게임플레이 호출부가 없다. 규칙은 미정이다
   ([../project/sanity-system.md](../project/sanity-system.md), [../project/gdd.md §2](../project/gdd.md) D-4)
 
-- 헤드라이트 입력과 드릴 카 안전 구역 판정
+- ~~헤드라이트 입력과 드릴 카 안전 구역 판정~~ — 2026-09-28 `PlayerHeadlamp`가 서버에서 판정해
+  `ServerSetDarknessExposed`를 부른다(스테이지 씬 && 생존 && 꺼짐 && 드릴카 밖) → [headlamp.md](headlamp.md)
 - 실제 귀신 이벤트·시체·아이템·사망 시스템에서의 API 호출
 - 속삭임, 숨·심장 SFX 재생 컴포넌트와 오디오 에셋 (카메라 노이즈는 구현했다)
 - 정식 시체·귀신 이벤트·아이템 시스템 (테스트베드는 그 자리를 임시로 채운 것이다)
@@ -104,7 +105,7 @@ Game/SanitySystem/SanityTeamService
 | API | 호출 시점 |
 | --- | --- |
 | `ServerResetForStage()` | 스테이지 시작 |
-| `ServerSetDarknessExposed(bool)` | 자신의 헤드라이트 OFF이며 드릴 카 밖인지 계산한 최종 결과 변경 시 |
+| `ServerSetDarknessExposed(bool)` | 자신의 헤드라이트 OFF이며 드릴 카 밖인지 계산한 최종 결과 변경 시 — 호출부 `PlayerHeadlamp`(F1 어둠 토글은 다음 판정까지만 유지) |
 | `ServerApplyGhostEventWitnessed()` | 서버가 귀신 이벤트 목격을 확정했을 때 |
 | `ServerApplyCorpseWitnessed(ulong)` | 서버가 시체 최초 가시 판정을 확정했을 때 |
 | `ServerRestoreSanity(int)` | 정신력 아이템 사용을 서버가 승인했을 때 |

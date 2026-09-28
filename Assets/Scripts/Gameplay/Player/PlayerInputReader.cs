@@ -19,7 +19,7 @@ namespace GhostHunter.Gameplay.Player
     /// 자기 잠금(<see cref="SetSkillInputLocked"/>)을 먼저 풀어도 생존 조작이 되살아나지 않게
     /// 막는 안전장치다.</item>
     /// <item><see cref="SetSkillInputLocked"/> — 굴착 중(두더지 스킬 기획서 §5.5.1, 사용자 확정
-    /// 2026-09-05). <b>시야 회전(Look)과 스킬 키(Burrow)만 남기고</b> 나머지를 전부 막는다 —
+    /// 2026-09-05). <b>시야 회전(Look)과 스킬 키(Burrow)·헤드라이트(F)만 남기고</b> 나머지를 전부 막는다 —
     /// 땅속에서 점프·던지기·문 여닫기·자세 전환이 되면 안 된다.</item>
     /// <item><see cref="SetWheelInputLocked"/> — 퀵슬롯 휠이 열린 동안(사용자 확정 2026-09-12).
     /// <b>시야 회전(Look)만 0으로</b> 만들고 Attack·Interact·Burrow·Detect·Prone·Jump를 막는다.
@@ -57,6 +57,7 @@ namespace GhostHunter.Gameplay.Player
         private InputAction _useDriverAction;
         private InputAction _rotateFurnitureAction;
         private InputAction _rotateFurnitureModeAction;
+        private InputAction _headlampAction;
         private bool _jumpQueued;
         private bool _inputLocked;
         private bool _deathLocked;
@@ -159,6 +160,13 @@ namespace GhostHunter.Gameplay.Player
         /// <summary>휠 클릭(Player/RotateFurnitureMode) — 가구 휠 조작의 회전 ↔ 기울이기 전환.</summary>
         public bool FurnitureRotateModePressedThisFrame { get; private set; }
 
+        /// <summary>
+        /// 헤드라이트 전원 토글(F, Player/Headlamp) → docs/project/headlamp-system.md.
+        /// <b>굴착·휠 잠금 중에도 살아 있다</b> — 땅굴 안에서 켜는 것 자체가 규칙에 있는 행동이다(두더지 스킬
+        /// 기획서 §5.2.1 ②). 메뉴·사망 잠금에서는 막힌다.
+        /// </summary>
+        public bool HeadlampPressedThisFrame { get; private set; }
+
         private ILocalPlayerContext _localPlayer;
 
         public override void OnNetworkSpawn()
@@ -194,6 +202,7 @@ namespace GhostHunter.Gameplay.Player
             _useDriverAction = _runtimeActions.FindAction("Player/UseDriver", true);
             _rotateFurnitureAction = _runtimeActions.FindAction("Player/RotateFurniture", true);
             _rotateFurnitureModeAction = _runtimeActions.FindAction("Player/RotateFurnitureMode", true);
+            _headlampAction = _runtimeActions.FindAction("Player/Headlamp", true);
             _voiceAction = _runtimeActions.FindAction("Player/Voice", true);
             _voiceMuteAction = _runtimeActions.FindAction("Player/VoiceMute", true);
             _runtimeActions.Enable();
@@ -227,6 +236,7 @@ namespace GhostHunter.Gameplay.Player
             UseDriverHeld = false;
             FurnitureRotateScroll = 0f;
             FurnitureRotateModePressedThisFrame = false;
+            HeadlampPressedThisFrame = false;
             _inputLocked = false;
             _deathLocked = false;
             _skillLocked = false;
@@ -320,6 +330,7 @@ namespace GhostHunter.Gameplay.Player
             UseDriverHeld = false;
             FurnitureRotateScroll = 0f;
             FurnitureRotateModePressedThisFrame = false;
+            HeadlampPressedThisFrame = false;
             _jumpQueued = false;
         }
 
@@ -425,9 +436,11 @@ namespace GhostHunter.Gameplay.Player
             if (_skillLocked)
             {
                 // 굴착 중(§5.5.1) — 시야 회전과 굴착 키만 살린다. 굴착 키를 살려야 스스로 나온다.
+                // 헤드라이트도 살린다 — 땅굴 안에서 켜면 들킨다는 규칙(§5.2.1 ②)이 있어야 할 선택이다.
                 ClearBlockedInputs();
                 Look = _lookAction.ReadValue<Vector2>();
                 BurrowPressedThisFrame = _burrowAction.WasPressedThisFrame();
+                HeadlampPressedThisFrame = _headlampAction.WasPressedThisFrame();
                 DetectPressedThisFrame = false;
                 ClearSpectatorInputs();
                 return;
@@ -445,6 +458,7 @@ namespace GhostHunter.Gameplay.Player
                 QuickSlotHeld = _quickSlotAction.IsPressed();
                 QuickSlotPressedThisFrame = _quickSlotAction.WasPressedThisFrame();
                 QuickSlotReleasedThisFrame = _quickSlotAction.WasReleasedThisFrame();
+                HeadlampPressedThisFrame = _headlampAction.WasPressedThisFrame();
                 ClearSpectatorInputs();
                 return;
             }
@@ -470,6 +484,7 @@ namespace GhostHunter.Gameplay.Player
             QuickSlotHeld = _quickSlotAction.IsPressed();
             QuickSlotPressedThisFrame = _quickSlotAction.WasPressedThisFrame();
             QuickSlotReleasedThisFrame = _quickSlotAction.WasReleasedThisFrame();
+            HeadlampPressedThisFrame = _headlampAction.WasPressedThisFrame();
 
             if (_jumpAction.WasPressedThisFrame())
                 _jumpQueued = true;

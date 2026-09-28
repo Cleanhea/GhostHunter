@@ -185,8 +185,9 @@ namespace GhostHunter.Systems.Steam
                 var root = new GameObject($"LobbyVoice_{member.SteamId}");
                 root.transform.SetParent(transform, false);
                 AudioSource source = root.AddComponent<AudioSource>();
-                AudioLowPassFilter filter = root.AddComponent<AudioLowPassFilter>();
+                // 필터는 컴포넌트 순서대로 걸린다 — 로우패스가 VoiceReceiver 보다 뒤에 있어야 음성에 걸린다.
                 VoiceReceiver receiver = root.AddComponent<VoiceReceiver>();
+                AudioLowPassFilter filter = root.AddComponent<AudioLowPassFilter>();
                 receiver.Configure(source, filter);
                 receiver.Initialize(_settings, speaker, _chat, _capture.SampleRate);
                 speaker.Receiver = receiver;

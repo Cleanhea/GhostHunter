@@ -25,7 +25,7 @@ namespace GhostHunter.Gameplay.Ghost
         [Header("집 내부 활동 경계 (§3.1 · §9.1)")]
         [Tooltip("귀신의 이동·탐지·잡힘을 제한하는 집 내부 X/Z 상자. 집 밖 플레이어는 대상에서 제외한다.")]
         [SerializeField] private Vector3 _roamCenter = new(0f, 0.1f, -1f);
-        [Tooltip("높이는 배회 목적지 레이의 시작점(중심 + 높이/2 + 2m)만 정한다. 시작점이 위층 바닥보다 낮으면 그 층에서만 배회한다.")]
+        [Tooltip("X/Z 만 쓴다. 높이는 무시 — 배회 목적지는 이 상자 안의 NavMesh 에서 뽑으므로 계단으로 이어진 모든 층이 대상이다.")]
         [SerializeField] private Vector3 _roamSize = new(16f, 3f, 9f);
 
         private readonly StringBuilder _summaryBuilder = new(256);

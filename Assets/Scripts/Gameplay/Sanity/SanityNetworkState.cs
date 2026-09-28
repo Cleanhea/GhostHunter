@@ -34,6 +34,7 @@ namespace GhostHunter.Gameplay.Sanity
         private ISanityTeamService _teamService;
         private PlayerMotor _playerMotor;
         private MoleBurrowController _burrowController;
+        private PlayerHeadlamp _headlamp;
 
         public int Sanity => _sanity.Value;
         public int MinimumSanity => _settings != null ? _settings.MinimumSanity : 0;
@@ -48,11 +49,16 @@ namespace GhostHunter.Gameplay.Sanity
         public bool IsProne => _playerMotor != null && _playerMotor.IsProne;
 
         /// <summary>
-        /// 굴착 스킬로 땅속에 숨어 있는지(두더지 스킬 시스템 기획서 §5.2). 귀신의 탐지 판정이
+        /// 굴착 스킬로 땅속에 <b>숨어</b> 있는지(두더지 스킬 시스템 기획서 §5.2). 귀신의 탐지 판정이
         /// 이 값을 보고 완전히 건너뛴다 — <see cref="IsCrouching"/> 과 같은 Owner-authoritative
         /// 패턴이라 서버에서도 신뢰할 수 있다.
+        ///
+        /// <para>땅굴 안에서 헤드라이트를 켜 두면 숨은 것이 아니다(§5.2.1 ②) — 이 값이 false 가 되어 귀신은
+        /// 땅 위에 서 있는 플레이어처럼 탐지·포획한다. 몸 숨기기·이름표처럼 "땅속에 있는가" 자체가 필요한 곳은
+        /// <see cref="MoleBurrowController.IsBurrowed"/> 를 직접 읽는다.</para>
         /// </summary>
-        public bool IsBurrowed => _burrowController != null && _burrowController.IsBurrowed;
+        public bool IsBurrowed => _burrowController != null && _burrowController.IsBurrowed
+            && (_headlamp == null || !_headlamp.IsOn);
         public bool IsDarknessExposed => _isDarknessExposed.Value;
         public float DarknessExposureSeconds =>
             _serverState != null ? _serverState.DarknessExposureSeconds : 0f;
@@ -78,6 +84,7 @@ namespace GhostHunter.Gameplay.Sanity
         {
             _playerMotor = GetComponent<PlayerMotor>();
             _burrowController = GetComponent<MoleBurrowController>();
+            _headlamp = GetComponent<PlayerHeadlamp>();
 
             if (_settings != null)
                 return;
@@ -145,7 +152,10 @@ namespace GhostHunter.Gameplay.Sanity
             return true;
         }
 
-        /// <summary>헤드라이트·드릴 카 판정이 계산한 최종 어둠 노출 여부를 서버에 적용한다.</summary>
+        /// <summary>
+        /// 헤드라이트·드릴 카 판정이 계산한 최종 어둠 노출 여부를 서버에 적용한다. 게임플레이 호출부는
+        /// <see cref="PlayerHeadlamp"/> 하나다 — 판정이 바뀔 때마다 덮어쓰므로 F1 HUD 의 어둠 토글은 다음 판정까지만 간다.
+        /// </summary>
         public bool ServerSetDarknessExposed(bool isExposed)
         {
             if (!CanMutateOnServer() || !_serverState.IsAlive)

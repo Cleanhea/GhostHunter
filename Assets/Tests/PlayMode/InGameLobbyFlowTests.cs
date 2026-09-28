@@ -171,10 +171,35 @@ namespace GhostHunter.Tests.PlayMode
             Assert.That(ghostPosition.x > 52.67f && ghostPosition.x < 82.67f
                     && ghostPosition.z > -12f && ghostPosition.z < 12f,
                 $"귀신은 B안 집 안에 선다 — {ghostPosition}");
-            Assert.IsTrue(NavMesh.SamplePosition(ghostPosition, out _, 1f, NavMesh.AllAreas),
+            Assert.IsTrue(NavMesh.SamplePosition(ghostPosition, out NavMeshHit ghostOnMesh, 1f, NavMesh.AllAreas),
                 "B안 집 NavMesh 가 구워져 귀신 발밑에 있다");
+            // MAP-11: 계단으로 2층(바닥 3m)·다락(6m)까지 이어져 있어야 귀신이 층을 오간다.
+            Assert.IsTrue(HasCompletePathToFloor(ghostOnMesh.position, 3f), "귀신 NavMesh 가 2층까지 이어진다");
+            Assert.IsTrue(HasCompletePathToFloor(ghostOnMesh.position, 6f), "귀신 NavMesh 가 다락까지 이어진다");
 
             yield return WaitUntil(() => cleaning.DirtyCount > 0, "Stage1 에 청소 얼룩이 배치되지 않았다");
+        }
+
+        /// <summary>B안 집 X/Z 안, 높이 floorY±0.4 의 NavMesh 정점 중 하나라도 완전한 경로로 닿는가(지붕 같은 끊긴 섬은 건너뛴다).</summary>
+        private static bool HasCompletePathToFloor(Vector3 from, float floorY)
+        {
+            var path = new NavMeshPath();
+            foreach (Vector3 vertex in NavMesh.CalculateTriangulation().vertices)
+            {
+                if (Mathf.Abs(vertex.y - floorY) > 0.4f
+                    || vertex.x < 53.67f || vertex.x > 81.67f || vertex.z < -11f || vertex.z > 11f)
+                {
+                    continue;
+                }
+
+                if (NavMesh.CalculatePath(from, vertex, NavMesh.AllAreas, path)
+                    && path.status == NavMeshPathStatus.PathComplete)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static GameObject FindRoot(Scene scene, string name)

@@ -11,7 +11,7 @@ namespace GhostHunter.Gameplay.Lighting
     /// 설정이 바뀌거나(<see cref="StageLightingSettings.Version"/>) HUD 스위치를 누를 때만 다시 적용한다.
     ///
     /// <para>천장등 밝기는 귀신 연출의 기준값(<see cref="GhostAmbientLight"/>)으로도 넘긴다 — 깜빡임·어택
-    /// 조명이 끝나면 HUD 에서 정한 밝기로 돌아온다. 환경광은 이 씬이 활성 씬일 때만 고치고
+    /// 조명이 끝나면 HUD 에서 정한 밝기로 돌아온다. 환경광·안개·반사는 이 씬이 활성 씬일 때만 고치고
     /// 비활성화될 때 씬 저장값으로 되돌린다.</para>
     ///
     /// <para>네트워크 동기화 없음 — 조명은 피어마다 로컬 연출이다(귀신 현상과 같은 원칙).</para>
@@ -33,6 +33,11 @@ namespace GhostHunter.Gameplay.Lighting
         private Color _baseEquator;
         private Color _baseGround;
         private float _baseAmbientIntensity;
+        private bool _baseFog;
+        private FogMode _baseFogMode;
+        private Color _baseFogColor;
+        private float _baseFogDensity;
+        private float _baseReflectionIntensity;
 
         public IReadOnlyList<StageRoomLight> Lights => _lights;
         public int FloorCount => _floorNames.Length;
@@ -52,7 +57,8 @@ namespace GhostHunter.Gameplay.Lighting
                 return _settings == null
                     ? "StageLightingSettings 미배선"
                     : $"천장등 {on}/{_lights.Length} 켜짐 · 그림자 {_settings.RoomShadows} · " +
-                      $"해 {(_settings.SunOn ? "on" : "off")} · 환경광 ×{_settings.AmbientScale:0.##}";
+                      $"해 {(_settings.SunOn ? "on" : "off")} · 환경광 ×{_settings.AmbientScale:0.##} · " +
+                      $"안개 {(_settings.FogOn ? _settings.FogDensity.ToString("0.###") : "off")}";
             }
         }
 
@@ -90,6 +96,36 @@ namespace GhostHunter.Gameplay.Lighting
                     light.SetSwitch(on);
 
             _dirty = true;
+        }
+
+        public float AmbientScale
+        {
+            get => _settings != null ? _settings.AmbientScale : 1f;
+            set
+            {
+                if (_settings != null)
+                    _settings.SetAmbientScale(value);
+            }
+        }
+
+        public bool FogOn
+        {
+            get => _settings != null && _settings.FogOn;
+            set
+            {
+                if (_settings != null)
+                    _settings.SetFogOn(value);
+            }
+        }
+
+        public float FogDensity
+        {
+            get => _settings != null ? _settings.FogDensity : 0f;
+            set
+            {
+                if (_settings != null)
+                    _settings.SetFogDensity(value);
+            }
         }
 
         private void OnEnable()
@@ -156,6 +192,11 @@ namespace GhostHunter.Gameplay.Lighting
                 _baseEquator = RenderSettings.ambientEquatorColor;
                 _baseGround = RenderSettings.ambientGroundColor;
                 _baseAmbientIntensity = RenderSettings.ambientIntensity;
+                _baseFog = RenderSettings.fog;
+                _baseFogMode = RenderSettings.fogMode;
+                _baseFogColor = RenderSettings.fogColor;
+                _baseFogDensity = RenderSettings.fogDensity;
+                _baseReflectionIntensity = RenderSettings.reflectionIntensity;
                 _ambientCaptured = true;
             }
 
@@ -165,6 +206,14 @@ namespace GhostHunter.Gameplay.Lighting
             RenderSettings.ambientEquatorColor = _baseEquator * scale;
             RenderSettings.ambientGroundColor = _baseGround * scale;
             RenderSettings.ambientIntensity = _baseAmbientIntensity * scale;
+
+            // 균일한 환경광만으로는 "색이 어두운" 화면일 뿐이다. 거리로 시야를 먹는 검은 안개와
+            // 스카이박스 반사 제거가 있어야 헤드라이트 밖이 어둠으로 읽힌다.
+            RenderSettings.fog = _settings.FogOn;
+            RenderSettings.fogMode = FogMode.ExponentialSquared;
+            RenderSettings.fogColor = _settings.FogColor;
+            RenderSettings.fogDensity = _settings.FogDensity;
+            RenderSettings.reflectionIntensity = _settings.ReflectionIntensity;
         }
 
         private void RestoreAmbient()
@@ -176,6 +225,11 @@ namespace GhostHunter.Gameplay.Lighting
             RenderSettings.ambientEquatorColor = _baseEquator;
             RenderSettings.ambientGroundColor = _baseGround;
             RenderSettings.ambientIntensity = _baseAmbientIntensity;
+            RenderSettings.fog = _baseFog;
+            RenderSettings.fogMode = _baseFogMode;
+            RenderSettings.fogColor = _baseFogColor;
+            RenderSettings.fogDensity = _baseFogDensity;
+            RenderSettings.reflectionIntensity = _baseReflectionIntensity;
             _ambientCaptured = false;
         }
     }

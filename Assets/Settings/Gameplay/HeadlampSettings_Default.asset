@@ -1,0 +1,34 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7c3e9a41d25b4f8e9a06b1c4e8d27f53, type: 3}
+  m_Name: HeadlampSettings_Default
+  m_EditorClassIdentifier: GhostHunter.Gameplay::GhostHunter.Gameplay.Player.HeadlampSettings
+  _maxBattery: 100
+  _drainPerSecond: 0.6
+  _rechargePerSecond: 5
+  _lowBatteryThreshold: 15
+  _lowBatteryBlinkInterval: 5
+  _lowBatteryBlinkCount: 3
+  _blinkOffSeconds: 0.08
+  _blinkOnSeconds: 0.1
+  _localOffset: {x: 0, y: 0.12, z: 0.18}
+  _range: 14
+  _spotAngle: 62
+  _innerSpotAngle: 28
+  _intensity: 6
+  _color: {r: 1, g: 0.95, b: 0.86, a: 1}
+  _shadows: 2
+  _shadowStrength: 0.9
+  _onClip: {fileID: 0}
+  _offClip: {fileID: 0}
+  _brokenClip: {fileID: 0}
+  _sfxVolume: 0.8

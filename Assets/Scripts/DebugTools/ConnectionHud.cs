@@ -685,6 +685,8 @@ namespace GhostHunter.DebugTools
 
             GUILayout.Label(_lighting.StatusSummary, GUI.skin.textArea);
 
+            DrawDarknessRows();
+
             GUILayout.BeginHorizontal();
             if (GUILayout.Button("전부 켜기"))
                 _lighting.SetAllOn(true);
@@ -711,6 +713,63 @@ namespace GhostHunter.DebugTools
                 GUILayout.Label("StageLightingSettings 를 찾는 중입니다.");
 
             GUILayout.Label("로컬 전용 · 값은 튜닝 창(F2)과 같다 · 영구 반영은 인스펙터", GUI.skin.label);
+        }
+
+        /// <summary>불 꺼진 집의 어둠(환경광·검은 안개) — 가장 자주 만지는 값이라 섹션 맨 위에 둔다.</summary>
+        private void DrawDarknessRows()
+        {
+            float ambient = _lighting.AmbientScale;
+            float nextAmbient = DrawSliderRow(
+                $"환경광 ×{ambient:0.00}", ambient, StageLightingSettings.AmbientScaleMax, 0.05f, 0.1f, 1f, "1");
+            if (!Mathf.Approximately(nextAmbient, ambient))
+                _lighting.AmbientScale = nextAmbient;
+
+            bool fogOn = _lighting.FogOn;
+            float density = _lighting.FogDensity;
+            GUILayout.BeginHorizontal();
+            bool nextFogOn = GUILayout.Toggle(fogOn, " 검은 안개", GUILayout.Width(90f));
+            GUI.enabled = fogOn;
+            float nextDensity = DrawSliderControls(density, StageLightingSettings.FogDensityMax, 0.005f, 0.01f, 0.025f, "기본");
+            GUI.enabled = true;
+            GUILayout.EndHorizontal();
+            GUILayout.Label(fogOn
+                ? $"    밀도 {density:0.000} — 8m {FogVisible(density, 8f):0%} · 16m {FogVisible(density, 16f):0%} 보임"
+                : "    안개 꺼짐 — 거리와 무관하게 환경광만큼 보인다");
+
+            if (nextFogOn != fogOn)
+                _lighting.FogOn = nextFogOn;
+            if (!Mathf.Approximately(nextDensity, density))
+                _lighting.FogDensity = nextDensity;
+        }
+
+        // Exponential Squared: 남는 비율 = exp(-(밀도 × 거리)²).
+        private static float FogVisible(float density, float distance) =>
+            Mathf.Exp(-(density * distance) * (density * distance));
+
+        private static float DrawSliderRow(
+            string label, float value, float max, float snap, float step, float reset, string resetLabel)
+        {
+            GUILayout.BeginHorizontal();
+            GUILayout.Label(label, GUILayout.Width(90f));
+            float next = DrawSliderControls(value, max, snap, step, reset, resetLabel);
+            GUILayout.EndHorizontal();
+            return next;
+        }
+
+        private static float DrawSliderControls(
+            float value, float max, float snap, float step, float reset, string resetLabel)
+        {
+            float next = GUILayout.HorizontalSlider(value, 0f, max, GUILayout.MinWidth(120f));
+            // 끌어서 바꾼 값만 snap 단위로 맞춘다 — 그리기만 해서는 값이 바뀌지 않는다.
+            if (!Mathf.Approximately(next, value))
+                next = Mathf.Round(next / snap) * snap;
+            if (GUILayout.Button("−", GUILayout.Width(24f)))
+                next = value - step;
+            if (GUILayout.Button("+", GUILayout.Width(24f)))
+                next = value + step;
+            if (GUILayout.Button(resetLabel, GUILayout.ExpandWidth(false)))
+                next = reset;
+            return Mathf.Clamp(next, 0f, max);
         }
 
         private void DrawLightingRooms()

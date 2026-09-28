@@ -48,6 +48,9 @@ MonoBehaviour:
   _catchCooldown: 4
   _gravity: 12
   _doorOpenRange: 2.2
+  _navAgentRadius: 0.25
+  _roamMinDistance: 6
+  _searchWanderRadius: 4
   _phenomenaIdleInterval: 24
   _phenomenaActiveInterval: 10
   _phenomenaHighRiskInterval: 6
@@ -64,3 +67,7 @@ MonoBehaviour:
   _phenomenonWitnessAngle: 70
   _phenomenonWitnessEyeHeight: 1.5
   _bedHideConcealSeconds: 1
+  _stateLightRange: 3
+  _warningLightMin: 0.2
+  _warningLightMax: 0.8
+  _attackLightIntensity: 1.2

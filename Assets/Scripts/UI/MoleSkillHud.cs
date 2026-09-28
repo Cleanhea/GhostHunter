@@ -268,7 +268,8 @@ namespace GhostHunter.UI
             return Mathf.Clamp01(remaining / duration);
         }
 
-        private static void Stretch(RectTransform rectTransform)
+        // 아래 도형·정리 도우미는 같은 모양을 써야 하는 헤드라이트 충전 UI(HeadlampChargeHud)도 쓴다.
+        internal static void Stretch(RectTransform rectTransform)
         {
             rectTransform.anchorMin = Vector2.zero;
             rectTransform.anchorMax = Vector2.one;
@@ -277,7 +278,7 @@ namespace GhostHunter.UI
             rectTransform.pivot = new Vector2(0.5f, 0.5f);
         }
 
-        private static Sprite CreateCircleSprite(int resolution, float radius, out Texture2D texture)
+        internal static Sprite CreateCircleSprite(int resolution, float radius, out Texture2D texture)
         {
             texture = new Texture2D(resolution, resolution, TextureFormat.RGBA32, false)
             {
@@ -310,7 +311,7 @@ namespace GhostHunter.UI
                 100f);
         }
 
-        private static Sprite CreateRingSprite(
+        internal static Sprite CreateRingSprite(
             int resolution,
             float outerRadius,
             float thickness,
@@ -369,7 +370,7 @@ namespace GhostHunter.UI
                 1f);
         }
 
-        private static void DestroyRuntimeObject(Object target)
+        internal static void DestroyRuntimeObject(Object target)
         {
             if (target == null)
                 return;

@@ -45,7 +45,8 @@
 - 헤드라이트 시스템의 전체 사양
 
 귀신 행동은 [ghost-system.md](ghost-system.md), 현재 P1 구현은
-[ghost-prototype.md](../architecture/ghost-prototype.md), 아이템과 헤드라이트의 상세 규칙은 향후 전용 문서에서 정의한다.
+[ghost-prototype.md](../architecture/ghost-prototype.md), 헤드라이트는 [headlamp-system.md](headlamp-system.md),
+아이템의 상세 규칙은 향후 전용 문서에서 정의한다.
 
 저장소 Markdown에서는 원문의 초록색 기획 의도 표시를 `> **기획 의도**` 인용 블록으로 표현한다.
 
@@ -206,7 +207,7 @@ Game 씬 후면에는 레퍼런스의 트럭 정신력 화면을 기반으로 �
 | 정신력 증가 아이템별 수치 | 아이템 시스템에서 TBD |
 | Game 정신력 모니터 | **씬 후면 World Space 숫자 전용 4인 UI 구현** |
 | 드릴 카 모니터 상세 UI | TBD |
-| 헤드라이트 전체 사양 | 별도 문서 TBD |
+| 헤드라이트 전체 사양 | [headlamp-system.md](headlamp-system.md) — 어둠 노출 판정 연결 구현(2026-09-28) |
 
 개인 정신력, 생존자 팀 평균, 감소·회복 API, 시체 중복 방지, 디버프 상태와 Game 정신력 모니터는
 P1으로 구현했다.

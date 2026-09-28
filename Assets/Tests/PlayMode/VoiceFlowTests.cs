@@ -127,7 +127,8 @@ namespace GhostHunter.Tests.PlayMode
             Assert.IsTrue(remote.GetComponent<SanityNetworkState>().ServerMarkDead());
             var rpcTarget = (RpcTarget)typeof(NetworkBehaviour).GetProperty("RpcTarget",
                 BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic).GetValue(remote);
-            using (var packet = new NativeArray<byte>(new byte[] { 1, 0, 7 }, Allocator.Temp))
+            // 중간에 yield 로 프레임을 넘기므로 Temp(프레임 끝에 자동 해제)가 아니라 Persistent 로 잡는다.
+            using (var packet = new NativeArray<byte>(new byte[] { 1, 0, 7 }, Allocator.Persistent))
             {
                 Invoke(remote, "PlayVoiceRpc", packet, (byte)1, (ushort)1, false,
                     (RpcParams)rpcTarget.Single(0, RpcTargetUse.Temp));

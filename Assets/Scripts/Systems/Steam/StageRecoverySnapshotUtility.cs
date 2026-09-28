@@ -80,6 +80,7 @@ namespace GhostHunter.Systems.Steam
                 sanity.CaptureStageState(ref state);
                 visuals.CaptureStageState(ref state);
                 player.GetComponent<MoleBurrowController>()?.CaptureStageState(ref state);
+                player.GetComponent<PlayerHeadlamp>()?.CaptureStageState(ref state);
                 player.GetComponent<PlayerFurnitureDriverController>()?.CaptureStageState(ref state);
                 players.Add(state);
             }
@@ -169,6 +170,7 @@ namespace GhostHunter.Systems.Steam
                 sanity.ServerRestoreStageState(state);
                 visuals.ServerRestoreStageState(state);
                 player.GetComponent<MoleBurrowController>()?.ServerRestoreStageState(state);
+                player.GetComponent<PlayerHeadlamp>()?.ServerRestoreStageState(state);
                 player.GetComponent<PlayerFurnitureDriverController>()?.ServerRestoreStageState(state);
                 return true;
             }

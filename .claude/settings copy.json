@@ -24,5 +24,32 @@
       "Read(./Library/Bee/**)",
       "Read(./Library/Artifacts/**)"
     ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard-large-read.js\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/check-cs-rules.js\"",
+            "timeout": 15,
+            "statusMessage": "C# 하드 룰 검사"
+          }
+        ]
+      }
+    ]
   }
 }

@@ -29,6 +29,8 @@ namespace GhostHunter.Tests.EditMode
             "Assets/Settings/Gameplay/PlayerMoveSettings_Default.asset";
         private const string SanitySettingsPath =
             "Assets/Settings/Gameplay/SanitySystemSettings_Default.asset";
+        private const string HeadlampSettingsPath =
+            "Assets/Settings/Gameplay/HeadlampSettings_Default.asset";
         private const string GhostPrefabPath = "Assets/Prefabs/Ghost/Ghost_Prototype.prefab";
         private const string GhostSettingsPath =
             "Assets/Settings/Gameplay/GhostPrototypeSettings_Default.asset";
@@ -335,6 +337,42 @@ namespace GhostHunter.Tests.EditMode
             Assert.IsTrue(hasKeyboardT, "Player/Burrow 액션에 T키가 바인딩되지 않았습니다.");
             Assert.IsFalse(hasKeyboardE, "Player/Burrow 액션에 E키 바인딩이 남아 있습니다 (Interact 와 충돌).");
             Assert.IsFalse(hasKeyboardR, "Player/Burrow 액션에 이전 R키 바인딩이 남아 있습니다.");
+        }
+
+        [Test]
+        public void Player_헤드라이트_액션은_F키에_바인딩되어_있다()
+        {
+            var actions = AssetDatabase.LoadAssetAtPath<InputActionAsset>(PlayerInputActionsPath);
+            Assert.IsNotNull(actions, $"{PlayerInputActionsPath} 를 찾지 못했습니다.");
+
+            InputAction headlamp = actions.FindAction("Player/Headlamp", false);
+            Assert.IsNotNull(headlamp, "Player/Headlamp 액션이 없습니다.");
+
+            bool hasKeyboardF = false;
+            foreach (InputBinding binding in headlamp.bindings)
+                hasKeyboardF |= binding.path == "<Keyboard>/f";
+
+            Assert.IsTrue(hasKeyboardF, "Player/Headlamp 액션에 F키가 바인딩되지 않았습니다.");
+        }
+
+        [Test]
+        public void Player_프리팹에_헤드라이트와_설정이_배선되어_있다()
+        {
+            Assert.IsTrue(File.Exists(HeadlampSettingsPath), $"{HeadlampSettingsPath} 파일이 없습니다.");
+
+            var player = AssetDatabase.LoadAssetAtPath<GameObject>(PlayerPrefabPath);
+            Assert.IsNotNull(player, $"{PlayerPrefabPath} 를 찾지 못했습니다.");
+
+            PlayerHeadlamp headlamp = GetProjectComponentOrIgnore<PlayerHeadlamp>(player, PlayerPrefabPath);
+            var settings = AssetDatabase.LoadAssetAtPath<HeadlampSettings>(HeadlampSettingsPath);
+            Assert.IsNotNull(settings, $"{HeadlampSettingsPath} 를 찾지 못했습니다.");
+
+            var serialized = new SerializedObject(headlamp);
+            Assert.AreEqual(settings, serialized.FindProperty("_settings").objectReferenceValue,
+                "Player 헤드라이트 설정 배선이 잘못됐습니다.");
+            foreach (string reference in new[] { "_input", "_look", "_motor", "_sanity" })
+                Assert.IsNotNull(serialized.FindProperty(reference).objectReferenceValue,
+                    $"Player 헤드라이트의 {reference} 가 배선되지 않았습니다.");
         }
 
         [Test]

@@ -203,6 +203,15 @@
                     "processors": "",
                     "interactions": "",
                     "initialStateCheck": false
+                },
+                {
+                    "name": "Headlamp",
+                    "type": "Button",
+                    "id": "b7e2c4a9-5f13-4d86-9a2e-3c8f1d6b4e70",
+                    "expectedControlType": "Button",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
                 }
             ],
             "bindings": [
@@ -742,6 +751,17 @@
                     "processors": "",
                     "groups": "",
                     "action": "RotateFurnitureMode",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "d4a81f3c-6e27-4b95-8c1d-7f2e9a5b3c06",
+                    "path": "<Keyboard>/f",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Headlamp",
                     "isComposite": false,
                     "isPartOfComposite": false
                 }

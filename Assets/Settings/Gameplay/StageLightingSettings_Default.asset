@@ -13,13 +13,17 @@ MonoBehaviour:
   m_Name: StageLightingSettings_Default
   m_EditorClassIdentifier: GhostHunter.Gameplay::GhostHunter.Gameplay.Lighting.StageLightingSettings
   _roomLightsOn: 1
-  _roomIntensity: 4
+  _roomIntensity: 0.3
   _roomRangeScale: 1
   _roomColorTemperature: 3200
   _roomShadows: 1
-  _roomShadowStrength: 0.9
-  _fixtureEmission: 2.5
+  _roomShadowStrength: 1
+  _fixtureEmission: 0.15
   _sunOn: 1
-  _sunIntensity: 1
+  _sunIntensity: 0.01
   _sunShadows: 2
-  _ambientScale: 0.45
+  _ambientScale: 1
+  _fogOn: 1
+  _fogDensity: 0.025
+  _fogColor: {r: 0, g: 0, b: 0, a: 1}
+  _reflectionIntensity: 0.25

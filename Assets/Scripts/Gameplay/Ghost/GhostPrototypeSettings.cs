@@ -81,6 +81,17 @@ namespace GhostHunter.Gameplay.Ghost
         [Tooltip("추격·수색 중 이 거리 안의 닫힌 방문을 직접 연다 (§9.4).")]
         [SerializeField] private float _doorOpenRange = 2.2f;
 
+        [Header("Navigation (MAP-11 · [TEMP])")]
+        [Tooltip("귀신 전용 NavMesh 를 굽는 에이전트 반경(m). 프로젝트 기본 Humanoid(0.5)로는 B안 1.0m 문틀이 " +
+            "양쪽에서 0.5씩 깎여 막힌다. CharacterController 반경(0.35)보다 작게 둬 벽에 붙어 미끄러지게 한다.")]
+        [SerializeField] private float _navAgentRadius = 0.25f;
+
+        [Tooltip("배회 목적지를 고를 때 현재 위치에서 최소 이만큼(m) 떨어진 곳을 우선한다. 제자리 맴돌기 방지.")]
+        [SerializeField] private float _roamMinDistance = 6f;
+
+        [Tooltip("수색(§9.3) 중 마지막 위치 주변을 어슬렁거리는 반경(m).")]
+        [SerializeField] private float _searchWanderRadius = 4f;
+
         [Header("Paranormal phenomena (§6 · [TBD] G-13)")]
         [Tooltip("평상시 초자연현상 발생 주기(초). 활동보다 드물다 (§6.1).")]
         [SerializeField] private float _phenomenaIdleInterval = 24f;
@@ -136,6 +147,19 @@ namespace GhostHunter.Gameplay.Ghost
             "들어가는 걸 귀신이 봤으면(추격/수색 대상이면) 타이머가 돌지 않는다.")]
         [SerializeField, Min(0f)] private float _bedHideConcealSeconds = 1f;
 
+        [Header("Body state light (§10.3 · §10.4 · [TEMP] 어두운 집 기준)")]
+        [Tooltip("경고·어택 중 귀신 몸에 켜지는 점광원 반경(m). 크면 불 꺼진 집을 귀신이 들고 다니는 등불처럼 밝힌다.")]
+        [SerializeField, Min(0.5f)] private float _stateLightRange = 3f;
+
+        [Tooltip("경고 중 심장 박동처럼 오가는 밝기 하한.")]
+        [SerializeField, Min(0f)] private float _warningLightMin = 0.2f;
+
+        [Tooltip("경고 중 심장 박동처럼 오가는 밝기 상한.")]
+        [SerializeField, Min(0f)] private float _warningLightMax = 0.8f;
+
+        [Tooltip("어택 중 빨간 몸 조명 밝기.")]
+        [SerializeField, Min(0f)] private float _attackLightIntensity = 1.2f;
+
         public int AttackTeamSanity => _attackTeamSanity;
         public int HighRiskTeamSanity => _highRiskTeamSanity;
         public float WarningDuration => _warningDuration;
@@ -168,6 +192,9 @@ namespace GhostHunter.Gameplay.Ghost
         public float CatchCooldown => _catchCooldown;
         public float Gravity => _gravity;
         public float DoorOpenRange => _doorOpenRange;
+        public float NavAgentRadius => _navAgentRadius;
+        public float RoamMinDistance => _roamMinDistance;
+        public float SearchWanderRadius => _searchWanderRadius;
         public float PhenomenaIdleInterval => _phenomenaIdleInterval;
         public float PhenomenaActiveInterval => _phenomenaActiveInterval;
         public float PhenomenaHighRiskInterval => _phenomenaHighRiskInterval;
@@ -184,6 +211,10 @@ namespace GhostHunter.Gameplay.Ghost
         public float PhenomenonWitnessAngle => _phenomenonWitnessAngle;
         public float PhenomenonWitnessEyeHeight => _phenomenonWitnessEyeHeight;
         public float BedHideConcealSeconds => _bedHideConcealSeconds;
+        public float StateLightRange => _stateLightRange;
+        public float WarningLightMin => _warningLightMin;
+        public float WarningLightMax => _warningLightMax;
+        public float AttackLightIntensity => _attackLightIntensity;
 
         /// <summary>기획서 §7.3 의 팀 평균 정신력별 10초당 어택 확률.</summary>
         public float AttackChanceForTeamSanity(int teamSanity)
@@ -238,6 +269,9 @@ namespace GhostHunter.Gameplay.Ghost
             _catchCooldown = Mathf.Max(0f, _catchCooldown);
             _gravity = Mathf.Max(0f, _gravity);
             _doorOpenRange = Mathf.Max(0f, _doorOpenRange);
+            _navAgentRadius = Mathf.Clamp(_navAgentRadius, 0.1f, 0.5f);
+            _roamMinDistance = Mathf.Max(0f, _roamMinDistance);
+            _searchWanderRadius = Mathf.Max(0.5f, _searchWanderRadius);
 
             _phenomenaIdleInterval = Mathf.Max(1f, _phenomenaIdleInterval);
             _phenomenaActiveInterval = Mathf.Max(1f, _phenomenaActiveInterval);
@@ -254,6 +288,10 @@ namespace GhostHunter.Gameplay.Ghost
             _phenomenonWitnessDistance = Mathf.Max(0.1f, _phenomenonWitnessDistance);
             _phenomenonWitnessEyeHeight = Mathf.Max(0f, _phenomenonWitnessEyeHeight);
 
+            _stateLightRange = Mathf.Max(0.5f, _stateLightRange);
+            _warningLightMin = Mathf.Max(0f, _warningLightMin);
+            _warningLightMax = Mathf.Max(_warningLightMin, _warningLightMax);
+            _attackLightIntensity = Mathf.Max(0f, _attackLightIntensity);
         }
     }
 }

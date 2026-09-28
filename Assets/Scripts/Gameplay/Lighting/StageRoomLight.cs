@@ -31,7 +31,8 @@ namespace GhostHunter.Gameplay.Lighting
         private float _appliedIntensity;
         private float _lastFixtureFactor = -1f;
         private Color _lastFixtureTint;
-        private bool _switchOn = true;
+        // 불 꺼진 집에서 시작한다 — HUD 층·방 스위치로 켠다.
+        private bool _switchOn;
 
         public int Floor => _floor;
         public string Label => string.IsNullOrEmpty(_label) ? name : _label;

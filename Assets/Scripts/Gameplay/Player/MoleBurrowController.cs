@@ -43,7 +43,8 @@ namespace GhostHunter.Gameplay.Player
     /// <para><b>은신이 깨지는 경우(§5.2.1, 2026-09-05 구현).</b> 땅속은 원래 완전 은신이지만
     /// <b>귀신에게 이미 감지된 상태에서 매몰되면 땅속에서도 계속 감지·포획된다.</b> 판정은
     /// 서버(귀신)가 <see cref="Ghost.BurrowExposureTracker"/> 로 하며, 이 컴포넌트는
-    /// <see cref="IsBurrowed"/> 만 정직하게 복제한다. 손전등 예외는 손전등 시스템이 없어 미구현이다.</para>
+    /// <see cref="IsBurrowed"/> 만 정직하게 복제한다. 헤드라이트 예외(땅굴 안에서 켜면 감지됨)는
+    /// <see cref="SanityNetworkState.IsBurrowed"/> 가 <see cref="PlayerHeadlamp"/> 를 보고 적용한다.</para>
     /// </summary>
     [DisallowMultipleComponent]
     [RequireComponent(typeof(PlayerMotor))]

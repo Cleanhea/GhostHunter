@@ -572,6 +572,8 @@ GameObject:
   - component: {fileID: 1984443562789577845}
   - component: {fileID: 840279606827515694}
   - component: {fileID: 3631203546775278356}
+  - component: {fileID: 7318264590127734651}
+  - component: {fileID: 2964018375516620913}
   m_Layer: 8
   m_Name: Player
   m_TagString: Untagged
@@ -981,6 +983,39 @@ MonoBehaviour:
   m_EditorClassIdentifier: GhostHunter.Gameplay::GhostHunter.Gameplay.Player.PlayerCharacterAnimator
   _animator: {fileID: 7602586239894021403}
   _settings: {fileID: 11400000, guid: d389045277458fb43a0f8fe17bccc7ec, type: 2}
+--- !u!114 &7318264590127734651
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6853845278674404290}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e91b5c07a3d84f26b8c4a17e5d02f9b3, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: GhostHunter.Gameplay::GhostHunter.Gameplay.Player.PlayerHeadlamp
+  ShowTopMostFoldoutHeaderGroup: 1
+  _settings: {fileID: 11400000, guid: b82e47c1f9a64d3e8c05d9a1e7f36b24, type: 2}
+  _input: {fileID: 841358848952369473}
+  _look: {fileID: 8710244623731354882}
+  _motor: {fileID: 4683534020677742345}
+  _sanity: {fileID: 648880312144743003}
+--- !u!114 &2964018375516620913
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6853845278674404290}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3f6d2a98c14e4b5a9d7e0c81b6a4f2e7, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: GhostHunter.UI::GhostHunter.UI.HeadlampChargeHud
+  _uiSettings: {fileID: 11400000, guid: 421b0124466245845a465bfec15eafa0, type: 2}
+  _headlamp: {fileID: 7318264590127734651}
+  _icon: {fileID: 0}
 --- !u!1 &7530103813448067282
 GameObject:
   m_ObjectHideFlags: 0
