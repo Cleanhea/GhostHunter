@@ -20,9 +20,22 @@ namespace GhostHunter.Data.Scenes
         [SerializeField, HideInInspector] private string _sceneName = string.Empty;
 
         /// <summary>런타임에 쓰는 씬 이름. 지정되지 않았으면 빈 문자열.</summary>
-        public string SceneName => _sceneName;
+        public string SceneName
+        {
+            get
+            {
+#if UNITY_EDITOR
+                // Domain Reload 를 끈 에디터에서 외부 파일 변경 직후 Play 하면,
+                // 기존 ScriptableObject 인스턴스의 구운 이름이 잠시 낡아 있을 수 있다.
+                // 에디터에는 원본 SceneAsset 이 있으므로 실제 에셋 이름을 우선한다.
+                if (_sceneAsset != null)
+                    return _sceneAsset.name;
+#endif
+                return _sceneName;
+            }
+        }
 
-        public bool IsAssigned => !string.IsNullOrEmpty(_sceneName);
+        public bool IsAssigned => !string.IsNullOrEmpty(SceneName);
 
 #if UNITY_EDITOR
         /// <summary>

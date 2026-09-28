@@ -5,7 +5,10 @@ namespace GhostHunter.Gameplay.Voice
     /// <summary>고정 길이 압축 프레임 큐. 선행 음성을 보존하고 오래된 프레임부터 버린다.</summary>
     public sealed class VoiceFrameQueue
     {
-        public const int MaximumPayload = 512;
+        // 프레임이 멈추면(씬 로드·NavMesh 굽기) 50ms 주기 사이에 쌓인 음성이 한 압축 블록으로 나와 512B를 넘겼다.
+        // 블록은 자를 수 없어 통째로 버려졌으므로 여유를 둔다. NGO 비분할 메시지 상한 1296B(헤더 포함)와
+        // 로비 음성의 Steam P2P 비신뢰 전송 상한 1200B(+3B 헤더) 안쪽이다.
+        public const int MaximumPayload = 1024;
         private const int Capacity = 8;
         private readonly byte[][] _frames = new byte[Capacity][];
         private readonly int[] _lengths = new int[Capacity];

@@ -1,0 +1,55 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git show*)",
+      "Bash(git ls-files*)",
+      "Bash(git branch --show-current)",
+      "Bash(grep *)",
+      "Bash(ls*)",
+      "Bash(wc *)",
+      "Bash(head *)",
+      "Bash(tail *)",
+      "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File tools/run-tests.ps1*)",
+      "PowerShell(git status*)",
+      "PowerShell(git diff*)",
+      "PowerShell(git log*)",
+      "PowerShell(powershell -NoProfile -ExecutionPolicy Bypass -File tools/run-tests.ps1*)"
+    ],
+    "deny": [
+      "Read(./Temp/**)",
+      "Read(./Build/**)",
+      "Read(./Library/Bee/**)",
+      "Read(./Library/Artifacts/**)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard-large-read.js\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/check-cs-rules.js\"",
+            "timeout": 15,
+            "statusMessage": "C# 하드 룰 검사"
+          }
+        ]
+      }
+    ]
+  }
+}

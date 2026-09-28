@@ -83,7 +83,9 @@ G-18 수치가 정해지지 않아 기본 에셋은 일반 시야와 같은 15m/
 
 귀신 본체는 활동·경고·어택에 노출한다. 경고에는 `GhostAmbientLight`로 표시된 방 조명을
 5초간 점멸시키고, 각 피어의 귀신 `AudioSource`에서 임시 합성 심장 박동음을 반복한다.
-어택에는 방 조명을 빨간색으로 바꾸며 종료 후 원래 색·밝기로 복구한다. 빨간 원뿔 시야
+어택에는 방 조명을 빨간색으로 바꾸며 종료 후 원래 색·밝기로 복구한다. "원래 값"은
+`GhostAmbientLight.SetBase` 로 바뀔 수 있다 — Stage1 천장등 36개는 `StageLightingController`가
+HUD 밝기를 기준값으로 넘긴다([map-generation.md §10.1.6](map-generation.md)). 빨간 원뿔 시야
 표시는 기존 프로토타입 연출이다. 아트 음원이 들어오면 `_warningHeartbeatClip`에 연결해
 합성음을 교체할 수 있다.
 

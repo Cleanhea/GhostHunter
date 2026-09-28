@@ -256,7 +256,7 @@
 | 런타임 스폰 여부 | **ADR-0009 준수, 새 ADR 불필요.** `RandomFurnitureItem`(청소·랜덤 가구)과 같은 "씬 배치 풀 + 서버 활성/비활성 토글" 패턴(`FurnitureDriverPoolItem`)을 그대로 따른다 — `NetworkObject.Spawn`을 쓰지 않는다 |
 | 조립 영역 | **완료(임시).** 기존 `DrillCarSafeZone_Temp` 자리에 트리거 좌표만 재사용 → **MD-2 확정**. 정식 드릴 카가 생기면 위치·크기를 다시 잡는다 |
 | 짐칸·반출 | 범위 밖 유지 — **MD-3 그대로 TBD**(MG-22 대기) |
-| 작업 대상 가구 | **완료.** 분해 가능 6종·부품 구성 확정 → **MD-1 확정**(§8 표). 다만 식탁·선반 2종은 현재 라이브 `House_01/PhysicsFurniture`가 비어 있어 실제 분해 대상이 없다(레벨 배치 대기) |
+| 작업 대상 가구 | **완료.** 분해 가능 8종·부품 구성 확정 → **MD-1 확정**(§8 표). 2026-09-28 싱글 침대 2종 추가. Stage1 에 식탁·선반·침대·옷장이 배치돼 있다 |
 | 네트워크 권위 | **완료.** 분해·조립 실행은 서버 RPC 완료 시점에만 일어나고, 매번 최신 상태를 다시 확인한다(동시 시도는 재검증으로 자연히 거절됨) → **MD-9 확정**(별도 락 불필요, §8 참고) |
 
 ---
@@ -268,7 +268,7 @@
 
 | # | 결정할 내용 | 상태 |
 | --- | --- | --- |
-| MD-1 | 분해 가능한 큰 가구 목록·부품 구성 | **확정(2026-09-12).** 6종만: `DoubleBed_1.6x2.0`→Mattress·BedHead·BedLeg(각 1), `Wardrobe_1.2x0.6`→DoorPanel_1.2·Hanger_1.2·Clothes_1.2(각 1), `Wardrobe_1.5x0.6`→DoorPanel_1.5·Hanger_1.5·Clothes_1.5(각 1), `DiningTable_1.55x0.85`→TableTop_Dining(1)·TableLeg_Dining(4), `Shelving_2.6x0.55`→ShelfFrame_2.6(1)·ShelfBoard_2.6(4), `Shelving_1.65x0.45`→ShelfFrame_1.65(1)·ShelfBoard_1.65(3). 크기가 다른 변형끼리는 부품 이름을 구분해 서로 섞이지 않는다 |
+| MD-1 | 분해 가능한 큰 가구 목록·부품 구성 | **확정(2026-09-12).** 6종만: `DoubleBed_1.6x2.0`→Mattress·BedHead·BedLeg(각 1), `Wardrobe_1.2x0.6`→DoorPanel_1.2·Hanger_1.2·Clothes_1.2(각 1), `Wardrobe_1.5x0.6`→DoorPanel_1.5·Hanger_1.5·Clothes_1.5(각 1), `DiningTable_1.55x0.85`→TableTop_Dining(1)·TableLeg_Dining(4), `Shelving_2.6x0.55`→ShelfFrame_2.6(1)·ShelfBoard_2.6(4), `Shelving_1.65x0.45`→ShelfFrame_1.65(1)·ShelfBoard_1.65(3). 크기가 다른 변형끼리는 부품 이름을 구분해 서로 섞이지 않는다. **추가(2026-09-28, 사용자 요청):** `SingleBed_1.0x2.0`→SingleMattress_1.0·SingleBedHead_1.0·SingleBedLeg_1.0(각 1), `SingleBed_1.1x2.0`→SingleMattress_1.1·SingleBedHead_1.1·SingleBedLeg_1.1(각 1) — 싱글 전용·크기별 부품 |
 | MD-2 | 조립 영역의 위치·크기·개수 | **확정(2026-09-12, 임시).** 기존 `DrillCarSafeZone_Temp` 좌표를 그대로 재사용, 영역 1개. 정식 드릴 카가 생기면 재조정 |
 | MD-3 | 짐칸 보관·반출 규칙 | TBD → MG-22 대기 |
 | MD-4 | 상점 UI와 수리 가격 | TBD |

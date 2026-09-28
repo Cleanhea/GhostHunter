@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Text;
 using GhostHunter.Gameplay.Furniture;
 using GhostHunter.Gameplay.Ghost;
+using GhostHunter.Gameplay.Lighting;
 using GhostHunter.Gameplay.Player;
 using GhostHunter.Gameplay.Sanity;
 using UnityEngine;
@@ -14,7 +15,7 @@ namespace GhostHunter.DebugTools
 {
     /// <summary>
     /// 밸런스 튜닝 창. 접속 HUD(<see cref="ConnectionHud"/>, Tab)와 <b>별도의 이동식 창</b>으로,
-    /// 기본 토글 키는 <c>F2</c>다. 밸런스 ScriptableObject(이동·귀신·굴착·투척·정신력)의 직렬화
+    /// 기본 토글 키는 <c>F2</c>다. 밸런스 ScriptableObject(이동·귀신·굴착·투척·정신력·조명)의 직렬화
     /// 필드를 런타임 리플렉션으로 읽어 <see cref="HeaderAttribute"/> 그룹별 접이식으로 노출한다 —
     /// 슬라이더(<see cref="RangeAttribute"/>) / 입력칸+−+ / 토글(bool). 값 목록을 손으로 관리하지
     /// 않으므로 SO 에 `[SerializeField]` 필드를 더하면 자동으로 나타난다(`[HideInInspector]` 제외).
@@ -71,6 +72,7 @@ namespace GhostHunter.DebugTools
             ("가구 투척  (FurnitureThrowSettings)", "투척", typeof(FurnitureGrabTarget)),
             ("정신력  (SanitySystemSettings)", "정신력", typeof(SanityNetworkState)),
             ("캐릭터 애니메이션  (PlayerCharacterAnimationSettings)", "애니", typeof(PlayerCharacterAnimator)),
+            ("스테이지 조명  (StageLightingSettings)", "조명", typeof(StageLightingController)),
         };
 
         private const BindingFlags FieldFlags =

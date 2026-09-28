@@ -74,7 +74,7 @@ namespace GhostHunter.Gameplay.Furniture
         /// </summary>
         private bool IsPlacementReady =>
             (_physics == null || !_physics.IsBroken)
-            && (_randomItem == null || _randomItem.IsPlaced)
+            && (_randomItem == null || _randomItem.IsPresent)
             && (_driverPoolItem == null || _driverPoolItem.IsActive);
 
         public override void OnNetworkSpawn()

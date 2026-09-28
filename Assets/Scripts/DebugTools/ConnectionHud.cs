@@ -8,6 +8,7 @@ using Unity.Netcode;
 using UnityEngine;
 using GhostHunter.Gameplay.Cleaning;
 using GhostHunter.Gameplay.Furniture;
+using GhostHunter.Gameplay.Lighting;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 
@@ -41,6 +42,7 @@ namespace GhostHunter.DebugTools
         private IGhostDebug _ghostDebug;
         private ILocalPlayerContext _localPlayer;
         private ICleaningService _cleaning;
+        private IStageLightingDebug _lighting;
 
         private readonly TuningHud _tuning = new();
 
@@ -52,6 +54,9 @@ namespace GhostHunter.DebugTools
         private bool _showSkill;
         private bool _showCleaning = true;
         private bool _showFurniture = true;
+        private bool _showLighting;
+        private bool _showLightingRooms;
+        private bool _showLightingValues = true;
         private bool _showDurabilityLabels = true;
 
         private GUIStyle _boxStyle;
@@ -159,6 +164,10 @@ namespace GhostHunter.DebugTools
             _showFurniture = SectionHeader("가구 내구도", _showFurniture);
             if (_showFurniture)
                 DrawFurnitureBody();
+
+            _showLighting = SectionHeader(SectionTitle("조명", _lighting != null), _showLighting);
+            if (_showLighting)
+                DrawLightingBody();
 
             if (GUILayout.Button(
                     (_tuning.Visible ? "▼" : "▶") + $"  튜닝 창 (밸런스 값) — {_tuningToggleKey}",
@@ -662,6 +671,67 @@ namespace GhostHunter.DebugTools
             GUILayout.Label(_cleaning.Status);
         }
 
+        /// <summary>
+        /// 층·방 천장등 스위치 + 밝기 값(튜닝 창과 같은 SO). 스위치는 로컬 전용이라
+        /// 호스트가 아니어도 누를 수 있고, 다른 접속자 화면은 바뀌지 않는다.
+        /// </summary>
+        private void DrawLightingBody()
+        {
+            if (_lighting == null)
+            {
+                GUILayout.Label("이 씬에는 스테이지 조명이 없습니다 (Stage1 전용).");
+                return;
+            }
+
+            GUILayout.Label(_lighting.StatusSummary, GUI.skin.textArea);
+
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("전부 켜기"))
+                _lighting.SetAllOn(true);
+            if (GUILayout.Button("전부 끄기"))
+                _lighting.SetAllOn(false);
+            GUILayout.EndHorizontal();
+
+            GUILayout.BeginHorizontal();
+            for (int floor = 0; floor < _lighting.FloorCount; floor++)
+            {
+                bool on = _lighting.IsFloorOn(floor);
+                bool next = GUILayout.Toggle(on, " " + _lighting.FloorName(floor));
+                if (next != on)
+                    _lighting.SetFloorOn(floor, next);
+            }
+            GUILayout.EndHorizontal();
+
+            _showLightingRooms = SectionHeader($"방별 스위치 ({_lighting.Lights.Count})", _showLightingRooms);
+            if (_showLightingRooms)
+                DrawLightingRooms();
+
+            _showLightingValues = SectionHeader("밝기 · 그림자 · 해 · 환경광", _showLightingValues);
+            if (_showLightingValues && !_tuning.DrawInline("조명"))
+                GUILayout.Label("StageLightingSettings 를 찾는 중입니다.");
+
+            GUILayout.Label("로컬 전용 · 값은 튜닝 창(F2)과 같다 · 영구 반영은 인스펙터", GUI.skin.label);
+        }
+
+        private void DrawLightingRooms()
+        {
+            var lights = _lighting.Lights;
+            for (int floor = 0; floor < _lighting.FloorCount; floor++)
+            {
+                GUILayout.Label($"<b>{_lighting.FloorName(floor)}</b>", _richLabelStyle);
+                for (int i = 0; i < lights.Count; i++)
+                {
+                    StageRoomLight light = lights[i];
+                    if (light == null || light.Floor != floor)
+                        continue;
+
+                    bool next = GUILayout.Toggle(light.SwitchOn, " " + light.Label);
+                    if (next != light.SwitchOn)
+                        _lighting.SetLightOn(i, next);
+                }
+            }
+        }
+
         private void HandleSceneUnloaded(Scene scene) => ResolveSceneServices();
 
         private void ResolveSceneServices()
@@ -670,6 +740,7 @@ namespace GhostHunter.DebugTools
             Services.TryGet(out _ghostDebug);
             Services.TryGet(out _localPlayer);
             Services.TryGet(out _cleaning);
+            Services.TryGet(out _lighting);
         }
     }
 }

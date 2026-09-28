@@ -52,7 +52,7 @@ namespace GhostHunter.Gameplay.Furniture
         public bool IsBroken => DestroysAtZeroDurability && _durability.Value == 0;
         public bool IsAvailable => IsSpawned && !IsBroken
             && (_poolItem == null || _poolItem.IsActive)
-            && (_randomItem == null || _randomItem.IsPlaced);
+            && (_randomItem == null || _randomItem.IsPresent);
 
         /// <summary>스폰된 모든 가구. 개발 HUD의 내구도 라벨처럼 읽기 전용으로 순회한다.</summary>
         public static IReadOnlyList<FurnitureNetworkPhysics> All => Registry;

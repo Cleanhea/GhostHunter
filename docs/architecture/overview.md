@@ -29,6 +29,9 @@ Assets/
 └── InputSystem_Actions.inputactions
 ```
 
+저장소 루트의 `tools/`는 개발 스크립트(테스트 실행 요약 `run-tests.ps1` — [testing.md §5.2](../workflow/testing.md)),
+`.claude/`는 Claude Code 프로젝트 설정·훅이다. 둘 다 `Assets/` 밖이라 Unity가 임포트하지 않는다.
+
 **`Assets/_Project/` 래퍼를 쓰지 않는다** → [ADR-0007](decisions/ADR-0007-flat-assets-layout.md).
 폴더는 **에셋 종류**로 1차 분류하고, 그 아래를 기능으로 2차 분류한다.
 네이밍은 [../conventions/unity-assets.md](../conventions/unity-assets.md).
@@ -48,6 +51,7 @@ Assets/Scripts/
 │   ├── Furniture/     가구 오브젝트·부양·발사·아웃라인
 │   ├── Ghost/         귀신 프로토타입 상태·탐지·추격·스폰 서비스
 │   ├── Sanity/        개인 정신력·팀 평균·감소 누적·디버프 상태
+│   ├── Lighting/      스테이지 집 천장등·해·환경광 (로컬 연출, HUD 조절)
 │   └── Map/           방 슬롯·프리셋·랜덤 가구 설정/후보/서버 배치
 ├── Networking/    연결·세션 관리 (트랜스포트 구현은 모른다)
 ├── UI/            뷰·프리젠터. Gameplay를 참조하되 그 반대는 금지
@@ -239,7 +243,8 @@ Player 프리팹 (NetworkObject, 플레이어당 1개 스폰)
 ├─ PlayerSpawnRegistry      clientId별 시작 위치
 ├─ LocalPlayerContext       로컬 소유 플레이어의 Targeter/Grab/Interactor 참조
 ├─ GhostPrototypeSpawner    F1 HUD의 Host 전용 귀신 동적 스폰·제거·어택 강제·강제 진정·청소 진행도 스텁
-└─ SanityTeamService        생존 플레이어 팀 평균·F1 정신력 연동 검증
+├─ SanityTeamService        생존 플레이어 팀 평균·F1 정신력 연동 검증
+└─ StageLightingController  (Stage1 만) 천장등·해·환경광을 StageLightingSettings 에 맞춤. IStageLightingDebug 로 HUD "조명" 섹션 제공, 네트워크 동기화 없음
 
 Ghost_Prototype 프리팹 (서버 동적 스폰 NetworkObject)
 ├─ CharacterController      서버 배회·추격 이동·벽 충돌 (NavMesh 없음)
@@ -304,6 +309,7 @@ UI (씬별, 로컬 전용)
 | `DetectionSkillSettings` | 탐지 시전 임시 구간, 5초 표시, 10초 쿨타임, 시전 화면 파란빛 색·최대 불투명도, 가구/얼룩 색, 렌더링 모드, 사망 취소 정책 |
 | `MoleSkillUiSettings` | 원형 게이지 크기·여백·간격, 배경/시전/쿨타임 색, 런타임 텍스처 해상도 |
 | `PlayerNameTagSettings` | 머리 위 닉네임 높이(눈높이 기준)·최대 표시 거리·글자 높이/해상도·색·외곽선 |
+| `StageLightingSettings` | 천장등 밝기·반경 배율·색온도·그림자·패널 발광, 해 밝기·그림자, 환경광 배율. HUD(Tab "조명")·튜닝 창(F2)에서 조절 |
 | `SceneNameSO` | 씬 참조 목록 (문자열 대신) |
 
 경로: `Assets/Settings/Gameplay/`, `Assets/Settings/Scenes/`

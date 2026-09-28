@@ -38,6 +38,8 @@ namespace GhostHunter.Gameplay.Map
         public bool IsDelivered => IsAssignedWorkTarget && (_placementState.Value & DeliveredFlag) != 0;
         public bool IsWorkTarget => IsPlaced && (_physics == null || !_physics.IsBroken)
             && IsAssignedWorkTarget && !IsDelivered;
+        /// <summary>맵에 실제로 놓여 있는지. 반출된 목표 가구는 배치 기록만 남기고 사라진다.</summary>
+        public bool IsPresent => IsPlaced && !IsDelivered;
 
         public StageRecoverySnapshot.FurnitureState CaptureStageState()
         {
@@ -65,8 +67,8 @@ namespace GhostHunter.Gameplay.Map
                 _physics.ServerRestoreStageDurability(snapshot.Durability);
                 _physics.ServerProtectPlacement();
             }
-            ApplyPresentation(IsPlaced, IsWorkTarget);
-            if (IsPlaced && _body != null && !_body.isKinematic)
+            ApplyPresentation(IsPresent, IsWorkTarget);
+            if (IsPresent && _body != null && !_body.isKinematic)
             {
                 _body.linearVelocity = snapshot.LinearVelocity;
                 _body.angularVelocity = snapshot.AngularVelocity;
@@ -74,15 +76,22 @@ namespace GhostHunter.Gameplay.Map
             return true;
         }
 
-        /// <summary>서버가 반출 구역에 들어온 목표 가구를 한 번만 완료 처리한다.</summary>
+        /// <summary>
+        /// 서버가 반출 구역에 들어온 목표 가구를 한 번만 완료 처리한다. 잡고 있던 플레이어를 놓게 하고
+        /// 보관 위치로 치운다. 정산 집계를 위해 배치·목표 플래그는 남긴다.
+        /// </summary>
         public bool ServerCompleteDelivery()
         {
             if (!IsServer || !IsAssignedWorkTarget || IsDelivered
                 || !FurnitureDeliveryZone.Contains(transform.position))
                 return false;
 
+            GetComponent<FurnitureGrabTarget>()?.ServerResetForPool();
             _placementState.Value |= DeliveredFlag;
-            RefreshTargetVisibility();
+            ApplyPresentation(false, false);
+            if (_networkTransform != null && _networkTransform.IsSpawned)
+                _networkTransform.Teleport(_parkingPose.position, _parkingPose.rotation, transform.localScale);
+            RoomPreset.TeleportBody(_body, _parkingPose.position, _parkingPose.rotation);
             return true;
         }
 
@@ -108,7 +117,7 @@ namespace GhostHunter.Gameplay.Map
             _placementState.OnValueChanged += HandlePlacementChanged;
             if (IsServer && !StageRecoveryGate.Restoring)
                 _placementState.Value = 0;
-            ApplyPresentation(IsPlaced, IsWorkTarget);
+            ApplyPresentation(IsPresent, IsWorkTarget);
         }
 
         public override void OnNetworkDespawn()
@@ -173,7 +182,7 @@ namespace GhostHunter.Gameplay.Map
 
         private void HandlePlacementChanged(byte previous, byte current)
         {
-            ApplyPresentation(IsPlaced, IsWorkTarget);
+            ApplyPresentation(IsPresent, IsWorkTarget);
         }
 
         /// <summary>파손·복구 시 작업 대상 마커만 갱신한다.</summary>

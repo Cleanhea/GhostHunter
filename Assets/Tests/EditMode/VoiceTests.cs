@@ -76,12 +76,21 @@ namespace GhostHunter.Tests.EditMode
         public void Queue_OverMtuKeepsCompleteNewestBlock()
         {
             var queue = new VoiceFrameQueue();
-            queue.Push(new byte[300], 300, 0);
-            var newest = new byte[300]; newest[0] = 9;
-            queue.Push(newest, 300, 0.05);
-            var packet = new byte[512];
-            Assert.That(queue.Pack(packet), Is.EqualTo(302));
+            queue.Push(new byte[600], 600, 0);
+            var newest = new byte[600]; newest[0] = 9;
+            queue.Push(newest, 600, 0.05);
+            var packet = new byte[VoiceFrameQueue.MaximumPayload];
+            Assert.That(queue.Pack(packet), Is.EqualTo(602));
             Assert.That(packet[2], Is.EqualTo(9));
+        }
+        [Test]
+        public void Queue_KeepsBlockAccumulatedDuringFrameStall()
+        {
+            // 프레임이 멈춘 뒤 한 번에 읽힌 블록(실측 573~641B)이 512B 상한에 걸려 통째로 버려지던 회귀.
+            var queue = new VoiceFrameQueue();
+            queue.Push(new byte[700], 700, 0);
+            var packet = new byte[VoiceFrameQueue.MaximumPayload];
+            Assert.That(queue.Pack(packet), Is.EqualTo(702));
         }
         [Test]
         public void Buffer_UnderflowWritesSilence()

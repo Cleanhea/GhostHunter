@@ -37,7 +37,7 @@ Facepunch.Steamworks 2.5.2 · UniTask 2.5.11 · PhysX · Force Text 직렬화.
 | 플레이어 스킬 | `project/mole-skill-system.md` |
 | 일시정지·나가기·끊김 / 퀵슬롯 | `architecture/pause-menu.md` / `architecture/quick-slot.md` (기획은 `project/` 같은 이름) |
 | 음성 채팅 | `project/voice-chat-system.md`, `architecture/voice-chat.md` |
-| 맵·방 프리셋·스폰·작업 대상 가구 | `architecture/map-generation.md` (미결정 §12) |
+| 맵·방 프리셋·스폰·작업 대상 가구·Stage1 집 마감·조명 | `architecture/map-generation.md` (미결정 §12, 마감·조명 §10.1.6) |
 | C# / 에셋 / git | `conventions/code-style.md` / `conventions/unity-assets.md` / `conventions/git.md` |
 | 절차·완료 기준 / 테스트 / 반복 작업 | `workflow/development-loop.md` / `workflow/testing.md` / `workflow/playbooks.md` |
 
@@ -78,8 +78,8 @@ Facepunch.Steamworks 2.5.2 · UniTask 2.5.11 · PhysX · Force Text 직렬화.
 
 ## 4. 검증
 
-에디터가 열려 있으면 원본 프로젝트의 batchmode가 실패한다 — 에디터를 닫아 달라고 하기 전에 검증용 복제 프로젝트로 돌린다.
-명령과 복제본 검증은 [testing.md](docs/workflow/testing.md). 작업 절차는 [AGENTS.md §2](AGENTS.md) — 검증하지 못했으면 "동작한다"고 말하지 않는다.
+테스트·컴파일은 `tools/run-tests.ps1`을 백그라운드로 돌린다 — 에디터가 열려 있으면 검증용 복제 프로젝트로 자동 전환하고 요약만 출력한다([testing.md §5.2](docs/workflow/testing.md)).
+작업 절차는 [AGENTS.md §2](AGENTS.md) — 검증하지 못했으면 "동작한다"고 말하지 않는다.
 
 ## 5. 사용자에게 반드시 확인할 것
 

@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.IO;
+using System.Reflection;
 using GhostHunter.Core;
 using GhostHunter.Core.Scenes;
 using GhostHunter.Data.Scenes;
@@ -171,6 +172,21 @@ namespace GhostHunter.Tests.EditMode
 
             foreach (SceneId id in AllSceneIds)
                 Assert.IsTrue(catalog.IsAssigned(id), $"SceneId.{id} 가 비어 있습니다.");
+        }
+
+        [Test]
+        public void SceneReference_Editor_PrefersSceneAssetName()
+        {
+            var reference = new SceneReference();
+            FieldInfo field = typeof(SceneReference).GetField(
+                "_sceneAsset", BindingFlags.Instance | BindingFlags.NonPublic);
+            SceneAsset asset = AssetDatabase.LoadAssetAtPath<SceneAsset>(
+                "Assets/Scenes/InGameLobby.unity");
+            Assert.IsNotNull(field);
+            Assert.IsNotNull(asset);
+            field.SetValue(reference, asset);
+            Assert.AreEqual("InGameLobby", reference.SceneName);
+            Assert.IsTrue(reference.IsAssigned);
         }
 
         /// <summary>

@@ -24,7 +24,7 @@
 | `UI/FurnitureAssemblyZoneView.cs` | 조립 영역 판정 트리거를 게임 화면에 바닥 채움 + 윤곽선으로 표시, 판정 상태 색 — 2026-09-27 (§2.7) |
 | `Gameplay/FurnitureDriver/FurnitureDisassemblyRecipe.cs` | 큰 가구 1종의 부품 구성(부품 ID·개수) |
 | `Gameplay/FurnitureDriver/FurniturePartRequirement.cs` | 레시피 안 부품 하나(ID·개수) |
-| `Gameplay/FurnitureDriver/FurnitureDriverCatalog.cs` | 레시피 6종 묶음 SO. 서버·조립 판정이 공유 |
+| `Gameplay/FurnitureDriver/FurnitureDriverCatalog.cs` | 레시피 8종 묶음 SO(2026-09-28 싱글 침대 2종 추가). 서버·조립 판정이 공유 |
 | `Gameplay/FurnitureDriver/FurnitureDriverPoolItem.cs` | 씬 배치 오브젝트의 활성/비활성 및 공통 `FurnitureNetworkPhysics` 내구도 상속. 파손 풀 재사용 차단(2026-09-15, Unity 실행 검증 대기) |
 | `Gameplay/FurnitureDriver/FurnitureAssemblyZone.cs` | 조립 영역 점유 추적·순수 판정 호출·실루엣 상태 복제·조립 실행 |
 | `Gameplay/FurnitureDriver/FurnitureAssemblyRules.cs` | 조립 성립 판정 순수 함수(부품 ID별 개수 → Empty/Partial/Ready/Invalid) |
@@ -202,10 +202,23 @@
 - 부품 프리팹 15종을 `Assets/Prefabs/FurnitureDriverParts/`에 새로 생성했다(그레이박스 사각
   메시, 기존 가구와 동일한 `FurnitureGrabTarget`·`FurnitureNetworkPhysics`·`FurnitureLauncher`·
   `FurnitureHoverMotor`·`FurnitureOutline`·`FurnitureDriverPoolItem` 구성).
+- **싱글 침대 2종 추가(2026-09-28, 사용자 요청).** `SingleBed_1.0x2.0`·`SingleBed_1.1x2.0` 프리팹에
+  `FurnitureDriverPoolItem`(`_startActive` 0)을 텍스트로 붙였다. 부품은 **크기별 전용**이다 —
+  `SingleMattress_1.0/1.1`·`SingleBedHead_1.0/1.1`·`SingleBedLeg_1.0/1.1`(6종, 더블 부품을 폭 비율로 줄인
+  메시 `FurnitureDriverPartMeshes/Single*Mesh.asset`). 부품을 공유하면 조립 판정이 목록의 첫 레시피로만
+  조립하므로 나눴다. 레시피 `FurnitureDisassemblyRecipe_SingleBed_*.asset` 2개를 카탈로그에 추가했다.
+  새 부품 프리팹의 `GlobalObjectIdHash` 는 에셋 식(`GlobalObjectId_V1-1-<프리팹 GUID>-<NetworkObject fileID>-0`)으로
+  넣고 `m_InScenePlaced` 는 0이다(기존 15종은 씬 기준 값·1로 박혀 있다 — unity-assets.md §5.2의 프리팹 함정).
+  ProtoTypeGame 의 싱글 침대 6개에는 기존처럼 보이도록 `_startActive: 1` 을 덮어썼다.
 - `Game/FurnitureMultiDriverPrototype/Parts`: 부품 풀 23개(6개 레시피 × 부품 개수 × 세트 수).
   세트 수는 2026-09-12 씬 스캔 기준 라이브 인스턴스 개수(Furniture_Library·비교용 집 제외,
   최소 1세트 보장)다 — 더블 침대 1, 옷장 2종 각 1, 식탁·선반 2종은 라이브 인스턴스가 없어
   세트 1개만 미리 마련해 뒀다(레벨 배치 전까지 실제 분해 대상 없음).
+- **Stage1 부품 풀(2026-09-28): 방에 놓인 큰 가구 1개당 1세트.** 더블 침대 6 · 싱글 1.0 6 · 싱글 1.1 6 ·
+  옷장 1.2 12 · 옷장 1.5 6 · 식탁 2 · 선반 2.6 3 · 선반 1.65 1개에 맞춰 부품 137개(기존 23 + 114)를
+  `FurnitureMultiDriverPrototype/Parts/<부품 ID>` 아래 y=-50에 둔다. 큰 가구를 더 놓으면 세트도 늘려야 동시 분해가 된다.
+- **방에 놓인 큰 가구는 인스턴스에서 `_startActive: 1` 을 MUST 덮어쓴다.** 프리팹 기본값 0이면 세션 시작 때
+  서버가 숨겨 버린다. Stage1 의 기존 21개가 이 값 없이 저장돼 있어 함께 고쳤다(2026-09-28).
 - `Game/FurnitureMultiDriverPrototype/AssemblyZone`: 기존 `DrillCarSafeZone_Temp` 자리를 쓰는
   트리거 1개(MD-2, 임시). **좌표를 그대로 복사하지 않고 세이프 존 상자의 바닥에 맞춘다**(§2.4 버그 수정).
 - `FurnitureDriverSettings_Default.asset`, `FurnitureDriverCatalog_Default.asset`,
@@ -226,9 +239,8 @@
   없다. 행동 시간 원형 게이지·중단 연출은 구현됐다(§2.6).
 - 게이지 크기·색·흔들림 폭 기본값(`FurnitureDriverUiSettings_Default`)은 임시 UI 값이다. 기획서는
   위치·모양·문구·흔들림 횟수만 정했다.
-- **식탁·선반 2종은 지금 당장 분해할 라이브 대상이 없다.** `House_01/PhysicsFurniture`가
-  비어 있기 때문이다(맵 v0.4 일반 가구 배치 자체가 아직 안 됨) — 레벨 디자이너가 배치하면
-  프리팹에 이미 붙은 `FurnitureDriverPoolItem`이 그대로 동작한다.
+- **식탁·선반·싱글 침대는 실기 분해를 확인하지 않았다.** ProtoTypeGame 에는 식탁·선반 라이브 대상이 없고,
+  Stage1 에는 있지만(식탁 2·선반 4) Stage1 에서의 분해·조립은 아직 실행해 보지 않았다.
 - MD-7(아이템 내구도 0 취급)은 "0에서 멈추고 계속 9초로 사용 가능"으로 잠정 구현했다 — 사용자
   확정이 아니므로 파손/사용 불가 규칙이 정해지면 `PlayerFurnitureDriverController.CanUseGate`에
   조건을 추가해야 한다.

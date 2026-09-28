@@ -29,7 +29,8 @@ docs/
 │   ├── stage-system.md           스테이지 시작·종료·정산·호스트 이전 — 기획 1.0과 2026-09-27 확정 사항
 │   ├── spectator-system.md         사망 후 능력 제한·자유시점·생존자 관전 — 코드 구현, Play 검증 대기
 │   ├── voice-chat-system.md        근접 음성 채팅(마이크) — 10m XZ 감쇠·벽 가림·층 차단, 기획 0.2 (선행 결정 4건 확정)
-│   └── roadmap.md                  마일스톤 & 태스크 보드
+│   ├── roadmap.md                  마일스톤 & 태스크 보드
+│   └── roadmap-history.md          완료 이력 — 완료 시 맨 위에 추가만, 작업 시작 시 읽지 않는다
 ├── architecture/                   어떻게 구성되는가
 │   ├── overview.md                 폴더·어셈블리·씬·런타임 구조
 │   ├── networking.md               Netcode for GameObjects 규약
@@ -40,6 +41,7 @@ docs/
 │   ├── ghost-prototype.md           귀신 P1 상태·탐지·추격·HUD 스폰
 │   ├── sanity-system.md             정신력 네트워크·집계·연동 API
 │   ├── map-generation.md           맵 생성 시스템 v0.4 (House / Floor / Room Preset / Spawn Point / Target Furniture Type·Count)
+│   ├── map-generation-history.md   맵 생성 과거 기록(삭제된 생성기·A안 배율·v0.3 비교) — 현재 규칙 아님
 │   ├── pause-menu.md                일시정지 메뉴·연결 끊김 배선·권위·검증 — 구현됨, 수동 검증 대기
 │   ├── quick-slot.md                퀵슬롯 휠 구현 — 입력 잠금·선택 계산·장착 전달
 │   ├── cleaning-system.md           서버 얼룩 상태·청소 검증·씬 풀·설치/검증

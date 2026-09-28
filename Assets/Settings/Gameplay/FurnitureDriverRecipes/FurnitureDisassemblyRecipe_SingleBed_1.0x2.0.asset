@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c2b33c351550e254a8680972505dcda8, type: 3}
+  m_Name: FurnitureDisassemblyRecipe_SingleBed_1.0x2.0
+  m_EditorClassIdentifier: GhostHunter.Gameplay::GhostHunter.Gameplay.FurnitureDriver.FurnitureDisassemblyRecipe
+  _largeFurnitureId: SingleBed_1.0x2.0
+  _displayName: "\uC2F1\uAE00 \uCE68\uB300 1.0m"
+  _parts:
+  - PartId: SingleMattress_1.0
+    Count: 1
+  - PartId: SingleBedHead_1.0
+    Count: 1
+  - PartId: SingleBedLeg_1.0
+    Count: 1

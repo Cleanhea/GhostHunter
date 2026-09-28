@@ -34,6 +34,17 @@ namespace GhostHunter.Gameplay.Ghost
             _baseColor = Light.color;
         }
 
+        /// <summary>
+        /// 기준 밝기·색을 바꾼다(스테이지 조명 설정). 연출은 끝나면 이 값으로 돌아오고,
+        /// 진행 중인 깜빡임은 다음 단계부터 새 기준을 곱한다.
+        /// </summary>
+        public void SetBase(float intensity, Color color)
+        {
+            Light ??= GetComponent<Light>();
+            _baseIntensity = intensity;
+            _baseColor = color;
+        }
+
         private void OnEnable()
         {
             if (!RegistryList.Contains(this))

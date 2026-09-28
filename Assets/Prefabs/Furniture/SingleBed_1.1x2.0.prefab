@@ -444,6 +444,7 @@ GameObject:
   - component: {fileID: 9114758936027522141}
   - component: {fileID: 4277500558198684447}
   - component: {fileID: 4503965060546910685}
+  - component: {fileID: 2655085266637496554}
   m_Layer: 9
   m_Name: SingleBed_1.1x2.0
   m_TagString: Untagged
@@ -1531,3 +1532,18 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
+--- !u!114 &2655085266637496554
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4925462261496619610}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c6a7145e8ebc18e4a948e9ee6f666fff, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: GhostHunter.Gameplay::GhostHunter.Gameplay.FurnitureDriver.FurnitureDriverPoolItem
+  ShowTopMostFoldoutHeaderGroup: 1
+  _poolKey: SingleBed_1.1x2.0
+  _startActive: 0

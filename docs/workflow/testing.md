@@ -166,11 +166,30 @@ Steam 실경로(로비·초대·SDR 연결)는 사람이 2대로 확인한다 �
 `Window > General > Test Runner`. 에디터가 켜져 있으면 이쪽이 **정답**이다 —
 §5.3 때문에 batchmode 에서는 일부 검사를 할 수 없다.
 
-### 5.2 batchmode CLI (에디터를 끌 수 있을 때 / CI)
+### 5.2 batchmode CLI — `tools/run-tests.ps1` (에디터를 켜 둔 채로 가능 · 에이전트 기본)
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/run-tests.ps1                     # EditMode
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/run-tests.ps1 -Platform All        # EditMode → PlayMode
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/run-tests.ps1 -Platform PlayMode -Filter "VoicePlaybackTests"
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/run-tests.ps1 -Platform Compile    # 컴파일만
+```
+
+- 에디터가 이 프로젝트를 열고 있으면(`Temp/UnityLockfile` 잠김) **검증용 복제 프로젝트** `%USERPROFILE%\GHV`로
+  `Assets`·`Packages`·`ProjectSettings`를 미러링(robocopy /MIR)해 거기서 돌린다. 작업 트리 그대로(커밋 안 한 변경 포함)다.
+  경로를 짧게 둔 것은 복제본 긴 경로의 Burst 오류 때문이다. 바꾸려면 `-ClonePath` 또는 `GH_VERIFY_CLONE`.
+  복제본은 자기 `Library`를 유지하므로 전체 임포트는 첫 실행에만 든다(2026-09-28 실측: 첫 실행 EditMode 포함 약 3분).
+- 콘솔에는 **요약만** 나온다 — `total/passed/failed/skipped`, 실패 테스트 이름과 메시지 첫 줄, skip 5건.
+  XML이 없으면 로그에서 `error CS`·라이선스·인스턴스 충돌 줄만 뽑는다. 전체 로그·XML은 `Logs/tests/`.
+  종료 코드 0 = 요청한 실행이 모두 끝났고 실패 0.
+- Unity 경로는 `ProjectSettings/ProjectVersion.txt` 버전의 Hub 기본 설치 경로다. 다르면 `-UnityPath` 또는 `UNITY_EXE`.
+- 에이전트(Claude Code)는 **백그라운드로 실행**한다 — 복제본 첫 임포트가 도구 제한 시간을 넘길 수 있다.
+
+직접 부를 때(에디터를 끈 상태, `$PROJ`는 이 저장소 루트):
 
 ```powershell
 $UNITY = "C:\Program Files\Unity\Hub\Editor\6000.3.20f1\Editor\Unity.exe"
-$PROJ  = "C:\MainScreen\Dev\GitDirectory\GhostHunter"
+$PROJ  = (Get-Location).Path
 
 # EditMode
 & $UNITY -runTests -batchmode -nographics -projectPath $PROJ `
@@ -181,7 +200,8 @@ $PROJ  = "C:\MainScreen\Dev\GitDirectory\GhostHunter"
   -testPlatform PlayMode -testResults "$PROJ\Logs\playmode-results.xml" -logFile -
 ```
 
-- MUST Unity 에디터를 먼저 종료한다(프로젝트 잠금). **끄기 전에 §5.1로 해결되는지 먼저 확인한다.**
+- 직접 부를 때는 MUST Unity 에디터를 먼저 종료한다(프로젝트 잠금). **끄기 전에 §5.1로 해결되는지 먼저 확인한다.**
+  `-logFile -`는 로그 전체를 콘솔로 쏟으므로 에이전트는 쓰지 않는다 — 스크립트를 쓴다.
 - 결과 XML의 `<test-run result="..." total=... passed=... failed=... skipped=...>`를 확인해 보고한다.
   **`skipped`가 0이 아니면 §5.3 때문일 수 있으니 그대로 보고한다.**
 
@@ -261,7 +281,7 @@ InputSystem.settings.editorInputBehaviorInPlayMode =
 1. 방장 혼자 시작 버튼이 비활성화이고, 게스트가 들어와 준비하면 활성화되는지 확인한다.
 2. 로비에서 양쪽 마이크가 들리고 Temp1·2·3 구매 시 공동 잔액·보유 수량이 양쪽에 같게 보이는지 확인한다.
 3. 시작 로딩 중 방 코드·초대 재참가가 거절되고, 스폰 후 드릴카 구역·조립 구역이 네 시작 지점과 겹치는지 확인한다.
-4. 목표 가구를 녹색 반출 구역에 들였을 때만 완료되고, 빨간 종료 장치에서 확인 후 가구·청소·생존·실종·사망 수치가 양쪽 Result에 같은지 확인한다.
+4. 목표 가구를 녹색 반출 구역에 들였을 때만 완료되어 양쪽 화면에서 사라지고(들고 있던 경우 손에서 풀림), 빨간 종료 장치에서 확인 후 가구·청소·생존·실종·사망 수치가 양쪽 Result에 같은지 확인한다.
 5. Result에서 생존·사망 음성이 서로 들리고, 방장만 **인게임 로비** 복귀를 진행하며(세션 유지), 인게임 로비에서 이력이 유지되는지 확인한다.
 6. 방장의 `스테이지 나가기`가 정산 없이 양쪽을 **인게임 로비**로 보내는지(세션 유지·플레이어 재스폰), 인게임 로비 단말기에서 방장만 구매·출발할 수 있는지 확인한다(ADR-0018).
 7. 로딩 중 방장이 이탈했을 때 2명 이상이면 새 방장이 이어서 시작하고, 1명이면 취소되는지 확인한다.

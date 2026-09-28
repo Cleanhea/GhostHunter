@@ -8,6 +8,7 @@ using GhostHunter.Gameplay.Cleaning;
 using GhostHunter.Gameplay.Ghost;
 using GhostHunter.Gameplay.FurnitureDriver;
 using GhostHunter.Gameplay.Interaction;
+using GhostHunter.Gameplay.Lighting;
 using GhostHunter.Gameplay.Map;
 using GhostHunter.Gameplay.Player;
 using GhostHunter.Gameplay.Sanity;
@@ -17,7 +18,7 @@ namespace GhostHunter.Systems.Installers
 {
     /// <summary>
     /// 스테이지 씬(ProtoTypeGame·Stage1)의 스폰 위치와 로컬 플레이어 컴포넌트 접근을 등록한다.
-    /// 귀신·청소는 선택 배선이지만 스테이지 씬은 둘 다 둔다(ADR-0019 후속).
+    /// 귀신·청소는 선택 배선이지만 스테이지 씬은 둘 다 둔다(ADR-0019 후속). 조명은 Stage1 만 배선한다.
     /// </summary>
     [DefaultExecutionOrder(SceneInstaller.ExecutionOrder)]
     [DisallowMultipleComponent]
@@ -28,6 +29,7 @@ namespace GhostHunter.Systems.Installers
         [SerializeField] private SanityTeamService _sanityTeam;
         [SerializeField] private GhostPrototypeSpawner _ghostSpawner;
         [SerializeField] private CleaningController _cleaning;
+        [SerializeField] private StageLightingController _lighting;
 
         private readonly LocalPlayerContext _localPlayer = new();
 
@@ -63,6 +65,8 @@ namespace GhostHunter.Systems.Installers
                 Bind<IGhostDebug>(_ghostSpawner);
             if (_cleaning != null)
                 Bind<ICleaningService>(_cleaning);
+            if (_lighting != null)
+                Bind<IStageLightingDebug>(_lighting);
         }
     }
 }

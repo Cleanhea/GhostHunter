@@ -34,17 +34,25 @@
 ### 5) 검증
 | 수준 | 방법 |
 | --- | --- |
-| 컴파일 | `Unity.exe -quit -batchmode -nographics -projectPath …`(에디터가 켜져 있으면 검증용 복제 프로젝트) |
-| 단위 | EditMode 테스트 |
-| 통합 | PlayMode 테스트 |
+| 컴파일 | `tools/run-tests.ps1 -Platform Compile` (에디터가 켜져 있으면 검증용 복제 프로젝트로 자동 전환 — [testing.md §5.2](testing.md)) |
+| 단위 | EditMode 테스트 — `tools/run-tests.ps1` |
+| 통합 | PlayMode 테스트 — `tools/run-tests.ps1 -Platform PlayMode` |
 | 실제 동작 | 사용자에게 에디터 확인 요청 (번호 지시로) |
 
 **검증하지 못했으면 "동작한다"고 말하지 않는다.** 못 한 검증은 그대로 보고한다.
 
+Claude Code 프로젝트 훅([.claude/settings.json](../../.claude/settings.json))이 일부 규칙을 자동으로 건다.
+훅은 `node`가 PATH에 있어야 하고, Windows에서는 Git Bash로 실행된다.
+
+| 훅 | 동작 |
+| --- | --- |
+| `PostToolUse(Edit\|Write)` → `.claude/hooks/check-cs-rules.js` | `.cs`에서 HEAD 대비 **새로 추가된 줄**만 CLAUDE.md §3 코드 하드 룰(레거시 `Input.*`·`async void`·`GameObject.Find`·`SendMessage`·`[ServerRpc]`/`[ClientRpc]`·`StartCoroutine`·`Debug` 네임스페이스·`static Instance`·Steam 레이어 밖 `Steamworks`·`Camera.main` 확인)로 검사해 위반을 되돌려 준다. 주석·문자열은 제외, `Packages/`·`Assets/Plugins/`·`Assets/ThirdParty/`는 건너뛴다 |
+| `PreToolUse(Read)` → `.claude/hooks/guard-large-read.js` | 256KB를 넘는 `.unity`·`.prefab`·`.asset`을 범위 없이(또는 400줄 초과로) 읽으려 하면 막고 `grep -n` → `offset/limit`로 안내한다 |
+
 ### 6) 기록
 - 영향받은 문서 갱신 (구조 → `architecture/`, 수치 → `gdd.md`, 규약 → `conventions/`)
 - 되돌리기 비싼 결정 → [ADR](../architecture/decisions/README.md)
-- 로드맵 태스크 상태 갱신 + 완료 이력 추가
+- 로드맵 태스크 상태 갱신 + 완료 이력 추가([roadmap-history.md](../project/roadmap-history.md) 표 맨 위)
 
 ## 3. 완료 기준 (Definition of Done)
 

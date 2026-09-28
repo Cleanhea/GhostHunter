@@ -78,10 +78,12 @@ public sealed class PlayerMoveSettings : ScriptableObject
 
 ```csharp
 [SerializeField] private UnityEditor.SceneAsset _sceneAsset;   // #if UNITY_EDITOR
-[SerializeField, HideInInspector] private string _sceneName;   // OnBeforeSerialize에서 구워짐
+[SerializeField, HideInInspector] private string _sceneName;   // OnValidate에서 구워짐
 ```
 
-- 에디터에서는 씬 에셋을 드래그해 지정하고, 런타임에는 이름 문자열만 남는다(에디터 필드는 빌드에서 제외).
+- 에디터에서는 씬 에셋을 드래그해 지정하고 실제 `SceneAsset.name`을 우선 사용한다. 빌드에는 에디터 필드가
+  제외되므로 `OnValidate`에서 구운 이름 문자열만 남는다. Domain Reload를 끈 에디터에서 외부 파일 변경 직후
+  구운 문자열이 낡아도 에디터 Play 경로는 실제 씬 에셋 이름을 사용한다.
 - **씬 파일명을 바꿔도 저장 시 자동으로 다시 구워진다.** 손으로 친 문자열이 조용히 깨지는 것을 막는 게 목적이다.
 - 다만 `SceneNameSO` 에셋이 다시 직렬화될 때 갱신되므로, 리네임 직후가 아니라 다음 저장·도메인 리로드 시점에 반영된다.
 - 씬 목록은 `Assets/Settings/Scenes/SceneNameSO.asset` 하나에 모은다.
