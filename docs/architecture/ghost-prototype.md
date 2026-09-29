@@ -19,7 +19,11 @@
 `SanityNetworkState.ServerMarkDead()`를 호출한다. 집 밖과 `DrillCarSafeZone`의 플레이어는
 탐지·포획 후보에서 제외한다.
 
-`DrillCarSafeZone`은 Game 씬이 올라올 때 `GameInstaller`가 스폰 줄 **뒤쪽**(스폰이 바라보는
+**Stage1 은 드릴카 모델(`Prefabs/Map/DrillCar.prefab`)을 씬에 고정 배치한다(2026-09-29)** — 안전 구역은 차 실내 상자이고
+런타임에 옮기지 않는다(`_placeBehindSpawnsAtRuntime` 끔). 배치·치수는 [stage-system.md §2.1](../project/stage-system.md).
+아래 런타임 재배치는 모델이 없는 **ProtoTypeGame 의 임시 상자**에만 해당한다.
+
+`DrillCarSafeZone`(임시 상자)은 씬이 올라올 때 `GameInstaller`가 스폰 줄 **뒤쪽**(스폰이 바라보는
 반대편)으로 옮긴다(`PlaceBehindSpawns`). 스폰 줄 끝에서 `_gapBehindSpawns`(2.5m [TEMP]) 떨어진
 자리이고, 바닥 높이는 아래로 레이를 쏴서 찾는다. B안에서는 앞마당(4m) 밖 땅(0.54m 낮음)에 서서
 현관에서 약 5.8m 떨어진다. 스폰 자리에 겹쳐 두던 때는 상자 안의 종료 단말기가 현관을 막았다.

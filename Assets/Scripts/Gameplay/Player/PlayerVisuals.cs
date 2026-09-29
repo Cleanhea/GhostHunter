@@ -382,7 +382,7 @@ namespace GhostHunter.Gameplay.Player
         private bool CanWitnessCorpse(SanityNetworkState candidate)
         {
             PlayerMotor motor = candidate.GetComponent<PlayerMotor>();
-            float eyeHeight = motor != null ? motor.CameraLocalHeight : 1.5f;
+            float eyeHeight = motor != null ? motor.CameraLocalHeight : 1.2f;
             Vector3 eye = candidate.transform.position + Vector3.up * eyeHeight;
             Vector3 target = _corpse.transform.position;
             Vector3 delta = target - eye;

@@ -168,6 +168,7 @@ MonoBehaviour:
   _steamLobby: {fileID: 5221456195027015277}
   _connection: {fileID: 3352543703398193555}
   _voiceCapture: {fileID: 603993671}
+  _lobbyVoiceSettings: {fileID: 0}
 --- !u!114 &603993671
 MonoBehaviour:
   m_ObjectHideFlags: 0

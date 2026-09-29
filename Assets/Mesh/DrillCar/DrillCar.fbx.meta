@@ -1,0 +1,236 @@
+fileFormatVersion: 2
+guid: 47565c8d8507ce04486a14f88aac8673
+ModelImporter:
+  serializedVersion: 24300
+  internalIDToNameTable: []
+  externalObjects:
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_DrillCar_BillboardScreen
+    second: {fileID: 2100000, guid: 0f508ee584e06fa498ca2f902322339b, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_DrillCar_Body
+    second: {fileID: 2100000, guid: d0d61d533c168bb4b855560e43d6b62f, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_DrillCar_BodyTrim
+    second: {fileID: 2100000, guid: bc61b092bc9424d4ca60ca60676a3490, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_DrillCar_DrillMetal
+    second: {fileID: 2100000, guid: b07a730c5b28f7f4387fdd53686aeba9, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_DrillCar_Int_CapsuleFluid
+    second: {fileID: 2100000, guid: 7ccd2c101b3f59149b0e4b8080ef75d8, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_DrillCar_Int_CapsuleGlass
+    second: {fileID: 2100000, guid: f36542b92255a7b47ac49bedae050f4d, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_DrillCar_Int_CyanGlow
+    second: {fileID: 2100000, guid: 7db99dcf9c67a94489fb634d2c7acd76, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_DrillCar_Int_Floor
+    second: {fileID: 2100000, guid: 3e2633738ed44f04a891fc71b9e9a3d2, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_DrillCar_Int_Frame
+    second: {fileID: 2100000, guid: 22669d371915e3542b1498e556bf2911, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_DrillCar_Int_Hazard
+    second: {fileID: 2100000, guid: b9fbdd0070b5cb34a98e0f6f2be201dc, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_DrillCar_Int_HoloBeam
+    second: {fileID: 2100000, guid: 107bd27020dfbce49a4ea5860528a9f8, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_DrillCar_Int_Steel
+    second: {fileID: 2100000, guid: fc95d19c1a83f4e4284d83af86c61beb, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_DrillCar_Int_WallPanel
+    second: {fileID: 2100000, guid: bf89bb0041add1b438d59a8fb0a753bb, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_DrillCar_Int_WarmLamp
+    second: {fileID: 2100000, guid: d5b64161e98a31440b881ca8bb35a9e8, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_DrillCar_LED_White
+    second: {fileID: 2100000, guid: 93848a78a3b52434ab928b782ca1e7b1, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_DrillCar_LED_Yellow
+    second: {fileID: 2100000, guid: 5a8c29bacdb2ac947a940d6443748855, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_DrillCar_Light_Amber
+    second: {fileID: 2100000, guid: f9b8d4d9bc8562d49b9cfee367d85ca5, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_DrillCar_Light_TailRed
+    second: {fileID: 2100000, guid: 4b08e6fbf69b8654abf191bde14ac9b8, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_DrillCar_Logo
+    second: {fileID: 2100000, guid: fd757f9daf45f3a47abedd6fb28db93e, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_DrillCar_RampFrame
+    second: {fileID: 2100000, guid: 764fcb8cba5709b48ba102bc920867bd, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_DrillCar_RampPlate
+    second: {fileID: 2100000, guid: 04918fa3e832e09448a3aaffc5a99c24, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_DrillCar_Steel
+    second: {fileID: 2100000, guid: 3f2f9ded723684b4293b45b1a7aa5e7b, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_DrillCar_TireRubber
+    second: {fileID: 2100000, guid: 71395dbff1d3ef14fb95f15fe6ba519e, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_DrillCar_Track
+    second: {fileID: 2100000, guid: ec5026d347449dc4e811d8980a901f9b, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_DrillCar_WindowGlass
+    second: {fileID: 2100000, guid: 88ee549b5840efe419976fe38d9c7be6, type: 2}
+  materials:
+    materialImportMode: 2
+    materialName: 0
+    materialSearch: 1
+    materialLocation: 1
+    searchTexturesGlobally: 0
+  animations:
+    legacyGenerateAnimations: 4
+    bakeSimulation: 0
+    resampleCurves: 1
+    optimizeGameObjects: 0
+    removeConstantScaleCurves: 0
+    motionNodeName: 
+    animationImportErrors: 
+    animationImportWarnings: 
+    animationRetargetingWarnings: 
+    animationDoRetargetingWarnings: 0
+    importAnimatedCustomProperties: 0
+    importConstraints: 0
+    animationCompression: 1
+    animationRotationError: 0.5
+    animationPositionError: 0.5
+    animationScaleError: 0.5
+    animationWrapMode: 0
+    extraExposedTransformPaths: []
+    extraUserProperties: []
+    clipAnimations: []
+    isReadable: 0
+  meshes:
+    lODScreenPercentages: []
+    globalScale: 0.9
+    meshCompression: 0
+    addColliders: 1
+    useSRGBMaterialColor: 1
+    sortHierarchyByName: 1
+    importPhysicalCameras: 1
+    importVisibility: 1
+    importBlendShapes: 1
+    importCameras: 0
+    importLights: 0
+    nodeNameCollisionStrategy: 1
+    fileIdsGeneration: 2
+    swapUVChannels: 0
+    generateSecondaryUV: 0
+    useFileUnits: 1
+    keepQuads: 0
+    weldVertices: 1
+    bakeAxisConversion: 0
+    preserveHierarchy: 0
+    skinWeightsMode: 0
+    maxBonesPerVertex: 4
+    minBoneWeight: 0.001
+    optimizeBones: 1
+    generateMeshLods: 0
+    meshLodGenerationFlags: 0
+    maximumMeshLod: -1
+    meshOptimizationFlags: -1
+    indexFormat: 0
+    secondaryUVAngleDistortion: 8
+    secondaryUVAreaDistortion: 15.000001
+    secondaryUVHardAngle: 88
+    secondaryUVMarginMethod: 1
+    secondaryUVMinLightmapResolution: 40
+    secondaryUVMinObjectScale: 1
+    secondaryUVPackMargin: 4
+    useFileScale: 1
+    strictVertexDataChecks: 0
+  tangentSpace:
+    normalSmoothAngle: 60
+    normalImportMode: 0
+    tangentImportMode: 3
+    normalCalculationMode: 4
+    legacyComputeAllNormalsFromSmoothingGroupsWhenMeshHasBlendShapes: 0
+    blendShapeNormalImportMode: 1
+    normalSmoothingSource: 0
+  referencedClips: []
+  importAnimation: 0
+  humanDescription:
+    serializedVersion: 3
+    human: []
+    skeleton: []
+    armTwist: 0.5
+    foreArmTwist: 0.5
+    upperLegTwist: 0.5
+    legTwist: 0.5
+    armStretch: 0.05
+    legStretch: 0.05
+    feetSpacing: 0
+    globalScale: 0.9
+    rootMotionBoneName: 
+    hasTranslationDoF: 0
+    hasExtraRoot: 0
+    skeletonHasParents: 1
+  lastHumanDescriptionAvatarSource: {instanceID: 0}
+  autoGenerateAvatarMappingIfUnspecified: 1
+  animationType: 0
+  humanoidOversampling: 1
+  avatarSetup: 0
+  addHumanoidExtraRootOnlyWhenUsingAvatar: 1
+  importBlendShapeDeformPercent: 1
+  remapMaterialsIfMaterialImportModeIsNone: 0
+  additionalBone: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

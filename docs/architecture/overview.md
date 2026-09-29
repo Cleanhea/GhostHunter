@@ -155,7 +155,7 @@ additive로 얹었다 내린다 → [ADR-0004](decisions/ADR-0004-multi-scene-ad
 | `Title` | 타이틀/메뉴. 방 생성·방 코드 참가·설정·종료 | Additive (로컬) |
 | `Lobby` | 방 코드 표시·멤버 목록·준비·시작 | Additive (로컬) |
 | `InGameLobby` | 세션을 연 채 스테이지 사이에 머무는 방 — 상점·정산 이력·스테이지 출발([ADR-0018](decisions/ADR-0018-persistent-session-in-game-lobby.md)) | Additive — `NetworkManager.SceneManager` |
-| `Stage1` | 스테이지. B안 집·임시 드릴카 안전 구역·가구 조립 영역·정신력 UI. 귀신·청소 없음([ADR-0019](decisions/ADR-0019-stage1-scene-split.md)). ProtoTypeGame 에서 복사해 만들었다 | Additive — `NetworkManager.SceneManager` |
+| `Stage1` | 스테이지. B안 집·드릴카(모델 프리팹 `Prefabs/Map/DrillCar` — 안전·반출 구역·정신력 UI 내장 배치)·가구 조립 영역. 귀신·청소 없음([ADR-0019](decisions/ADR-0019-stage1-scene-split.md)). ProtoTypeGame 에서 복사해 만들었다 | Additive — `NetworkManager.SceneManager` |
 | `ProtoTypeGame` | 프로토타입 검증 씬(구 `Game`). 비교용 집·테스트베드·귀신·청소까지 전부. 자동 검증 대상 | Additive — `NetworkManager.SceneManager` |
 | `Result` | 결과 정산 | Additive |
 

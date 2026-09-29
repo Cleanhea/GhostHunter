@@ -19,10 +19,10 @@ namespace GhostHunter.Gameplay.Player
         [SerializeField] private float _gravity = -20f;
 
         [Header("웅크리기")]
-        [SerializeField, Min(0.2f)] private float _standingHeight = 1.8f;
-        [SerializeField, Min(0.2f)] private float _crouchHeight = 1.2f;
-        [SerializeField, Min(0f)] private float _standingCameraHeight = 1.65f;
-        [SerializeField, Min(0f)] private float _crouchCameraHeight = 1.05f;
+        [SerializeField, Min(0.2f)] private float _standingHeight = 1.3f;
+        [SerializeField, Min(0.2f)] private float _crouchHeight = 0.87f;
+        [SerializeField, Min(0f)] private float _standingCameraHeight = 1.2f;
+        [SerializeField, Min(0f)] private float _crouchCameraHeight = 0.77f;
 
         [Tooltip("캡슐·카메라·원격 몸통이 목표 높이로 변하는 속도(m/s).")]
         [SerializeField, Min(0.01f)] private float _postureTransitionSpeed = 4f;

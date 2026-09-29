@@ -414,10 +414,10 @@ namespace GhostHunter.Tests.EditMode
             Assert.IsNotNull(settings, $"{PlayerMoveSettingsPath} 를 찾지 못했습니다.");
 
             Assert.AreEqual(3.5f, settings.CrouchMoveSpeed, 0.001f);
-            Assert.AreEqual(1.8f, settings.StandingHeight, 0.001f);
-            Assert.AreEqual(1.2f, settings.CrouchHeight, 0.001f);
-            Assert.AreEqual(1.65f, settings.StandingCameraHeight, 0.001f);
-            Assert.AreEqual(1.05f, settings.CrouchCameraHeight, 0.001f);
+            Assert.AreEqual(1.3f, settings.StandingHeight, 0.001f);
+            Assert.AreEqual(0.87f, settings.CrouchHeight, 0.001f);
+            Assert.AreEqual(1.2f, settings.StandingCameraHeight, 0.001f);
+            Assert.AreEqual(0.77f, settings.CrouchCameraHeight, 0.001f);
 
             var serialized = new SerializedObject(motor);
             Assert.AreEqual(

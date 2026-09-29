@@ -29,6 +29,7 @@ B안(`PlanBFurnitureSpawnSetup` — 가구 풀·후보·서버 생성기·앞마
 | 시스템 | 상태 |
 | --- | --- |
 | 일반 로비·인게임 로비·상점·스테이지 전환 | 세션 유지, 전환마다 플레이어 재스폰, 인게임 로비 ⇄ 스테이지는 이전 씬 먼저 언로드([ADR-0018](../architecture/decisions/ADR-0018-persistent-session-in-game-lobby.md)). 코드·설치 도구 반영(2026-09-28), 게스트·Steam 다인 미검증. 스테이지 출발 대상은 **Stage1**(B안·드릴카 안전 구역·조립 영역·정신력 UI, 귀신·청소 없음), 구 Game 은 **ProtoTypeGame**([ADR-0019](../architecture/decisions/ADR-0019-stage1-scene-split.md)) — 에디터 메뉴 실행·Stage1 진입 확인(ST-9) |
+| 드릴카(모델) | Stage1 에 모델 프리팹 고정 배치(2026-09-29) — 임포트 0.9배(1.3m 캐릭터 기준), 텍스처 연결, 실내 = 안전·반출 구역, 정신력 현황판 실내 앞벽, 조립 영역은 램프 앞. 자동 테스트 통과(기존 실패 3건 제외), Host/Client 실기·귀신 NavMesh 재굽기 미검증 → [stage-system.md §2.1](stage-system.md) |
 | 청소·대걸레·얼룩 | 가구 완료·진행도는 미정 유지 |
 | 플레이어 캐릭터 모델·애니메이션 | 모델·Animator·Player 프리팹 배선은 저장된 에셋이 원본(설치 메뉴는 ADR-0020으로 삭제). Humanoid 리타깃, 웅크리기·엎드리기 애니메이션 없음 |
 | 가구 내구도·충돌 파손 | 기획 0.4(2026-09-16). 내구도 0에서 가구를 파괴하지 않는다(FD-10 재확정) — 파괴는 `FurnitureDefinition.DestroyAtZeroDurability` 스위치로 보존(기본 꺼짐). 조립 완성품은 0을 포함한 부품 내구도 평균. Unity 실행·Host/Client 검증 대기 |

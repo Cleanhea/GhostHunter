@@ -167,8 +167,8 @@ Player (root)          ← 요(Y) 회전. ClientNetworkTransform이 복제
 | 점프 높이 | 1.2 m |
 | 중력 | -20 m/s² (실제 중력보다 무겁게 — 체감이 좋다) |
 | 마우스 감도 | 0.1 (deg per pixel) |
-| 캡슐 높이 / 반지름 (서있음 / 웅크림 / 엎드림) | 1.8 / 1.2 / 0.5 m · 반지름 0.35 m |
-| 카메라 높이 (서있음 / 웅크림 / 엎드림) | 1.65 / 1.05 / 0.35 m |
+| 캡슐 높이 / 반지름 (서있음 / 웅크림 / 엎드림) | 1.3 / 0.87 / 0.5 m · 반지름 0.3 m (폭 0.6 m) |
+| 카메라 높이 (서있음 / 웅크림 / 엎드림) | 1.2 / 0.77 / 0.35 m |
 | 엎드려 이동 속도 (`Prone`=Z 토글) | 1.4 m/s |
 
 전부 플레이테스트로 바뀔 값이다. 코드에 박지 말 것. **플레이 중 `F2` 로 여는 밸런스 튜닝 창에서
@@ -236,13 +236,13 @@ Player 프리팹 배선은 저장된 에셋이 원본이다(설치 메뉴 `Playe
 |---|---|
 | 에셋 | 모델 `Assets/Mesh/MainCharacter.fbx`(Blender), 애니메이션 `Idle.fbx`·`Walking.fbx`(Mixamo, 스킨 없음). 클립 이름 `A_Player_Idle`·`A_Player_Walk`, 컨트롤러 `Assets/Animations/PlayerCharacter.controller` |
 | 리그 | **세 파일 모두 Humanoid, 아바타는 각자 생성.** 모델은 본이 `Armature` 아래 43개, 애니메이션은 Mixamo 원본이라 루트 `Hips` 아래 57개다. 본 경로가 달라 Generic 으로는 바인딩되지 않는다 |
-| 크기 | 모델 높이를 서 있는 캡슐(`PlayerMoveSettings.StandingHeight` 1.8m)에 맞춰 **임포트 배율**(`globalScale`)로 키운다. 트랜스폼 스케일은 1로 둔다. 원본 높이는 1.30m 였다 |
+| 크기 | 모델 높이를 서 있는 캡슐(`PlayerMoveSettings.StandingHeight` 1.3m)에 맞춘다. 원본 높이가 1.30m 라 **임포트 배율**(`globalScale`)은 1이다(2026-09-29, 1.8m → 1.3m 사용자 지정). 트랜스폼 스케일은 1로 둔다 |
 | 루트 모션 | `Animator.applyRootMotion` 끔 — 이동은 `PlayerMotor` 가 한다. 걷기 클립은 XZ 를 포즈에 굽지 않아 전진량이 루트 모션으로 빠졌다가 버려진다(제자리 걸음). 회전·높이는 포즈에 굽는다(원본 기준) |
 | 상태 | `Idle`(기본) ↔ `Walk`. 파라미터 `IsMoving`(Bool, 전환 0.15초·Exit Time 없음), `WalkSpeed`(Float, Walk 상태 재생 배속) |
 | 속도 입력 | `PlayerCharacterAnimator` 가 **자기 화면의 루트 변위**로 수평 속도를 잰다. 소유자는 CharacterController, 원격은 ClientNetworkTransform 보간이 루트를 옮기므로 **새 NetworkVariable·RPC 가 없다.** 순간이동(스폰·텔레포트) 프레임은 무시한다 |
 | 컬링 | 기본 Animator는 `CullCompletely`. 에디터에서 로컬 소유자의 Animator만 `AlwaysAnimate`로 바꿔 Scene 뷰에서 대기·걷기를 확인한다. Game 카메라 렌더 직전에 로컬 몸의 `forceRenderingOff`를 켰다가 렌더 뒤 해제한다. 굴착 중(`RemoteBody` 비활성)에는 파라미터를 쓰지 않는다 |
 | 자세 | 웅크리기·엎드리기는 아직 애니메이션이 없어 **기존처럼 `RemoteBody` 를 Y 로 눌러** 표현한다 |
-| 시체 | `PlayerVisuals._corpseModel`(모델 루트)을 **본까지** 복제해 캡슐 중심 루트 `Corpse_{id}` 아래 절반 높이만큼 내려 둔다. 모든 피어가 같은 자세로 눕도록 Idle 첫 프레임으로 되감아 Animator 를 멈춘다. 콜라이더는 `SpectatorSettings.CorpseHeight`(1.8m)·`CorpseRadius`(0.35m) |
+| 시체 | `PlayerVisuals._corpseModel`(모델 루트)을 **본까지** 복제해 캡슐 중심 루트 `Corpse_{id}` 아래 절반 높이만큼 내려 둔다. 모든 피어가 같은 자세로 눕도록 Idle 첫 프레임으로 되감아 Animator 를 멈춘다. 콜라이더는 `SpectatorSettings.CorpseHeight`(1.3m)·`CorpseRadius`(0.3m) |
 
 `Assets/Settings/Gameplay/PlayerCharacterAnimationSettings.asset`(F2 튜닝 창 자동 노출, 구현자 임시값):
 
@@ -251,7 +251,7 @@ Player 프리팹 배선은 저장된 에셋이 원본이다(설치 메뉴 `Playe
 | `MoveThreshold` | 0.2 m/s | 넘으면 걷기 |
 | `SpeedSmoothTime` | 0.1 s | 원격 보간 흔들림이 대기↔걷기를 깜빡이지 않게 |
 | `TeleportSpeed` | 30 m/s | 한 프레임 변위가 이보다 빠르면 무시 |
-| `WalkClipSpeed` | 1.05 m/s | 1배속에서 발이 미끄러지지 않는 속도. 1.8m 두더지 실측: 디딤발 0.98~1.01, 루트 모션 평균 1.08 |
+| `WalkClipSpeed` | 0.76 m/s | 1배속에서 발이 미끄러지지 않는 속도. 1.8m 두더지 실측(디딤발 0.98~1.01, 루트 모션 평균 1.08 → 1.05)을 1.3m 로 줄인 비례값이다 — 1.3m 실측은 아직 없다 |
 | `MinWalkPlaybackSpeed` / `MaxWalkPlaybackSpeed` | 0.6 / 2.0 | 걷기 5m/s 는 발 속도대로면 4.8배속이라 상한 2배속에서 자른다 — **그 이상은 발이 미끄러진다** |
 
 자동 검증(2026-09-27, 검증용 복제 프로젝트 batchmode — 설치 메뉴 실행 후): 설치 2회 실행 시 Player 프리팹 동일(멱등),

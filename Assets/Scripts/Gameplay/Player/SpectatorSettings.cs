@@ -39,9 +39,9 @@ namespace GhostHunter.Gameplay.Player
         [SerializeField, Min(0f)] private float _corpseCarryDamping = 8f;
         [SerializeField, Min(0f)] private float _corpseCarryMaxAcceleration = 25f;
         [Tooltip("시체 캡슐 콜라이더 길이(m). 서 있는 캡슐 높이와 같게 둔다.")]
-        [SerializeField, Min(0.1f)] private float _corpseHeight = 1.8f;
+        [SerializeField, Min(0.1f)] private float _corpseHeight = 1.3f;
         [Tooltip("시체 캡슐 콜라이더 반지름(m).")]
-        [SerializeField, Min(0.05f)] private float _corpseRadius = 0.35f;
+        [SerializeField, Min(0.05f)] private float _corpseRadius = 0.3f;
 
         public float FlySpeed => _flySpeed;
         public float LookSensitivity => _lookSensitivity;
@@ -84,8 +84,8 @@ namespace GhostHunter.Gameplay.Player
             _corpseCarrySpring = 18f;
             _corpseCarryDamping = 8f;
             _corpseCarryMaxAcceleration = 25f;
-            _corpseHeight = 1.8f;
-            _corpseRadius = 0.35f;
+            _corpseHeight = 1.3f;
+            _corpseRadius = 0.3f;
             _deathSettingsVersion = 1;
         }
 

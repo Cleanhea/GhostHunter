@@ -24,7 +24,7 @@ namespace GhostHunter.Gameplay.Player
         [Header("걷기 재생 속도")]
         [Tooltip("걷기 클립을 1배속으로 틀 때 발이 미끄러지지 않는 이동 속도(m/s). 1.8m 두더지에 리타깃한 " +
                  "Walking.fbx 실측값: 디딤발 0.98~1.01m/s, Unity 루트 모션 평균 1.08m/s.")]
-        [SerializeField, Min(0.01f)] private float _walkClipSpeed = 1.05f;
+        [SerializeField, Min(0.01f)] private float _walkClipSpeed = 0.76f;
 
         [Tooltip("걷기 재생 배속 하한.")]
         [SerializeField, Min(0.01f)] private float _minWalkPlaybackSpeed = 0.6f;

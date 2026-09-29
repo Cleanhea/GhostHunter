@@ -103,7 +103,7 @@ namespace GhostHunter.DebugTools
                 yield break;
 
             Transform player = network.LocalClient.PlayerObject.transform;
-            Vector3 origin = player.position + Vector3.up * 1.65f;
+            Vector3 origin = player.position + Vector3.up * 1.2f;
             Vector3 direction = player.forward;
 
             FurnitureGrabTarget solo = furniture[0];

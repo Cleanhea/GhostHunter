@@ -15,6 +15,6 @@ MonoBehaviour:
   _moveThreshold: 0.2
   _speedSmoothTime: 0.1
   _teleportSpeed: 30
-  _walkClipSpeed: 1.05
+  _walkClipSpeed: 0.76
   _minWalkPlaybackSpeed: 0.6
   _maxWalkPlaybackSpeed: 2

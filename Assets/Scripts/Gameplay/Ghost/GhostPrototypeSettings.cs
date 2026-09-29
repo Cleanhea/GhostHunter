@@ -139,7 +139,7 @@ namespace GhostHunter.Gameplay.Ghost
         [SerializeField, Range(1f, 180f)] private float _phenomenonWitnessAngle = 70f;
 
         [Tooltip("목격 판정에 쓰는 플레이어 눈높이(m).")]
-        [SerializeField] private float _phenomenonWitnessEyeHeight = 1.5f;
+        [SerializeField] private float _phenomenonWitnessEyeHeight = 1.2f;
 
         [Header("Bed hiding (§9.5 · 엎드려 침대 밑 — 사용자 확정 2026-09-03)")]
         [Tooltip("엎드려 침대 밑에 들어간 뒤, 귀신에게 안 쫓기고 시야에도 안 걸린 상태가 이 시간(초) " +

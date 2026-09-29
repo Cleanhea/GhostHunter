@@ -15,9 +15,18 @@ namespace GhostHunter.Gameplay.Interaction
 
             GameObject terminal = GameObject.CreatePrimitive(PrimitiveType.Cube);
             terminal.name = "StageExitTerminal";
-            terminal.transform.SetParent(zone.transform, false);
-            terminal.transform.localPosition = new Vector3(0f,
-                -zone.Size.y * 0.5f + 1.3f, zone.Size.z * 0.5f - 0.3f);
+            if (zone.ExitTerminalAnchor != null)
+            {
+                // 드릴카 모델: 앵커가 단말기 가운데 자리다.
+                terminal.transform.SetParent(zone.ExitTerminalAnchor, false);
+                terminal.transform.localPosition = Vector3.zero;
+            }
+            else
+            {
+                terminal.transform.SetParent(zone.transform, false);
+                terminal.transform.localPosition = new Vector3(0f,
+                    -zone.Size.y * 0.5f + 1.3f, zone.Size.z * 0.5f - 0.3f);
+            }
             terminal.transform.localScale = new Vector3(0.5f, 0.5f, 0.15f);
             terminal.GetComponent<Renderer>().material.color = Color.red;
             terminal.AddComponent<StageExitInteractable>();

@@ -4,12 +4,17 @@ using UnityEngine;
 namespace GhostHunter.Gameplay.Ghost
 {
     /// <summary>
-    /// 드릴 카 세이프 존의 임시 버전(기획서 §11.1). 정식 드릴 카 없이 집 앞 스폰 줄 뒤에 상자 경계만
-    /// 친다(<see cref="PlaceBehindSpawns"/>). 이 상자 안에 있는 플레이어는 귀신의 탐지·잡힘 판정에서 **완전히 제외**된다.
+    /// 드릴 카 세이프 존(기획서 §11.1). 이 상자 안에 있는 플레이어는 귀신의 탐지·잡힘 판정에서 **완전히 제외**된다.
     /// 다른 플레이어의 어택이나 귀신 상태·타이머는 건드리지 않는다 — 그냥 이 플레이어만 안전하다.
+    /// 두 가지로 쓴다:
+    /// <list type="bullet">
+    /// <item>임시 상자(ProtoTypeGame) — 모델 없이 집 앞 스폰 줄 뒤에 런타임으로 세운다(<see cref="PlaceBehindSpawns"/>).</item>
+    /// <item>드릴카 모델(<c>Prefabs/Map/DrillCar.prefab</c>, Stage1) — 실내를 감싸는 상자. 씬에 저장한 자리에 그대로 두고
+    /// (<see cref="PlacesBehindSpawnsAtRuntime"/> 끔), 종료 단말기·공동 아이템을 앵커 자리에 놓는다.</item>
+    /// </list>
     ///
     /// <c>NetworkObject</c> 가 아니다. 판정은 서버 하나뿐이고 상자는 씬에 고정된 순수 기하라
-    /// 복제할 게 없다. 정식 드릴 카가 생기면 이 컴포넌트와 씬 오브젝트는 통째로 삭제한다.
+    /// 복제할 게 없다.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class DrillCarSafeZone : MonoBehaviour
@@ -28,9 +33,27 @@ namespace GhostHunter.Gameplay.Ghost
                  "스폰 뒤 땅에 세운다. [TEMP]")]
         [SerializeField, Min(0f)] private float _gapBehindSpawns = 2.5f;
 
+        [Tooltip("켜면 스테이지 시작 때 스폰 줄 뒤로 옮긴다(임시 상자). 씬에 배치한 드릴카 모델은 끈다.")]
+        [SerializeField] private bool _placeBehindSpawnsAtRuntime = true;
+
+        [Tooltip("스테이지 종료 단말기를 놓을 자리. 비우면 상자 뒤쪽 끝(+Z)에 놓는다.")]
+        [SerializeField] private Transform _exitTerminalAnchor;
+
+        [Tooltip("구매한 공동 아이템을 늘어놓을 선반 면. 로컬 X 로 늘어놓는다. 비우면 상자 가운데에 임시 선반을 만든다.")]
+        [SerializeField] private Transform _itemShelfAnchor;
+
         /// <summary>상자 크기(m). <b>오브젝트 위치는 중심이지 바닥이 아니다</b> — 이 자리에 다른 것을
         /// 맞출 때 바닥 높이가 필요하다(조립 영역이 그렇다). 읽기 전용.</summary>
         public Vector3 Size => _size;
+
+        /// <summary>스테이지 시작 때 <see cref="PlaceBehindSpawns"/> 로 옮겨야 하는 임시 상자인가.</summary>
+        public bool PlacesBehindSpawnsAtRuntime => _placeBehindSpawnsAtRuntime;
+
+        /// <summary>종료 단말기 자리. 없으면 null.</summary>
+        public Transform ExitTerminalAnchor => _exitTerminalAnchor;
+
+        /// <summary>공동 아이템 선반 자리. 없으면 null.</summary>
+        public Transform ItemShelfAnchor => _itemShelfAnchor;
 
         /// <summary>
         /// 임시 드릴카 구역을 스폰 줄 <b>뒤쪽</b>(스폰 지점이 바라보는 반대편)에 세운다. 스폰 자리에

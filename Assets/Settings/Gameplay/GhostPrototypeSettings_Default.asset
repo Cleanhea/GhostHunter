@@ -65,7 +65,7 @@ MonoBehaviour:
   _soundPhenomenaEnabled: 0
   _phenomenonWitnessDistance: 12
   _phenomenonWitnessAngle: 70
-  _phenomenonWitnessEyeHeight: 1.5
+  _phenomenonWitnessEyeHeight: 1.2
   _bedHideConcealSeconds: 1
   _stateLightRange: 3
   _warningLightMin: 0.2

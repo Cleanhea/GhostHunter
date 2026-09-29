@@ -1396,7 +1396,7 @@ B안 / C안 Graybox를 별도로 제작하여 비교한다.
 |---|---|---|
 | 귀신 이동·배회 | `GhostPrototypeSpawner` 가 넘겨주는 **상자 하나의 X/Z 경계** 안에서 귀신 전용 런타임 NavMesh 경로 이동 | **2026-09-28 대응** — NavMesh 에서 목적지를 뽑아 계단으로 모든 층을 오간다, 도착 판정에 높이 차 반영 → [ghost-prototype.md §3](ghost-prototype.md) · [roadmap MAP-11](../project/roadmap.md) |
 | 굴착 스킬 도약 | 4m [임시]. 기준은 "2층을 바로 올라갈 정도" | 층고가 정해지면 재환산 → [roadmap MAP-12](../project/roadmap.md) · [mole-skill-system.md §5.4](../project/mole-skill-system.md) |
-| 드릴 카 세이프 존 | 상자 1개. Game 로드 때 스폰 줄 뒤쪽 땅으로 옮긴다(`DrillCarSafeZone.PlaceBehindSpawns`) — B안 앞마당(4m)을 비워 현관을 막지 않게 | 층이 늘면 위치·개수 재검토 |
+| 드릴 카 세이프 존 | Stage1: 드릴카 모델 실내 상자, 조립 영역 뒤 땅에 고정(2026-09-29, [stage-system.md §2.1](../project/stage-system.md)). ProtoTypeGame: 상자 1개를 로드 때 스폰 줄 뒤쪽 땅으로 옮긴다(`DrillCarSafeZone.PlaceBehindSpawns`) — B안 앞마당(4m)을 비워 현관을 막지 않게 | 층이 늘면 위치·개수 재검토 |
 | 은신처 | 방 바닥 앵커에서 역산한 4개 | 방이 21개로 늘면 배치 규칙이 필요하다 |
 | 정신력 어둠 판정 | 집 내부 조명 기준 | 지하실·다락은 조명 전제가 다르다 |
 | 스폰 지점 | 1층 평면 | 층별 스폰·시작 층 결정 필요 |

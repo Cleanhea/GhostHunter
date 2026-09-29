@@ -18,13 +18,29 @@ namespace GhostHunter.Gameplay.Map
             if (zone == null)
                 return;
 
-            GameObject shelf = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            shelf.name = "SharedItemShelf";
-            shelf.transform.SetParent(zone.transform, false);
-            shelf.transform.localPosition = new Vector3(0f,
-                -zone.Size.y * 0.5f + 0.7f, 0f);
-            shelf.transform.localScale = new Vector3(2.8f, 0.1f, 0.5f);
-            Destroy(shelf.GetComponent<Collider>());
+            // 드릴카 모델은 실제 선반 면(앵커)에 늘어놓는다. 임시 상자는 가운데에 판을 만든다.
+            Transform parent = zone.ItemShelfAnchor;
+            Vector3 firstSlot = Vector3.zero;
+            float slotSpacing = 0.2f;
+            float boxSize = 0.15f;
+            if (parent != null)
+            {
+                firstSlot = new Vector3(0f, boxSize * 0.5f, 0f);
+            }
+            else
+            {
+                parent = zone.transform;
+                GameObject shelf = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                shelf.name = "SharedItemShelf";
+                shelf.transform.SetParent(parent, false);
+                shelf.transform.localPosition = new Vector3(0f,
+                    -zone.Size.y * 0.5f + 0.7f, 0f);
+                shelf.transform.localScale = new Vector3(2.8f, 0.1f, 0.5f);
+                Destroy(shelf.GetComponent<Collider>());
+                firstSlot = new Vector3(-1.2f, -zone.Size.y * 0.5f + 0.9f, 0f);
+                slotSpacing = 0.4f;
+                boxSize = 0.2f;
+            }
 
             int slot = 0;
             for (int item = 1; item <= 3; item++)
@@ -34,10 +50,9 @@ namespace GhostHunter.Gameplay.Map
                 {
                     GameObject box = GameObject.CreatePrimitive(PrimitiveType.Cube);
                     box.name = $"Temp{item}_Shared_{index}";
-                    box.transform.SetParent(zone.transform, false);
-                    box.transform.localPosition = new Vector3(-1.2f + slot * 0.4f,
-                        -zone.Size.y * 0.5f + 0.9f, 0f);
-                    box.transform.localScale = Vector3.one * 0.2f;
+                    box.transform.SetParent(parent, false);
+                    box.transform.localPosition = firstSlot + Vector3.right * (slot * slotSpacing);
+                    box.transform.localScale = Vector3.one * boxSize;
                     Renderer renderer = box.GetComponent<Renderer>();
                     renderer.material.color = item == 1 ? Color.cyan
                         : item == 2 ? Color.yellow : Color.magenta;

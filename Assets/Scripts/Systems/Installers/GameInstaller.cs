@@ -36,7 +36,7 @@ namespace GhostHunter.Systems.Installers
         protected override void InstallBindings()
         {
             DrillCarSafeZone drillCar = FindFirstObjectByType<DrillCarSafeZone>();
-            if (drillCar != null && _playerSpawns != null
+            if (drillCar != null && drillCar.PlacesBehindSpawnsAtRuntime && _playerSpawns != null
                 && _playerSpawns.TryGetSpawnBounds(out Bounds spawnBounds, out Vector3 spawnFacing))
             {
                 Vector3 previousPosition = drillCar.transform.position;

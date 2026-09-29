@@ -18,10 +18,10 @@ MonoBehaviour:
   _airControl: 0.4
   _jumpHeight: 1.2
   _gravity: -20
-  _standingHeight: 1.8
-  _crouchHeight: 1.2
-  _standingCameraHeight: 1.65
-  _crouchCameraHeight: 1.05
+  _standingHeight: 1.3
+  _crouchHeight: 0.87
+  _standingCameraHeight: 1.2
+  _crouchCameraHeight: 0.77
   _postureTransitionSpeed: 4
   _mouseSensitivity: 0.1
   _pitchLimit: 89
