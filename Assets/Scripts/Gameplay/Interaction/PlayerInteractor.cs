@@ -1,6 +1,7 @@
 using GhostHunter.Core;
 using GhostHunter.Gameplay.Player;
 using GhostHunter.Gameplay.Ghost;
+using GhostHunter.Gameplay.Revival;
 using GhostHunter.Gameplay.Sanity;
 using Unity.Netcode;
 using UnityEngine;
@@ -28,6 +29,7 @@ namespace GhostHunter.Gameplay.Interaction
         public DoorInteractable CurrentDoor { get; private set; }
         private StageExitInteractable _currentStageExit;
         private StageLobbyTerminal _currentLobbyTerminal;
+        private RevivalCandleSlot _currentCandleSlot;
         private bool _confirmStageExit;
         private CursorLockMode _previousCursorLock;
         private bool _previousCursorVisible;
@@ -85,6 +87,11 @@ namespace GhostHunter.Gameplay.Interaction
             if (_currentLobbyTerminal != null && _input.InteractPressedThisFrame
                 && !_input.IsDeathInputLocked && !_input.IsGameplayInputLocked)
                 _currentLobbyTerminal.RequestOpen();
+
+            // 부활 의식 촛불 자리(revival-system.md) — 놓기·점화 시작. 점화 중 E 는 의식 쪽 미니게임이 읽는다.
+            if (_currentCandleSlot != null && _input.InteractPressedThisFrame
+                && !_input.IsDeathInputLocked && !_input.IsGameplayInputLocked)
+                _currentCandleSlot.RequestInteract();
         }
 
         private void FindTargets()
@@ -96,12 +103,14 @@ namespace GhostHunter.Gameplay.Interaction
                 CurrentDoor = null;
                 _currentStageExit = null;
                 _currentLobbyTerminal = null;
+                _currentCandleSlot = null;
                 return;
             }
 
             CurrentDoor = hit.collider.GetComponentInParent<DoorInteractable>();
             _currentStageExit = hit.collider.GetComponentInParent<StageExitInteractable>();
             _currentLobbyTerminal = hit.collider.GetComponentInParent<StageLobbyTerminal>();
+            _currentCandleSlot = hit.collider.GetComponent<RevivalCandleSlot>();
         }
 
         private void OpenStageExitConfirmation()
@@ -139,6 +148,11 @@ namespace GhostHunter.Gameplay.Interaction
                 else if (_currentLobbyTerminal != null && _input != null && !_input.IsGameplayInputLocked)
                     GUI.Label(new Rect((Screen.width - 220f) * 0.5f,
                         Screen.height * 0.62f, 220f, 28f), "E: 상점 · 스테이지 출발");
+                else if (_currentCandleSlot != null && _input != null
+                    && !_input.IsDeathInputLocked && !_input.IsGameplayInputLocked
+                    && !string.IsNullOrEmpty(_currentCandleSlot.Prompt))
+                    GUI.Label(new Rect((Screen.width - 300f) * 0.5f,
+                        Screen.height * 0.62f, 300f, 28f), _currentCandleSlot.Prompt);
                 return;
             }
 

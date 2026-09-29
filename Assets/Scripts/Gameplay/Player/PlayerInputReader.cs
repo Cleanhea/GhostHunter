@@ -65,6 +65,10 @@ namespace GhostHunter.Gameplay.Player
         private bool _wheelLocked;
 
         public Vector2 Move { get; private set; }
+
+        // 폐급 두더지 효과(PlayerDefectState) — 이동 키 반대, 또는 저주로 이동 입력 덮어쓰기.
+        private bool _moveInverted;
+        private Vector2? _moveOverride;
         public Vector2 Look { get; private set; }
         public bool AttackPressedThisFrame { get; private set; }
         public bool AttackReleasedThisFrame { get; private set; }
@@ -452,7 +456,7 @@ namespace GhostHunter.Gameplay.Player
                 // 휠 입력 자신은 계속 읽어야 스스로 닫힌다.
                 ClearWheelBlockedInputs();
                 Look = Vector2.zero;
-                Move = _moveAction.ReadValue<Vector2>();
+                Move = FilterMove(_moveAction.ReadValue<Vector2>());
                 CrouchHeld = _crouchAction.IsPressed();
                 SprintHeld = _sprintAction.IsPressed();
                 QuickSlotHeld = _quickSlotAction.IsPressed();
@@ -464,7 +468,7 @@ namespace GhostHunter.Gameplay.Player
             }
 
             ClearSpectatorInputs();
-            Move = _moveAction.ReadValue<Vector2>();
+            Move = FilterMove(_moveAction.ReadValue<Vector2>());
             Look = RawLookDelta;
             AttackPressedThisFrame = _attackAction.WasPressedThisFrame();
             AttackReleasedThisFrame = _attackAction.WasReleasedThisFrame();
@@ -488,6 +492,23 @@ namespace GhostHunter.Gameplay.Player
 
             if (_jumpAction.WasPressedThisFrame())
                 _jumpQueued = true;
+        }
+
+        /// <summary>
+        /// 폐급 두더지 효과를 건다(revival-system.md §9). <paramref name="inverted"/> 면 이동 키가 반대로,
+        /// <paramref name="forced"/> 가 있으면 사람 입력 대신 그 방향으로 움직인다. 잠금(사망·메뉴)은 그대로 이긴다.
+        /// </summary>
+        public void SetMoveModifiers(bool inverted, Vector2? forced)
+        {
+            _moveInverted = inverted;
+            _moveOverride = forced;
+        }
+
+        private Vector2 FilterMove(Vector2 raw)
+        {
+            if (_moveOverride.HasValue)
+                return _moveOverride.Value;
+            return _moveInverted ? -raw : raw;
         }
 
         public bool ConsumeJump()

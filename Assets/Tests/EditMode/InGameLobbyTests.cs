@@ -11,24 +11,93 @@ namespace GhostHunter.Tests.EditMode
     /// </summary>
     public sealed class InGameLobbyTests
     {
+        private static readonly MemberGear Starting = MemberGear.Starting;
+
         [Test]
         public void 상점은_인게임_로비에서_방장만_살_수_있다()
         {
-            Assert.IsTrue(StageShopRules.CanPurchase(true, SceneId.InGameLobby, false, 600, 3));
-            Assert.IsFalse(StageShopRules.CanPurchase(false, SceneId.InGameLobby, false, 600, 1), "게스트는 관람만 한다");
-            Assert.IsFalse(StageShopRules.CanPurchase(true, SceneId.Lobby, false, 600, 1), "일반 로비에서는 사지 않는다");
-            Assert.IsFalse(StageShopRules.CanPurchase(true, SceneId.Stage1, false, 600, 1), "스테이지 중에는 사지 않는다");
-            Assert.IsFalse(StageShopRules.CanPurchase(true, SceneId.InGameLobby, true, 600, 1), "전환 중에는 사지 않는다");
+            Assert.IsTrue(StageShopRules.CanPurchase(true, SceneId.InGameLobby, false, 100, ShopItem.CandleSet, Starting));
+            Assert.IsFalse(StageShopRules.CanPurchase(false, SceneId.InGameLobby, false, 100, ShopItem.CandleSet, Starting),
+                "게스트는 관람만 한다");
+            Assert.IsFalse(StageShopRules.CanPurchase(true, SceneId.Lobby, false, 100, ShopItem.CandleSet, Starting),
+                "일반 로비에서는 사지 않는다");
+            Assert.IsFalse(StageShopRules.CanPurchase(true, SceneId.Stage1, false, 100, ShopItem.CandleSet, Starting),
+                "스테이지 중에는 사지 않는다");
+            Assert.IsFalse(StageShopRules.CanPurchase(true, SceneId.InGameLobby, true, 100, ShopItem.CandleSet, Starting),
+                "전환 중에는 사지 않는다");
         }
 
         [Test]
-        public void 잔액이_모자라거나_없는_아이템은_살_수_없다()
+        public void 가격표와_시작_자금_보상()
         {
-            Assert.IsFalse(StageShopRules.CanPurchase(true, SceneId.InGameLobby, false, 299, 3));
-            Assert.IsTrue(StageShopRules.CanPurchase(true, SceneId.InGameLobby, false, 300, 3));
-            Assert.IsFalse(StageShopRules.CanPurchase(true, SceneId.InGameLobby, false, 600, 0));
-            Assert.IsFalse(StageShopRules.CanPurchase(true, SceneId.InGameLobby, false, 600, 4));
-            Assert.AreEqual(200, StageShopRules.PriceOf(2));
+            Assert.AreEqual(25, StageShopRules.StartingBalance);
+            Assert.AreEqual(50, StageShopRules.StageReward);
+            Assert.AreEqual(35, StageShopRules.PriceOf(ShopItem.IronDriver));
+            Assert.AreEqual(10, StageShopRules.PriceOf(ShopItem.IronLighter));
+            Assert.AreEqual(25, StageShopRules.PriceOf(ShopItem.CandleSet));
+            Assert.IsFalse(StageShopRules.IsValidItem(ShopItem.None));
+            Assert.IsTrue(StageShopRules.IsPersonal(ShopItem.IronDriver));
+            Assert.IsTrue(StageShopRules.IsPersonal(ShopItem.IronLighter));
+            Assert.IsFalse(StageShopRules.IsPersonal(ShopItem.CandleSet), "촛대는 공동 자산");
+        }
+
+        [Test]
+        public void 시작_자금으로는_철제_드라이버를_못_사고_한_판_뒤에는_산다()
+        {
+            Assert.IsFalse(StageShopRules.CanPurchase(true, SceneId.InGameLobby, false,
+                StageShopRules.StartingBalance, ShopItem.IronDriver, Starting));
+            Assert.IsTrue(StageShopRules.CanPurchase(true, SceneId.InGameLobby, false,
+                StageShopRules.StartingBalance + StageShopRules.StageReward, ShopItem.IronDriver, Starting));
+        }
+
+        [Test]
+        public void 이미_가진_개인_품목은_다시_사지_않는다()
+        {
+            var iron = new MemberGear(DriverTier.Iron, 100, true);
+            Assert.IsFalse(StageShopRules.CanPurchase(true, SceneId.InGameLobby, false, 999, ShopItem.IronDriver, iron));
+            Assert.IsFalse(StageShopRules.CanPurchase(true, SceneId.InGameLobby, false, 999, ShopItem.IronLighter, iron));
+            Assert.IsTrue(StageShopRules.CanPurchase(true, SceneId.InGameLobby, false, 999, ShopItem.CandleSet, iron),
+                "공동 품목은 여러 개 산다");
+        }
+
+        [Test]
+        public void 수리비는_손실_2당_1달러이고_홀수는_올림한다()
+        {
+            Assert.AreEqual(0, StageShopRules.RepairCost(100));
+            Assert.AreEqual(5, StageShopRules.RepairCost(90), "10% → $5");
+            Assert.AreEqual(1, StageShopRules.RepairCost(99), "1 손실 → $1 올림");
+            Assert.AreEqual(2, StageShopRules.RepairCost(97), "3 손실 → $2 올림");
+            Assert.AreEqual(50, StageShopRules.RepairCost(0));
+        }
+
+        [Test]
+        public void 수리는_철제_드라이버만_잔액이_있을_때_한다()
+        {
+            var worn = new MemberGear(DriverTier.Iron, 90, false);
+            Assert.IsTrue(StageShopRules.CanRepair(true, SceneId.InGameLobby, false, 5, worn));
+            Assert.IsFalse(StageShopRules.CanRepair(true, SceneId.InGameLobby, false, 4, worn), "잔액 부족");
+            Assert.IsFalse(StageShopRules.CanRepair(true, SceneId.InGameLobby, false, 99,
+                new MemberGear(DriverTier.Iron, 100, false)), "닳지 않았다");
+            Assert.IsFalse(StageShopRules.CanRepair(true, SceneId.InGameLobby, false, 99,
+                new MemberGear(DriverTier.Wood, 50, false)), "나무 드라이버는 수리하지 않는다");
+            Assert.IsFalse(StageShopRules.CanRepair(false, SceneId.InGameLobby, false, 99, worn), "방장만");
+        }
+
+        [Test]
+        public void 플레이어_장비는_로비_데이터로_왕복한다()
+        {
+            var gear = new MemberGear(DriverTier.Iron, 73, true);
+            Assert.IsTrue(MemberGear.TryFromLobbyData(gear.ToLobbyData(), out MemberGear read));
+            Assert.AreEqual(DriverTier.Iron, read.Driver);
+            Assert.AreEqual(73, read.DriverDurability);
+            Assert.IsTrue(read.HasLighter);
+
+            Assert.IsFalse(MemberGear.TryFromLobbyData(null, out MemberGear missing));
+            Assert.AreEqual(DriverTier.Wood, missing.Driver, "기록이 없으면 시작 지급 — 나무 드라이버");
+            Assert.AreEqual(100, missing.DriverDurability);
+            Assert.IsFalse(missing.HasLighter, "라이터는 사야 생긴다");
+            Assert.IsFalse(MemberGear.TryFromLobbyData("1,50", out _));
+            Assert.AreEqual(100, new MemberGear(DriverTier.Iron, 250, false).DriverDurability, "최대 내구도로 자른다");
         }
 
         [Test]

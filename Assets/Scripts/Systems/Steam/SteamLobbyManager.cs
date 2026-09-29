@@ -58,7 +58,7 @@ namespace GhostHunter.Systems.Steam
         private const string SettlementCountKey = "gh_settlement_count";
         private const string SettlementKeyPrefix = "gh_settlement_";
         private const int ShopRequestChannel = 8;
-        private const int StartingShopBalance = 600;
+        private const string MemberGearKeyPrefix = "gh_gear_";
         private readonly byte[] _shopRequest = new byte[1];
         private float _nextHostElectionCheck;
 
@@ -72,7 +72,7 @@ namespace GhostHunter.Systems.Steam
         /// 네트워크 직렬화에 영향을 주는 변경(NGO 업그레이드, 토폴로지 변경, 트랜스포트 패치 등)을
         /// 할 때 수동으로 올린다. 호스트와 값이 다르면 로비 참가 단계에서 걸러진다.
         /// </summary>
-        public const int NetProtocolVersion = 6;
+        public const int NetProtocolVersion = 7;
 
         /// <summary>0/O, 1/I 처럼 눈으로 헷갈리는 글자를 뺀 방 코드 문자셋.</summary>
         private const string RoomCodeAlphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -110,7 +110,7 @@ namespace GhostHunter.Systems.Steam
 
         public int ShopBalance
         {
-            get { ReadShopState(out int balance, out _, out _, out _); return balance; }
+            get { ReadShopState(out int balance, out _); return balance; }
         }
 
         public int PublishedSettlementCount
@@ -145,58 +145,149 @@ namespace GhostHunter.Systems.Steam
                     CurrentLobby.Value.GetData(SettlementKeyPrefix + index), out record);
         }
 
-        public int GetPurchasedTempItemCount(int itemIndex)
+        public int CandleCount
         {
-            ReadShopState(out _, out int first, out int second, out int third);
-            return itemIndex == 1 ? first : itemIndex == 2 ? second
-                : itemIndex == 3 ? third : 0;
+            get { ReadShopState(out _, out int candles); return candles; }
+        }
+
+        public bool TryGrantStageReward()
+        {
+            if (!CurrentLobby.HasValue || !IsLobbyOwner)
+                return false;
+            ReadShopState(out int balance, out int candles);
+            if (!WriteShopState(balance + StageShopRules.StageReward, candles))
+                return false;
+            LobbyUpdated?.Invoke();
+            return true;
+        }
+
+        public bool TryConsumeCandle()
+        {
+            if (!CurrentLobby.HasValue || !IsLobbyOwner)
+                return false;
+            ReadShopState(out int balance, out int candles);
+            if (candles <= 0 || !WriteShopState(balance, candles - 1))
+                return false;
+            LobbyUpdated?.Invoke();
+            return true;
+        }
+
+        public MemberGear GetMemberGear(ulong steamId)
+        {
+            if (!CurrentLobby.HasValue || steamId == 0)
+                return MemberGear.Starting;
+            MemberGear.TryFromLobbyData(CurrentLobby.Value.GetData(MemberGearKeyPrefix + steamId), out MemberGear gear);
+            return gear;
         }
 
         /// <summary>
         /// 상점은 <b>인게임 로비에서 방장만</b> 산다(2026-09-28, <see cref="StageShopRules"/>). 게스트는 잔액·보유만 본다.
         /// 예전에는 일반 로비에서 누구나 샀고 게스트 요청을 P2P 로 방장에게 보냈다.
         /// </summary>
-        public bool TryPurchaseTempItem(int itemIndex)
+        public bool TryPurchase(ShopItem item, ulong forSteamId)
         {
-            if (!CurrentLobby.HasValue || !CanPurchaseNow(itemIndex))
+            if (!CurrentLobby.HasValue || !TryGetShopScene(out SceneId scene, out bool loading))
                 return false;
 
-            ReadShopState(out int balance, out int first, out int second, out int third);
-            if (itemIndex == 1) first++;
-            else if (itemIndex == 2) second++;
-            else third++;
-            string nextState = $"{balance - StageShopRules.PriceOf(itemIndex)},{first},{second},{third}";
-            if (!CurrentLobby.Value.SetData(ShopStateKey, nextState))
+            bool personal = StageShopRules.IsPersonal(item);
+            if (personal && !IsMember(forSteamId))
+                return false;
+
+            MemberGear gear = personal ? GetMemberGear(forSteamId) : MemberGear.Starting;
+            ReadShopState(out int balance, out int candles);
+            if (!StageShopRules.CanPurchase(IsLobbyOwner, scene, loading, balance, item, gear))
+                return false;
+
+            int price = StageShopRules.PriceOf(item);
+            bool written = item switch
+            {
+                // 새 철제 드라이버는 내구도가 가득 찬 채로 나무 드라이버를 대신한다.
+                ShopItem.IronDriver => WriteMemberGear(forSteamId,
+                    new MemberGear(DriverTier.Iron, StageShopRules.MaxDriverDurability, gear.HasLighter)),
+                ShopItem.IronLighter => WriteMemberGear(forSteamId,
+                    new MemberGear(gear.Driver, gear.DriverDurability, true)),
+                ShopItem.CandleSet => true,
+                _ => false,
+            };
+            if (!written || !WriteShopState(balance - price,
+                    item == ShopItem.CandleSet ? candles + StageShopRules.CandlesPerSet : candles))
                 return false;
             LobbyUpdated?.Invoke();
             return true;
         }
 
-        private bool CanPurchaseNow(int itemIndex)
+        public bool TryRepairDriver(ulong steamId)
         {
-            Services.TryGet(out ISceneFlow sceneFlow);
-            return sceneFlow != null && StageShopRules.CanPurchase(IsLobbyOwner, sceneFlow.Current,
-                sceneFlow.IsLoading, ShopBalance, itemIndex);
+            if (!CurrentLobby.HasValue || !IsMember(steamId)
+                || !TryGetShopScene(out SceneId scene, out bool loading))
+                return false;
+
+            MemberGear gear = GetMemberGear(steamId);
+            ReadShopState(out int balance, out int candles);
+            if (!StageShopRules.CanRepair(IsLobbyOwner, scene, loading, balance, gear))
+                return false;
+
+            int cost = StageShopRules.RepairCost(gear.DriverDurability);
+            if (!WriteMemberGear(steamId, gear.WithDurability(StageShopRules.MaxDriverDurability))
+                || !WriteShopState(balance - cost, candles))
+                return false;
+            LobbyUpdated?.Invoke();
+            return true;
         }
 
-        private void ReadShopState(out int balance, out int first,
-            out int second, out int third)
+        public bool TrySaveDriverDurability(ulong steamId, int durability)
         {
-            balance = StartingShopBalance;
-            first = second = third = 0;
+            if (!CurrentLobby.HasValue || !IsLobbyOwner || !IsMember(steamId))
+                return false;
+            MemberGear gear = GetMemberGear(steamId);
+            if (gear.DriverDurability == StageShopRules.Clamp(durability))
+                return true;
+            return WriteMemberGear(steamId, gear.WithDurability(durability));
+        }
+
+        private static bool TryGetShopScene(out SceneId scene, out bool loading)
+        {
+            scene = SceneId.Bootstrap;
+            loading = true;
+            if (!Services.TryGet(out ISceneFlow sceneFlow))
+                return false;
+            scene = sceneFlow.Current;
+            loading = sceneFlow.IsLoading;
+            return true;
+        }
+
+        private bool IsMember(ulong steamId)
+        {
+            if (!CurrentLobby.HasValue || steamId == 0)
+                return false;
+            foreach (Friend member in CurrentLobby.Value.Members)
+                if (member.Id.Value == steamId)
+                    return true;
+            return false;
+        }
+
+        private bool WriteMemberGear(ulong steamId, MemberGear gear) =>
+            CurrentLobby.HasValue && IsLobbyOwner
+            && CurrentLobby.Value.SetData(MemberGearKeyPrefix + steamId, gear.ToLobbyData());
+
+        private bool WriteShopState(int balance, int candles) =>
+            CurrentLobby.HasValue && IsLobbyOwner
+            && CurrentLobby.Value.SetData(ShopStateKey, $"{balance},{candles}");
+
+        /// <summary>공동 상점 상태 "잔액,촛불개수". 기록이 없거나 옛 형식이면 시작 자금.</summary>
+        private void ReadShopState(out int balance, out int candles)
+        {
+            balance = StageShopRules.StartingBalance;
+            candles = 0;
             if (!CurrentLobby.HasValue)
                 return;
             string[] fields = CurrentLobby.Value.GetData(ShopStateKey)?.Split(',');
-            if (fields == null || fields.Length != 4
+            if (fields == null || fields.Length != 2
                 || !int.TryParse(fields[0], out int parsedBalance)
-                || !int.TryParse(fields[1], out int parsedFirst)
-                || !int.TryParse(fields[2], out int parsedSecond)
-                || !int.TryParse(fields[3], out int parsedThird))
+                || !int.TryParse(fields[1], out int parsedCandles))
                 return;
             balance = parsedBalance;
-            first = parsedFirst;
-            second = parsedSecond;
-            third = parsedThird;
+            candles = parsedCandles;
         }
 
         private void HandleShopSessionRequest(SteamId sender)
@@ -779,7 +870,7 @@ namespace GhostHunter.Systems.Steam
 
             // 480 공용 로비 목록에서 우리 방만 걸러 내는 1차 필터.
             lobby.SetData(GameKey, GameKeyValue);
-            lobby.SetData(ShopStateKey, $"{StartingShopBalance},0,0,0");
+            lobby.SetData(ShopStateKey, $"{StageShopRules.StartingBalance},0");
             lobby.SetData(SettlementCountKey, "0");
 
             // 참가자가 검색으로 이 로비를 찾을 수 있게 방 코드를 심는다.

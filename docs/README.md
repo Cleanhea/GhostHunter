@@ -27,6 +27,7 @@ docs/
 │   ├── furniture-multidriver-system.md  가구 분해·조립 아이템 — MD-1·2·5·9·10·11·12 확정, FM-IMPL-1~3 구현
 │   ├── furniture-durability-system.md   가구 내구도 — 수직 상대 속도·초기값·복구 승인, 코드 구현·Unity 검증 대기
 │   ├── death-system.md           죽음 판정·연출·시체·사망 상태·치료비·전멸 — 기획 0.1
+│   ├── revival-system.md         부활 의식 — 소환진·촛불 5개·타이밍 점화·폐급 두더지
 │   ├── stage-system.md           스테이지 시작·종료·정산·호스트 이전 — 기획 1.0과 2026-09-27 확정 사항
 │   ├── spectator-system.md         사망 후 능력 제한·자유시점·생존자 관전 — 코드 구현, Play 검증 대기
 │   ├── voice-chat-system.md        근접 음성 채팅(마이크) — 10m XZ 감쇠·벽 가림·층 차단, 기획 0.2 (선행 결정 4건 확정)
@@ -77,6 +78,7 @@ docs/
 | [project/furniture-multidriver-system.md](project/furniture-multidriver-system.md) | 큰 가구를 어떻게 분해해서 옮기고 다시 조립하는가 | 분해·조립 규칙, 아이템 내구도, 부품 구성 확정 |
 | [project/furniture-durability-system.md](project/furniture-durability-system.md) | 가구 내구도는 언제 얼마나 깎이고 0이 되면 어떻게 되는가 | 충돌 파손 규칙·수치·0 도달 결과(FD-1~12) 확정 |
 | [project/death-system.md](project/death-system.md) | 언제 사망하고 시체·사망 상태·치료비·전멸을 어떻게 처리하는가 | 사망·시체·전멸·치료비 규칙 변경 |
+| [project/revival-system.md](project/revival-system.md) | 시체를 소환진에 놓고 촛불 5개를 점화해 어떻게 부활하고 폐급이 되는가 | 부활 의식·촛불·폐급 규칙 변경 |
 | [project/stage-system.md](project/stage-system.md) | 한 판을 어떻게 시작·종료·정산하고 호스트 이탈 후 이어 가는가 | 시작·종료·정산·세션 이전 규칙 변경 |
 | [architecture/death-system.md](architecture/death-system.md) | 임시 시체와 전멸 결과를 어떻게 동기화하는가 | 죽음 구현·검증 변경 |
 | [project/spectator-system.md](project/spectator-system.md) | 사망 후 무엇을 할 수 있고 두 관전 모드는 어떻게 전환하는가 | 사망·관전 규칙 확정 및 구현 |

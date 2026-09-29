@@ -16,6 +16,8 @@
 | `Gameplay/Cleaning/CleaningController.cs` | 씬 풀 랜덤 배치·HUD 초기화·첫 충돌 기준 얼룩 조준 |
 | `Gameplay/Cleaning/ICleaningService.cs` | 플레이어·디버그 HUD 접근 계약. `GameInstaller`에서 등록 |
 | `Gameplay/Cleaning/CleaningSettings.cs` | 임시 수량·사거리·연출·충돌 설정 SO |
+| `Gameplay/Cleaning/CleaningTaskProgress.cs` | 두 작업 수치 스냅샷 — 닦은 얼룩/배치 얼룩, 반출한 목표 가구/목표 가구. `ICleaningService.TaskProgress` |
+| `UI/CleaningProgressHud.cs` | 화면 좌측 상단 "청소 진행도" 패널(2026-09-29). 두 줄 막대·"n / m", 다 끝난 줄은 초록. Stage1 `PrototypeUI` 에 부착 |
 | `Shaders/CleaningStain.shader` | 바닥 얼룩 모양과 방향성 닦임 연출 |
 | ~~`Editor/CleaningSetup.cs`~~ | ~~`GhostHunter > 청소 시스템 설치/검증` 메뉴~~ — ADR-0020으로 삭제 |
 
@@ -37,6 +39,14 @@
 취소한다. 후보는 기존 Floor 지점에서 바닥 지지·법선·가구/벽 겹침을 검사한다. 바닥 표면보다
 `CleaningSettings.SurfaceOffset`(기본 0.05m)만큼 위에 얼룩을 놓는다. B안의 비충돌 장식 바닥은
 실제 충돌 바닥보다 최대 0.0395m 높아, 그 위로 표시하기 위한 기술적 여유다.
+
+### 2.1 청소 진행도 HUD (2026-09-29 사용자 요청 "청소 = 대걸레로 닦기 + 필요한 물품 드릴카로 옮기기")
+
+- 두 작업을 **따로** 보여 준다. 합산 진행도·승패 연결은 미정(D-14)이라 만들지 않았다.
+- 수치는 복제 상태에서 읽는다 — 얼룩은 `CleaningStain` 의 배치·제거 상태, 가구는 `RandomFurnitureItem` 의
+  목표(`IsAssignedWorkTarget`)·반출(`IsDelivered`) 플래그. 정산(`SanityTeamService.BuildSettlement`)과 같은 기준이다.
+- 반출된 목표 가구가 부서진 상태였는지는 따지지 않는다(정산과 같음). 0.2초마다 갱신, 청소 서비스가 없는 씬에서는 숨는다.
+- 귀신의 40% 어택 조건은 여전히 얼룩 비율(`ProgressPercent`)만 본다.
 
 ## 3. 에셋과 설치
 

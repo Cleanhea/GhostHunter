@@ -576,6 +576,7 @@ GameObject:
   - component: {fileID: 2964018375516620913}
   - component: {fileID: 4821937564012837465}
   - component: {fileID: 5930182746601928374}
+  - component: {fileID: 4739941112550861376}
   m_Layer: 8
   m_Name: Player
   m_TagString: Untagged
@@ -1051,6 +1052,18 @@ MonoBehaviour:
   m_EditorClassIdentifier: GhostHunter.UI::GhostHunter.UI.LighterFuelHud
   _uiSettings: {fileID: 11400000, guid: 421b0124466245845a465bfec15eafa0, type: 2}
   _lighter: {fileID: 4821937564012837465}
+--- !u!114 &4739941112550861376
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6853845278674404290}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d91194968ec1457994a3df24cedddd8b, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: GhostHunter.Gameplay::GhostHunter.Gameplay.Player.PlayerDefectState
 --- !u!1 &7530103813448067282
 GameObject:
   m_ObjectHideFlags: 0

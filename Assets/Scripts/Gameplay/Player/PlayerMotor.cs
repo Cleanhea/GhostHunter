@@ -86,6 +86,29 @@ namespace GhostHunter.Gameplay.Player
                 snapshot.Crouching, snapshot.Prone);
         }
 
+        /// <summary>서버가 플레이어를 옮긴다(부활 의식 — 소환진 중앙). 이동은 소유자 권위라 소유자가 적용한다.</summary>
+        public void ServerTeleport(Vector3 position, Quaternion rotation)
+        {
+            if (IsServer && IsSpawned)
+                TeleportRpc(position, rotation);
+        }
+
+        [Rpc(SendTo.Owner)]
+        private void TeleportRpc(Vector3 position, Quaternion rotation)
+        {
+            if (!IsOwner)
+                return;
+            bool wasEnabled = _controller.enabled;
+            _controller.enabled = false;
+            NetworkTransform networkTransform = GetComponent<NetworkTransform>();
+            if (networkTransform != null && networkTransform.IsSpawned)
+                networkTransform.Teleport(position, rotation, transform.localScale);
+            else
+                transform.SetPositionAndRotation(position, rotation);
+            _controller.enabled = wasEnabled;
+            _verticalVelocity = 0f;
+        }
+
         [Rpc(SendTo.Owner)]
         private void RestoreStageStateRpc(Vector3 position, Quaternion rotation,
             bool crouching, bool prone)

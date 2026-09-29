@@ -186,11 +186,14 @@ namespace GhostHunter.UI
         private void UpdateWheelVisual()
         {
             int slotCount = _loadout.SlotCount;
+            PlayerCleaningController owner = _localPlayer != null ? _localPlayer.CleaningController : null;
 
             for (int i = 0; i < slotCount; i++)
             {
                 QuickSlotItemDefinition item = _loadout.GetSlot(i);
                 bool selected = i == _selectedIndex;
+                // 아직 사지 않은 라이터는 흐리게 — 골라도 장착되지 않는다.
+                bool owned = owner == null || owner.IsSlotOwned(i);
 
                 Image marker = _slotMarkers[i];
                 marker.color = selected
@@ -202,13 +205,18 @@ namespace GhostHunter.UI
                 if (item != null)
                 {
                     icon.sprite = item.Icon != null ? item.Icon : _circleSprite;
-                    icon.color = item.Icon != null ? Color.white : item.PlaceholderColor;
+                    Color color = item.Icon != null ? Color.white : item.PlaceholderColor;
+                    if (!owned)
+                        color.a *= 0.25f;
+                    icon.color = color;
                 }
             }
 
             QuickSlotItemDefinition hovered = _selectedIndex >= 0 ? _loadout.GetSlot(_selectedIndex) : null;
+            bool hoveredOwned = owner == null || _selectedIndex < 0 || owner.IsSlotOwned(_selectedIndex);
             _titleText.text = hovered != null ? hovered.DisplayName : string.Empty;
-            _descriptionText.text = hovered != null ? hovered.Description : string.Empty;
+            _descriptionText.text = hovered == null ? string.Empty
+                : hoveredOwned ? hovered.Description : "아직 없습니다 — 인게임 로비 상점에서 삽니다.";
 
             bool hasDirection = _selectedIndex >= 0;
             _arrowImage.enabled = hasDirection;

@@ -24,8 +24,12 @@ namespace GhostHunter.Gameplay.Ghost
         private const float TurnSpeedDegrees = 540f;
         private const int MaxTrackedPlayers = 4;
         private const float MinRoamGiveUpSeconds = 4f;
-        private const int RoamPickAttempts = 12;
+        private const int RoamPickAttempts = 20;
         private const int SearchWanderPickAttempts = 6;
+        private const float RoamScoreJitterSeconds = 4f;
+        private const float LookAroundTurnDegrees = 150f;
+        private const float DoorRayHeight = 1f;
+        private const float DoorCollisionRefreshInterval = 0.2f;
         private const float NavSampleRadius = 1f;
         private const float NavSampleFallbackRadius = 2.5f;
         // 층고 3m 보다 작게 — 경로 코너·목적지가 바로 위/아래 층이면 '도착'으로 치지 않는다.
@@ -87,6 +91,9 @@ namespace GhostHunter.Gameplay.Ghost
 
         private FurnitureGrabTarget[] _sceneFurniture;
         private DoorInteractable[] _sceneDoors;
+        private Collider[][] _sceneDoorColliders;
+        private bool[] _doorCollisionIgnored;
+        private float _doorCollisionRefreshRemaining;
         private GhostPhenomenonKind _lastPhenomenon;
 
         private readonly struct ShakeTarget
@@ -111,6 +118,9 @@ namespace GhostHunter.Gameplay.Ghost
         private Vector3 _roamExtents = new(6f, 1.5f, 5f);
         private Vector3 _roamDestination;
         private float _roamGiveUpAt;
+        private GhostRoamMemory _roamMemory;
+        private float _lookAroundRemaining;
+        private float _lookYaw;
 
         private Pursuit _pursuit;
         private SanityNetworkState _target;
@@ -391,6 +401,7 @@ namespace GhostHunter.Gameplay.Ghost
 
             _machine = new GhostStateMachine(_settings);
             _phenomena = new GhostPhenomenaDirector(_settings);
+            _roamMemory = new GhostRoamMemory(_settings.RoamCellSize, _settings.RoamMemorySeconds);
             _roamCenter = transform.position;
             _roamDestination = transform.position;
             _phase.Value = GhostPhase.Active;
@@ -410,6 +421,9 @@ namespace GhostHunter.Gameplay.Ghost
             _phenomena = null;
             _sceneFurniture = null;
             _sceneDoors = null;
+            _sceneDoorColliders = null;
+            _doorCollisionIgnored = null;
+            _roamMemory = null;
             _shakeTargets.Clear();
             _shakeRemaining = 0f;
             _target = null;
@@ -509,6 +523,8 @@ namespace GhostHunter.Gameplay.Ghost
         private void ServerTick(float deltaTime)
         {
             ClampToHouseBounds();
+            _roamMemory.MarkVisited(transform.position, Time.time);
+            RefreshDoorCollisions(deltaTime);
 
             int playerCount = _sanity.CopyPlayerStates(_players);
             UpdatePlayerSpeeds(playerCount, deltaTime);
@@ -540,7 +556,7 @@ namespace GhostHunter.Gameplay.Ghost
             if (current == GhostPhase.Attack)
                 ServerTickAttack(deltaTime, playerCount);
             else
-                ServerTickRoam(deltaTime, _settings.RoamSpeed);
+                ServerTickRoam(deltaTime, _settings.RoamSpeed, attacking: false);
 
             ServerTickPhenomena(deltaTime, current, teamSanity);
             ServerTickShake(deltaTime);
@@ -889,7 +905,18 @@ namespace GhostHunter.Gameplay.Ghost
         private void EnsureSceneCollections()
         {
             _sceneFurniture ??= FindObjectsByType<FurnitureGrabTarget>(FindObjectsSortMode.None);
-            _sceneDoors ??= FindObjectsByType<DoorInteractable>(FindObjectsSortMode.None);
+            if (_sceneDoors != null)
+                return;
+
+            _sceneDoors = FindObjectsByType<DoorInteractable>(FindObjectsSortMode.None);
+            _sceneDoorColliders = new Collider[_sceneDoors.Length][];
+            _doorCollisionIgnored = new bool[_sceneDoors.Length];
+            for (int i = 0; i < _sceneDoors.Length; i++)
+            {
+                _sceneDoorColliders[i] = System.Array.FindAll(
+                    _sceneDoors[i].GetComponentsInChildren<Collider>(true),
+                    collider => !collider.isTrigger);
+            }
         }
 
         /// <summary>
@@ -1020,7 +1047,7 @@ namespace GhostHunter.Gameplay.Ghost
                     break;
 
                 default:
-                    ServerTickRoam(deltaTime, _settings.ChaseSpeed);
+                    ServerTickRoam(deltaTime, _settings.ChaseSpeed, attacking: true);
                     break;
             }
 
@@ -1105,51 +1132,100 @@ namespace GhostHunter.Gameplay.Ghost
             }
         }
 
-        private void ServerTickRoam(float deltaTime, float speed)
+        /// <summary>
+        /// 집 내부 배회(§9.1). 활동 중에는 목적지에 닿으면 잠깐 멈춰 두리번거리고, 어택 중(<paramref name="attacking"/>)
+        /// 에는 멈추지 않고 곧장 다음 곳으로 간다. 문은 어택 중에만 열 수 있으므로(§9.4) 활동 중에는 닫힌 문 너머를
+        /// 목적지로 고르지 않는다.
+        /// </summary>
+        private void ServerTickRoam(float deltaTime, float speed, bool attacking)
         {
-            if (HasArrived(_roamDestination) || Time.time >= _roamGiveUpAt)
-                PickRoamDestination(speed);
+            if (attacking)
+                _lookAroundRemaining = 0f;
+
+            if (_lookAroundRemaining > 0f)
+            {
+                _lookAroundRemaining -= deltaTime;
+                LookAround(deltaTime);
+                return;
+            }
+
+            bool arrived = HasArrived(_roamDestination);
+            if (arrived || Time.time >= _roamGiveUpAt)
+            {
+                PickRoamDestination(speed, avoidClosedDoors: !attacking);
+                if (arrived && !attacking && _settings.RoamLookAroundMax > 0f)
+                {
+                    _lookAroundRemaining = Random.Range(_settings.RoamLookAroundMin, _settings.RoamLookAroundMax);
+                    _lookYaw = transform.eulerAngles.y + Random.Range(60f, 150f) * (Random.value < 0.5f ? -1f : 1f);
+                    // 포기 시간은 걷는 시간 기준이다 — 서서 두리번거리는 시간만큼 미룬다.
+                    _roamGiveUpAt += _lookAroundRemaining;
+                    ResetStuckCheck();
+                    return;
+                }
+            }
 
             // 경로가 끊겼거나(닫힌 문 등) 제자리에 걸렸으면 다음 틱에 다른 목적지를 고른다.
             if (!MoveToward(_roamDestination, speed, deltaTime, allowPartial: false))
                 _roamGiveUpAt = 0f;
         }
 
+        /// <summary>제자리에서 좌우로 고개를 돌린다. 한쪽을 다 보면 반대쪽으로 새 각도를 잡는다.</summary>
+        private void LookAround(float deltaTime)
+        {
+            Quaternion look = Quaternion.Euler(0f, _lookYaw, 0f);
+            transform.rotation = Quaternion.RotateTowards(
+                transform.rotation, look, LookAroundTurnDegrees * deltaTime);
+            if (Quaternion.Angle(transform.rotation, look) < 1f)
+                _lookYaw += Random.Range(70f, 140f) * (Random.value < 0.5f ? -1f : 1f);
+
+            _controller.Move(Vector3.down * _settings.Gravity * deltaTime);
+        }
+
         /// <summary>
-        /// NavMesh 삼각형을 면적 비례로 뽑아 배회 목적지를 정한다. 계단으로 이어진 모든 층이 후보이고,
-        /// 완전한 경로가 있는 곳만 고른다(지붕 위 같은 끊긴 섬 제외). `RoamMinDistance` 이상 떨어진 곳을 우선한다.
+        /// NavMesh 삼각형을 면적 비례로 뽑은 후보 중 <see cref="GhostRoamMemory"/> 점수(오래 안 간 곳 − 걸리는 시간)가
+        /// 가장 높은 곳을 배회 목적지로 정한다. 계단으로 이어진 모든 층이 후보이고, 완전한 경로가 있는 곳만 고른다
+        /// (지붕 위 같은 끊긴 섬 제외). `RoamMinDistance` 이상 떨어진 곳을 우선한다.
         /// </summary>
-        private void PickRoamDestination(float speed)
+        private void PickRoamDestination(float speed, bool avoidClosedDoors)
         {
             float minSqr = _settings.RoamMinDistance * _settings.RoamMinDistance;
-            bool hasFallback = false;
-            Vector3 fallback = default;
-            float fallbackLength = 0f;
+            int wanted = Mathf.Max(1, _settings.RoamCandidateCount);
+            int found = 0;
+            bool hasBest = false;
+            bool bestIsFar = false;
+            Vector3 best = default;
+            float bestLength = 0f;
+            float bestScore = float.MinValue;
 
-            for (int attempt = 0; attempt < RoamPickAttempts; attempt++)
+            for (int attempt = 0; attempt < RoamPickAttempts && found < wanted; attempt++)
             {
                 if (!TryRandomNavPoint(out Vector3 candidate))
                     break;
-                if (!TryMeasurePath(candidate, out float length))
+                if (!TryMeasurePath(candidate, out float length, avoidClosedDoors))
                     continue;
 
-                if ((candidate - transform.position).sqrMagnitude >= minSqr)
-                {
-                    SetRoamDestination(candidate, length, speed);
-                    return;
-                }
+                bool far = (candidate - transform.position).sqrMagnitude >= minSqr;
+                if (far)
+                    found++;
+                // 가까운 후보는 먼 후보가 하나도 없을 때만 쓴다.
+                if (bestIsFar && !far)
+                    continue;
 
-                if (!hasFallback)
+                float score = _roamMemory.Score(candidate, length, speed, Time.time)
+                    + Random.value * RoamScoreJitterSeconds;
+                if (!hasBest || (far && !bestIsFar) || score > bestScore)
                 {
-                    hasFallback = true;
-                    fallback = candidate;
-                    fallbackLength = length;
+                    hasBest = true;
+                    bestIsFar = far;
+                    best = candidate;
+                    bestLength = length;
+                    bestScore = score;
                 }
             }
 
-            if (hasFallback)
+            if (hasBest)
             {
-                SetRoamDestination(fallback, fallbackLength, speed);
+                SetRoamDestination(best, bestLength, speed);
                 return;
             }
 
@@ -1212,8 +1288,11 @@ namespace GhostHunter.Gameplay.Ghost
             return true;
         }
 
-        /// <summary>현재 위치에서 목적지까지 완전한 경로가 있으면 그 길이를 돌려준다. 현재 경로는 건드리지 않는다.</summary>
-        private bool TryMeasurePath(Vector3 destination, out float length)
+        /// <summary>
+        /// 현재 위치에서 목적지까지 완전한 경로가 있으면 그 길이를 돌려준다. 현재 경로는 건드리지 않는다.
+        /// NavMesh 는 문을 굽지 않으므로 <paramref name="avoidClosedDoors"/> 면 닫힌 문을 지나는 경로를 따로 거른다.
+        /// </summary>
+        private bool TryMeasurePath(Vector3 destination, out float length, bool avoidClosedDoors = false)
         {
             length = 0f;
             if (!TrySampleNavMesh(transform.position, out Vector3 from)
@@ -1225,9 +1304,76 @@ namespace GhostHunter.Gameplay.Ghost
             }
 
             int count = _navPath.GetCornersNonAlloc(_probeCorners);
+            if (avoidClosedDoors && PathCrossesClosedDoor(_probeCorners, count))
+                return false;
+
             for (int i = 1; i < count; i++)
                 length += Vector3.Distance(_probeCorners[i - 1], _probeCorners[i]);
             return true;
+        }
+
+        /// <summary>경로 코너를 잇는 선분(허리 높이)이 닫힌 문짝의 충돌체를 지나는가.</summary>
+        private bool PathCrossesClosedDoor(Vector3[] corners, int count)
+        {
+            EnsureSceneCollections();
+            for (int d = 0; d < _sceneDoors.Length; d++)
+            {
+                DoorInteractable door = _sceneDoors[d];
+                if (door == null || !door.IsSpawned || door.IsOpen)
+                    continue;
+
+                Collider[] colliders = _sceneDoorColliders[d];
+                for (int i = 1; i < count; i++)
+                {
+                    Vector3 a = corners[i - 1] + Vector3.up * DoorRayHeight;
+                    Vector3 segment = corners[i] + Vector3.up * DoorRayHeight - a;
+                    float length = segment.magnitude;
+                    if (length < 1e-3f)
+                        continue;
+
+                    var ray = new Ray(a, segment / length);
+                    for (int c = 0; c < colliders.Length; c++)
+                    {
+                        if (colliders[c] != null
+                            && colliders[c].bounds.IntersectRay(ray, out float hit)
+                            && hit <= length)
+                        {
+                            return true;
+                        }
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// 열린 문짝은 귀신을 막지 않는다 — NavMesh 가 문을 빼고 구워서 경로가 열린 문짝을 스쳐 지나가면 캡슐이
+        /// 걸려 제자리에 멈췄다. 닫힌 문은 계속 막는다(어택 중에는 <see cref="TryOpenBlockingDoor"/> 가 연다).
+        /// </summary>
+        private void RefreshDoorCollisions(float deltaTime)
+        {
+            _doorCollisionRefreshRemaining -= deltaTime;
+            if (_doorCollisionRefreshRemaining > 0f)
+                return;
+
+            _doorCollisionRefreshRemaining = DoorCollisionRefreshInterval;
+            EnsureSceneCollections();
+            for (int d = 0; d < _sceneDoors.Length; d++)
+            {
+                DoorInteractable door = _sceneDoors[d];
+                bool ignore = door != null && door.IsSpawned && door.IsOpen;
+                if (_doorCollisionIgnored[d] == ignore)
+                    continue;
+
+                _doorCollisionIgnored[d] = ignore;
+                Collider[] colliders = _sceneDoorColliders[d];
+                for (int c = 0; c < colliders.Length; c++)
+                {
+                    if (colliders[c] != null)
+                        Physics.IgnoreCollision(_controller, colliders[c], ignore);
+                }
+            }
         }
 
         private static bool TrySampleNavMesh(Vector3 position, out Vector3 onMesh)

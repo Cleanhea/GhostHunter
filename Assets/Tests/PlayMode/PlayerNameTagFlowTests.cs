@@ -291,9 +291,14 @@ namespace GhostHunter.Tests.PlayMode
             public bool IsLobbyOwner => false;
             public bool IsGameStarted => false;
             public bool IsGameLoading => false;
-            public int ShopBalance => 600;
-            public int GetPurchasedTempItemCount(int itemIndex) => 0;
-            public bool TryPurchaseTempItem(int itemIndex) => false;
+            public int ShopBalance => StageShopRules.StartingBalance;
+            public int CandleCount => 0;
+            public bool TryConsumeCandle() => false;
+            public bool TryGrantStageReward() => false;
+            public MemberGear GetMemberGear(ulong steamId) => MemberGear.Starting;
+            public bool TryPurchase(ShopItem item, ulong forSteamId) => false;
+            public bool TryRepairDriver(ulong steamId) => false;
+            public bool TrySaveDriverDurability(ulong steamId, int durability) => false;
             public int PublishedSettlementCount => 0;
             public bool TryPublishStageSettlement(StageSettlementRecord record) => false;
             public bool TryGetPublishedSettlement(int index, out StageSettlementRecord record)

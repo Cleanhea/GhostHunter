@@ -20,9 +20,32 @@ namespace GhostHunter.Core.Steam
         bool IsLobbyOwner { get; }
         bool IsGameStarted { get; }
         bool IsGameLoading { get; }
+        /// <summary>공동 잔액($). 로비에 없으면 시작 자금.</summary>
         int ShopBalance { get; }
-        int GetPurchasedTempItemCount(int itemIndex);
-        bool TryPurchaseTempItem(int itemIndex);
+
+        /// <summary>팀 촛불 재고(개). 촛대 세트 하나 = <see cref="StageShopRules.CandlesPerSet"/>개.</summary>
+        int CandleCount { get; }
+
+        /// <summary>스테이지 서버(방장)가 부활 의식에 촛불 하나를 놓을 때 재고에서 뺀다.</summary>
+        bool TryConsumeCandle();
+
+        /// <summary>방장이 한 판 보상(<see cref="StageShopRules.StageReward"/>)을 공동 잔액에 더한다.</summary>
+        bool TryGrantStageReward();
+
+        /// <summary>플레이어 한 명의 장비. 기록이 없으면 <see cref="MemberGear.Starting"/>.</summary>
+        MemberGear GetMemberGear(ulong steamId);
+
+        /// <summary>
+        /// 방장이 산다. 개인 품목은 <paramref name="forSteamId"/> 에게, 공동 품목은 무시한다.
+        /// 규칙은 <see cref="StageShopRules.CanPurchase"/>.
+        /// </summary>
+        bool TryPurchase(ShopItem item, ulong forSteamId);
+
+        /// <summary>방장이 그 플레이어의 철제 드라이버를 최대 내구도까지 수리한다.</summary>
+        bool TryRepairDriver(ulong steamId);
+
+        /// <summary>스테이지 서버(방장)가 드라이버 사용으로 바뀐 내구도를 적는다. 판 사이에 유지된다.</summary>
+        bool TrySaveDriverDurability(ulong steamId, int durability);
         int PublishedSettlementCount { get; }
         bool TryPublishStageSettlement(StageSettlementRecord record);
         bool TryGetPublishedSettlement(int index, out StageSettlementRecord record);

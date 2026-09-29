@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fb5d5eadd7784da48eda7b66e1bdf045, type: 3}
+  m_Name: RevivalRitualSettings_Default
+  m_EditorClassIdentifier: GhostHunter.Gameplay::GhostHunter.Gameplay.Revival.RevivalRitualSettings
+  _corpseRadius: 0.8
+  _circleRadius: 1.2
+  _candleRingRadius: 1.45
+  _minRoomSize: 4.1
+  _interactDistance: 3
+  _barSeconds: 1.5
+  _zoneWidth: 0.2
+  _zoneMinStart: 0.3
+  _pressToleranceSeconds: 0.4
+  _failedCandleOutSeconds: 1
+  _reviveDelaySeconds: 2
+  _protectionSeconds: 3
+  _devCandleStock: 10

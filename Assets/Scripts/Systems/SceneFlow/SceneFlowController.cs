@@ -48,6 +48,10 @@ namespace GhostHunter.Systems.SceneFlow
             _settlementHistory.Add(record);
             _settlementRecorded = true;
             NetworkManager settlementNetwork = NetworkManager.Singleton;
+            // 한 판이 끝날 때마다(전멸 포함) 공동 잔액 보상 — 서버(Steam 방장·로컬 호스트)만, 판마다 한 번.
+            if (settlementNetwork != null && settlementNetwork.IsServer
+                && Services.TryGet(out IStageShopService shop))
+                shop.ServerGrantStageReward();
             if (_lobby != null && _lobby.IsLobbyOwner
                 && settlementNetwork != null && settlementNetwork.IsServer)
             {

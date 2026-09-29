@@ -41,6 +41,8 @@ namespace GhostHunter.Gameplay.Furniture
         private FurnitureNetworkPhysics _physics;
         private float _heldSince;
         private float _launchedAt;
+        // 2인 잡기에서 한 명이 먼저 놓은 순간부터 남은 한 명이 놓아도 '같이 내려놓기'로 치는 마감 시각.
+        private float _jointPutDownUntil = float.NegativeInfinity;
         private Quaternion _heldRotation = Quaternion.identity;
 
         private struct HolderAim
@@ -73,7 +75,7 @@ namespace GhostHunter.Gameplay.Furniture
         /// 배치·활성화된 상태인지 확인한다. 둘 다 없으면 원래부터 항상 배치된 일반 가구다.
         /// </summary>
         private bool IsPlacementReady =>
-            (_physics == null || !_physics.IsBroken)
+            (_physics == null || (!_physics.IsBroken && !_physics.IsStowed))
             && (_randomItem == null || _randomItem.IsPresent)
             && (_driverPoolItem == null || _driverPoolItem.IsActive);
 
@@ -157,6 +159,8 @@ namespace GhostHunter.Gameplay.Furniture
             bool firstHolder = _holders.Count == 0;
             _holders.Add(clientId);
             _aims[clientId] = aim;
+            // 새로 잡거나 다시 둘이 되면 이전 '같이 내려놓기' 대기는 끝난다.
+            _jointPutDownUntil = float.NegativeInfinity;
 
             if (firstHolder)
             {
@@ -233,7 +237,17 @@ namespace GhostHunter.Gameplay.Furniture
             if (countBeforeRelease > 1 && !_settings.LaunchOnFirstRelease)
             {
                 _releasedDirections.Clear();
+                _jointPutDownUntil = _settings.JointPutDownWindow > 0f
+                    ? Time.time + _settings.JointPutDownWindow
+                    : float.NegativeInfinity;
                 RefreshStateAfterHolderLeft();
+                return;
+            }
+
+            // 둘이 들다가 먼저 놓은 사람과 거의 같이 놓았다 — 던지지 않고 그 자리에 내려놓는다.
+            if (IsJointPutDown(countBeforeRelease, Time.time, _jointPutDownUntil))
+            {
+                ServerReturnToIdle();
                 return;
             }
 
@@ -249,6 +263,15 @@ namespace GhostHunter.Gameplay.Furniture
 
             if (_launcher != null)
                 _launcher.ServerLaunch(combinedDirection, launchCharge, launchHolderCount);
+        }
+
+        /// <summary>
+        /// 마지막 한 명의 해제가 '같이 내려놓기'인가 — 2인 잡기에서 먼저 놓은 사람 뒤로
+        /// <see cref="FurnitureThrowSettings.JointPutDownWindow"/> 안에 놓았으면 발사하지 않는다.
+        /// </summary>
+        internal static bool IsJointPutDown(int countBeforeRelease, float now, float putDownUntil)
+        {
+            return countBeforeRelease == 1 && now <= putDownUntil;
         }
 
         public void ServerForceRelease(ulong clientId)
@@ -346,6 +369,7 @@ namespace GhostHunter.Gameplay.Furniture
             _state.Value = FurnitureState.Idle;
             _charge.Value = 0f;
             _releasedDirections.Clear();
+            _jointPutDownUntil = float.NegativeInfinity;
         }
 
         private void RefreshStateAfterHolderLeft()

@@ -209,7 +209,7 @@ Steam이 찾지 못한다. `GhostHunter.app/Contents/MacOS/steam_appid.txt`에 �
 플레이어가 스폰 지점 없는 씬에 스폰되고, 신호를 먼저 보내면 게스트가 세션 없는 호스트에 접속한다.
 
 **단독 플레이 (Steam 없이):** `Bootstrap.unity`에서 플레이 → **F1** 접속 HUD → 모드 `Local` → **Host** →
-인게임 로비 단말기에서 **스테이지 출발**(2026-09-28부터 Host 는 인게임 로비에서 열린다. 상점은 Steam 방에서만 쓸 수 있다).
+인게임 로비 단말기에서 **스테이지 출발**(2026-09-28부터 Host 는 인게임 로비에서 열린다. 상점은 로컬 세션에서도 쓴다 — stage-system.md §2.2).
 HUD 로 바꾼 모드는 저장하지 않는다. 저장하면 릴리스 빌드가 `TransportModeBuildGuard` 에 막힌다.
 
 혼자 음성 확인(F3)은 [voice-chat.md](voice-chat.md) "혼자 검증", 정신력 감소 확인(`Game/SanityTestbed`)은

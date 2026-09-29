@@ -21,6 +21,7 @@ namespace GhostHunter.Gameplay.Player
         private GrabController _grab;
         private SanityNetworkState _sanity;
         private MoleBurrowController _burrow;
+        private PlayerLighter _lighter;
         private ILocalPlayerContext _localPlayer;
         private ICleaningService _cleaning;
         private int _equippedSlot = -1;
@@ -39,6 +40,7 @@ namespace GhostHunter.Gameplay.Player
             _grab = GetComponent<GrabController>();
             _sanity = GetComponent<SanityNetworkState>();
             _burrow = GetComponent<MoleBurrowController>();
+            _lighter = GetComponent<PlayerLighter>();
             if (_mopView != null)
             {
                 _restRotation = _mopView.localRotation;
@@ -99,6 +101,7 @@ namespace GhostHunter.Gameplay.Player
         public bool EquipSlot(int index)
         {
             if (!IsSpawned || !IsOwner || _loadout == null || _loadout.GetSlot(index) == null
+                || !IsSlotOwned(index)
                 || _input == null || _input.IsGameplayInputLocked || _input.IsDeathInputLocked
                 || _input.IsSkillInputLocked || !CanUseOnServer())
                 return false;
@@ -112,7 +115,7 @@ namespace GhostHunter.Gameplay.Player
         {
             if (!IsServer || rpcParams.Receive.SenderClientId != OwnerClientId)
                 return;
-            if (_loadout != null && _loadout.GetSlot(index) != null && CanUseOnServer())
+            if (_loadout != null && _loadout.GetSlot(index) != null && IsSlotOwned(index) && CanUseOnServer())
                 _serverSlot = index;
             ConfirmEquipRpc(_serverSlot);
         }
@@ -152,6 +155,13 @@ namespace GhostHunter.Gameplay.Player
 
         private bool CanUseOnServer() => (_sanity == null || _sanity.HasSanity)
             && (_grab == null || !_grab.IsHolding) && (_burrow == null || !_burrow.IsBurrowed);
+
+        /// <summary>라이터는 산 사람만 고른다(상점, 2026-09-29). 나머지 슬롯은 모두 기본 지급이다.</summary>
+        public bool IsSlotOwned(int index)
+        {
+            QuickSlotItemDefinition item = _loadout != null ? _loadout.GetSlot(index) : null;
+            return item == null || !item.IsLighter || (_lighter != null && _lighter.IsOwned);
+        }
 
         private bool IsMopSlot(int index)
         {

@@ -271,7 +271,7 @@
 | MD-1 | 분해 가능한 큰 가구 목록·부품 구성 | **확정(2026-09-12).** 6종만: `DoubleBed_1.6x2.0`→Mattress·BedHead·BedLeg(각 1), `Wardrobe_1.2x0.6`→DoorPanel_1.2·Hanger_1.2·Clothes_1.2(각 1), `Wardrobe_1.5x0.6`→DoorPanel_1.5·Hanger_1.5·Clothes_1.5(각 1), `DiningTable_1.55x0.85`→TableTop_Dining(1)·TableLeg_Dining(4), `Shelving_2.6x0.55`→ShelfFrame_2.6(1)·ShelfBoard_2.6(4), `Shelving_1.65x0.45`→ShelfFrame_1.65(1)·ShelfBoard_1.65(3). 크기가 다른 변형끼리는 부품 이름을 구분해 서로 섞이지 않는다. **추가(2026-09-28, 사용자 요청):** `SingleBed_1.0x2.0`→SingleMattress_1.0·SingleBedHead_1.0·SingleBedLeg_1.0(각 1), `SingleBed_1.1x2.0`→SingleMattress_1.1·SingleBedHead_1.1·SingleBedLeg_1.1(각 1) — 싱글 전용·크기별 부품 |
 | MD-2 | 조립 영역의 위치·크기·개수 | **확정(2026-09-12, 임시).** 기존 `DrillCarSafeZone_Temp` 좌표를 그대로 재사용, 영역 1개. Stage1 은 드릴카 램프 앞에 고정(2026-09-29 — 사용자: "재조합 존은 그대로 드릴카 앞에 유지") |
 | MD-3 | 짐칸 보관·반출 규칙 | TBD → MG-22 대기 |
-| MD-4 | 상점 UI와 수리 가격 | TBD |
+| MD-4 | 상점 UI와 수리 가격 | **확정(2026-09-29)** — 손실 2당 $1·홀수 올림·최대까지 일괄, 철제 드라이버 $35(플레이어별, 내구도 판 사이 유지). 인게임 로비 단말기 → [stage-system.md §2.2](stage-system.md) |
 | MD-5 | 아이템 획득·장착 경로 | **확정(2026-09-12).** 퀵슬롯 1번 슬롯 전용(대걸레와 동일 패턴) |
 | MD-6 | 가구 내구도의 증감 원인과 0일 때의 결과 | **이관(2026-09-15)** → [가구 내구도 시스템 기획서](furniture-durability-system.md). 감소 원인 = 충돌 속도 비례(요구 확정, 수치 FD-2 대기), **0이 되어도 가구는 사라지지 않음**(FD-10, 2026-09-16 재확정 — 파괴는 `FurnitureDefinition.DestroyAtZeroDurability` 스위치로 보존, 기본 꺼짐). 이 문서는 분해·조립 시 값 처리(§5)만 담당 |
 | MD-7 | 아이템 내구도 0일 때의 취급 | **잠정(미확정).** 구현은 0에서 멈추고 계속 9초로 사용 가능하게 두었다 — 파손·사용 불가로 바뀌면 재작업 필요 |

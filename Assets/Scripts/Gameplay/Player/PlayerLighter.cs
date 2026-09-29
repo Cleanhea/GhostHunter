@@ -43,6 +43,12 @@ namespace GhostHunter.Gameplay.Player
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Owner);
 
+        // 라이터를 가졌는가 — 상점에서 산 플레이어만 쓴다(2026-09-29 사용자 확정). 서버가 스폰 때 정한다.
+        private readonly NetworkVariable<bool> _owned = new(
+            false,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Server);
+
         private readonly NetworkVariable<float> _fuel = new(
             100f,
             NetworkVariableReadPermission.Everyone,
@@ -64,6 +70,9 @@ namespace GhostHunter.Gameplay.Player
         public float Fuel => IsOwner && _state != null ? _state.Charge : _fuel.Value;
 
         public float MaxFuel => _settings != null ? _settings.MaxFuel : 100f;
+
+        /// <summary>라이터를 가졌는가. 없으면 퀵슬롯에서 고를 수 없다(<see cref="PlayerCleaningController.EquipSlot"/>).</summary>
+        public bool IsOwned => _owned.Value;
 
         /// <summary>퀵슬롯에서 라이터를 골라 들고 있는가. 소유자에서만 의미가 있다 — 연료 UI 가 읽는다.</summary>
         public bool IsEquipped => IsLighterEquipped();
@@ -114,6 +123,12 @@ namespace GhostHunter.Gameplay.Player
         {
             Services.TryGet(out _sceneFlow);
             _flickerSeed = NetworkObjectId * 7.31f % 100f;
+            if (IsServer)
+            {
+                // 상점에서 산 사람만(Steam 방·로컬 세션 모두). 상점 서비스가 없는 테스트 픽스처는 누구나 가진다.
+                PlayerGearSource.TryGetGear(OwnerClientId, out _, out _, out Core.Steam.MemberGear gear);
+                _owned.Value = gear.HasLighter;
+            }
 
             if (!IsOwner || _settings == null)
                 return;
@@ -163,7 +178,7 @@ namespace GhostHunter.Gameplay.Player
             bool alive = _sanity == null || _sanity.HasSanity;
             bool equipped = IsLighterEquipped();
             // 은신 중에는 쓸 수 없다(귀신 기획서 §9.3.1 — 헤드라이트와 같은 규칙).
-            bool held = equipped && alive && !IsInHidingPlace();
+            bool held = equipped && alive && _owned.Value && !IsInHidingPlace();
             bool wasLit = _state.IsOn;
 
             if (!held)

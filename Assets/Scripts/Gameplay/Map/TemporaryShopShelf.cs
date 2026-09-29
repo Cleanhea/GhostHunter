@@ -5,13 +5,13 @@ using UnityEngine;
 
 namespace GhostHunter.Gameplay.Map
 {
-    /// <summary>구매한 임시 공동 아이템을 드릴카에 표시한다. 아이템 효과는 별도 기획 대상이다.</summary>
+    /// <summary>팀 촛불 재고를 드릴카 선반에 표시한다. 촛불은 부활 의식(<c>RevivalRitual</c>)이 재고 수로 꺼내 쓴다.</summary>
     [DisallowMultipleComponent]
     public sealed class TemporaryShopShelf : MonoBehaviour
     {
         private void Start()
         {
-            if (!Services.TryGet(out ISteamLobbyService lobby) || !lobby.IsInLobby)
+            if (!Services.TryGet(out IStageShopService shop) || !shop.IsAvailable)
                 return;
 
             DrillCarSafeZone zone = FindFirstObjectByType<DrillCarSafeZone>();
@@ -42,23 +42,18 @@ namespace GhostHunter.Gameplay.Map
                 boxSize = 0.2f;
             }
 
-            int slot = 0;
-            for (int item = 1; item <= 3; item++)
+            // 공동 품목은 지금 촛불뿐이다. 스테이지 시작 때 재고를 촛불 하나당 작은 원기둥으로 늘어놓는다(표시만 —
+            // 의식은 재고 수로 꺼내 쓴다). 선반을 넘치지 않게 20개까지만 그린다.
+            int count = Mathf.Min(shop.CandleCount, 20);
+            for (int index = 0; index < count; index++)
             {
-                int count = lobby.GetPurchasedTempItemCount(item);
-                for (int index = 0; index < count; index++)
-                {
-                    GameObject box = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                    box.name = $"Temp{item}_Shared_{index}";
-                    box.transform.SetParent(parent, false);
-                    box.transform.localPosition = firstSlot + Vector3.right * (slot * slotSpacing);
-                    box.transform.localScale = Vector3.one * boxSize;
-                    Renderer renderer = box.GetComponent<Renderer>();
-                    renderer.material.color = item == 1 ? Color.cyan
-                        : item == 2 ? Color.yellow : Color.magenta;
-                    Destroy(box.GetComponent<Collider>());
-                    slot++;
-                }
+                GameObject box = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                box.name = $"Candle_Shared_{index}";
+                box.transform.SetParent(parent, false);
+                box.transform.localPosition = firstSlot + Vector3.right * (index * slotSpacing * 0.5f);
+                box.transform.localScale = new Vector3(boxSize * 0.4f, boxSize * 0.5f, boxSize * 0.4f);
+                box.GetComponent<Renderer>().material.color = new Color(1f, 0.85f, 0.4f);
+                Destroy(box.GetComponent<Collider>());
             }
         }
     }

@@ -5,6 +5,7 @@ using GhostHunter.Core.Steam;
 using GhostHunter.Networking;
 using GhostHunter.Systems.Steam;
 using GhostHunter.Systems.SceneFlow;
+using GhostHunter.Systems.Shop;
 using GhostHunter.Data;
 using UnityEngine;
 
@@ -29,6 +30,13 @@ namespace GhostHunter.Systems.Installers
             Bind<ISceneFlow>(_sceneFlow);
             Bind<ISteamLobbyService>(_steamLobby);
             Bind<IConnectionService>(_connection);
+
+            // 상점은 Steam 방·로컬 세션 모두에서 쓴다(stage-system.md §2.2). 세션과 같이 앱 수명 동안 산다.
+            StageShopService shop = GetComponent<StageShopService>();
+            if (shop == null)
+                shop = gameObject.AddComponent<StageShopService>();
+            shop.Initialize(_steamLobby, _sceneFlow);
+            Bind<IStageShopService>(shop);
             if (_sceneFlow != null)
             {
                 // 인게임 로비 ⇄ 스테이지 전환(ADR-0018). 세션과 같이 앱 수명 동안 산다.

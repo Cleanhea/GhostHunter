@@ -136,12 +136,42 @@ namespace GhostHunter.Tests.PlayMode
             Assert.IsTrue(BodyOf(furniture).useGravity);
         }
 
+        /// <summary>
+        /// 둘이 들다가 먼저 놓은 사람 뒤로 <see cref="FurnitureThrowSettings.JointPutDownWindow"/>(2.5초) 안에
+        /// 남은 사람도 놓으면 '같이 내려놓기'다 — 발사하지 않고 그 자리에 내려놓는다(2026-09-29 사용자 요청).
+        /// </summary>
         [UnityTest]
-        public IEnumerator ServerRelease_마지막_홀더가_놓으면_발사된다()
+        public IEnumerator ServerRelease_둘이_거의_같이_놓으면_발사하지_않고_내려놓는다()
         {
             FurnitureGrabTarget furniture = SpawnFurniture();
             yield return null;
 
+            Assume.That(Settings.JointPutDownWindow, Is.GreaterThan(0f));
+            furniture.ServerTryAddHolder(HostClientId, AimOrigin, AimDirection);
+            furniture.ServerTryAddHolder(PartnerClientId, AimOrigin + Vector3.right, AimDirection);
+            BodyOf(furniture).linearVelocity = Vector3.zero;
+            furniture.ServerRelease(PartnerClientId, AimDirection, false);
+            furniture.ServerRelease(HostClientId, AimDirection, false);
+
+            Assert.AreEqual(FurnitureState.Idle, furniture.State, "같이 내려놓으면 Launched 가 아니다");
+            Assert.AreEqual(0, furniture.HolderCount);
+            Assert.IsTrue(BodyOf(furniture).useGravity);
+
+            yield return new WaitForFixedUpdate();
+
+            Vector3 velocity = BodyOf(furniture).linearVelocity;
+            Assert.Less(new Vector2(velocity.x, velocity.z).magnitude, 0.5f, "옆으로 튀어 나가지 않는다");
+            Assert.IsTrue(furniture.CanGrab(HostClientId), "내려놓은 가구는 바로 다시 잡을 수 있다");
+        }
+
+        /// <summary>같이 내려놓기를 끄면(0초) 예전처럼 마지막 홀더가 놓을 때 1인 힘으로 발사된다.</summary>
+        [UnityTest]
+        public IEnumerator ServerRelease_같이_내려놓기가_꺼져_있으면_마지막_홀더가_놓을_때_발사된다()
+        {
+            FurnitureGrabTarget furniture = SpawnFurniture();
+            yield return null;
+
+            SetPrivateField(Settings, "_jointPutDownWindow", 0f);
             furniture.ServerTryAddHolder(HostClientId, AimOrigin, AimDirection);
             furniture.ServerTryAddHolder(PartnerClientId, AimOrigin + Vector3.right, AimDirection);
             furniture.ServerRelease(HostClientId, AimDirection, false);

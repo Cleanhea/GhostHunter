@@ -1,3 +1,4 @@
+using System;
 using GhostHunter.Gameplay.Sanity;
 using Unity.Netcode;
 using UnityEngine;
@@ -32,6 +33,12 @@ namespace GhostHunter.Gameplay.Interaction
         private float _yaw;
 
         public bool IsOpen => _isOpen.Value;
+
+        /// <summary>
+        /// 서버 전용 — 귀신이 닫힌 문을 열었다(<see cref="ServerForceOpen"/>·<see cref="ServerForceToggle"/> 는 귀신만 부른다).
+        /// 부활 의식이 소환진 방의 문을 보고 진행도를 초기화한다(revival-system.md §7).
+        /// </summary>
+        public static event Action<DoorInteractable> ServerOpenedByGhost;
 
         public override void OnNetworkSpawn()
         {
@@ -72,8 +79,10 @@ namespace GhostHunter.Gameplay.Interaction
         /// </summary>
         public void ServerForceOpen()
         {
-            if (IsSpawned && IsServer)
-                _isOpen.Value = true;
+            if (!IsSpawned || !IsServer || _isOpen.Value)
+                return;
+            _isOpen.Value = true;
+            ServerOpenedByGhost?.Invoke(this);
         }
 
         /// <summary>서버가 문을 직접 닫는다. 귀신 초자연현상 '문 열고 닫기'(§6.5 #4) 용도.</summary>
@@ -92,8 +101,11 @@ namespace GhostHunter.Gameplay.Interaction
         /// <summary>서버가 문 상태를 뒤집는다. 귀신 초자연현상 '문 열고 닫기'(§6.5 #4) 용도.</summary>
         public void ServerForceToggle()
         {
-            if (IsSpawned && IsServer)
-                _isOpen.Value = !_isOpen.Value;
+            if (!IsSpawned || !IsServer)
+                return;
+            _isOpen.Value = !_isOpen.Value;
+            if (_isOpen.Value)
+                ServerOpenedByGhost?.Invoke(this);
         }
 
         /// <summary>

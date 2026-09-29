@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using GhostHunter.Core;
 using GhostHunter.Core.Networking;
 using GhostHunter.Core.Scenes;
+using GhostHunter.Core.Steam;
 using GhostHunter.Gameplay.Cleaning;
 using GhostHunter.Gameplay.FurnitureDriver;
 using GhostHunter.Gameplay.Ghost;
@@ -93,17 +94,34 @@ namespace GhostHunter.Tests.PlayMode
             Assert.IsTrue(stageFlow.CanControl, "호스트는 스테이지를 출발시킬 수 있다");
             ulong lobbyPlayerId = lobbyPlayer.NetworkObjectId;
 
+            // 로컬 세션(Steam 방 아님)에서도 상점을 쓴다(2026-09-30) — 시작 $25, 호스트가 산다.
+            IStageShopService shop = Services.Get<IStageShopService>();
+            yield return WaitUntil(() => shop.IsAvailable, "로컬 세션에서 상점이 열리지 않았다");
+            Assert.IsTrue(shop.CanManage, "로컬 호스트는 상점을 쓴다");
+            Assert.AreEqual(StageShopRules.StartingBalance, shop.Balance, "시작 자금");
+            ulong me = shop.LocalMemberKey;
+            Assert.IsFalse(shop.GetMemberGear(me).HasLighter, "라이터는 사야 생긴다");
+            Assert.IsTrue(shop.TryPurchase(ShopItem.IronLighter, me), "철제 라이터 구매");
+            Assert.AreEqual(StageShopRules.StartingBalance - StageShopRules.PriceOf(ShopItem.IronLighter), shop.Balance);
+            Assert.IsTrue(shop.GetMemberGear(me).HasLighter);
+            Assert.IsFalse(shop.TryPurchase(ShopItem.IronDriver, me), "잔액이 모자라면 못 산다");
+
             Assert.IsTrue(stageFlow.StartStage());
             yield return WaitForPlayerIn(sceneFlow, stageFlow, SceneId.Stage1);
             NetworkObject stagePlayer = LocalPlayer();
             Assert.AreNotEqual(lobbyPlayerId, stagePlayer.NetworkObjectId, "스테이지 씬에서 플레이어를 새로 스폰한다");
             Assert.AreEqual("Stage1", stagePlayer.gameObject.scene.name, "스테이지 출발은 Stage1 을 올린다");
             AssertStage1Contents(stagePlayer);
+            yield return WaitUntil(() => stagePlayer.GetComponent<GhostHunter.Gameplay.Player.PlayerLighter>().IsOwned,
+                "산 라이터가 스테이지 플레이어에게 오지 않았다");
             yield return AssertStage1GhostAndCleaning(stagePlayer.gameObject.scene);
             Assert.IsTrue(connection.IsRunning, "스테이지로 넘어가도 세션은 유지된다");
             Assert.IsFalse(SceneManager.GetSceneByName("InGameLobby").isLoaded, "인게임 로비는 내려간다");
 
             // 정상 종료처럼 정산(Result)으로 간다 — 플레이어는 정산 화면으로 옮겨진다(전원 음성).
+            int balanceBeforeSettlement = shop.Balance;
+            sceneFlow.RecordStageSettlement(new StageSettlementRecord(0, 0, 0, 1, 0, 0, false));
+            Assert.AreEqual(balanceBeforeSettlement + StageShopRules.StageReward, shop.Balance, "한 판 보상 $50");
             sceneFlow.Load(SceneId.Result);
             yield return WaitUntil(() => sceneFlow.Current == SceneId.Result && !sceneFlow.IsLoading,
                 "정산 화면으로 가지 못했다");
@@ -178,6 +196,48 @@ namespace GhostHunter.Tests.PlayMode
             Assert.IsTrue(HasCompletePathToFloor(ghostOnMesh.position, 6f), "귀신 NavMesh 가 다락까지 이어진다");
 
             yield return WaitUntil(() => cleaning.DirtyCount > 0, "Stage1 에 청소 얼룩이 배치되지 않았다");
+
+            // 청소 진행도 HUD 가 읽는 두 작업 — 시작 직후라 닦은 얼룩·반출한 가구는 0이다.
+            yield return WaitUntil(() => cleaning.TaskProgress.TotalFurniture > 0,
+                "Stage1 에 반출 목표 가구가 정해지지 않았다");
+            CleaningTaskProgress progress = cleaning.TaskProgress;
+            Assert.AreEqual(cleaning.DirtyCount, progress.TotalStains - progress.CleanedStains);
+            Assert.AreEqual(0, progress.CleanedStains, "시작 직후 닦은 얼룩은 없다");
+            Assert.AreEqual(0, progress.DeliveredFurniture, "시작 직후 반출한 가구는 없다");
+            Assert.IsNotNull(Object.FindFirstObjectByType<GhostHunter.UI.CleaningProgressHud>(),
+                "Stage1 에 청소 진행도 HUD 가 있다");
+
+            // 부활 의식 — 문이 있는 방 하나를 의식 방으로 비우고 가운데에 소환진을 놓는다. 촛불은 상점 재고.
+            GhostHunter.Gameplay.Revival.RevivalRitual ritual =
+                Object.FindFirstObjectByType<GhostHunter.Gameplay.Revival.RevivalRitual>();
+            Assert.IsNotNull(ritual, "Stage1 에 부활 의식이 있다");
+            yield return WaitUntil(() => ritual.IsPlaced, "소환진이 놓이지 않았다");
+            Assert.IsNotEmpty(ritual.RoomName, "소환진이 놓인 방");
+            Vector3 center = ritual.Center;
+            Assert.That(center.x > 52.67f && center.x < 82.67f && center.z > -12f && center.z < 12f,
+                $"소환진은 B안 집 안에 선다 — {center}");
+            Assert.AreEqual(Services.Get<IStageShopService>().CandleCount, ritual.CandleStock,
+                "로컬 세션도 상점의 촛불 재고를 쓴다");
+            for (int i = 0; i < GhostHunter.Gameplay.Revival.RevivalRules.CandleCount; i++)
+                Assert.AreEqual(GhostHunter.Gameplay.Revival.CandleSlotState.Empty, ritual.GetSlot(i));
+
+            // 의식 방은 비어 있다 — 가구(고정·랜덤)도 얼룩도 없고, 마법진 둘레에 촛대 5개만 선다(2026-09-30).
+            Assert.IsTrue(ritual.ContainsInRoom(center), "소환진은 의식 방 가운데에 있다");
+            foreach (GhostHunter.Gameplay.Furniture.FurnitureNetworkPhysics item in
+                     Object.FindObjectsByType<GhostHunter.Gameplay.Furniture.FurnitureNetworkPhysics>(
+                         FindObjectsSortMode.None))
+                Assert.IsFalse(item.IsAvailable && ritual.ContainsInRoom(item.transform.position),
+                    $"의식 방({ritual.RoomName})에 가구가 남았다 — {item.name}");
+            foreach (GhostHunter.Gameplay.Map.RandomFurnitureItem item in
+                     Object.FindObjectsByType<GhostHunter.Gameplay.Map.RandomFurnitureItem>(FindObjectsSortMode.None))
+                Assert.IsFalse(item.IsPresent && ritual.ContainsInRoom(item.transform.position),
+                    $"의식 방({ritual.RoomName})에 랜덤 가구가 놓였다 — {item.name}");
+            foreach (CleaningStain stain in Object.FindObjectsByType<CleaningStain>(FindObjectsSortMode.None))
+                Assert.IsFalse(stain.IsPlaced && ritual.ContainsInRoom(stain.transform.position),
+                    $"의식 방({ritual.RoomName})에 얼룩이 놓였다");
+            Assert.AreEqual(GhostHunter.Gameplay.Revival.RevivalRules.CandleCount,
+                Object.FindObjectsByType<GhostHunter.Gameplay.Revival.RevivalCandleSlot>(FindObjectsSortMode.None).Length,
+                "촛대 5개");
         }
 
         /// <summary>B안 집 X/Z 안, 높이 floorY±0.4 의 NavMesh 정점 중 하나라도 완전한 경로로 닿는가(지붕 같은 끊긴 섬은 건너뛴다).</summary>

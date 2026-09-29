@@ -31,6 +31,7 @@ namespace GhostHunter.Gameplay.Sanity
             NetworkVariableWritePermission.Server);
 
         private SanityState _serverState;
+        private float _protectedUntil;
         private ISanityTeamService _teamService;
         private PlayerMotor _playerMotor;
         private MoleBurrowController _burrowController;
@@ -203,10 +204,20 @@ namespace GhostHunter.Gameplay.Sanity
             return true;
         }
 
+        /// <summary>서버 전용 — 부활 직후 보호 중인가(이 동안은 죽지 않는다).</summary>
+        public bool IsServerProtected => Time.time < _protectedUntil;
+
+        /// <summary>부활 의식 직후 보호(revival-system.md §8 — 3초). 이 동안 <see cref="ServerMarkDead"/> 를 거절한다.</summary>
+        public void ServerGrantProtection(float seconds)
+        {
+            if (CanMutateOnServer())
+                _protectedUntil = Time.time + Mathf.Max(0f, seconds);
+        }
+
         /// <summary>사망한 플레이어를 팀 평균과 정신력 디버프 대상에서 제외한다.</summary>
         public bool ServerMarkDead()
         {
-            if (!CanMutateOnServer() || !_serverState.MarkDead())
+            if (!CanMutateOnServer() || IsServerProtected || !_serverState.MarkDead())
                 return false;
 
             _isDarknessExposed.Value = false;

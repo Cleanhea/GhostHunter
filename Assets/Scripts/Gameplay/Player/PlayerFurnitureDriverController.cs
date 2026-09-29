@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using GhostHunter.Core;
+using GhostHunter.Core.Steam;
 using GhostHunter.Gameplay.FurnitureDriver;
 using GhostHunter.Gameplay.Interaction;
 using GhostHunter.Gameplay.Sanity;
@@ -64,6 +65,10 @@ namespace GhostHunter.Gameplay.Player
         private int _equippedSlot = -1;
         private int _serverSlot = -1;
 
+        // 판 사이 장비를 적을 곳(상점 서비스 — Steam 방·로컬 세션). 상점이 없으면 매 판 설정의 시작 내구도.
+        private IStageShopService _gearShop;
+        private ulong _gearKey;
+
         private FurnitureDriverActionKind _actionKind = FurnitureDriverActionKind.None;
         private ulong _targetObjectId;
         private ulong _assemblyPartObjectId;
@@ -86,7 +91,10 @@ namespace GhostHunter.Gameplay.Player
         public void ServerRestoreStageState(StageRecoverySnapshot.PlayerState snapshot)
         {
             if (IsServer && IsSpawned)
+            {
                 _itemDurability.Value = Mathf.Clamp(snapshot.DriverDurability, 0, 100);
+                _gearShop?.TrySaveDriverDurability(_gearKey, _itemDurability.Value);
+            }
         }
         public FurnitureDriverActionKind CurrentAction => _actionKind;
         public float ActionSecondsRemaining => _actionTimer;
@@ -132,7 +140,7 @@ namespace GhostHunter.Gameplay.Player
         public override void OnNetworkSpawn()
         {
             if (IsServer)
-                _itemDurability.Value = _settings != null ? _settings.StartingItemDurability : 100;
+                ServerLoadDurability();
             if (IsOwner)
             {
                 _localPlayer = Services.Get<ILocalPlayerContext>();
@@ -142,8 +150,38 @@ namespace GhostHunter.Gameplay.Player
             _serverSlot = -1;
         }
 
+        /// <summary>
+        /// 드라이버 내구도는 플레이어별로 판 사이에 유지된다(2026-09-29 사용자 확정) — 상점 서비스에 적어 둔 값으로
+        /// 시작한다(Steam 방·로컬 세션 모두). 상점 서비스가 없으면 예전처럼 설정의 시작 내구도다.
+        /// </summary>
+        private void ServerLoadDurability()
+        {
+            if (PlayerGearSource.TryGetGear(OwnerClientId, out IStageShopService shop,
+                    out ulong memberKey, out MemberGear gear))
+            {
+                _gearShop = shop;
+                _gearKey = memberKey;
+                _itemDurability.Value = gear.DriverDurability;
+                return;
+            }
+
+            _gearShop = null;
+            _gearKey = 0;
+            _itemDurability.Value = _settings != null ? _settings.StartingItemDurability : 100;
+        }
+
+        private void ServerConsumeDurability()
+        {
+            _itemDurability.Value = FurnitureDurability.ApplyItemUse(
+                _itemDurability.Value, _settings.DurabilityDecreasePerUse);
+            if (_gearShop != null && !_gearShop.TrySaveDriverDurability(_gearKey, _itemDurability.Value))
+                Debug.LogWarning($"{nameof(PlayerFurnitureDriverController)}: 드라이버 내구도를 상점에 적지 못했습니다.", this);
+        }
+
         public override void OnNetworkDespawn()
         {
+            _gearShop = null;
+            _gearKey = 0;
             _localPlayer?.Unregister(this);
             _localPlayer = null;
             CancelAction();
@@ -388,8 +426,7 @@ namespace GhostHunter.Gameplay.Player
             }
 
             large.ServerDeactivate();
-            _itemDurability.Value = FurnitureDurability.ApplyItemUse(
-                _itemDurability.Value, _settings.DurabilityDecreasePerUse);
+            ServerConsumeDurability();
         }
 
         /// <param name="partObjectId">
@@ -435,8 +472,7 @@ namespace GhostHunter.Gameplay.Player
                 return;
             }
 
-            _itemDurability.Value = FurnitureDurability.ApplyItemUse(
-                _itemDurability.Value, _settings.DurabilityDecreasePerUse);
+            ServerConsumeDurability();
         }
 
         [Rpc(SendTo.Owner)]

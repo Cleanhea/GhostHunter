@@ -213,6 +213,20 @@ namespace GhostHunter.Tests.EditMode
             CollectionAssert.IsEmpty(scaled, "스케일이 1이 아닌 오브젝트:\n" + string.Join("\n", scaled));
         }
 
+        [Test]
+        public void 부활_소환진이_배선되고_문이_있는_방에서_고른다()
+        {
+            Assume.That(_house, Is.Not.Null);
+            GhostHunter.Gameplay.Revival.RevivalRitual ritual = _scene.GetRootGameObjects()
+                .SelectMany(x => x.GetComponentsInChildren<GhostHunter.Gameplay.Revival.RevivalRitual>(true))
+                .FirstOrDefault();
+            Assert.IsNotNull(ritual, "Stage1 에 RevivalRitual 이 없습니다.");
+            Assert.IsNotNull(ritual.GetComponentInParent<NetworkObject>(),
+                "의식은 씬 NetworkObject 아래에 있어야 RPC·복제가 된다");
+            // 방마다 문이 있다(Stage1 방문 23곳). 한두 곳이 빠져도 소환진은 놓이지만 대부분이 후보여야 한다.
+            Assert.GreaterOrEqual(ritual.EligibleRoomCount, 15, "문이 있는 방이 너무 적다");
+        }
+
         private IEnumerable<Transform> RoomAnchors()
         {
             return _house.GetComponentsInChildren<Transform>(true).Where(t => t.name == "RoomDimensions");

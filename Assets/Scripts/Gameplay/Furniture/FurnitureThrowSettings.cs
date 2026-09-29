@@ -39,6 +39,10 @@ namespace GhostHunter.Gameplay.Furniture
         [SerializeField, Min(0f)] private float _settledSpeed = 0.5f;
         [SerializeField] private bool _launchOnFirstRelease;
 
+        [Tooltip("2인 잡기에서 한 명이 먼저 놓은 뒤 이 시간(초) 안에 남은 한 명도 놓으면 '같이 내려놓았다'고 보고 " +
+            "발사하지 않는다. 이 시간이 지나 놓으면 평소처럼 1인 투척이다. 0이면 끈다.")]
+        [SerializeField, Min(0f)] private float _jointPutDownWindow = 2.5f;
+
         public float MaxTargetDistance => _maxTargetDistance;
         public float HoldBreakDistance => _holdBreakDistance;
         public float HoverDistance => _hoverDistance;
@@ -55,5 +59,6 @@ namespace GhostHunter.Gameplay.Furniture
         public float RelaunchLockDuration => _relaunchLockDuration;
         public float SettledSpeed => _settledSpeed;
         public bool LaunchOnFirstRelease => _launchOnFirstRelease;
+        public float JointPutDownWindow => _jointPutDownWindow;
     }
 }

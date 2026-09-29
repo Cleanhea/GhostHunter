@@ -24,6 +24,10 @@ namespace GhostHunter.Gameplay.Furniture
 
         private readonly NetworkVariable<int> _durability = new(FullDurability,
             NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+
+        // 보관 — 부활 의식 방을 비울 때 서버가 숨겨 둔 가구(revival-system.md). 스테이지 동안 되돌리지 않는다.
+        private readonly NetworkVariable<bool> _stowed = new(false,
+            NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
         private Rigidbody _rigidbody;
         private FurnitureGrabTarget _grabTarget;
         private FurnitureDriverPoolItem _poolItem;
@@ -50,7 +54,10 @@ namespace GhostHunter.Gameplay.Furniture
 
         /// <summary>파손(사라짐) 상태. 없애지 않는 설정에서는 내구도가 0이어도 파손으로 치지 않는다.</summary>
         public bool IsBroken => DestroysAtZeroDurability && _durability.Value == 0;
-        public bool IsAvailable => IsSpawned && !IsBroken
+        /// <summary>서버가 보관해 숨긴 가구인가(부활 의식 방 비우기).</summary>
+        public bool IsStowed => _stowed.Value;
+
+        public bool IsAvailable => IsSpawned && !IsBroken && !_stowed.Value
             && (_poolItem == null || _poolItem.IsActive)
             && (_randomItem == null || _randomItem.IsPresent);
 
@@ -97,6 +104,7 @@ namespace GhostHunter.Gameplay.Furniture
         public override void OnNetworkSpawn()
         {
             _durability.OnValueChanged += HandleDurabilityChanged;
+            _stowed.OnValueChanged += HandleStowedChanged;
             Registry.Add(this);
             if (IsServer && !StageRecoveryGate.Restoring)
             {
@@ -110,6 +118,7 @@ namespace GhostHunter.Gameplay.Furniture
         public override void OnNetworkDespawn()
         {
             _durability.OnValueChanged -= HandleDurabilityChanged;
+            _stowed.OnValueChanged -= HandleStowedChanged;
             Registry.Remove(this);
             _windowDamage = 0;
             _windowEndsAt = 0;
@@ -137,6 +146,21 @@ namespace GhostHunter.Gameplay.Furniture
             if (other != null && other != this)
                 other.ServerApplyCollisionSpeed(speed);
         }
+
+        /// <summary>
+        /// 서버 전용 — 가구를 보관한다: 모든 피어에서 숨기고 콜라이더·물리를 끈다. 잡혀 있으면 놓게 한다.
+        /// 부활 의식 방을 비우는 데 쓴다(분해 풀이 없는 가구도 치울 수 있게). 스테이지 동안 되돌리지 않는다.
+        /// </summary>
+        public void ServerStow()
+        {
+            if (!IsServer || !IsSpawned || _stowed.Value)
+                return;
+            _grabTarget?.ServerResetForPool();
+            _stowed.Value = true;
+            RefreshPresentation();
+        }
+
+        private void HandleStowedChanged(bool previous, bool current) => RefreshPresentation();
 
         /// <summary>서버에서 충돌 속도를 내구도에 적용한다. 창 안에서는 최대 피해의 차액만 반영한다.</summary>
         public void ServerApplyCollisionSpeed(float speed)
@@ -239,7 +263,7 @@ namespace GhostHunter.Gameplay.Furniture
             bool available = IsAvailable;
             foreach (Renderer renderer in _renderers)
                 if (renderer != null)
-                    renderer.forceRenderingOff = IsBroken;
+                    renderer.forceRenderingOff = IsBroken || _stowed.Value;
             for (int i = 0; i < _colliders.Length; i++)
                 if (_colliders[i] != null)
                     _colliders[i].enabled = available && _colliderEnabled[i];

@@ -92,6 +92,21 @@ namespace GhostHunter.Gameplay.Ghost
         [Tooltip("수색(§9.3) 중 마지막 위치 주변을 어슬렁거리는 반경(m).")]
         [SerializeField] private float _searchWanderRadius = 4f;
 
+        [Header("Roam patrol ([TEMP] — 기획 §9.1 '집 내부 배회'의 구현 방식)")]
+        [Tooltip("방문 기록 격자 한 칸(m). 층은 3m 단위로 따로 센다. 오래 안 간 칸이 다음 목적지로 뽑힌다.")]
+        [SerializeField, Min(1f)] private float _roamCellSize = 3f;
+
+        [Tooltip("이 시간(초) 이상 안 간 칸은 '처음 가는 곳'과 같게 친다. 짧으면 최근에 돈 곳으로 금방 되돌아간다.")]
+        [SerializeField, Min(1f)] private float _roamMemorySeconds = 90f;
+
+        [Tooltip("목적지 한 번 고를 때 비교하는 후보 수. 많을수록 덜 가 본 곳을 잘 고르지만 경로 계산이 는다.")]
+        [SerializeField, Range(1, 12)] private int _roamCandidateCount = 6;
+
+        [Tooltip("활동(비어택) 배회 중 목적지에 닿으면 멈춰 두리번거리는 시간(초) 하한·상한. 어택 중에는 멈추지 않는다.")]
+        [SerializeField, Min(0f)] private float _roamLookAroundMin = 1.5f;
+
+        [SerializeField, Min(0f)] private float _roamLookAroundMax = 3.5f;
+
         [Header("Paranormal phenomena (§6 · [TBD] G-13)")]
         [Tooltip("평상시 초자연현상 발생 주기(초). 활동보다 드물다 (§6.1).")]
         [SerializeField] private float _phenomenaIdleInterval = 24f;
@@ -195,6 +210,11 @@ namespace GhostHunter.Gameplay.Ghost
         public float NavAgentRadius => _navAgentRadius;
         public float RoamMinDistance => _roamMinDistance;
         public float SearchWanderRadius => _searchWanderRadius;
+        public float RoamCellSize => _roamCellSize;
+        public float RoamMemorySeconds => _roamMemorySeconds;
+        public int RoamCandidateCount => _roamCandidateCount;
+        public float RoamLookAroundMin => _roamLookAroundMin;
+        public float RoamLookAroundMax => Mathf.Max(_roamLookAroundMin, _roamLookAroundMax);
         public float PhenomenaIdleInterval => _phenomenaIdleInterval;
         public float PhenomenaActiveInterval => _phenomenaActiveInterval;
         public float PhenomenaHighRiskInterval => _phenomenaHighRiskInterval;

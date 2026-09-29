@@ -51,6 +51,11 @@ MonoBehaviour:
   _navAgentRadius: 0.25
   _roamMinDistance: 6
   _searchWanderRadius: 4
+  _roamCellSize: 3
+  _roamMemorySeconds: 90
+  _roamCandidateCount: 6
+  _roamLookAroundMin: 1.5
+  _roamLookAroundMax: 3.5
   _phenomenaIdleInterval: 24
   _phenomenaActiveInterval: 10
   _phenomenaHighRiskInterval: 6

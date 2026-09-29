@@ -20,6 +20,7 @@ namespace GhostHunter.Gameplay.Cleaning
         private int[] _order;
         private uint _revision;
         private readonly RaycastHit[] _hits = new RaycastHit[64];
+        private readonly System.Collections.Generic.List<Func<Vector3, bool>> _excludedAreas = new();
         private string _status = "Host 시작 후 얼룩을 배치합니다.";
 
         public bool CanReset => IsSpawned && IsServer && AllStainsSpawned()
@@ -55,6 +56,41 @@ namespace GhostHunter.Gameplay.Cleaning
                 }
 
                 return placed > 0 ? (placed - dirty) * 100 / placed : 0;
+            }
+        }
+
+        public CleaningTaskProgress TaskProgress
+        {
+            get
+            {
+                int placed = 0;
+                int cleaned = 0;
+                foreach (CleaningStain stain in _stains)
+                {
+                    if (stain == null || !stain.IsPlaced)
+                        continue;
+
+                    placed++;
+                    if (!stain.IsDirty)
+                        cleaned++;
+                }
+
+                int targets = 0;
+                int delivered = 0;
+                if (_furniture != null && _furniture.Items != null)
+                {
+                    foreach (RandomFurnitureItem item in _furniture.Items)
+                    {
+                        if (item == null || !item.IsAssignedWorkTarget)
+                            continue;
+
+                        targets++;
+                        if (item.IsDelivered)
+                            delivered++;
+                    }
+                }
+
+                return new CleaningTaskProgress(cleaned, placed, delivered, targets);
             }
         }
 
@@ -147,6 +183,20 @@ namespace GhostHunter.Gameplay.Cleaning
         private static bool IsIgnored(Collider collider, Transform root) => root != null
             && collider.transform.IsChildOf(root);
 
+        public void ServerExcludeArea(Func<Vector3, bool> contains)
+        {
+            if (contains != null)
+                _excludedAreas.Add(contains);
+        }
+
+        private bool IsExcluded(Vector3 position)
+        {
+            foreach (Func<Vector3, bool> area in _excludedAreas)
+                if (area(position))
+                    return true;
+            return false;
+        }
+
         /// <summary>Host에서 모든 얼룩을 복원하고 빈 후보에 다시 배치한다.</summary>
         public void ResetStains()
         {
@@ -171,7 +221,8 @@ namespace GhostHunter.Gameplay.Cleaning
             {
                 if (placed >= requested)
                     break;
-                if (_points[index] == null || !TryGetSurface(_points[index].position, out Vector3 position))
+                if (_points[index] == null || IsExcluded(_points[index].position)
+                    || !TryGetSurface(_points[index].position, out Vector3 position))
                     continue;
                 _stains[placed++].ServerReset(position, (float)random.NextDouble() * 360f, _revision, true);
             }
