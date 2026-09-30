@@ -568,6 +568,7 @@ namespace GhostHunter.DebugTools
             }
 
             GUILayout.Label(_ghostDebug.StatusSummary, GUI.skin.textArea);
+            GUILayout.Label("AI 실험 토글: F2 → 귀신 → AI experiments (Host)", GUI.skin.label);
 
             GUI.enabled = _ghostDebug.CanControl;
 

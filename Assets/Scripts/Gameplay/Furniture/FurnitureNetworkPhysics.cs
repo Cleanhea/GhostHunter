@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using GhostHunter.Core;
 using GhostHunter.Gameplay.FurnitureDriver;
 using GhostHunter.Gameplay.Ghost;
@@ -19,6 +20,9 @@ namespace GhostHunter.Gameplay.Furniture
     {
         public const int FullDurability = 100;
         private static readonly List<FurnitureNetworkPhysics> Registry = new();
+
+        /// <summary>서버의 실제 가구 충돌 위치·법선 속력. 귀신은 spawn/despawn 수명 동안만 구독한다.</summary>
+        public static event Action<Vector3, float> ServerImpactReported;
 
         [SerializeField] private FurnitureDefinition _definition;
 
@@ -137,6 +141,10 @@ namespace GhostHunter.Gameplay.Furniture
             for (int i = 0; i < collision.contactCount; i++)
                 speed = Mathf.Max(speed, FurnitureCollisionDamage.NormalSpeed(
                     collision.relativeVelocity, collision.GetContact(i).normal));
+
+            if (IsAvailable && !StageRecoveryGate.Restoring && Time.timeAsDouble >= _protectedUntil
+                && collision.contactCount > 0)
+                ServerImpactReported?.Invoke(collision.GetContact(0).point, speed);
 
             FurnitureNetworkPhysics other = collision.rigidbody != null
                 ? collision.rigidbody.GetComponent<FurnitureNetworkPhysics>() : null;

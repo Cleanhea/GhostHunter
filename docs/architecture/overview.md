@@ -247,9 +247,10 @@ Player 프리팹 (NetworkObject, 플레이어당 1개 스폰)
 └─ StageLightingController  (Stage1 만) 천장등·해·환경광을 StageLightingSettings 에 맞춤. IStageLightingDebug 로 HUD "조명" 섹션 제공, 네트워크 동기화 없음
 
 Ghost_Prototype 프리팹 (서버 동적 스폰 NetworkObject)
-├─ CharacterController      서버 배회·추격 이동·벽 충돌 (NavMesh 없음)
+├─ CharacterController      서버 전용 NavMesh 코너를 따라 배회·추격 이동·벽 충돌
 ├─ NetworkTransform         서버 권위 위치·Y 회전 복제
-└─ GhostPrototypeController 팀 평균 정신력으로 5상태+강제 진정 전이, 원뿔 시야·소리 탐지, 추격·7초 수색, 잡힘→사망
+└─ GhostPrototypeController 활동·경고·어택·자연 진정, 시야·소리 탐지, 추격·10초 수색, 잡힘→사망
+   └─ AI 실험 (F2 토글)     단서 기억·수색 점수·짧은 예측·가구 충돌 조사·현상 간격 완화 → project/ghost-ai-experiments.md
 
 Furniture (씬 배치 NetworkObject, 프리팹 인스턴스)
 ├─ Rigidbody (서버만 non-kinematic)

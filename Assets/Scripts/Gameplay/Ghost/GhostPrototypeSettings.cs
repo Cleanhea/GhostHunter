@@ -81,6 +81,37 @@ namespace GhostHunter.Gameplay.Ghost
         [Tooltip("추격·수색 중 이 거리 안의 닫힌 방문을 직접 연다 (§9.4).")]
         [SerializeField] private float _doorOpenRange = 2.2f;
 
+        [Header("AI experiments · 전체 / 개별 토글 ([TEMP])")]
+        [Tooltip("전체 OFF면 기존 AI. F2 귀신 설정에서 플레이 중 비교. 서버만 판정한다.")]
+        [SerializeField] private bool _aiExperimentsEnabled;
+        [Tooltip("시야·청각 단서로만 추격. 놓치면 마지막 관측 위치에서 수색한다.")]
+        [SerializeField] private bool _evidenceTrackingEnabled = true;
+        [Tooltip("수색 후보를 도주 방향·방문 기록·이동 비용으로 평가하고 가까운 문도 확인한다.")]
+        [SerializeField] private bool _utilitySearchEnabled = true;
+        [Tooltip("관측한 이동 방향으로 짧게 앞질러 간다. 벽을 통과하는 예측은 사용하지 않는다.")]
+        [SerializeField] private bool _predictiveChaseEnabled = true;
+        [Tooltip("어택 중 가구 충돌 지점을 조사한다. 소음만으로 플레이어 좌표를 알지는 못한다.")]
+        [SerializeField] private bool _impactInvestigationEnabled = true;
+        [Tooltip("최근 위협이 강하면 초자연현상 간격을 늘려 연출 사이에 여유를 준다.")]
+        [SerializeField] private bool _tensionPacingEnabled = true;
+
+        [Header("AI experiment tuning ([TEMP])")]
+        [SerializeField, Min(0.1f)] private float _evidenceMemorySeconds = 8f;
+        [SerializeField, Min(0f)] private float _predictionSeconds = 0.6f;
+        [SerializeField, Min(0f)] private float _predictionMaxDistance = 2.5f;
+        [SerializeField, Min(0.1f)] private float _observedSpeedLimit = 8f;
+        [SerializeField, Range(1, 16)] private int _searchCandidateCount = 8;
+        [SerializeField, Min(0f)] private float _searchDirectionWeight = 2f;
+        [SerializeField, Min(0f)] private float _searchNoveltyWeight = 3f;
+        [SerializeField, Min(0f)] private float _searchTravelWeight = 0.4f;
+        [SerializeField, Min(0f)] private float _searchScanSeconds = 0.7f;
+        [SerializeField, Min(0.1f)] private float _impactMinimumSpeed = 2f;
+        [SerializeField, Min(0f)] private float _impactHearingRadius = 14f;
+        [SerializeField, Range(0f, 1f)] private float _occludedImpactMultiplier = 0.5f;
+        [SerializeField, Min(0.1f)] private float _impactInvestigateCooldown = 1f;
+        [SerializeField, Min(0.1f)] private float _tensionReleaseSeconds = 15f;
+        [SerializeField, Min(1f)] private float _tensionIntervalMultiplier = 2f;
+
         [Header("Navigation (MAP-11 · [TEMP])")]
         [Tooltip("귀신 전용 NavMesh 를 굽는 에이전트 반경(m). 프로젝트 기본 Humanoid(0.5)로는 B안 1.0m 문틀이 " +
             "양쪽에서 0.5씩 깎여 막힌다. CharacterController 반경(0.35)보다 작게 둬 벽에 붙어 미끄러지게 한다.")]
@@ -175,6 +206,13 @@ namespace GhostHunter.Gameplay.Ghost
         [Tooltip("어택 중 빨간 몸 조명 밝기.")]
         [SerializeField, Min(0f)] private float _attackLightIntensity = 1.2f;
 
+        [Header("Body clarity by viewer sanity ([TEMP] 사용자 요청 2026-09-30)")]
+        [Tooltip("보는 사람 정신력이 최대일 때 귀신 본체의 불투명도(알파). 정신력이 낮을수록 아래 값 쪽으로 선명해진다.")]
+        [SerializeField, Range(0f, 1f)] private float _bodyAlphaAtFullSanity = 0.3f;
+
+        [Tooltip("보는 사람 정신력이 최소일 때(그리고 정신력을 잃은 관전자에게) 귀신 본체의 불투명도(알파).")]
+        [SerializeField, Range(0f, 1f)] private float _bodyAlphaAtZeroSanity = 0.9f;
+
         public int AttackTeamSanity => _attackTeamSanity;
         public int HighRiskTeamSanity => _highRiskTeamSanity;
         public float WarningDuration => _warningDuration;
@@ -207,6 +245,31 @@ namespace GhostHunter.Gameplay.Ghost
         public float CatchCooldown => _catchCooldown;
         public float Gravity => _gravity;
         public float DoorOpenRange => _doorOpenRange;
+        public bool AiExperimentsEnabled => _aiExperimentsEnabled;
+        public bool EvidenceTrackingEnabled => _aiExperimentsEnabled && _evidenceTrackingEnabled;
+        public bool UtilitySearchEnabled => _aiExperimentsEnabled && _utilitySearchEnabled;
+        public bool PredictiveChaseEnabled => _aiExperimentsEnabled && _predictiveChaseEnabled;
+        public bool ImpactInvestigationEnabled => _aiExperimentsEnabled && _impactInvestigationEnabled;
+        public bool TensionPacingEnabled => _aiExperimentsEnabled && _tensionPacingEnabled;
+        public float EvidenceMemorySeconds => _evidenceMemorySeconds;
+        public float PredictionSeconds => _predictionSeconds;
+        public float PredictionMaxDistance => _predictionMaxDistance;
+        public float ObservedSpeedLimit => _observedSpeedLimit;
+        public int SearchCandidateCount => _searchCandidateCount;
+        public float SearchDirectionWeight => _searchDirectionWeight;
+        public float SearchNoveltyWeight => _searchNoveltyWeight;
+        public float SearchTravelWeight => _searchTravelWeight;
+        public float SearchScanSeconds => _searchScanSeconds;
+        public float ImpactMinimumSpeed => _impactMinimumSpeed;
+        public float ImpactHearingRadius => _impactHearingRadius;
+        public float OccludedImpactMultiplier => _occludedImpactMultiplier;
+        public float ImpactInvestigateCooldown => _impactInvestigateCooldown;
+        public float TensionReleaseSeconds => _tensionReleaseSeconds;
+        public float TensionIntervalMultiplier => _tensionIntervalMultiplier;
+        public int AiFeatureMask => !_aiExperimentsEnabled ? 0
+            : 1 | (_evidenceTrackingEnabled ? 2 : 0) | (_utilitySearchEnabled ? 4 : 0)
+                | (_predictiveChaseEnabled ? 8 : 0) | (_impactInvestigationEnabled ? 16 : 0)
+                | (_tensionPacingEnabled ? 32 : 0);
         public float NavAgentRadius => _navAgentRadius;
         public float RoamMinDistance => _roamMinDistance;
         public float SearchWanderRadius => _searchWanderRadius;
@@ -235,6 +298,17 @@ namespace GhostHunter.Gameplay.Ghost
         public float WarningLightMin => _warningLightMin;
         public float WarningLightMax => _warningLightMax;
         public float AttackLightIntensity => _attackLightIntensity;
+        public float BodyAlphaAtFullSanity => _bodyAlphaAtFullSanity;
+        public float BodyAlphaAtZeroSanity => _bodyAlphaAtZeroSanity;
+
+        /// <summary>보는 사람 정신력에 따른 본체 불투명도. 정신력이 낮을수록 선명하다(선형).</summary>
+        public float BodyAlphaForSanity(int sanity, int minimumSanity, int maximumSanity)
+        {
+            float t = maximumSanity > minimumSanity
+                ? Mathf.InverseLerp(maximumSanity, minimumSanity, sanity)
+                : 1f;
+            return Mathf.Lerp(_bodyAlphaAtFullSanity, _bodyAlphaAtZeroSanity, t);
+        }
 
         /// <summary>기획서 §7.3 의 팀 평균 정신력별 10초당 어택 확률.</summary>
         public float AttackChanceForTeamSanity(int teamSanity)
@@ -289,6 +363,21 @@ namespace GhostHunter.Gameplay.Ghost
             _catchCooldown = Mathf.Max(0f, _catchCooldown);
             _gravity = Mathf.Max(0f, _gravity);
             _doorOpenRange = Mathf.Max(0f, _doorOpenRange);
+            _evidenceMemorySeconds = Mathf.Max(0.1f, _evidenceMemorySeconds);
+            _predictionSeconds = Mathf.Max(0f, _predictionSeconds);
+            _predictionMaxDistance = Mathf.Max(0f, _predictionMaxDistance);
+            _observedSpeedLimit = Mathf.Max(0.1f, _observedSpeedLimit);
+            _searchCandidateCount = Mathf.Clamp(_searchCandidateCount, 1, 16);
+            _searchDirectionWeight = Mathf.Max(0f, _searchDirectionWeight);
+            _searchNoveltyWeight = Mathf.Max(0f, _searchNoveltyWeight);
+            _searchTravelWeight = Mathf.Max(0f, _searchTravelWeight);
+            _searchScanSeconds = Mathf.Max(0f, _searchScanSeconds);
+            _impactMinimumSpeed = Mathf.Max(0.1f, _impactMinimumSpeed);
+            _impactHearingRadius = Mathf.Max(0f, _impactHearingRadius);
+            _occludedImpactMultiplier = Mathf.Clamp01(_occludedImpactMultiplier);
+            _impactInvestigateCooldown = Mathf.Max(0.1f, _impactInvestigateCooldown);
+            _tensionReleaseSeconds = Mathf.Max(0.1f, _tensionReleaseSeconds);
+            _tensionIntervalMultiplier = Mathf.Max(1f, _tensionIntervalMultiplier);
             _navAgentRadius = Mathf.Clamp(_navAgentRadius, 0.1f, 0.5f);
             _roamMinDistance = Mathf.Max(0f, _roamMinDistance);
             _searchWanderRadius = Mathf.Max(0.5f, _searchWanderRadius);

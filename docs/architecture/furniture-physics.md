@@ -305,3 +305,11 @@ heavy는 혼자 던지면 `heavySoloMultiplier`만큼 약해진다 ([05-throw-sy
 ---
 
 최종 갱신: 2026-09-28 (생성 도구 삭제 반영 — 종류 추가·라이브러리·비교용 집 서술, ADR-0020. 이전: 2026-09-04 침대 3종을 다리로 띄우고 `UnderBedHide`/`BedHideZone` 추가 — 엎드려 침대 밑 은신. 이전: 2026-08-23)
+
+## 귀신 AI 실험의 충돌 소음 (2026-09-30)
+
+FurnitureNetworkPhysics는 서버 충돌의 접촉 위치·법선 상대 속력을 ServerImpactReported 이벤트로 전달한다.
+배치 보호 시간과 호스트 복구 중에는 전달하지 않는다. 내구도 판정과 물리 권위는 유지한다.
+귀신의 가구 소음 토글 ON이면 어택 배회·수색 중 충돌 위치를 조사한다.
+구독은 귀신 server spawn에서 하고 despawn/destroy에서 해제한다.
+임시 반경·감쇠·접수 간격과 안전 은신 정책은 [귀신 AI 실험](../project/ghost-ai-experiments.md)에 따른다.

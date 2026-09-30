@@ -21,6 +21,9 @@ namespace GhostHunter.Gameplay.Ghost
 
         private float _cooldownRemaining;
         private GhostPhenomenonKind _last;
+        private float _tension;
+
+        internal void SetTension(float tension) => _tension = Mathf.Clamp01(tension);
 
         internal GhostPhenomenaDirector(GhostPrototypeSettings settings, Func<double> roll = null)
         {
@@ -72,7 +75,9 @@ namespace GhostHunter.Gameplay.Ghost
                 return GhostPhenomenonKind.None;
             }
 
-            _cooldownRemaining -= deltaTime;
+            float scale = _settings.TensionPacingEnabled
+                ? Mathf.Lerp(1f, _settings.TensionIntervalMultiplier, _tension) : 1f;
+            _cooldownRemaining -= deltaTime / Mathf.Max(1f, scale);
             if (_cooldownRemaining > 0f)
                 return GhostPhenomenonKind.None;
 

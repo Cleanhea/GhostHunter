@@ -7,6 +7,11 @@
 
 ## 0. 시스템별 현재 상태
 
+**귀신 AI 실험(2026-09-30):** 단서 추적·수색 점수화·짧은 예측·가구 충돌 조사·공포 간격 조절을
+F2 개별/전체 토글로 추가. 기본 에셋 ON, 전체 OFF면 기존 AI로 비교. Unity 컴파일 통과,
+EditMode 65/65·PlayMode 16/16 통과. 실제 Stage1 체감·Steam 다인 검증은 대기 →
+[실험 문서](ghost-ai-experiments.md).
+
 > 2026-09-28 CLAUDE.md 에서 옮겼다. CLAUDE.md 는 매 요청마다 컨텍스트에 실리므로 진행 상황은 여기에 둔다.
 > 시스템 상태가 바뀌면 CLAUDE.md 가 아니라 이 절을 갱신한다.
 
@@ -30,6 +35,7 @@ B안(`PlanBFurnitureSpawnSetup` — 가구 풀·후보·서버 생성기·앞마
 | --- | --- |
 | 일반 로비·인게임 로비·상점·스테이지 전환 | 세션 유지, 전환마다 플레이어 재스폰, 인게임 로비 ⇄ 스테이지는 이전 씬 먼저 언로드([ADR-0018](../architecture/decisions/ADR-0018-persistent-session-in-game-lobby.md)). 코드·설치 도구 반영(2026-09-28), 게스트·Steam 다인 미검증. 스테이지 출발 대상은 **Stage1**(B안·드릴카 안전 구역·조립 영역·정신력 UI, 귀신·청소 없음), 구 Game 은 **ProtoTypeGame**([ADR-0019](../architecture/decisions/ADR-0019-stage1-scene-split.md)) — 에디터 메뉴 실행·Stage1 진입 확인(ST-9) |
 | 드릴카(모델) | Stage1 에 모델 프리팹 고정 배치(2026-09-29) — 임포트 0.9배(1.3m 캐릭터 기준), 텍스처 연결, 실내 = 안전·반출 구역, 정신력 현황판 실내 앞벽, 조립 영역은 램프 앞. 자동 테스트 통과(기존 실패 3건 제외), Host/Client 실기·귀신 NavMesh 재굽기 미검증 → [stage-system.md §2.1](stage-system.md) |
+| 귀신(모델) | 2026-09-30 — `Ghost_Prototype` 본체 캡슐을 `Mesh/Ghost/Ghost.fbx`(천 귀신 스킨 메시)로 교체. 임포트 2배(높이 약 1.52m, 0.2m 부양), Y +90°로 정면 맞춤, 재질 `M_Ghost`(Lit 반투명 + 발광 텍스처, 어둠에선 윤곽만). 보는 사람 정신력이 낮을수록 선명(알파 0.3→0.9, 피어별 연출). EditMode 380개 중 378 통과(기존 소스 검사 실패 2건), 에디터·Host/Client 실기 외형 미검증 → [ghost-prototype.md §4](../architecture/ghost-prototype.md) |
 | 부활 의식 | 2026-09-30 — Stage1 에 방 하나를 무작위로 **의식 방**으로 비우고(가구·얼룩 없음) 가운데 마법진·둘레 촛대 5개, 촛대에 E 로 촛불 꽂기(팀 재고 소모)·타이밍 점화·귀신 문 열기/방 이탈/점화 중 이동 시 초기화·정상/폐급(98%)/저주(2%) 판정·3초 보호. 폐급 효과는 키 반대·저주 이동만. 자동 테스트만, Host/Client 실기 미검증 → [revival-system.md](revival-system.md) |
 | 상점·경제 | 2026-09-29 — 시작 $25·판마다 $50, 철제 드라이버 $35·철제 라이터 $10(플레이어별)·촛대 세트 $25(공동, 보유만), 철제 드라이버 수리(2당 $1·올림). 드라이버 내구도·라이터 보유는 Steam 로비 데이터로 판 사이 유지. 자동 테스트 통과, Steam 다인 실기 미검증 → [stage-system.md §2.2](stage-system.md) |
 | 청소·대걸레·얼룩 | 화면 좌측 상단 청소 진행도 HUD(2026-09-29) — 얼룩 닦기·물품 반출 두 줄을 따로 표시. 합산 진행도·승패 연결(D-14)은 미정 유지 → [cleaning-system.md §2.1](../architecture/cleaning-system.md) |
@@ -110,6 +116,7 @@ B안(`PlanBFurnitureSpawnSetup` — 가구 풀·후보·서버 생성기·앞마
 | M8-GS-1a | 귀신 프로토타입의 모의 정신력을 제거하고, 귀신 HUD가 `ISanityTeamService`의 팀 평균 판정값을 그대로 읽게 한다. | — | ✅ 완료 (2026-08-24) |
 | M8-GS-1b | 그 팀 평균으로 귀신 상태·이벤트·어택 조건을 **판정**한다. | — (D-10 해결) | ✅ **완료 (2026-08-30)** — 팀 평균 80/60 구간으로 상태 전이, 10초 §7.3 확률 판정, 어택 30~90초, 자연 진정 30초, 강제 진정 10초 → [ghost-prototype.md](../architecture/ghost-prototype.md) |
 | M8-GS-1c | [귀신 공통 시스템 원문 0.2](ghost-system.md)를 구현에 반영한다: 활동 시작, 0~30 어택 100%, 일반/고위험 지속시간, 자연 진정으로의 아이템 강제 종료, 10초 수색, 0.2초·1m 타깃 선정과 최단 경로 이동, 활동 중 본체 목격 정신력 감소, 경고·어택 조명. | G-9 고위험 종료·G-17 목격 기준·G-18 탐지 강화 수치, Unity PlayMode 검증 | **부분 구현 — 코드·에셋·실제 청소 진행도·자동 스폰 연결. 중간 .NET 빌드 통과, 최신 빌드는 병행 `GrabController.cs` 오류로 실패. 런타임 검증 대기(2026-09-27)** → [ghost-prototype.md](../architecture/ghost-prototype.md) |
+| M8-GS-1d | 귀신 AI 실험 요소 적용과 개별/전체 런타임 토글 | 정식 채택·수치는 플레이 확인 후 결정 | **구현·자동 검증 통과 (2026-09-30)** — EditMode 65/65·PlayMode 16/16, 실제 체감 미검증 → [ghost-ai-experiments.md](ghost-ai-experiments.md) |
 | M8-GS-2 | 9종 초자연현상 중 무엇을 `귀신 이벤트 목격`으로 처리할지 정의하고, 서버 가시 판정에서 `ServerApplyGhostEventWitnessed()`를 호출한다. 단순 근접은 현재 감소 조건이 아니다. | [G-6](ghost-system.md) | ✅ **완료 (2026-08-31)** — 사용자 확정: 종류 불문 목격 시 전부 적용, 감소량 10→**15**. `GhostPrototypeController.ServerCheckPhenomenonWitnessed`(거리 12m·각도 70°·가림)가 현상 발생마다 판정해 `ServerApplyGhostEventWitnessed()` 호출 → [ghost-prototype.md §4](../architecture/ghost-prototype.md) |
 | M8-GS-3 | 헤드라이트·드릴 카 안전 구역·시체 목격·정신력 아이템·사망·스테이지 생명주기를 정신력 서버 API에 연결한다. | 관련 시스템 구현 | **부분 — 헤드라이트·드릴카 어둠 노출 연결(2026-09-28, 코드·프리팹, EditMode 신규 테스트 통과, 실기 미검증)** → [headlamp.md](../architecture/headlamp.md). 시체·아이템·스테이지 생명주기 대기 |
 | M8-GS-4a | 정신력 20 이하 카메라 테두리 노이즈를 URP Volume 연출로 연결한다. | — | ✅ 완료 (2026-08-24) — **2026-08-31 재검증**: `AssetDatabase.AddObjectToAsset` 누락으로 비네트·필름그레인·색수차가 실제로는 저장되지 않고 있었다(2026-08-24 당시엔 인스펙터에서만 보이다 사라지는 버그). 굴착 스킬 연출 작업 중 발견해 수정 완료 → [mole-skill-system.md §8](mole-skill-system.md) |

@@ -19,6 +19,7 @@ docs/
 │   ├── gdd.md                      게임 디자인 문서
 │   ├── sanity-system.md            개인·팀 정신력·증감·디버프·플레이/모니터 UI
 │   ├── ghost-system.md             귀신 공통 상태·정신력 연동·어택·탐지·추격 규칙
+│   ├── ghost-ai-experiments.md     귀신 AI 실험 토글·단서 기억·수색·예측·가구 소음·공포 간격·검증
 │   ├── mole-skill-system.md        두더지 스킬(탐지·굴착) 공통 규칙·판정·쿨타임·UI — 저장소 반영 1.2
 │   ├── headlamp-system.md          기본 장착 헤드라이트(원문 "손전등" 0.1) — F키·배터리·드릴카 충전·충전 UI·효과음
 │   ├── pause-menu-system.md        일시정지 메뉴·호스트 연결 끊김 규칙 — 구현됨, 수동 검증 대기

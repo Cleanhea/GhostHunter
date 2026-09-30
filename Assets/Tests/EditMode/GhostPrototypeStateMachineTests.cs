@@ -158,6 +158,16 @@ namespace GhostHunter.Tests.EditMode
             Assert.AreEqual(chance, _settings.AttackChanceForTeamSanity(sanity), 0.0001f);
         }
 
+        [TestCase(100, 0.3f)]
+        [TestCase(50, 0.6f)]
+        [TestCase(0, 0.9f)]
+        [TestCase(120, 0.3f)]
+        [TestCase(-10, 0.9f)]
+        public void BodyGetsClearerAsViewerSanityDrops(int sanity, float alpha)
+        {
+            Assert.AreEqual(alpha, _settings.BodyAlphaForSanity(sanity, 0, 100), 0.0001f);
+        }
+
         [Test]
         public void TargetSwitchRequiresOneMeterAdvantage()
         {

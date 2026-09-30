@@ -48,6 +48,27 @@ MonoBehaviour:
   _catchCooldown: 4
   _gravity: 12
   _doorOpenRange: 2.2
+  _aiExperimentsEnabled: 1
+  _evidenceTrackingEnabled: 1
+  _utilitySearchEnabled: 1
+  _predictiveChaseEnabled: 1
+  _impactInvestigationEnabled: 1
+  _tensionPacingEnabled: 1
+  _evidenceMemorySeconds: 8
+  _predictionSeconds: 0.6
+  _predictionMaxDistance: 2.5
+  _observedSpeedLimit: 8
+  _searchCandidateCount: 8
+  _searchDirectionWeight: 2
+  _searchNoveltyWeight: 3
+  _searchTravelWeight: 0.4
+  _searchScanSeconds: 0.7
+  _impactMinimumSpeed: 2
+  _impactHearingRadius: 14
+  _occludedImpactMultiplier: 0.5
+  _impactInvestigateCooldown: 1
+  _tensionReleaseSeconds: 15
+  _tensionIntervalMultiplier: 2
   _navAgentRadius: 0.25
   _roamMinDistance: 6
   _searchWanderRadius: 4
@@ -76,3 +97,5 @@ MonoBehaviour:
   _warningLightMin: 0.2
   _warningLightMax: 0.8
   _attackLightIntensity: 1.2
+  _bodyAlphaAtFullSanity: 0.3
+  _bodyAlphaAtZeroSanity: 0.9

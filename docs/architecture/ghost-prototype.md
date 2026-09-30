@@ -58,6 +58,9 @@ G-18 수치가 정해지지 않아 기본 에셋은 일반 시야와 같은 15m/
 
 ## 3. 탐지, 추격, 은신
 
+> 아래는 기본 AI(실험 전체 OFF)의 동작이다. 2026-09-30 사용자 요청으로 기본 에셋의 실험
+> 토글을 ON했다. 단서 모드는 감지 가능한 후보만 추격하고 놓치면 수색한다 → §3.1.
+
 어택 중 서버는 원뿔 시야(기본 15m/120°), 가림, 근거리와 기존 이동 소리 판정으로
 첫 대상을 탐지한다. 추격 중에는 0.2초마다 집 안에서 추격 가능한 플레이어의 **좌표상 직선거리**를
 비교한다. 현재 타깃을 유지하다 다른 플레이어가 1m 이상 가까워지면 교체한다. 은신·굴착 성공,
@@ -92,6 +95,21 @@ B안 1.0m 문틀이 양쪽에서 깎여 막혔다. Player·Furniture·GhostProto
 감지된 굴착은 해당 위치를 수색해 확률 없이 처치한다. 은신 중 음성 송신은 사용자 결정에 따라
 유지한다([G-19](../project/ghost-system.md)).
 
+### 3.1 AI 실험 토글 (2026-09-30)
+
+[귀신 AI 실험 문서](../project/ghost-ai-experiments.md)에 승인 범위·임시 수치·검증을 기록한다.
+GhostPrototypeSettings의 전체 토글과 5개 개별 토글은 F2 → 귀신 → AI experiments에서 즉시 변경한다.
+전체 OFF면 기본 탐지·좌표 추격·무작위 수색·현상 간격으로 복귀한다.
+
+- GhostTrackingMemory: 관측 위치·속도·시각 보관, 타깃 교체 시 속도 초기화, 확신도 감쇠와 제한된 예측.
+- GhostSearchMemory: 고정 크기 방문 기록. 후보 경로·도주 방향·재방문·이동 비용 비교, 문 후보 추가.
+- FurnitureNetworkPhysics.ServerImpactReported: 서버 충돌 위치 조사. 귀신 spawn/despawn/destroy 구독 수명 관리.
+- GhostPhenomenaDirector.SetTension: 최근 위협·출현에 따른 타이머 진행 완화. 현상 Pool·어택 조건은 기존대로.
+- 호스트 복구는 기존 타깃·마지막 위치를 쓰고 관측 속도·방문 기록·미접수 소음은 초기화한다.
+
+새 코드는 기존 Gameplay와 DebugTools 어셈블리에 속한다. 판정·물리·사망은 서버만 실행한다.
+목격된 은신과 완전 은신은 기존 안전 규칙을 지키고, 단서 모드의 일반 포획에 층·시야선 검사를 추가했다.
+
 ## 4. 정신력과 연출
 
 활동 중 생존 플레이어가 귀신 본체를 보면 서버가 개인 정신력 **−5**를 즉시 적용한다.
@@ -120,6 +138,26 @@ HUD 밝기를 기준값으로 넘긴다([map-generation.md §10.1.6](map-generat
   빛(헤드라이트·천장등) 조건을 넣을지는 G-17 과 함께 사용자 결정 대기.
 - 빨간 원뿔 시야 표시(`M_GhostVisionCone`)는 UI 성격이라 Unlit 그대로 뒀다(기획서 미결정 #10).
 
+**귀신 모델 (2026-09-30 사용자 요청 "Assets/Mesh/Ghost 모델로 적용")** — `Ghost_Prototype` 의 `Body` 캡슐을
+`Mesh/Ghost/Ghost.fbx`(Blender, 원뿔형 천 귀신 + 양팔, 본 8개 스킨 메시, 애니메이션 없음)로 바꿨다.
+
+- `Body` 는 이제 메시가 없는 **래퍼**이고 그 아래에 FBX 를 중첩 프리팹 `GhostModel` 로 둔다. 노출은
+  `ApplyPhaseVisual` 이 `_body.SetActive` 로 켜고 끈다. 프리팹 저장값은 꺼짐. `_bodyRenderers` 는 모델의 스킨 메시 렌더러.
+  FBX 내부 GameObject(메시·Armature·본 13개)는 전부 **레이어 오버라이드 10(GhostPrototype)** 을 프리팹에 저장했다
+  (`ProjectWiringTests` 가 프리팹 전체 레이어를 검사). FBX 를 다시 내보내 노드 이름이 바뀌면 오버라이드를 다시 걸어야 한다.
+- 크기: 원본 높이 0.76m → **임포트 배율(`globalScale`) 2** = 약 1.52m. 모델 루트를 y 0.55 에 둬 바닥에서
+  약 0.2m 떠 있고 꼭대기가 약 1.72m(캐릭터 캡슐 1.8m 와 비슷, 플레이어 1.3m 보다 크다) [TEMP].
+- 방향: 원본의 눈이 모델 −X 쪽이라 모델 루트를 **Y +90°** 돌려 귀신 정면(+Z)에 맞췄다. 팔은 좌우로 뻗는다.
+- 재질 `M_Ghost` — `M_GhostBody` 설정(Lit 반투명, 알파 0.6, 환경 반사 끔)에 `Ghost_Emission.png` 를 기본·발광 맵으로
+  연결(눈·아랫단이 어둡다). 발광색은 위 "빛과 귀신 모습" 결정대로 어둠에서 윤곽만 남게 낮게(0.025/0.027/0.04) 뒀다 —
+  텍스처 의도대로 스스로 빛나게 하려면 `_EmissionColor` 를 올린다. FBX 의 `Ghost_Material` 은 임포트 설정에서 `M_Ghost` 로 리맵.
+- "일시 출현"(`GhostPhenomenaPlayer`)은 여전히 `M_GhostBody` 캡슐이다.
+- **정신력에 따른 선명도 (2026-09-30 사용자 요청 "정신력에 따라 좀 더 선명하게")** — 각 피어가 **자기 로컬 플레이어**
+  정신력으로 본체 알파를 정한다(`ApplyBodyClarity`, `MaterialPropertyBlock` 의 `_BaseColor.a`, 복제 없음·연출 전용).
+  정신력 최대 **0.3** → 최소 **0.9** 선형(50 에서 기존 0.6), 정신력을 잃은 관전자는 0.9.
+  `SanityChanged`·`AliveStateChanged`·상태 변경 때 갱신. 수치는 `GhostPrototypeSettings._bodyAlphaAtFullSanity/_bodyAlphaAtZeroSanity` [TEMP].
+  목격 판정(−5/−15)은 알파와 무관하게 그대로다.
+
 ## 5. 초자연현상 프로토타입
 
 기존 `GhostPhenomenaDirector`는 활동 중 발생 간격을 정하고, 서버가 물건 흔들기·작은 소품
@@ -129,6 +167,10 @@ HUD 밝기를 기준값으로 넘긴다([map-generation.md §10.1.6](map-generat
 같은 프레임에 적용될 수 있으며 최종 중복 정책은 G-17에 따른다.
 
 ## 6. 검증과 남은 결정
+
+- 2026-09-30 AI 실험: 검증 복제본 Unity 컴파일 통과, 관련 EditMode **65/65**,
+  Local Host PlayMode **16/16** 통과. 단서 상실·전체 OFF 복귀·가구 소음·은신·이벤트 해제를 검증했다.
+  실제 Stage1 체감·예측 이동 연출·Steam 다인 접속은 미검증 → [실험 문서](../project/ghost-ai-experiments.md).
 
 - `NavMeshPath`는 `MonoBehaviour` 필드 초기화 중 생성할 수 없어
   `GhostPrototypeController.Awake()`에서 생성한다. Unity 에디터가 보고한

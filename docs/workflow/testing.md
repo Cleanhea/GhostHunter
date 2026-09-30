@@ -24,7 +24,8 @@ Assets/Tests/
 │   ├── FurniturePlacementPlannerTests.cs  랜덤 가구 수량·중복·충돌·방 분포·시드·실패 처리 (순수 계산)
 │   ├── ServicesTests.cs                   서비스 로케이터 계약
 │   ├── ProjectWiringTests.cs              레이어·씬 목록·네트워크 프리팹 식별자
-│   ├── GhostPrototypeStateMachineTests.cs 귀신 5상태·강제 진정 전이·10초 어택 판정(팀 평균 기반)
+│   ├── GhostPrototypeStateMachineTests.cs 귀신 활동·경고·어택·자연 진정 전이·팀 평균 어택 판정
+│   ├── GhostAiExperimentTests.cs          단서 만료·예측 제한·수색 점수·고정 기억·토글·현상 간격
 │   ├── GhostVisionTests.cs                원뿔 시야 각도·거리 판정, 시야 표시 메시 생성
 │   ├── GhostHouseBoundsTests.cs            집 내부 X/Z 활동 경계 판정·좌표 보정
 │   ├── SanityStateTests.cs                정신력 증감·누적·중복·평균·디버프
@@ -32,6 +33,7 @@ Assets/Tests/
 └── PlayMode/
     ├── GhostHunter.Tests.PlayMode.asmdef
     ├── NetworkFurnitureFixture.cs         호스트 세션 + 가구 스폰 토대
+    ├── GhostAiExperimentFlowTests.cs      Host 단서 상실·OFF 복귀·은신 안전·소음·이벤트 해제
     └── FurnitureThrowFlowTests.cs         잡기 → 차징 → 발사 상태 기계
 ```
 
