@@ -40,12 +40,13 @@ namespace GhostHunter.Gameplay.Map
 
         public readonly struct Candidate
         {
-            public readonly int Pool, Item, Point, Room;
+            public readonly int Pool, Item, Point, Room, SupportItem;
             public readonly Box Bounds;
 
-            public Candidate(int pool, int item, int point, int room, Box bounds)
+            public Candidate(int pool, int item, int point, int room, Box bounds, int supportItem = -1)
             {
                 Pool = pool; Item = item; Point = point; Room = room; Bounds = bounds;
+                SupportItem = supportItem;
             }
         }
 
@@ -156,7 +157,9 @@ namespace GhostHunter.Gameplay.Map
                     bool overlaps = false;
                     for (int i = 0; i < depth; i++)
                     {
-                        if (candidate.Bounds.Overlaps(selected[order[i]].Bounds))
+                        if (candidate.SupportItem != selected[order[i]].Item
+                            && selected[order[i]].SupportItem != candidate.Item
+                            && candidate.Bounds.Overlaps(selected[order[i]].Bounds))
                         {
                             overlaps = true;
                             break;

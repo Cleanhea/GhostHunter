@@ -33,11 +33,39 @@ namespace GhostHunter.Gameplay.Ghost
             _roll = roll ?? SharedRandom.NextDouble;
 
             RebuildPool();
+            if (_settings.PhenomenaPoolSize > 0 && _settings.PhenomenaPoolSize < _pool.Count)
+            {
+                for (int i = _pool.Count - 1; i > 0; i--)
+                {
+                    int other = Mathf.Clamp((int)(_roll() * (i + 1)), 0, i);
+                    (_pool[i], _pool[other]) = (_pool[other], _pool[i]);
+                }
+                _pool.RemoveRange(_settings.PhenomenaPoolSize, _pool.Count - _settings.PhenomenaPoolSize);
+            }
             ResetForStage();
         }
 
         /// <summary>가장 최근에 발생한 현상. 다음 선택에서 제외된다(§6.4 6단계).</summary>
         internal GhostPhenomenonKind Last => _last;
+
+        internal uint PoolMask
+        {
+            get
+            {
+                uint mask = 0;
+                foreach (GhostPhenomenonKind kind in _pool)
+                    mask |= 1u << (int)kind;
+                return mask;
+            }
+        }
+
+        internal void RestorePool(uint mask)
+        {
+            if (mask == 0)
+                return;
+            RebuildPool();
+            _pool.RemoveAll(kind => (mask & (1u << (int)kind)) == 0);
+        }
 
         /// <summary>다음 현상 발생까지 남은 시간(초). 발생 불가 상태에서는 현재 구간의 주기.</summary>
         internal float SecondsUntilNext => _cooldownRemaining;
@@ -162,6 +190,8 @@ namespace GhostHunter.Gameplay.Ghost
                 _pool.Add(GhostPhenomenonKind.WallKnock);
                 _pool.Add(GhostPhenomenonKind.Footsteps);
             }
+            if (_settings.PhenomenaCandidateMask != 0)
+                _pool.RemoveAll(kind => (_settings.PhenomenaCandidateMask & (1u << (int)kind)) == 0);
         }
     }
 }

@@ -2,6 +2,12 @@
 
 > Unity Test Framework 사용. 테스트 어셈블리는 MIG-7에서 구성했다.
 
+## Tutorial 검증 기록 (2026-10-02)
+
+원본 프로젝트에서 컴파일 통과, 전체 EditMode 399건 중 397 통과. 기존 MoleSkillWiringTests의 귀신 굴착 노출·일시정지 잠금 순서 소스 검사 2건은 실패가 남아 있다.
+InGameLobbyFlowTests·CleaningFlowTests·FurnitureThrowFlowTests·FurnitureCollisionFlowTests·GhostAiExperimentFlowTests를 함께 실행한 PlayMode 43/43 통과.
+Tutorial 구조/배치·물리 이동·청소/반출 UI·씬 전환의 검증 범위와 다인 미검증 항목은 [tutorial-stage.md](../project/tutorial-stage.md#검증)에 기록한다.
+
 ## 1. 무엇을 테스트하는가
 
 | 대상 | 테스트 종류 | 우선순위 |
@@ -147,8 +153,8 @@ Steam 실경로(로비·초대·SDR 연결)는 사람이 2대로 확인한다 �
 
 1. Play 모드를 끄고 `GhostHunter > 로컬 테스트 봇 > 1. 개발 빌드 만들기` 실행.
    활성 Build Settings 씬의 첫 항목이 `Bootstrap`이어야 한다. 출력은 `Build/LocalBots/`.
-2. `Bootstrap`에서 Play → **Tab** 접속 HUD → `Local` 모드 → `Host`. 인게임 로비에서 단말기(E)로 스테이지를 출발해
-   `Stage1` 진입을 기다린다(봇 메뉴는 스테이지 씬 — Stage1·ProtoTypeGame — 에서만 동작한다).
+2. `Bootstrap`에서 Play → **Tab** 접속 HUD → `Local` 모드 → `Host`. Tutorial 드릴카에서 종료·정산한 뒤 인게임 로비 단말기(E)로
+   `Stage1`에 출발한다(봇 메뉴는 스테이지 씬 — Tutorial·Stage1·ProtoTypeGame — 에서만 동작한다).
 3. `GhostHunter > 로컬 테스트 봇 > 2. 봇 1명 추가` 또는 `3. 봇 2명 추가` 실행.
    메뉴를 다시 실행해 총 3명까지 붙일 수 있다. Host HUD의 접속 수와 스테이지 화면의 원격
    캐릭터를 확인한다. 봇 로그는 `Build/LocalBots/Logs/bot-N.log`에 남는다.

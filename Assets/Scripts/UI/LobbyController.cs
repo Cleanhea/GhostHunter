@@ -10,8 +10,8 @@ namespace GhostHunter.UI
 {
     /// <summary>
     /// 일반 로비(대기실) 화면. 여기까지는 Steam 로비만 살아 있고 NGO 세션은 없다.
-    /// - 호스트: 전원 준비 확인 후 "게임 시작" → <b>인게임 로비</b> 씬 로드 → StartHost → 로비에 시작 신호.
-    /// - 게스트: 로비 데이터의 시작 신호를 보고 StartClient. NGO 씬 동기화가 인게임 로비로 데려간다.
+    /// - 호스트: 전원 준비 확인 후 "게임 시작" → <b>Tutorial</b> 씬 로드 → StartHost → 로비에 시작 신호.
+    /// - 게스트: 로비 데이터의 시작 신호를 보고 StartClient. NGO 씬 동기화가 Tutorial 로 데려간다.
     /// 상점은 인게임 로비로 옮겼다(2026-09-28, ADR-0018). 세션은 그 뒤 인게임 로비 ⇄ 스테이지를 오가며 유지된다.
     /// </summary>
     [DisallowMultipleComponent]
@@ -137,7 +137,7 @@ namespace GhostHunter.UI
             _departing = true;
             SetStatus("이전 호스트가 떠났습니다. 스테이지 로딩을 이어갑니다.");
             _connection.SetTransportMode(TransportMode.Steam);
-            _connection.StartHostInGameScene(SceneId.InGameLobby);
+            _connection.StartHostInGameScene(SceneId.Tutorial);
         }
 
         /// <summary>
@@ -170,7 +170,7 @@ namespace GhostHunter.UI
 
             _departing = true;
             _connection.SetTransportMode(TransportMode.Steam);
-            _connection.StartHostInGameScene(SceneId.InGameLobby);
+            _connection.StartHostInGameScene(SceneId.Tutorial);
         }
 
         private void HandleReadyClicked()

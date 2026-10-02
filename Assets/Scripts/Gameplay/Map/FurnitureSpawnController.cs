@@ -185,7 +185,8 @@ namespace GhostHunter.Gameplay.Map
                     Vector3 min = bounds.min;
                     Vector3 max = bounds.max;
                     candidates.Add(new FurniturePlacementPlanner.Candidate(poolIndex, itemIndex, pointIndex,
-                        point.RoomId, new FurniturePlacementPlanner.Box(min.x, min.y, min.z, max.x, max.y, max.z)));
+                        point.RoomId, new FurniturePlacementPlanner.Box(min.x, min.y, min.z, max.x, max.y, max.z),
+                        point.SupportItem != null ? Array.IndexOf(_items, point.SupportItem) : -1));
                 }
             }
             return FurniturePlacementPlanner.TryPlan(_items.Length, _points.Length, requests,
@@ -326,6 +327,7 @@ namespace GhostHunter.Gameplay.Map
             var uniquePoints = new HashSet<FurnitureSpawnPoint>();
             foreach (FurnitureSpawnPoint point in _points)
                 if (point == null || !uniquePoints.Add(point) || point.RoomId < 0
+                    || (point.SupportItem != null && !uniqueItems.Contains(point.SupportItem))
                     || !point.gameObject.activeInHierarchy || point.gameObject.scene != gameObject.scene
                     || !Enum.IsDefined(typeof(FurnitureSpawnType), point.SpawnType)
                     || Vector3.Dot(point.transform.up, Vector3.up) < 0.999f

@@ -60,6 +60,7 @@ namespace GhostHunter.Gameplay.Recovery
             public Vector3 LinearVelocity;
             public Vector3 AngularVelocity;
             public int Durability;
+            public bool HasLaunched;
         }
 
         [Serializable]
@@ -107,6 +108,7 @@ namespace GhostHunter.Gameplay.Recovery
             public int LastTeamSanity;
             public float PhenomenonCooldown;
             public int LastPhenomenon;
+            public uint PhenomenaPoolMask;
             public int CleaningProgress;
             public int Pursuit;
             public ulong TargetSteamId;

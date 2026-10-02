@@ -313,3 +313,18 @@ FurnitureNetworkPhysics는 서버 충돌의 접촉 위치·법선 상대 속력�
 귀신의 가구 소음 토글 ON이면 어택 배회·수색 중 충돌 위치를 조사한다.
 구독은 귀신 server spawn에서 하고 despawn/destroy에서 해제한다.
 임시 반경·감쇠·접수 간격과 안전 은신 정책은 [귀신 AI 실험](../project/ghost-ai-experiments.md)에 따른다.
+
+
+## Tutorial 물리 가구와 지지 배치 (2026-10-02)
+
+Tutorial의 202호 모델을 Tutorial_*.prefab 물리 가구로 분리했다. 원래 맵의 해당 정적 모델은 비활성화하여 충돌/표시 중복을 없앴다.
+기존 Rigidbody·NetworkTransform·잡기/부양/발사·내구도·윤곽선·탐지·RandomFurnitureItem·반출 흐름을 사용한다.
+책상은 상판·다리를 나눠 충돌시켰고 전화기/메모는 함께 이동한다. 욕실 기구는 정적으로 유지한다.
+새 프리팹 복사용 Tutorial Furniture_Library는 비활성이고 스폰/작업 집계에서 제외한다.
+
+FurnitureSpawnPoint.SupportItem은 움직이는 책상/TV탁장 위 배치를 명시한다.
+FurniturePlacementPlanner.Candidate.SupportItem(기본 −1)은 해당 지지 가구와의 전체 경계 겹침만 허용한다.
+실제 콜라이더/지지 높이는 에셋에서 구성하고, 일반 가구 간 겹침·한 후보 한 물건 규칙은 그대로 적용한다.
+기존 Stage1 후보에는 지지 참조가 없어 기존 계획 판정이 유지된다.
+
+Tutorial_Lamp는 Stage1 실내 설정의 밝기 0.3·색온도 3200K를 참조하는 이동 Point Light와 GhostAmbientLight를 포함한다. RandomFurnitureItem은 보관/반출 여부에 따라 자식 Light도 함께 숨기거나 복원한다.

@@ -1346,6 +1346,12 @@ Stage1 만 고쳤다 — ProtoTypeGame 의 B안은 마감 전 구조 그대로�
 (벽 윗면 높이, 방마다 위로 레이 → 천장, 방마다 천장등, 컨트롤러·귀신 연출·`GameInstaller` 배선, 구조물 스케일 1).
 실행 결과는 roadmap MAP-20 에 적는다.
 
+#### 10.1.7 Tutorial 모텔 (2026-10-02)
+
+첫 스테이지에 외부 아트 TutorialMap 모텔을 현재 크기로 사용한다. 268개 텍스처를 재질 156개에 연결하고,
+스케일이 있는 메시를 정점에 베이크한 저장 프리팹을 사용한다. 앞마당 드릴카와 Stage1 밤/암흑 조명 설정을 참조한다.
+B안 랜덤 방/가구 생성과는 별도다. 배치·흐름·검증: [Tutorial](../project/tutorial-stage.md), [ADR-0021](decisions/ADR-0021-tutorial-first-stage.md).
+
 ### 10.2 프로토타입에서 확인해야 할 것
 
 #### A. 맵 생성 로직

@@ -10,7 +10,7 @@ namespace GhostHunter.Systems.SceneFlow
 {
     /// <summary>
     /// 세션을 유지한 채 인게임 로비 ⇄ 스테이지를 전환한다(ADR-0018). 서버(호스트)만 시작한다.
-    /// 출발하는 스테이지는 <see cref="SceneId.Stage1"/> 이다(ADR-0019).
+    /// 첫 출발은 Tutorial, 정상 종료·전멸 정산 이후 출발은 Stage1 이다.
     ///
     /// <para>순서: 플레이어 디스폰(이전 씬 서비스가 살아 있을 때 정리) → <see cref="ISceneFlow.Load"/>(세션 중이라
     /// NGO 씬 로드·이전 씬 언로드) → 새 씬 서비스가 등록된 뒤 접속자마다 플레이어 재스폰. 재스폰한 플레이어는
@@ -25,6 +25,8 @@ namespace GhostHunter.Systems.SceneFlow
 
         private ISceneFlow _sceneFlow;
         private bool _transitioning;
+        private bool _tutorialCompleted;
+        private SceneId _previousScene;
 
         public bool IsTransitioning => _transitioning;
 
@@ -39,10 +41,40 @@ namespace GhostHunter.Systems.SceneFlow
             }
         }
 
-        public void Initialize(ISceneFlow sceneFlow) => _sceneFlow = sceneFlow;
+        private void OnEnable()
+        {
+            if (_sceneFlow != null)
+                _sceneFlow.SceneChanged += HandleSceneChanged;
+        }
+
+        private void OnDisable()
+        {
+            if (_sceneFlow != null)
+                _sceneFlow.SceneChanged -= HandleSceneChanged;
+        }
+
+        public void Initialize(ISceneFlow sceneFlow)
+        {
+            if (_sceneFlow != null)
+                _sceneFlow.SceneChanged -= HandleSceneChanged;
+            _sceneFlow = sceneFlow;
+            _previousScene = sceneFlow.Current;
+            if (isActiveAndEnabled)
+                _sceneFlow.SceneChanged += HandleSceneChanged;
+        }
+
+        private void HandleSceneChanged(SceneId scene)
+        {
+            if (scene is SceneId.Title or SceneId.Lobby)
+                _tutorialCompleted = false;
+            else if (_previousScene == SceneId.Tutorial && scene == SceneId.Result)
+                _tutorialCompleted = true;
+            _previousScene = scene;
+        }
 
         public bool StartStage() =>
-            CanControl && _sceneFlow.Current == SceneId.InGameLobby && Begin(SceneId.Stage1);
+            CanControl && _sceneFlow.Current == SceneId.InGameLobby
+            && Begin(_tutorialCompleted ? SceneId.Stage1 : SceneId.Tutorial);
 
         public bool ReturnToInGameLobby() =>
             CanControl && (_sceneFlow.Current.IsStage() || _sceneFlow.Current == SceneId.Result)

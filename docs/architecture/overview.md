@@ -15,7 +15,7 @@ Gameplay·테스트에 기존 Unity.Collections 참조를 추가했다 → [voic
 
 ```
 Assets/
-├── Scenes/            Bootstrap, Title, Lobby(일반 로비), InGameLobby(세션 유지 — ADR-0018), Stage1(스테이지 — ADR-0019),
+├── Scenes/            Bootstrap, Title, Lobby(일반 로비), InGameLobby(세션 유지 — ADR-0018), Tutorial(첫 스테이지 — ADR-0021), Stage1(스테이지 — ADR-0019),
 │                      ProtoTypeGame(구 Game — 프로토타입 검증), Result
 ├── Scripts/           런타임 C# (§2)
 ├── Prefabs/           Player, Furniture_*, Ghost/Ghost_Prototype, UI_*
@@ -155,11 +155,12 @@ additive로 얹었다 내린다 → [ADR-0004](decisions/ADR-0004-multi-scene-ad
 | `Title` | 타이틀/메뉴. 방 생성·방 코드 참가·설정·종료 | Additive (로컬) |
 | `Lobby` | 방 코드 표시·멤버 목록·준비·시작 | Additive (로컬) |
 | `InGameLobby` | 세션을 연 채 스테이지 사이에 머무는 방 — 상점·정산 이력·스테이지 출발([ADR-0018](decisions/ADR-0018-persistent-session-in-game-lobby.md)) | Additive — `NetworkManager.SceneManager` |
-| `Stage1` | 스테이지. B안 집·드릴카(모델 프리팹 `Prefabs/Map/DrillCar` — 안전·반출 구역·정신력 UI 내장 배치)·가구 조립 영역. 귀신·청소 없음([ADR-0019](decisions/ADR-0019-stage1-scene-split.md)). ProtoTypeGame 에서 복사해 만들었다 | Additive — `NetworkManager.SceneManager` |
+| `Tutorial` | 첫 스테이지 원룸(202호)·청소/반출·귀신·튜토리얼 UI·앞마당 드릴카·정신력·종료 단말기. 정산 후 다음 출발은 Stage1([ADR-0021](decisions/ADR-0021-tutorial-first-stage.md)) | Additive — `NetworkManager.SceneManager` |
+| `Stage1` | 스테이지. B안 집·드릴카(모델 프리팹 `Prefabs/Map/DrillCar` — 안전·반출 구역·정신력 UI 내장 배치)·가구 조립 영역. 귀신·청소·부활 의식 포함([ADR-0019](decisions/ADR-0019-stage1-scene-split.md)). ProtoTypeGame 에서 복사해 만들었다 | Additive — `NetworkManager.SceneManager` |
 | `ProtoTypeGame` | 프로토타입 검증 씬(구 `Game`). 비교용 집·테스트베드·귀신·청소까지 전부. 자동 검증 대상 | Additive — `NetworkManager.SceneManager` |
 | `Result` | 결과 정산 | Additive |
 
-"스테이지인가"는 `SceneIdExtensions.IsStage()`(ProtoTypeGame·Stage1) 한 곳에서 판정한다 — 정신력·사망·정산·호스트 이전·음성 그룹이
+"스테이지인가"는 `SceneIdExtensions.IsStage()`(ProtoTypeGame·Stage1·Tutorial) 한 곳에서 판정한다 — 정신력·사망·정산·호스트 이전·음성 그룹이
 이 판정을 쓴다. 2026-09-28 이전 문서의 "Game 씬"은 지금의 ProtoTypeGame 이다.
 
 **규칙**
@@ -238,13 +239,13 @@ Player 프리팹 (NetworkObject, 플레이어당 1개 스폰)
 ├─ MoleBurrowController     굴착 상태·이동 잠금·매몰 상태
 └─ SanityNetworkState       서버 권위 개인 정신력·생존·어둠 노출 복제
 
-스테이지 씬 서비스 (ProtoTypeGame·Stage1)
-├─ GameInstaller            Player·Sanity 스테이지 서비스 등록. Ghost·Cleaning 은 있으면 등록(Stage1 에는 없다)
+스테이지 씬 서비스 (ProtoTypeGame·Stage1·Tutorial)
+├─ GameInstaller            Player·Sanity 스테이지 서비스 등록. Ghost·Cleaning 은 있으면 등록(Tutorial·Stage1 에 배선)
 ├─ PlayerSpawnRegistry      clientId별 시작 위치
 ├─ LocalPlayerContext       로컬 소유 플레이어의 Targeter/Grab/Interactor 참조
 ├─ GhostPrototypeSpawner    F1 HUD의 Host 전용 귀신 동적 스폰·제거·어택 강제·강제 진정·청소 진행도 스텁
 ├─ SanityTeamService        생존 플레이어 팀 평균·F1 정신력 연동 검증
-└─ StageLightingController  (Stage1 만) 천장등·해·환경광을 StageLightingSettings 에 맞춤. IStageLightingDebug 로 HUD "조명" 섹션 제공, 네트워크 동기화 없음
+└─ StageLightingController  (Tutorial·Stage1) 천장등·해·환경광을 StageLightingSettings 에 맞춤. IStageLightingDebug 로 HUD "조명" 섹션 제공, 네트워크 동기화 없음
 
 Ghost_Prototype 프리팹 (서버 동적 스폰 NetworkObject)
 ├─ CharacterController      서버 전용 NavMesh 코너를 따라 배회·추격 이동·벽 충돌

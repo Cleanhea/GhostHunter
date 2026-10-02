@@ -201,15 +201,15 @@ Steam이 찾지 못한다. `GhostHunter.app/Contents/MacOS/steam_appid.txt`에 �
 1. **방 생성** → Steam 로비 생성 + 6자리 방 코드 발급 → 일반 로비 씬으로 이동
 2. 상대는 **방 참가**에 방 코드를 입력하거나, 호스트의 **초대** 오버레이로 들어온다
 3. 게스트가 **준비**를 누르면 호스트의 **게임 시작**이 활성화된다
-4. 호스트가 시작하면 **인게임 로비** 씬을 로드한 뒤 `StartHost` → 로비에 시작 신호 → 게스트 접속(이후 참가 차단)
-5. 인게임 로비의 **단말기에서 E** → 방장만 상점 구매·**스테이지 출발**. 정산 뒤·`스테이지 나가기` 뒤엔 인게임 로비로
+4. 호스트가 시작하면 **Tutorial** 씬을 로드한 뒤 `StartHost` → 로비에 시작 신호 → 게스트 접속(이후 참가 차단)
+5. Tutorial 종료/전멸 → Result → InGameLobby. 인게임 로비의 **단말기에서 E** → 방장만 상점 구매·**Stage1 출발**. 이후 정산 뒤·`스테이지 나가기` 뒤엔 인게임 로비로
    돌아온다(세션 유지 — `IStageSessionFlow`, [ADR-0018](decisions/ADR-0018-persistent-session-in-game-lobby.md)).
 
 **세션 시작 순서(씬 로드 → StartHost → 로비 신호)는 MUST 지킨다.** 로비 씬에서 바로 `StartHost` 하면
 플레이어가 스폰 지점 없는 씬에 스폰되고, 신호를 먼저 보내면 게스트가 세션 없는 호스트에 접속한다.
 
 **단독 플레이 (Steam 없이):** `Bootstrap.unity`에서 플레이 → **F1** 접속 HUD → 모드 `Local` → **Host** →
-인게임 로비 단말기에서 **스테이지 출발**(2026-09-28부터 Host 는 인게임 로비에서 열린다. 상점은 로컬 세션에서도 쓴다 — stage-system.md §2.2).
+Tutorial에서 시작한다(2026-10-02, ADR-0021). 종료/전멸 후 Result → InGameLobby 단말기에서 **Stage1 출발**. 상점은 로컬 세션에서도 쓴다 — stage-system.md §2.2.
 HUD 로 바꾼 모드는 저장하지 않는다. 저장하면 릴리스 빌드가 `TransportModeBuildGuard` 에 막힌다.
 
 혼자 음성 확인(F3)은 [voice-chat.md](voice-chat.md) "혼자 검증", 정신력 감소 확인(`Game/SanityTestbed`)은
@@ -237,7 +237,7 @@ HUD 로 바꾼 모드는 저장하지 않는다. 저장하면 릴리스 빌드�
 ### 로컬 2인 테스트 절차
 
 1. Windows 빌드 1회 생성
-2. 빌드 실행 → F1 → 모드를 `Local`로 → **Host** — 인게임 로비 씬을 먼저 올린 뒤 호스트가 열린다(networking.md §3.6)
+2. 빌드 실행 → F1 → 모드를 `Local`로 → **Host** — Tutorial 씬을 먼저 올린 뒤 호스트가 열린다(networking.md §3.6)
 3. 에디터 플레이 → F1 → 모드를 `Local`로 → **Join (로컬)** — 호스트가 있는 씬은 NGO 동기화로 받는다
 
 ### Steam 2인 테스트 절차
@@ -272,3 +272,5 @@ HUD 로 바꾼 모드는 저장하지 않는다. 저장하면 릴리스 빌드�
 
 최종 갱신: 2026-09-28 (씬 세팅: 리그 선택·프로토타입 생성 메뉴 삭제 — ADR-0020. 이전: 2026-09-04 매치 중 로비 이탈 경로 명시 — `Disconnect()` 가 `LeaveLobby()` 를 이미 부른다.
 개발 HUD 키 표기를 실제 값 Tab/F2 로 정정. 이전: 2026-08-20)
+
+2026-10-02 Tutorial 배치/발사 기록·복원 상태 추가로 NetProtocolVersion은 8이다. 호스트/클라이언트는 같은 네트워크 버전과 프리팹 목록을 사용한다. Steam 2PC 실기 검증은 대기다.

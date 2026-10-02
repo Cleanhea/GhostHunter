@@ -14,8 +14,20 @@ namespace GhostHunter.Gameplay.Furniture
 
         [SerializeField] private FurnitureThrowSettings _settings;
 
+        private readonly NetworkVariable<bool> _hasLaunched = new(false,
+            NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
         private Rigidbody _rigidbody;
         private FurnitureNetworkPhysics _networkPhysics;
+
+        /// <summary>현재 스테이지에서 이 가구를 한 번 이상 발사했는지 모든 접속자에게 제공한다.</summary>
+        public bool HasLaunched => _hasLaunched.Value;
+
+        /// <summary>호스트 이전 시 튜토리얼 연습 기록을 복원한다.</summary>
+        public void ServerRestoreLaunchRecord(bool hasLaunched)
+        {
+            if (IsServer && IsSpawned)
+                _hasLaunched.Value = hasLaunched;
+        }
 
         private void Awake()
         {
@@ -60,6 +72,7 @@ namespace GhostHunter.Gameplay.Furniture
                 Random.insideUnitSphere * _settings.TorqueScale,
                 ForceMode.Impulse);
 
+            _hasLaunched.Value = true;
             NotifyLaunchedRpc(direction, magnitude);
         }
 

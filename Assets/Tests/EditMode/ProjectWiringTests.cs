@@ -39,7 +39,7 @@ namespace GhostHunter.Tests.EditMode
         private static readonly SceneId[] AllSceneIds =
         {
             SceneId.Bootstrap, SceneId.Title, SceneId.Lobby, SceneId.ProtoTypeGame, SceneId.Result,
-            SceneId.InGameLobby, SceneId.Stage1,
+            SceneId.InGameLobby, SceneId.Stage1, SceneId.Tutorial,
         };
 
         /// <summary>

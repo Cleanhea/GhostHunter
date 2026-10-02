@@ -2,6 +2,7 @@ using System;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using GhostHunter.Gameplay.Map;
+using GhostHunter.Core;
 using GhostHunter.Gameplay.Recovery;
 using Unity.Netcode;
 using UnityEngine;
@@ -15,7 +16,11 @@ namespace GhostHunter.Gameplay.Cleaning
         [SerializeField] private CleaningSettings _settings;
         [SerializeField] private CleaningStain[] _stains = Array.Empty<CleaningStain>();
         [SerializeField] private Transform[] _points = Array.Empty<Transform>();
+        [Tooltip("풀의 앞쪽 얼룩을 항상 배치하는 고정 지점. StainCount에 포함한다.")]
+        [SerializeField] private Transform[] _fixedPoints = Array.Empty<Transform>();
         [SerializeField] private FurnitureSpawnController _furniture;
+        [Tooltip("도면 후보는 움직이는 가구에 가려져도 지정 수량을 유지한다.")]
+        [SerializeField] private bool _useAuthoredPositions;
         private CancellationTokenSource _spawnCancellation;
         private int[] _order;
         private uint _revision;
@@ -217,6 +222,18 @@ namespace GhostHunter.Gameplay.Cleaning
             Physics.SyncTransforms();
             int placed = 0;
             int requested = Mathf.Min(_settings.StainCount, _stains.Length);
+            foreach (Transform point in _fixedPoints)
+            {
+                if (placed >= requested)
+                    break;
+                // 고정 작업은 가구를 옮겨 드러내야 할 수도 있으므로 장애물 여부로 생략하지 않는다.
+                if (point == null || !TryGetSupport(point.position, out Vector3 position))
+                {
+                    Debug.LogError("[CleaningController] 고정 얼룩의 바닥 지지가 없습니다.", this);
+                    return;
+                }
+                _stains[placed++].ServerReset(position, point.eulerAngles.y, _revision, true);
+            }
             foreach (int index in _order)
             {
                 if (placed >= requested)
@@ -253,15 +270,28 @@ namespace GhostHunter.Gameplay.Cleaning
 
         private bool TryGetSurface(Vector3 candidate, out Vector3 position)
         {
-            position = default;
-            if (!Physics.Raycast(candidate + Vector3.up * 0.2f, Vector3.down,
-                out RaycastHit hit, 0.4f, _settings.SurfaceMask, QueryTriggerInteraction.Ignore)
-                || hit.normal.y < 0.99f || Mathf.Abs(hit.point.y - candidate.y) > 0.08f)
+            if (!TryGetSupport(candidate, out position))
                 return false;
+            if (_useAuthoredPositions)
+                return true;
+            Vector3 surface = position - Vector3.up * _settings.SurfaceOffset;
             float radius = _settings.PlacementRadius;
-            if (Physics.CheckBox(hit.point + Vector3.up * 0.12f,
+            return !Physics.CheckBox(surface + Vector3.up * 0.12f,
                 new Vector3(radius, 0.09f, radius), Quaternion.identity,
-                _settings.SurfaceMask, QueryTriggerInteraction.Ignore))
+                _settings.SurfaceMask, QueryTriggerInteraction.Ignore);
+        }
+
+        private bool TryGetSupport(Vector3 candidate, out Vector3 position)
+        {
+            position = default;
+            int mask = _settings.SurfaceMask;
+            if (_useAuthoredPositions)
+                mask &= ~GameLayers.FurnitureMask
+                    & ~(GameLayers.Player >= 0 ? 1 << GameLayers.Player : 0)
+                    & ~(GameLayers.GhostPrototype >= 0 ? 1 << GameLayers.GhostPrototype : 0);
+            if (!Physics.Raycast(candidate + Vector3.up * 0.2f, Vector3.down,
+                out RaycastHit hit, 0.4f, mask, QueryTriggerInteraction.Ignore)
+                || hit.normal.y < 0.99f || Mathf.Abs(hit.point.y - candidate.y) > 0.08f)
                 return false;
             position = hit.point + Vector3.up * _settings.SurfaceOffset;
             return true;

@@ -1,0 +1,88 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 83cdfd258edb7994e99367181ebd6d35, type: 3}
+  m_Name: FurnitureSpawnSettings_Tutorial
+  m_EditorClassIdentifier: GhostHunter.Gameplay::GhostHunter.Gameplay.Map.FurnitureSpawnSettings
+  _pools:
+  - _poolId: TutorialDesk
+    _spawnType: 0
+    _minimumCount: 1
+    _maximumCount: 1
+    _perRoom: 0
+    _isWorkTarget: 1
+  - _poolId: TutorialBed
+    _spawnType: 0
+    _minimumCount: 1
+    _maximumCount: 1
+    _perRoom: 0
+    _isWorkTarget: 1
+  - _poolId: TutorialChair
+    _spawnType: 0
+    _minimumCount: 1
+    _maximumCount: 1
+    _perRoom: 0
+    _isWorkTarget: 1
+  - _poolId: TutorialTV
+    _spawnType: 0
+    _minimumCount: 1
+    _maximumCount: 1
+    _perRoom: 0
+    _isWorkTarget: 1
+  - _poolId: TutorialTVStand
+    _spawnType: 0
+    _minimumCount: 1
+    _maximumCount: 1
+    _perRoom: 0
+    _isWorkTarget: 1
+  - _poolId: TutorialLamp
+    _spawnType: 0
+    _minimumCount: 1
+    _maximumCount: 1
+    _perRoom: 0
+    _isWorkTarget: 0
+  - _poolId: TutorialPlant
+    _spawnType: 0
+    _minimumCount: 1
+    _maximumCount: 1
+    _perRoom: 0
+    _isWorkTarget: 0
+  - _poolId: TutorialShelf
+    _spawnType: 0
+    _minimumCount: 1
+    _maximumCount: 1
+    _perRoom: 0
+    _isWorkTarget: 1
+  - _poolId: TutorialTrashBin
+    _spawnType: 0
+    _minimumCount: 1
+    _maximumCount: 1
+    _perRoom: 0
+    _isWorkTarget: 0
+  - _poolId: TutorialBooks
+    _spawnType: 0
+    _minimumCount: 1
+    _maximumCount: 1
+    _perRoom: 0
+    _isWorkTarget: 0
+  _minimumTargetTypes: 6
+  _maximumTargetTypes: 6
+  _maximumTargetsPerRoom: 6
+  _useFixedSeed: 0
+  _seed: 1
+  _searchBudget: 20000
+  _obstacleMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  _floorCandidatesPerRoom: 7
+  _candidateSpacing: 1.5
+  _wallInset: 1.5
+  _clearPathWidth: 1.2

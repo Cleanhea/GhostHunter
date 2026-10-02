@@ -80,3 +80,12 @@
 - EditMode: 조준 원점 거리·0/비정규화·NaN/Infinity 거부.
 - PlayMode: 서버 청소의 중복 거부, 초기화 전 세대 거부, 재배치 좌표 반영, 벽 가림·거리, 미스폰 변경 거부.
 - 후속 수동 확인: Tab 장착→좌클릭 닦기 체감, Q 탐지, 맨손 가구 잡기 복귀, Host 초기화의 양측 복제.
+
+
+## Tutorial 도면 후보 지원 (2026-10-02)
+
+CleaningController._fixedPoints는 얼룩 풀 앞쪽을 지정 위치에 항상 배치하며 StainCount에 포함한다.
+Tutorial은 고정 4곳 + 랜덤 5곳/3개 = 7개. _useAuthoredPositions를 켜서 움직이는 가구·플레이어·귀신을 바닥 지지 검사에서 제외하고 후보를 누락하지 않는다.
+이 옵션의 기본값은 false이며 Stage1의 빈 바닥 검사는 유지한다. 가구에 가려진 얼룩의 실제 청소에는 기존 가림 검증을 적용한다.
+배치/제거/초기화 세대와 호스트 이전 복원은 기존 서버 상태를 사용한다.
+TutorialHud가 발사 기록과 TaskProgress를 읽는다. 발사 기록은 FurnitureLauncher의 서버 쓰기 NetworkVariable이며 FurnitureState 스냅샷으로 복원한다.

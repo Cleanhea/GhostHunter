@@ -13,6 +13,9 @@ namespace GhostHunter.Gameplay.Map
         [Tooltip("비어 있으면 같은 Spawn Type의 모든 풀을 허용한다.")]
         [SerializeField] private string[] _allowedPoolIds = Array.Empty<string>();
 
+        [SerializeField] private RandomFurnitureItem _supportItem;
+
+        public RandomFurnitureItem SupportItem => _supportItem;
         public int RoomId => _roomId;
         public FurnitureSpawnType SpawnType => _spawnType;
         public Vector3 MaximumSize => _maximumSize;

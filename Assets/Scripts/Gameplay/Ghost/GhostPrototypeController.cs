@@ -117,6 +117,7 @@ namespace GhostHunter.Gameplay.Ghost
         private float _shakePulseRemaining;
 
         private Vector3 _roamCenter;
+        private bool _restrictRoamHeight;
         private Vector3 _roamExtents = new(6f, 1.5f, 5f);
         private Vector3 _roamDestination;
         private float _roamGiveUpAt;
@@ -192,6 +193,7 @@ namespace GhostHunter.Gameplay.Ghost
                 Rotation = transform.rotation,
                 PhenomenonCooldown = _phenomena != null ? _phenomena.SecondsUntilNext : 0f,
                 LastPhenomenon = (int)_lastPhenomenon,
+                PhenomenaPoolMask = _phenomena != null ? _phenomena.PoolMask : 0,
                 CleaningProgress = _cleaningProgress,
                 Pursuit = (int)_pursuit,
                 TargetSteamId = SteamIdOf(_target),
@@ -252,6 +254,8 @@ namespace GhostHunter.Gameplay.Ghost
                 snapshot.PhaseElapsed, snapshot.NextRoll, snapshot.CleaningThresholdReached,
                 snapshot.HighRiskAttack, snapshot.AttackStartedBelowRecoveryThreshold,
                 snapshot.LastTeamSanity));
+            if (_phenomena != null)
+                _phenomena.RestorePool(snapshot.PhenomenaPoolMask);
             _phenomena?.RestoreStageState(snapshot.PhenomenonCooldown,
                 (GhostPhenomenonKind)snapshot.LastPhenomenon);
             _lastPhenomenon = (GhostPhenomenonKind)snapshot.LastPhenomenon;
@@ -519,12 +523,14 @@ namespace GhostHunter.Gameplay.Ghost
         /// 스폰 직후 스포너가 부른다. 집 X/Z 경계를 정하고 집 루트의 충돌체로 귀신 전용 NavMesh 를 굽는다.
         /// 배회 목적지는 이 NavMesh 에서 뽑으므로 계단으로 이어진 모든 층이 대상이다(MAP-11).
         /// </summary>
-        public void ServerConfigureRoam(Vector3 center, Vector3 size, Transform navigationRoot)
+        public void ServerConfigureRoam(Vector3 center, Vector3 size, Transform navigationRoot,
+            bool restrictRoamHeight = false)
         {
             if (!IsServer)
                 return;
 
             _roamCenter = center;
+            _restrictRoamHeight = restrictRoamHeight;
             _roamExtents = new Vector3(
                 Mathf.Max(0.5f, size.x * 0.5f),
                 Mathf.Max(0.5f, size.y * 0.5f),
@@ -2322,7 +2328,8 @@ namespace GhostHunter.Gameplay.Ghost
 
         private bool IsInsideHouseBounds(Vector3 position)
         {
-            return IsInsideHouseBounds(position, _roamCenter, _roamExtents);
+            return IsInsideHouseBounds(position, _roamCenter, _roamExtents)
+                && (!_restrictRoamHeight || Mathf.Abs(position.y - _roamCenter.y) <= _roamExtents.y);
         }
 
         private void ClampToHouseBounds()

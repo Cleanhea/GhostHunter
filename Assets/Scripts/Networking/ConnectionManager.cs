@@ -177,9 +177,9 @@ namespace GhostHunter.Networking
                 // 개발 HUD 의 Host 는 Title 위에서 눌린다. 그 자리에서 StartHost 하면 플레이어가
                 // Game 씬 서비스(스폰 레지스트리·로컬 플레이어 컨텍스트) 없이 스폰돼 조작이 전부 죽는다.
                 // 메뉴 흐름과 같은 순서(씬 로드 → StartHost)를 따른다 → docs/architecture/networking.md §3.6
-                // 메뉴 흐름처럼 인게임 로비에서 세션을 연다(ADR-0018) — 스테이지는 로비 단말기에서 시작한다.
+                // 메뉴 흐름처럼 첫 스테이지 Tutorial 에서 세션을 연다.
                 if (ShouldLoadGameSceneBeforeLocalHost(_sceneFlow != null, _sceneFlow?.Current ?? SceneId.Bootstrap))
-                    StartHostInGameScene(SceneId.InGameLobby);
+                    StartHostInGameScene(SceneId.Tutorial);
                 else
                     StartHostInternal();
 
@@ -456,7 +456,7 @@ namespace GhostHunter.Networking
         }
 
         /// <summary>
-        /// Local 호스트가 먼저 세션 씬(인게임 로비)을 올려야 하는가. 씬 흐름이 없으면(Bootstrap 없는 테스트 픽스처)
+        /// Local 호스트가 먼저 첫 스테이지(Tutorial)를 올려야 하는가. 씬 흐름이 없으면(Bootstrap 없는 테스트 픽스처)
         /// 지금 씬에서 바로 연다. 이미 스테이지·인게임 로비면(에디터에서 Bootstrap 과 함께 연 경우) 다시 올리지 않는다
         /// — 같은 씬 Load 는 거부되고 SceneChanged 가 오지 않아 시간 제한까지 기다리게 된다.
         /// </summary>

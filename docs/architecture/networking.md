@@ -171,7 +171,7 @@ private readonly NetworkVariable<bool> _isOpen =
 - **NGO가 올린 씬은 MUST `NetworkManager.SceneManager.UnloadScene`으로 내린다.** 로컬로 올린 씬은 각 피어가 직접 내린다.
 - additive 전환 중 이전/다음 씬이 공존하므로 `SceneFlowController`가 이전 씬의 `EventSystem`과
   `AudioListener`를 로드 전에 비활성화한다. 전환 시작 실패 시 원상 복구한다.
-- **인게임 로비 ⇄ 스테이지(Stage1·ProtoTypeGame)는 이전 씬을 먼저 내린다**(`SceneFlowController.UnloadsBeforeLoad`, 2026-09-28). 두 씬의 설치 컴포넌트가
+- **인게임 로비 ⇄ 스테이지(Tutorial·Stage1·ProtoTypeGame)는 이전 씬을 먼저 내린다**(`SceneFlowController.UnloadsBeforeLoad`, 2026-09-28). 두 씬의 설치 컴포넌트가
   같은 서비스를 등록해 겹치면 충돌한다. 이 전환은 `IStageSessionFlow` 가 플레이어를 디스폰한 뒤 시작하고, 새 씬이 올라오면
   접속자마다 플레이어를 다시 스폰한다 → [ADR-0018](decisions/ADR-0018-persistent-session-in-game-lobby.md)
 
@@ -181,13 +181,13 @@ private readonly NetworkVariable<bool> _isOpen =
 씬 로드 → StartHost → 로비에 시작 신호
 ```
 
-올리는 씬은 **인게임 로비**다(2026-09-28, ADR-0018). 세션은 여기서 한 번 열리고 스테이지 사이에도 유지된다 —
-스테이지는 인게임 로비에서 `IStageSessionFlow.StartStage()` 로 NGO 씬 전환해 들어간다.
+올리는 첫 씬은 **Tutorial**이다(2026-10-02, [ADR-0021](decisions/ADR-0021-tutorial-first-stage.md)). 세션은 여기서 한 번 열리고 스테이지 사이에도 유지된다.
+Tutorial 정산 뒤에는 Result → InGameLobby로 돌아가고, `IStageSessionFlow.StartStage()`가 Stage1으로 NGO 씬 전환한다.
 
 - 로비 씬에서 바로 `StartHost` 하면 플레이어가 스폰 지점 없는 씬에 스폰된다.
 - 신호를 먼저 보내면 게스트가 **세션 없는 호스트**에 접속한다.
 - **개발 HUD의 Local → Host도 같은 순서를 따른다.** `ConnectionManager.StartHost()`는 Local 모드에서
-  현재 씬이 스테이지(`SceneId.IsStage()`)·인게임 로비가 아니면 `StartHostInGameScene(InGameLobby)`로 넘긴다(`ShouldLoadGameSceneBeforeLocalHost`).
+  현재 씬이 스테이지(`SceneId.IsStage()`)·인게임 로비가 아니면 `StartHostInGameScene(Tutorial)`로 넘긴다(`ShouldLoadGameSceneBeforeLocalHost`).
   2026-09-27 이전에는 Title 위에서 바로 `StartHost` 해서 플레이어가 `GameInstaller` 서비스
   (`IPlayerSpawnRegistry`·`ILocalPlayerContext`·`ISanityTeamService`·`IVoiceChatService`) 없이 스폰됐고,
   `OnNetworkSpawn` 예외로 입력·잡기·스폰 위치가 전부 죽었다. 씬 로드를 기다리는 동안의 두 번째 시작 요청은 거절한다.
@@ -307,3 +307,5 @@ Facepunch 고유 `targetSteamId` 설정은 `ISteamLobbyService.TrySetConnectionT
 
 최종 갱신: 2026-09-13 (Local 3프로세스 실측 — §3.5 서버 측 씬 검증이 게스트 `Game` 동기화를 막던 결함 수정·확인,
 §3.6.1 자발적 종료 뒤 늦게 오는 자기 끊김 처리. 이전: 2026-09-04 §3.6.1 세션 종료 순서 신설)
+
+2026-10-02 Tutorial: 가구의 발사 기록(bool NetworkVariable)과 호스트 이전의 현상 후보 마스크를 추가했다. 직렬화 변경에 맞춰 SteamLobbyManager.NetProtocolVersion을 7→8로 올렸다.

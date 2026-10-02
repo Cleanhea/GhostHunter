@@ -22,12 +22,15 @@ namespace GhostHunter.Core.Scenes
 
         /// <summary>
         /// 인게임 로비 — 세션을 연 채 스테이지 사이를 잇는 공간(상점·다음 스테이지 시작).
-        /// 일반 로비(<see cref="Lobby"/>) → 인게임 로비 → Stage1 → Result → 인게임 로비 → … 로 돈다.
+        /// 첫 게임은 Tutorial, 이후에는 인게임 로비 → Stage1 → Result → 인게임 로비로 돈다.
         /// </summary>
         InGameLobby = 5,
 
         /// <summary>인게임 로비 단말기의 "스테이지 출발"이 올리는 스테이지 — B안 집·드릴카·조립 영역·정신력 UI(ADR-0019).</summary>
         Stage1 = 6,
+
+        /// <summary>새 세션의 첫 스테이지. 모텔 맵을 플레이한 뒤 정산하면 다음 출발은 Stage1 이다.</summary>
+        Tutorial = 7,
     }
 
     public static class SceneIdExtensions
@@ -36,6 +39,6 @@ namespace GhostHunter.Core.Scenes
         /// 플레이어가 스테이지를 진행하는 씬인가 — 정신력·사망·정산·호스트 이전·음성 그룹 분리가 켜진다.
         /// 스테이지를 새로 추가하면 여기에 넣는다.
         /// </summary>
-        public static bool IsStage(this SceneId id) => id is SceneId.ProtoTypeGame or SceneId.Stage1;
+        public static bool IsStage(this SceneId id) => id is SceneId.ProtoTypeGame or SceneId.Stage1 or SceneId.Tutorial;
     }
 }

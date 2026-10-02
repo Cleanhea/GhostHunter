@@ -191,3 +191,13 @@ HUD 밝기를 기준값으로 넘긴다([map-generation.md §10.1.6](map-generat
   순찰 기억 점수는 `GhostRoamMemoryTests`. Host 플레이에서 실제로 오르내리는 모습은 아직 미검증이다.
 - 고위험 탐지 강화 수치(G-18), 고위험 90초 종료 충돌(G-9), 본체 목격 판정(G-17),
   10초 확률 판정 주기(G-20)는 [기획 미결정 목록](../project/ghost-system.md)에 남아 있다.
+
+
+## Tutorial 현상 선택과 한 층 제한 (2026-10-02)
+
+Ghost_Tutorial은 기존 베이직 모델/AI와 Tutorial 전용 GhostPrototypeSettings를 사용한다.
+PhenomenaPoolSize=3으로 매 스테이지 3종을 고르고, PhenomenaCandidateMask로 원룸에서 연출 가능한 흔들기·소품 떨어뜨리기·조명 이상·환영만 후보에 둔다.
+기본 설정의 두 값은 0이므로 다른 스테이지는 기존 전체 후보를 쓴다. 주기·정신력 피해·어택 수치는 바꾸지 않았다.
+선택 종류의 비트 마스크를 GhostState 스냅샷에 저장하여 호스트 이전 후 재선정하지 않는다.
+GhostPrototypeSpawner._restrictRoamHeight를 Tutorial에서만 켜서 202호 아래층/지붕을 배회·탐지 후보에서 제외한다.
+모텔 FBX는 런타임 NavMesh의 읽기 요구에 맞춰 Read/Write를 켰다.

@@ -25,8 +25,11 @@ namespace GhostHunter.Gameplay.Map
         private NetworkTransform _networkTransform;
         private Rigidbody _body;
         private FurnitureNetworkPhysics _physics;
+        private FurnitureLauncher _launcher;
         private Renderer[] _renderers;
         private Collider[] _colliders;
+        private Light[] _lights;
+        private bool[] _lightEnabled;
         private bool[] _rendererEnabled;
         private bool[] _colliderEnabled;
         private Pose _parkingPose;
@@ -51,6 +54,7 @@ namespace GhostHunter.Gameplay.Map
                 LinearVelocity = _body != null ? _body.linearVelocity : Vector3.zero,
                 AngularVelocity = _body != null ? _body.angularVelocity : Vector3.zero,
                 Durability = _physics != null ? _physics.Durability : 100,
+                HasLaunched = _launcher != null && _launcher.HasLaunched,
             };
         }
 
@@ -67,6 +71,8 @@ namespace GhostHunter.Gameplay.Map
                 _physics.ServerRestoreStageDurability(snapshot.Durability);
                 _physics.ServerProtectPlacement();
             }
+            if (_launcher != null)
+                _launcher.ServerRestoreLaunchRecord(snapshot.HasLaunched);
             ApplyPresentation(IsPresent, IsWorkTarget);
             if (IsPresent && _body != null && !_body.isKinematic)
             {
@@ -100,8 +106,13 @@ namespace GhostHunter.Gameplay.Map
             _networkTransform = GetComponent<NetworkTransform>();
             _body = GetComponent<Rigidbody>();
             _physics = GetComponent<FurnitureNetworkPhysics>();
+            _launcher = GetComponent<FurnitureLauncher>();
             _renderers = GetComponentsInChildren<Renderer>(true);
             _colliders = GetComponentsInChildren<Collider>(true);
+            _lights = GetComponentsInChildren<Light>(true);
+            _lightEnabled = new bool[_lights.Length];
+            for (int i = 0; i < _lights.Length; i++)
+                _lightEnabled[i] = _lights[i].enabled;
             _rendererEnabled = new bool[_renderers.Length];
             _colliderEnabled = new bool[_colliders.Length];
             for (int i = 0; i < _renderers.Length; i++)
@@ -200,6 +211,9 @@ namespace GhostHunter.Gameplay.Map
             for (int i = 0; i < _colliders.Length; i++)
                 if (_colliders[i] != null)
                     _colliders[i].enabled = placed && _colliderEnabled[i];
+            for (int i = 0; i < _lights.Length; i++)
+                if (_lights[i] != null)
+                    _lights[i].enabled = placed && _lightEnabled[i];
             _body.isKinematic = !placed || !IsServer;
             _body.detectCollisions = placed;
             if (_detectionMarker != null)

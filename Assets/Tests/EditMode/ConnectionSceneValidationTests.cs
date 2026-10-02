@@ -58,6 +58,7 @@ namespace GhostHunter.Tests.EditMode
         {
             Assert.IsFalse(ConnectionManager.ShouldLoadGameSceneBeforeLocalHost(true, SceneId.ProtoTypeGame));
             Assert.IsFalse(ConnectionManager.ShouldLoadGameSceneBeforeLocalHost(true, SceneId.Stage1));
+            Assert.IsFalse(ConnectionManager.ShouldLoadGameSceneBeforeLocalHost(true, SceneId.Tutorial));
         }
 
         [Test]

@@ -174,6 +174,10 @@ namespace GhostHunter.Gameplay.Ghost
 
         [Tooltip("끄면 '벽·문 두드리는 소리'·'발소리'가 선택 Pool에서 빠진다 (오디오 에셋 대기, GDD §9).")]
         [SerializeField] private bool _soundPhenomenaEnabled;
+        [Tooltip("0이면 전체 현상. 양수면 스테이지 시작 때 그 수만큼 종류를 무작위 선택한다.")]
+        [SerializeField, Min(0)] private int _phenomenaPoolSize;
+        [Tooltip("0이면 구현된 모든 종류. 각 GhostPhenomenonKind 값에 해당하는 비트로 후보를 제한한다.")]
+        [SerializeField] private uint _phenomenaCandidateMask;
 
         [Header("Ghost event witnessed (§6.3 · G-6 해결 — 사용자 확정 2026-08-31)")]
         [Tooltip("발생한 초자연현상을 '목격'으로 인정하는 최대 거리(m). 어떤 현상이든 이 범위 안에서 " +
@@ -290,6 +294,8 @@ namespace GhostHunter.Gameplay.Ghost
         public float ApparitionSeconds => _apparitionSeconds;
         public float LightFlickerSeconds => _lightFlickerSeconds;
         public bool SoundPhenomenaEnabled => _soundPhenomenaEnabled;
+        public int PhenomenaPoolSize => _phenomenaPoolSize;
+        public uint PhenomenaCandidateMask => _phenomenaCandidateMask;
         public float PhenomenonWitnessDistance => _phenomenonWitnessDistance;
         public float PhenomenonWitnessAngle => _phenomenonWitnessAngle;
         public float PhenomenonWitnessEyeHeight => _phenomenonWitnessEyeHeight;

@@ -22,7 +22,7 @@ using Object = UnityEngine.Object;
 namespace GhostHunter.Tests.PlayMode
 {
     /// <summary>
-    /// 실제 씬(Bootstrap → Title → 인게임 로비 ⇄ Stage1)으로 세션 유지 흐름(ADR-0018·0019)을 끝까지 돌린다.
+    /// 실제 씬(Bootstrap → Title → Tutorial → 정산 → 인게임 로비 ⇄ Stage1)으로 세션 유지 흐름(ADR-0018·0019)을 끝까지 돌린다.
     /// Build Settings·SceneNameSO 에 두 씬이 등록되어 있어야 한다.
     ///
     /// <para>Steam 이 없는 환경이라 Steam·음성 초기화 로그가 나온다 — 로그 실패는 끄고 예외만 모아 단언한다.</para>
@@ -38,6 +38,7 @@ namespace GhostHunter.Tests.PlayMode
         [UnitySetUp]
         public IEnumerator SetUp()
         {
+            _exceptions.Clear();
             LogAssert.ignoreFailingMessages = true;
             Application.logMessageReceived += CollectException;
             SceneManager.LoadScene(0, LoadSceneMode.Single);
@@ -82,7 +83,7 @@ namespace GhostHunter.Tests.PlayMode
                 transport.SetConnectionData("127.0.0.1", TestPort, "127.0.0.1");
 
             connection.SetTransportMode(TransportMode.Local);
-            connection.StartHost();
+            connection.StartHostInGameScene(SceneId.InGameLobby);
             yield return WaitForPlayerIn(sceneFlow, stageFlow, SceneId.InGameLobby);
             NetworkObject lobbyPlayer = LocalPlayer();
             Assert.AreEqual("InGameLobby", lobbyPlayer.gameObject.scene.name, "세션은 인게임 로비에서 열린다");
@@ -107,14 +108,13 @@ namespace GhostHunter.Tests.PlayMode
             Assert.IsFalse(shop.TryPurchase(ShopItem.IronDriver, me), "잔액이 모자라면 못 산다");
 
             Assert.IsTrue(stageFlow.StartStage());
-            yield return WaitForPlayerIn(sceneFlow, stageFlow, SceneId.Stage1);
+            yield return WaitForPlayerIn(sceneFlow, stageFlow, SceneId.Tutorial);
             NetworkObject stagePlayer = LocalPlayer();
             Assert.AreNotEqual(lobbyPlayerId, stagePlayer.NetworkObjectId, "스테이지 씬에서 플레이어를 새로 스폰한다");
-            Assert.AreEqual("Stage1", stagePlayer.gameObject.scene.name, "스테이지 출발은 Stage1 을 올린다");
-            AssertStage1Contents(stagePlayer);
+            Assert.AreEqual("Tutorial", stagePlayer.gameObject.scene.name, "첫 출발은 Tutorial 을 올린다");
+            AssertTutorialContents(stagePlayer);
             yield return WaitUntil(() => stagePlayer.GetComponent<GhostHunter.Gameplay.Player.PlayerLighter>().IsOwned,
                 "산 라이터가 스테이지 플레이어에게 오지 않았다");
-            yield return AssertStage1GhostAndCleaning(stagePlayer.gameObject.scene);
             Assert.IsTrue(connection.IsRunning, "스테이지로 넘어가도 세션은 유지된다");
             Assert.IsFalse(SceneManager.GetSceneByName("InGameLobby").isLoaded, "인게임 로비는 내려간다");
 
@@ -138,12 +138,224 @@ namespace GhostHunter.Tests.PlayMode
             // 두 번째 스테이지 — 인게임 로비 ⇄ 스테이지가 반복된다. 이번에는 ESC '스테이지 나가기' 경로로 돌아온다.
             Assert.IsTrue(stageFlow.StartStage(), "다음 스테이지 출발");
             yield return WaitForPlayerIn(sceneFlow, stageFlow, SceneId.Stage1);
+            AssertStage1Contents(LocalPlayer());
+            yield return AssertStage1GhostAndCleaning(LocalPlayer().gameObject.scene);
             Assert.IsTrue(stageFlow.ReturnToInGameLobby(), "스테이지 나가기 — 인게임 로비로 돌아간다");
             yield return WaitForPlayerIn(sceneFlow, stageFlow, SceneId.InGameLobby);
             Assert.IsFalse(SceneManager.GetSceneByName("Stage1").isLoaded, "스테이지 씬은 내려간다");
             Assert.IsTrue(connection.IsRunning);
 
             Assert.IsEmpty(_exceptions, "예외:\n" + string.Join("\n---\n", _exceptions));
+        }
+
+        [UnityTest, Timeout(400000)]
+        public IEnumerator 첫_게임은_Tutorial로_시작하고_종료_후_Stage1로_진행한다()
+        {
+            yield return VerifyTutorialEnd(false);
+        }
+
+        [UnityTest, Timeout(400000)]
+        public IEnumerator Tutorial에서_전멸해도_정산_후_Stage1로_진행한다()
+        {
+            yield return VerifyTutorialEnd(true);
+        }
+
+        private IEnumerator VerifyTutorialEnd(bool teamWiped)
+        {
+            ISceneFlow sceneFlow = Services.Get<ISceneFlow>();
+            IStageSessionFlow stageFlow = Services.Get<IStageSessionFlow>();
+            IConnectionService connection = Services.Get<IConnectionService>();
+            foreach (UnityTransport transport in Object.FindObjectsByType<UnityTransport>(
+                         FindObjectsInactive.Include, FindObjectsSortMode.None))
+                transport.SetConnectionData("127.0.0.1", TestPort, "127.0.0.1");
+            connection.SetTransportMode(TransportMode.Local);
+            connection.StartHost();
+            yield return WaitForPlayerIn(sceneFlow, stageFlow, SceneId.Tutorial);
+            AssertTutorialContents(LocalPlayer());
+
+            if (!teamWiped)
+            {
+                // 정산 없이 나가면 다음 출발에도 Tutorial 을 플레이한다.
+                Assert.IsTrue(stageFlow.ReturnToInGameLobby());
+                yield return WaitForPlayerIn(sceneFlow, stageFlow, SceneId.InGameLobby);
+                Assert.IsTrue(stageFlow.StartStage());
+                yield return WaitForPlayerIn(sceneFlow, stageFlow, SceneId.Tutorial);
+            }
+
+            for (int i = 0; i < 10; i++)
+                yield return null;
+            if (teamWiped)
+                Assert.IsTrue(LocalPlayer().GetComponent<SanityNetworkState>().ServerMarkDead());
+            else
+                Services.Get<ISanityTeamService>().ServerEndStageByExit();
+
+            yield return WaitUntil(() => sceneFlow.Current == SceneId.Result && !sceneFlow.IsLoading,
+                "Tutorial 이 정상 종료·전멸 후 정산 화면으로 가지 못했다");
+            Assert.AreEqual(1, sceneFlow.SettlementHistory.Count);
+            Assert.AreEqual(teamWiped, sceneFlow.SettlementHistory[0].TeamWiped);
+            Assert.IsTrue(stageFlow.ReturnToInGameLobby());
+            yield return WaitForPlayerIn(sceneFlow, stageFlow, SceneId.InGameLobby);
+            Assert.IsTrue(stageFlow.StartStage());
+            yield return WaitForPlayerIn(sceneFlow, stageFlow, SceneId.Stage1);
+            AssertStage1Contents(LocalPlayer());
+            Assert.IsTrue(connection.IsRunning);
+            Assert.IsEmpty(_exceptions, "예외:\n" + string.Join("\n---\n", _exceptions));
+        }
+
+
+        [UnityTest, Timeout(400000)]
+        public IEnumerator Tutorial의_배치와_청소_반출_퀘스트가_실제_세션에서_진행된다()
+        {
+            ISceneFlow sceneFlow = Services.Get<ISceneFlow>();
+            IStageSessionFlow stageFlow = Services.Get<IStageSessionFlow>();
+            IConnectionService connection = Services.Get<IConnectionService>();
+            foreach (UnityTransport transport in Object.FindObjectsByType<UnityTransport>(
+                         FindObjectsInactive.Include, FindObjectsSortMode.None))
+                transport.SetConnectionData("127.0.0.1", TestPort, "127.0.0.1");
+            connection.SetTransportMode(TransportMode.Local);
+            connection.StartHost();
+            yield return WaitForPlayerIn(sceneFlow, stageFlow, SceneId.Tutorial);
+            var furniture = Object.FindFirstObjectByType<GhostHunter.Gameplay.Map.FurnitureSpawnController>();
+            CleaningController cleaning = Object.FindFirstObjectByType<CleaningController>();
+            yield return WaitUntil(() => furniture.IsReady && cleaning.DirtyCount == 7, "원룸 배치가 준비되지 않았다");
+            Assert.AreEqual(10, furniture.Items.Length);
+            Assert.AreEqual(6, cleaning.TaskProgress.TotalFurniture);
+            GhostPrototypeSpawner spawner = Object.FindFirstObjectByType<GhostPrototypeSpawner>();
+            yield return WaitUntil(() => spawner.HasGhost, "베이직 귀신이 없다");
+            Assert.IsTrue(NavMesh.SamplePosition(new Vector3(-3.325f, 3.57f, -4.9f), out var room, .5f, NavMesh.AllAreas));
+            Assert.That(room.position.y, Is.InRange(3.4f, 3.8f));
+            var ghostState = spawner.ActiveGhost.CaptureStageState();
+            int kinds = 0;
+            for (int i = 1; i <= 8; i++) if ((ghostState.PhenomenaPoolMask & (1u << i)) != 0) kinds++;
+            Assert.AreEqual(3, kinds);
+            spawner.DespawnGhost();
+            yield return WalkTutorialRoom();
+            var books = Array.Find(furniture.Items, item => item.PoolId == "TutorialBooks");
+            Assert.Less(Quaternion.Angle(books.transform.rotation, Quaternion.identity), 5f, "책 더미가 시작부터 넘어지면 안 된다");
+
+            // 네 후보 모두에서 책 더미가 다른 책상 소품에 밀려 넘어지지 않아야 한다.
+            var propStates = new GhostHunter.Gameplay.Recovery.StageRecoverySnapshot.FurnitureState[furniture.Items.Length];
+            for (int i = 0; i < furniture.Items.Length; i++)
+            {
+                propStates[i] = furniture.Items[i].CaptureStageState();
+                if (!furniture.Items[i].IsAssignedWorkTarget) furniture.Items[i].ServerPark();
+            }
+            var lamp = Array.Find(furniture.Items, item => item.PoolId == "TutorialLamp");
+            Assert.IsFalse(lamp.GetComponentInChildren<Light>().enabled);
+            foreach (var point in furniture.Points)
+                if (point.name.StartsWith("BluePropPoint", StringComparison.Ordinal))
+                {
+                    books.GetPlacement(point, out Pose pose, out _);
+                    Assert.IsTrue(books.ServerPlace(pose, false));
+                    yield return new WaitForSeconds(.8f);
+                    Assert.Less(Quaternion.Angle(books.transform.rotation, Quaternion.identity), 5f, point.name);
+                    Vector3 delta = books.transform.position - pose.position; delta.y = 0f;
+                    Assert.Less(delta.magnitude, .05f, point.name);
+                    books.ServerPark();
+                }
+            for (int i = 0; i < furniture.Items.Length; i++)
+                if (!furniture.Items[i].IsAssignedWorkTarget)
+                    Assert.IsTrue(furniture.Items[i].ServerRestoreStageState(propStates[i]));
+            Assert.IsTrue(lamp.GetComponentInChildren<Light>().enabled);
+
+            var mandatory = new Vector3[4];
+            for (int i = 0; i < 4; i++) mandatory[i] = cleaning.Stains[i].transform.position;
+            var layouts = new HashSet<string>();
+            for (int reset = 0; reset < 12; reset++)
+            {
+                cleaning.ResetStains();
+                Assert.AreEqual(7, cleaning.DirtyCount);
+                var randomPlaces = new List<string>();
+                for (int i = 0; i < 7; i++)
+                {
+                    if (i < 4) Assert.AreEqual(mandatory[i], cleaning.Stains[i].transform.position);
+                    else randomPlaces.Add(cleaning.Stains[i].transform.position.ToString("F2"));
+                }
+                randomPlaces.Sort(); layouts.Add(string.Join("|", randomPlaces));
+            }
+            Assert.Greater(layouts.Count, 1);
+
+            var chair = Array.Find(furniture.Items, item => item.PoolId == "TutorialChair");
+            var launcher = chair.GetComponent<GhostHunter.Gameplay.Furniture.FurnitureLauncher>();
+            Assert.IsFalse(launcher.HasLaunched);
+            launcher.ServerLaunch(Vector3.forward, .1f, 1);
+            Assert.IsTrue(launcher.HasLaunched);
+            var launchState = chair.CaptureStageState();
+            Assert.IsTrue(launchState.HasLaunched);
+            launcher.ServerRestoreLaunchRecord(false);
+            Assert.IsFalse(launcher.HasLaunched);
+            Assert.IsTrue(chair.ServerRestoreStageState(launchState));
+            Assert.IsTrue(launcher.HasLaunched);
+            yield return new WaitForSeconds(.3f);
+            var hud = Object.FindFirstObjectByType<GhostHunter.UI.TutorialHud>();
+            Assert.IsTrue(Array.Exists(hud.GetComponentsInChildren<UnityEngine.UI.Text>(), text => text.text.Contains("2. 얼룩 청소")));
+
+            // 실제 서버 기록을 닦기/반출로 갱신하고 HUD가 같은 기준을 읽는지 확인한다.
+            foreach (CleaningStain stain in cleaning.Stains)
+            {
+                Assert.IsTrue(stain.ServerClean(stain.Revision));
+                Assert.IsFalse(stain.ServerClean(stain.Revision));
+            }
+            Assert.AreEqual(7, cleaning.TaskProgress.CleanedStains);
+            var delivery = Object.FindFirstObjectByType<GhostHunter.Gameplay.Map.FurnitureDeliveryZone>();
+            foreach (var item in furniture.Items)
+                if (item.IsAssignedWorkTarget)
+                {
+                    Assert.IsTrue(item.ServerPlace(new Pose(delivery.transform.position, Quaternion.identity), true));
+                    Assert.IsTrue(item.ServerCompleteDelivery());
+                    Assert.IsFalse(item.ServerCompleteDelivery());
+                }
+            yield return new WaitForSeconds(.3f);
+            Assert.AreEqual(6, cleaning.TaskProgress.DeliveredFurniture);
+            Assert.IsTrue(Array.Exists(hud.GetComponentsInChildren<UnityEngine.UI.Text>(), text => text.text.Contains("원룸 목표 완료")));
+            Assert.IsEmpty(_exceptions);
+        }
+
+        private static IEnumerator WalkTutorialRoom()
+        {
+            NetworkObject player = LocalPlayer();
+            var motor = player.GetComponent<GhostHunter.Gameplay.Player.PlayerMotor>();
+            CharacterController body = player.GetComponent<CharacterController>();
+            motor.ServerTeleport(new Vector3(2.12f, .04f, 2.289f), Quaternion.identity);
+            yield return null;
+            motor.enabled = false;
+            Vector3[] points = {
+                new(7.2f, 1.8f, 2.289f), new(7.2f, 1.8f, .389f),
+                new(3.9f, 3.57f, .389f), new(3.9f, 3.57f, .85f),
+                new(-1.625f, 3.57f, .85f), new(-1.625f, 3.57f, -1.15f),
+            };
+            foreach (Vector3 point in points)
+            {
+                for (int step = 0; step < 400; step++)
+                {
+                    Vector3 delta = point - player.transform.position; delta.y = 0f;
+                    if (delta.magnitude < .08f) break;
+                    body.Move(delta.normalized * Mathf.Min(.05f, delta.magnitude) + Vector3.down * .02f);
+                    yield return null;
+                }
+                Vector3 remaining = point - player.transform.position; remaining.y = 0;
+                Assert.Less(remaining.magnitude, .13f, $"통로 막힘 {point} → {player.transform.position}");
+                Assert.That(player.transform.position.y, Is.InRange(point.y - .15f, point.y + .15f),
+                    $"계단/발코니 지지 높이 {point} → {player.transform.position}");
+            }
+            motor.enabled = true;
+        }
+
+
+        private static void AssertTutorialContents(NetworkObject player)
+        {
+            Scene stage = player.gameObject.scene;
+            Assert.AreEqual("Tutorial", stage.name);
+            Assert.IsNotNull(FindRoot(stage, "TutorialMap"));
+            Assert.IsNotNull(Object.FindFirstObjectByType<StageExitInteractable>());
+            Assert.IsTrue(player.GetComponent<SanityNetworkState>().HasSanity);
+            Assert.That(player.transform.position.x, Is.InRange(-4f, 4f));
+            Assert.That(player.transform.position.z, Is.InRange(4f, 6f));
+            DrillCarSafeZone car = Object.FindFirstObjectByType<DrillCarSafeZone>();
+            Assert.IsNotNull(car);
+            Assert.AreEqual(stage, car.gameObject.scene);
+            Assert.Greater(car.transform.position.z, player.transform.position.z);
+            Assert.IsTrue(Services.TryGet(out GhostHunter.Gameplay.Lighting.IStageLightingDebug _));
         }
 
         private static NetworkObject LocalPlayer() => NetworkManager.Singleton.LocalClient.PlayerObject;
