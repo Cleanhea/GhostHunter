@@ -113,6 +113,8 @@ Player (root)          ← 요(Y) 회전. ClientNetworkTransform이 복제
 - 커서: 플레이 중 `Cursor.lockState = CursorLockMode.Locked`. `PlayerLook`은 스폰·디스폰 시에만
   초기 잠금 상태를 관리한다. 플레이 중 ESC를 누르면 일시정지 메뉴가 커서를 해제·표시하고,
   닫으면 다시 잠근다. 커서가 잠기지 않은 동안 `PlayerLook`은 시점 처리를 건너뛴다.
+  스테이지 → `Result`는 플레이어를 디스폰하지 않으므로(정산 음성) `Result` 동안은 `SceneFlowController`가
+  매 프레임 커서를 풀어 정산 버튼을 누를 수 있게 한다(2026-10-02). 인게임 로비 재스폰 때 `PlayerLook`이 다시 잠근다.
 
 ### ESC 충돌 해소 — 일시정지 메뉴 (2026-09-04 구현)
 

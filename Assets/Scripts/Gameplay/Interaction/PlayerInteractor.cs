@@ -69,7 +69,8 @@ namespace GhostHunter.Gameplay.Interaction
 
             if (_confirmStageExit)
             {
-                if (_input.IsDeathInputLocked || _input.IsGameplayInputLocked)
+                // 다른 사람이 먼저 스테이지를 끝내 단말기가 씬과 함께 사라졌으면 Result 위에 창이 남지 않게 닫는다.
+                if (_input.IsDeathInputLocked || _input.IsGameplayInputLocked || _currentStageExit == null)
                     CloseStageExitConfirmation();
                 return;
             }

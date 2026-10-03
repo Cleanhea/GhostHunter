@@ -167,7 +167,23 @@ namespace GhostHunter.Systems.SceneFlow
                 TryPublishPendingSettlements();
             }
             if (Current == SceneId.Result)
+            {
+                ReleaseCursorForResult();
                 HandleLobbyUpdated();
+            }
+        }
+
+        /// <summary>
+        /// 스테이지 → Result 는 플레이어를 디스폰하지 않으므로(정산 음성) <c>PlayerLook</c> 이 잠근 커서가 그대로 남는다.
+        /// 정산 버튼을 누를 수 있게 Result 동안 매 프레임 푼다 — 스테이지 종료 확인 창 등이 닫히며 이전 잠금을
+        /// 되돌려도 다시 풀린다. 인게임 로비에서 플레이어가 재스폰되면 <c>PlayerLook</c> 이 다시 잠근다.
+        /// </summary>
+        private static void ReleaseCursorForResult()
+        {
+            if (Cursor.lockState != CursorLockMode.None)
+                Cursor.lockState = CursorLockMode.None;
+            if (!Cursor.visible)
+                Cursor.visible = true;
         }
 
         /// <summary>
