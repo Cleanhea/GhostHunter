@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using GhostHunter.Core;
 using GhostHunter.Core.Scenes;
+using GhostHunter.Core.Settings;
 using GhostHunter.Gameplay.Sanity;
 using Unity.Netcode;
 using UnityEngine;
@@ -47,6 +48,7 @@ namespace GhostHunter.Gameplay.Player
         private SanityNetworkState _sanity;
         private ISanityTeamService _teamService;
         private ISceneFlow _sceneFlow;
+        private IUserSettings _userSettings;
         private SpectatorMode _mode;
         private ulong? _currentTargetClientId;
         private int _teamStateCount;
@@ -91,6 +93,7 @@ namespace GhostHunter.Gameplay.Player
 
             _teamService = Services.Get<ISanityTeamService>();
             Services.TryGet(out _sceneFlow);
+            Services.TryGet(out _userSettings);
             if (_sceneFlow != null)
                 _sceneFlow.SceneChanged += HandleSceneChanged;
 
@@ -341,7 +344,9 @@ namespace GhostHunter.Gameplay.Player
 
         private void TickFreeFly(float deltaTime)
         {
-            Vector2 lookDelta = _input.RawLookDelta * _settings.LookSensitivity;
+            Vector2 lookDelta = _input.RawLookDelta * (_settings.LookSensitivity * PlayerLook.LookSensitivityScale(_userSettings));
+            if (_userSettings != null && _userSettings.InvertMouseY)
+                lookDelta.y = -lookDelta.y;
             _freeFlyYaw += lookDelta.x;
             _freeFlyPitch = Mathf.Clamp(_freeFlyPitch - lookDelta.y, -_settings.PitchLimit, _settings.PitchLimit);
 

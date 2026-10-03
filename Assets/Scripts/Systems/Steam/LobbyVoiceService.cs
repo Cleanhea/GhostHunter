@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using GhostHunter.Core.Networking;
 using GhostHunter.Core.Scenes;
+using GhostHunter.Core.Settings;
 using GhostHunter.Core.Steam;
 using GhostHunter.Core.Voice;
 using GhostHunter.Data;
@@ -31,6 +32,7 @@ namespace GhostHunter.Systems.Steam
         private ISceneFlow _sceneFlow;
         private IConnectionService _connection;
         private VoiceChatSettings _settings;
+        private IUserSettings _userSettings;
         private VoiceChatService _chat;
         private LobbySpeaker _local;
         private bool _ownsSettings;
@@ -39,8 +41,10 @@ namespace GhostHunter.Systems.Steam
         private double _nextSend;
 
         public void Initialize(ISteamLobbyService lobby, IVoiceCaptureService capture,
-            ISceneFlow sceneFlow, IConnectionService connection, VoiceChatSettings settings)
+            ISceneFlow sceneFlow, IConnectionService connection, VoiceChatSettings settings,
+            IUserSettings userSettings = null)
         {
+            _userSettings = userSettings;
             _lobby = lobby;
             _capture = capture;
             _sceneFlow = sceneFlow;
@@ -119,7 +123,7 @@ namespace GhostHunter.Systems.Steam
 
         private void StartSession()
         {
-            _chat = new VoiceChatService(_capture, _settings, _sceneFlow, allowLobby: true);
+            _chat = new VoiceChatService(_capture, _settings, _sceneFlow, allowLobby: true, _userSettings);
             _local = new LobbySpeaker(_lobby.LocalSteamId, _lobby.LocalName);
             _chat.Register(_local, true);
             _active = true;

@@ -1,10 +1,12 @@
 using GhostHunter.Core.Voice;
 using GhostHunter.Core.Networking;
 using GhostHunter.Core.Scenes;
+using GhostHunter.Core.Settings;
 using GhostHunter.Core.Steam;
 using GhostHunter.Networking;
 using GhostHunter.Systems.Steam;
 using GhostHunter.Systems.SceneFlow;
+using GhostHunter.Systems.Settings;
 using GhostHunter.Systems.Shop;
 using GhostHunter.Data;
 using UnityEngine;
@@ -27,6 +29,10 @@ namespace GhostHunter.Systems.Installers
 
         protected override void InstallBindings()
         {
+            // 개인 설정은 다른 서비스가 만들어질 때 이미 있어야 한다 — 음성 서비스가 생성자에서 읽는다.
+            var userSettings = new UserSettingsStore(new PlayerPrefsSettingsStorage());
+            Bind<IUserSettings>(userSettings);
+
             Bind<ISceneFlow>(_sceneFlow);
             Bind<ISteamLobbyService>(_steamLobby);
             Bind<IConnectionService>(_connection);
@@ -60,7 +66,7 @@ namespace GhostHunter.Systems.Installers
                 if (lobbyVoice == null)
                     lobbyVoice = gameObject.AddComponent<LobbyVoiceService>();
                 lobbyVoice.Initialize(_steamLobby, _voiceCapture, _sceneFlow, _connection,
-                    _lobbyVoiceSettings);
+                    _lobbyVoiceSettings, userSettings);
             }
         }
     }

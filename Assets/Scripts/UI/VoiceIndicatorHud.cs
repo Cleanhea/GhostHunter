@@ -1,22 +1,19 @@
 ﻿using GhostHunter.Core;
 using GhostHunter.Core.Voice;
-using GhostHunter.Gameplay.Player;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
 namespace GhostHunter.UI
 {
-    /// <summary>마이크 상태·발화자와 음성 설정을 표시한다.</summary>
+    /// <summary>마이크 상태·발화자를 표시한다. 개발 빌드는 F1 로 음성 설정·진단 패널을 펼친다.</summary>
     public sealed class VoiceIndicatorHud : MonoBehaviour
     {
         private IVoiceChatService _chat;
-        private ILocalPlayerContext _local;
         private string _settingsHint;
         private bool _expanded;
         private void Awake()
         {
             _chat = Services.Get<IVoiceChatService>();
-            _local = Services.Get<ILocalPlayerContext>();
         }
         private void Update()
         {
@@ -32,8 +29,8 @@ namespace GhostHunter.UI
             if (!_chat.Capture.IsAvailable) GUILayout.Label(_chat.Capture.Status);
             foreach (IVoiceParticipant participant in _chat.Participants)
                 if (participant.IsSpeaking) GUILayout.Label(participant.DisplayName + " · 말하는 중");
-            bool menuOpen = _local.Input != null && _local.Input.IsGameplayInputLocked;
-            if (_expanded || menuOpen)
+            // 모드·뮤트·음량은 ESC → 설정 → 마이크/오디오 탭으로 옮겼다. 여기 펼침은 개발용(F1)만 남는다.
+            if (_expanded)
             {
                 if (GUILayout.Button(_chat.IsMuted ? "마이크 켜기" : "마이크 끄기")) _chat.IsMuted = !_chat.IsMuted;
                 if (GUILayout.Button(_chat.Mode == VoiceMode.OpenMic ? "모드: 오픈 마이크" : "모드: PTT (V)"))

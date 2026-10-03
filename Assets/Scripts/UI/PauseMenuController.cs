@@ -23,6 +23,7 @@ namespace GhostHunter.UI
         {
             Closed,
             Menu,
+            Settings,
             ConfirmQuit,
             Disconnected,
         }
@@ -58,6 +59,8 @@ namespace GhostHunter.UI
         private ILocalPlayerContext _localPlayer;
         private IStageSessionFlow _stageFlow;
 
+        private SettingsMenuView _settingsView;
+
         private InputActionAsset _runtimeActions;
         private InputAction _openAction;
         private InputAction _closeAction;
@@ -92,6 +95,10 @@ namespace GhostHunter.UI
             _quitCancelButton.onClick.AddListener(HandleQuitCancelClicked);
             _disconnectedConfirmButton.onClick.AddListener(HandleDisconnectedConfirmClicked);
 
+            // ESC 는 이 메뉴가 다룬다 — 설정 창이 스스로 닫히면 같은 ESC 로 메뉴까지 닫힌다.
+            _settingsView = SettingsMenuView.Create(transform, closeOnEscape: false);
+            _settingsView.Closed += HandleSettingsClosed;
+
             if (_connection != null)
                 _connection.SessionEnded += HandleSessionEnded;
 
@@ -116,6 +123,13 @@ namespace GhostHunter.UI
             if (_connection != null)
                 _connection.SessionEnded -= HandleSessionEnded;
 
+            if (_settingsView != null)
+            {
+                _settingsView.Closed -= HandleSettingsClosed;
+                Destroy(_settingsView.gameObject);
+                _settingsView = null;
+            }
+
             if (_runtimeActions == null)
                 return;
 
@@ -139,7 +153,7 @@ namespace GhostHunter.UI
 
             if (_state == State.Menu && _closeAction.WasPressedThisFrame())
                 ApplyState(State.Closed);
-            else if (_state == State.ConfirmQuit && _closeAction.WasPressedThisFrame())
+            else if ((_state == State.ConfirmQuit || _state == State.Settings) && _closeAction.WasPressedThisFrame())
                 ApplyState(State.Menu);
         }
 
@@ -158,6 +172,14 @@ namespace GhostHunter.UI
             _menuPanel.SetActive(next == State.Menu);
             _confirmQuitPanel.SetActive(next == State.ConfirmQuit);
             _disconnectedPanel.SetActive(next == State.Disconnected);
+            if (_settingsView != null)
+            {
+                // _state 를 먼저 바꿨으므로 Close 가 부르는 HandleSettingsClosed 는 아무것도 하지 않는다.
+                if (next == State.Settings)
+                    _settingsView.Open();
+                else
+                    _settingsView.Close();
+            }
             if (_stageLeaveButton != null)
                 _stageLeaveButton.gameObject.SetActive(next == State.Menu && _connection != null && _connection.IsHost
                     && _sceneFlow != null && _sceneFlow.Current.IsStage());
@@ -235,10 +257,13 @@ namespace GhostHunter.UI
 
         private void HandleResumeClicked() => ApplyState(State.Closed);
 
-        private void HandleSettingsClicked()
+        private void HandleSettingsClicked() => ApplyState(State.Settings);
+
+        /// <summary>설정 창의 닫기 버튼. 메뉴로 돌아간다.</summary>
+        private void HandleSettingsClosed()
         {
-            // 설정 시스템이 아직 없다. 이번 범위는 stub 이다 → pause-menu-system.md §4.3 (PM-6)
-            SetStatus("설정은 아직 미구현입니다.");
+            if (_state == State.Settings)
+                ApplyState(State.Menu);
         }
 
         private void HandleTitleClicked() => LeaveToTitleAsync().Forget();

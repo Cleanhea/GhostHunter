@@ -198,6 +198,7 @@ namespace GhostHunter.Tests.PlayMode
             public byte Codec => 1;
             public int SampleRate => 24000;
             public int DecodeCount { get; private set; }
+            public float InputLevelDb => -120f;
             public void SetRecording(bool value) => IsRecording = value;
             public bool OpenSettings() => false;
             public int ReadFrame(byte[] destination) { destination[0] = 7; return IsRecording ? 1 : 0; }

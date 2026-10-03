@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using GhostHunter.Core.Voice;
 using GhostHunter.Core.Scenes;
+using GhostHunter.Core.Settings;
 using GhostHunter.Data;
 using UnityEngine;
 
@@ -14,20 +15,26 @@ namespace GhostHunter.Gameplay.Voice
         private readonly ISceneFlow _sceneFlow;
         private readonly bool _allowLobby;
         private IVoiceCaptureService _testCapture;
+        private readonly IUserSettings _user;
         private VoiceMode _mode;
         private bool _muted;
-        private float _master;
+        private float _master = 1f;
+        /// <param name="userSettings">모드·뮤트·음량을 읽고 쓰는 개인 설정. 없으면(테스트) 이 인스턴스 안에만 둔다.</param>
         public VoiceChatService(IVoiceCaptureService capture, VoiceChatSettings settings,
-            ISceneFlow sceneFlow = null, bool allowLobby = false)
+            ISceneFlow sceneFlow = null, bool allowLobby = false, IUserSettings userSettings = null)
         {
             _capture = capture;
             _sceneFlow = sceneFlow;
             _allowLobby = allowLobby;
-            _mode = (VoiceMode)Mathf.Clamp(PlayerPrefs.GetInt("Voice.Mode", (int)settings.Mode), 0, 1);
-            _muted = PlayerPrefs.GetInt("Voice.Muted", 0) != 0;
-            _master = Mathf.Clamp01(PlayerPrefs.GetFloat("Voice.Volume", 1f));
+            _user = userSettings;
+            _mode = settings.Mode;
         }
-        public VoiceMode Mode { get => _mode; set { _mode = value; PlayerPrefs.SetInt("Voice.Mode", (int)value); } }
+        // 저장은 개인 설정(IUserSettings)이 맡는다. 설정 창과 M 키가 같은 값을 본다 → docs/architecture/settings-menu.md
+        public VoiceMode Mode
+        {
+            get => _user?.VoiceMode ?? _mode;
+            set { if (_user != null) _user.VoiceMode = value; else _mode = value; }
+        }
         // sceneFlow가 없는 경우는 독립 음성 테스트의 스테이지 상태로 취급한다.
         // 인게임 로비(ADR-0018)는 정산 화면처럼 생존·사망 구분 없이 전원이 듣는 채널이다.
         public bool IsActive => _sceneFlow == null
@@ -38,15 +45,18 @@ namespace GhostHunter.Gameplay.Voice
                 || _allowLobby && _sceneFlow.Current == SceneId.Lobby);
         public bool IsMuted
         {
-            get => _muted;
+            get => _user?.MicMuted ?? _muted;
             set
             {
-                _muted = value;
+                if (_user != null) _user.MicMuted = value; else _muted = value;
                 if (value) { Capture.SetRecording(false); IsTransmitting = false; }
-                PlayerPrefs.SetInt("Voice.Muted", value ? 1 : 0);
             }
         }
-        public float MasterVolume { get => _master; set { _master = Mathf.Clamp01(value); PlayerPrefs.SetFloat("Voice.Volume", _master); } }
+        public float MasterVolume
+        {
+            get => _user?.VoiceVolume ?? _master;
+            set { if (_user != null) _user.VoiceVolume = value; else _master = Mathf.Clamp01(value); }
+        }
         public bool IsTransmitting { get; set; }
         // 자가 모니터는 저장하지 않는다. 다음 세션에 켜진 채로 시작하면 하울링의 원인이 된다.
         public bool SelfMonitor { get; set; }
@@ -75,7 +85,7 @@ namespace GhostHunter.Gameplay.Voice
                 SelfMonitor = false;
                 Diagnostics = null;
                 LocalParticipant = null;
-                PlayerPrefs.Save();
+                _user?.Save();
             }
         }
     }

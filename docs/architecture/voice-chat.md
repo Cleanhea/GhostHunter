@@ -17,7 +17,8 @@
   **VoiceAudio 컴포넌트 순서는 AudioSource → VoiceReceiver → AudioLowPassFilter 여야 한다**(아래 "재생").
 - `VoiceAttenuation`, `VoiceActivityGate`, `VoiceFrameQueue`, `VoicePcmBuffer`, `VoiceResampler`, `VoicePacketLimiter`:
   테스트 가능한 계산·큐·표시 판정.
-- `VoiceIndicatorHud`: 마이크 상태와 발화자 상시 표시. ESC 메뉴 또는 개발 F1에서 모드·뮤트·음량과
+- `VoiceIndicatorHud`: 마이크 상태와 발화자 상시 표시. 개발 F1에서 모드·뮤트·음량과
+  (2026-10-03: ESC 메뉴 중 펼침은 없앴다 — 같은 항목이 ESC → 설정의 오디오·마이크 탭에 있다 → [settings-menu.md](settings-menu.md))
   "Steam 음성 설정 열기" 버튼(기획 §5.1 제약 1).
 - `DebugTools/VoiceDebugHud`, `LoopbackVoiceCapture`: F1에서 마이크 없이 440Hz 사인파 송신, F3으로 자가 모니터.
   수신 디코더는 개발 빌드에서만 연결한다 → 아래 "혼자 검증".
@@ -94,6 +95,8 @@ Result 공용 채널도 2D 전역 음성이며, Game 중의 생존자 근접·�
 (도구는 ADR-0020으로 삭제). 믹서를 고칠 때는 에디터 Audio Mixer 창을 쓴다.
 
 모드·마이크 뮤트·마스터 음량은 PlayerPrefs에 저장하고 세션 종료 때 flush한다(VAD 임계값 슬라이더는 2026-09-27 삭제).
+**2026-10-03:** 저장은 `IUserSettings`(Bootstrap 전역)가 맡고 `VoiceChatService` 는 그 값을 위임해 읽고 쓴다 — 키(`Voice.*`)는 그대로다.
+설정 창과 `M` 키가 같은 값을 본다. 마이크 입력 막대용 `IVoiceCaptureService.InputLevelDb` 를 추가했다 → [settings-menu.md](settings-menu.md)
 개별 화자 음량/뮤트는 세션 동안만 유지한다. NGO clientId는 다음 접속에서 달라지므로 영구 키로 쓰지 않는다.
 발화자는 현재 `Player <clientId>`로 구분한다. Steam 이름과 clientId의 신뢰 가능한 매핑은 기존에 없다.
 입력 장치·게인·노이즈 처리는 Steam 설정에 맡긴다 — **게임 코드로 끌 수 없으므로, 게임이 거르지 않는데도 소리가 잘리면

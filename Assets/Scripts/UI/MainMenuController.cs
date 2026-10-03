@@ -38,6 +38,7 @@ namespace GhostHunter.UI
         private ISteamLobbyService _lobby;
         private ISceneFlow _sceneFlow;
         private bool _navigating;
+        private SettingsMenuView _settingsView;
 
         private void Awake()
         {
@@ -87,6 +88,9 @@ namespace GhostHunter.UI
 
         private void OnDestroy()
         {
+            if (_settingsView != null)
+                Destroy(_settingsView.gameObject);
+
             if (_lobby == null)
                 return;
 
@@ -181,7 +185,10 @@ namespace GhostHunter.UI
 
         private void HandleSettingsClicked()
         {
-            SetStatus("설정은 아직 미구현입니다.");
+            if (_settingsView == null)
+                _settingsView = SettingsMenuView.Create(transform, closeOnEscape: true);
+
+            _settingsView.Open();
         }
 
         /// <summary>

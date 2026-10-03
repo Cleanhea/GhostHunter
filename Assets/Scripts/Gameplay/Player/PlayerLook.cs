@@ -1,4 +1,5 @@
 using GhostHunter.Core;
+using GhostHunter.Core.Settings;
 using GhostHunter.Gameplay.Sanity;
 using Unity.Netcode;
 using UnityEngine;
@@ -25,6 +26,7 @@ namespace GhostHunter.Gameplay.Player
 
         private float _pitch;
         private SanityNetworkState _sanity;
+        private IUserSettings _userSettings;
 
         public Camera PlayerCamera => _playerCamera;
 
@@ -56,6 +58,7 @@ namespace GhostHunter.Gameplay.Player
             }
 
             SetCursorLocked(true);
+            Services.TryGet(out _userSettings);
 
             // 관전 시스템(SpectatorController)이 사망 중 이 카메라/리스너를 대신 켜므로,
             // 여기서는 생존 여부에 따라 초기·이후 상태를 맞추기만 한다.
@@ -99,13 +102,19 @@ namespace GhostHunter.Gameplay.Player
             if (Cursor.lockState != CursorLockMode.Locked)
                 return;
 
-            Vector2 look = _input.Look * _settings.MouseSensitivity;
+            Vector2 look = _input.Look * (_settings.MouseSensitivity * LookSensitivityScale(_userSettings));
+            if (_userSettings != null && _userSettings.InvertMouseY)
+                look.y = -look.y;
             transform.Rotate(Vector3.up, look.x, Space.World);
 
             _pitch = Mathf.Clamp(_pitch - look.y, -_settings.PitchLimit, _settings.PitchLimit);
             _cameraPivot.localRotation = Quaternion.Euler(_pitch, 0f, 0f);
             _networkPitch.Value = _pitch;
         }
+
+        /// <summary>설정 창의 감도 배율. 개인 설정이 없으면(단독 실행·테스트) 1이다.</summary>
+        internal static float LookSensitivityScale(IUserSettings userSettings)
+            => userSettings != null ? userSettings.MouseSensitivity : 1f;
 
         /// <summary>
         /// 사망하면 이 카메라/리스너를 끈다 — 관전 카메라(<see cref="SpectatorController"/>)가

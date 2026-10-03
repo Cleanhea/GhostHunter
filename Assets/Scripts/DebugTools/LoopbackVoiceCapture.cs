@@ -12,6 +12,8 @@ namespace GhostHunter.DebugTools
         public string Status => "개발용 사인파 (실제 마이크 아님)";
         public byte Codec => 1;
         public int SampleRate => 24000;
+        // 진폭 0.1 사인파의 RMS(-23dBFS). 설정 창 입력 막대가 개발용 송신 중에도 움직이게 한다.
+        public float InputLevelDb => IsRecording ? -23f : -120f;
         public void SetRecording(bool recording) { IsRecording = recording; }
         public bool OpenSettings() => false;
         public int ReadFrame(byte[] destination)

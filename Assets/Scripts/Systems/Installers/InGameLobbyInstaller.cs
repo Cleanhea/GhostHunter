@@ -1,6 +1,7 @@
 using GhostHunter.Core;
 using GhostHunter.Core.Player;
 using GhostHunter.Core.Scenes;
+using GhostHunter.Core.Settings;
 using GhostHunter.Core.Voice;
 using GhostHunter.Data;
 using GhostHunter.Gameplay.Player;
@@ -31,8 +32,11 @@ namespace GhostHunter.Systems.Installers
         protected override void InstallBindings()
         {
             if (_voiceSettings != null)
+            {
+                Services.TryGet(out IUserSettings userSettings);
                 Bind<IVoiceChatService>(new VoiceChatService(Services.Get<IVoiceCaptureService>(),
-                    _voiceSettings, Services.Get<ISceneFlow>()));
+                    _voiceSettings, Services.Get<ISceneFlow>(), userSettings: userSettings));
+            }
             Bind<IPlayerSpawnRegistry>(_playerSpawns);
             Bind<ILocalPlayerContext>(_localPlayer);
             Bind<ISanityTeamService>(_sanityTeam);

@@ -43,6 +43,7 @@ Assets/Scripts/
 ├── Core/          엔진 비의존에 가까운 기반 (서비스 로케이터, 서비스 인터페이스, 상수, 상태머신)
 │   ├── Networking/ IConnectionService · TransportMode
 │   ├── Player/     IPlayerSpawnRegistry
+│   ├── Settings/   IUserSettings · 설정 범위 (개인 설정 계약 → settings-menu.md)
 │   └── Steam/      ISteamLobbyService · 로비 DTO (Steamworks 타입을 노출하지 않는다)
 ├── Data/          ScriptableObject 정의 + SceneReference / SceneNameSO (런타임 로직 없음)
 ├── Gameplay/      실제 게임 로직
@@ -58,6 +59,7 @@ Assets/Scripts/
 ├── Systems/       매니저·부트스트랩·씬 로딩 등 횡단 시스템
 │   ├── SceneFlow/     SceneFlowController
 │   ├── Installers/    BootstrapInstaller, GameInstaller, SceneInstaller 파생
+│   ├── Settings/      UserSettingsStore (PlayerPrefs 저장·엔진 적용)
 │   └── Steam/         SteamLobbyManager. **Steamworks 참조는 여기에만 존재**
 ├── DebugTools/    개발 전용 HUD·스모크 테스트 (릴리스 빌드 대상 아님)
 └── Editor/        에디터 전용 도구 — 빌드 가드·로컬 테스트 봇·Scene Ruler (별도 asmdef, 일회성 설치 도구는 두지 않는다 — ADR-0020)

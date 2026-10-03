@@ -126,6 +126,7 @@ namespace GhostHunter.Tests.PlayMode
             public int ReadFrame(byte[] destination) => 0;
             public int Decode(byte[] compressed, int count, float[] samples) => 0;
             public bool OpenSettings() => false;
+            public float InputLevelDb => -120f;
         }
     }
 }

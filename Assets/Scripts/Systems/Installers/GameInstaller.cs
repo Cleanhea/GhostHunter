@@ -1,6 +1,7 @@
 using GhostHunter.Core;
 using GhostHunter.Core.Voice;
 using GhostHunter.Core.Scenes;
+using GhostHunter.Core.Settings;
 using GhostHunter.Data;
 using GhostHunter.Gameplay.Voice;
 using GhostHunter.Core.Player;
@@ -55,8 +56,11 @@ namespace GhostHunter.Systems.Installers
                 gameObject.AddComponent<TemporaryShopShelf>();
             StageExitInteractable.CreateInDrillCar();
             if (_voiceSettings != null)
+            {
+                Services.TryGet(out IUserSettings userSettings);
                 Bind<IVoiceChatService>(new VoiceChatService(Services.Get<IVoiceCaptureService>(),
-                    _voiceSettings, Services.Get<ISceneFlow>()));
+                    _voiceSettings, Services.Get<ISceneFlow>(), userSettings: userSettings));
+            }
             Bind<IPlayerSpawnRegistry>(_playerSpawns);
             Bind<ILocalPlayerContext>(_localPlayer);
             Bind<ISanityTeamService>(_sanityTeam);
