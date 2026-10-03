@@ -1,6 +1,6 @@
 ﻿# ADR-0015: Steam Voice 캡처와 NGO 근접 음성 중계
 
-- 상태: Accepted
+- 상태: Accepted — **캡처·코덱 부분은 [ADR-0022](ADR-0022-unity-microphone-opus-voice.md)로 대체(2026-10-03).** NGO 중계·컬링은 유효
 - 날짜: 2026-09-17
 
 ## 배경

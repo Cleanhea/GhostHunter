@@ -35,6 +35,31 @@ namespace GhostHunter.Tests.EditMode
             Assert.IsFalse(store.InvertMouseY);
             Assert.IsFalse(store.VSync);
             Assert.AreEqual(0, store.FrameRateLimit);
+            Assert.AreEqual(string.Empty, store.MicDevice);
+            Assert.AreEqual(0f, store.MicGainDb);
+            Assert.IsTrue(store.NoiseGateEnabled, "노이즈 게이트는 기본으로 켜져 있다");
+            Assert.AreEqual(UserSettingsLimits.DefaultNoiseGateThresholdDb, store.NoiseGateThresholdDb);
+        }
+
+        [Test]
+        public void 마이크_장치_게인_게이트는_저장되고_잘린다()
+        {
+            var storage = new MemoryStorage();
+            UserSettingsStore first = Create(storage);
+            first.MicDevice = "USB Mic";
+            first.MicGainDb = 40f;
+            first.NoiseGateEnabled = false;
+            first.NoiseGateThresholdDb = -100f;
+
+            UserSettingsStore second = Create(storage);
+
+            Assert.AreEqual("USB Mic", second.MicDevice);
+            Assert.AreEqual(UserSettingsLimits.MaxMicGainDb, second.MicGainDb);
+            Assert.IsFalse(second.NoiseGateEnabled);
+            Assert.AreEqual(UserSettingsLimits.MinNoiseGateThresholdDb, second.NoiseGateThresholdDb);
+
+            second.MicDevice = null;
+            Assert.AreEqual(string.Empty, second.MicDevice, "null 은 기본 장치(빈 문자열)로 본다");
         }
 
         [Test]
@@ -131,8 +156,13 @@ namespace GhostHunter.Tests.EditMode
             store.MasterVolume = 0.3f;
             store.MouseSensitivity = 2f;
 
+            store.MicGainDb = 6f;
+            store.NoiseGateEnabled = false;
+
             store.ResetToDefaults(UserSettingsGroup.Microphone);
 
+            Assert.AreEqual(0f, store.MicGainDb);
+            Assert.IsTrue(store.NoiseGateEnabled);
             Assert.IsFalse(store.MicMuted);
             Assert.AreEqual(VoiceMode.OpenMic, store.VoiceMode);
             Assert.AreEqual(0.3f, store.MasterVolume, 1e-5f);
@@ -179,11 +209,14 @@ namespace GhostHunter.Tests.EditMode
         {
             private readonly Dictionary<string, float> _floats = new();
             private readonly Dictionary<string, int> _ints = new();
+            private readonly Dictionary<string, string> _strings = new();
 
             public float GetFloat(string key, float defaultValue) => _floats.TryGetValue(key, out float value) ? value : defaultValue;
             public void SetFloat(string key, float value) => _floats[key] = value;
             public int GetInt(string key, int defaultValue) => _ints.TryGetValue(key, out int value) ? value : defaultValue;
             public void SetInt(string key, int value) => _ints[key] = value;
+            public string GetString(string key, string defaultValue) => _strings.TryGetValue(key, out string value) ? value : defaultValue;
+            public void SetString(string key, string value) => _strings[key] = value;
             public void Save() { }
         }
 
@@ -195,10 +228,11 @@ namespace GhostHunter.Tests.EditMode
             public byte Codec => 1;
             public int SampleRate => 24000;
             public float InputLevelDb => -120f;
+            public bool IsGateOpen => false;
+            public bool IsMonitoring { get; set; }
             public void SetRecording(bool recording) { }
             public int ReadFrame(byte[] destination) => 0;
-            public int Decode(byte[] compressed, int count, float[] samples) => 0;
-            public bool OpenSettings() => false;
+            public IVoiceDecoder CreateDecoder() => null;
         }
     }
 }

@@ -21,6 +21,18 @@ namespace GhostHunter.Core.Settings
         /// <summary>내 마이크를 끈다. 게임 중 M 키와 같은 값이다.</summary>
         bool MicMuted { get; set; }
 
+        /// <summary>입력 장치 이름. 빈 문자열은 운영체제 기본 장치다.</summary>
+        string MicDevice { get; set; }
+
+        /// <summary>마이크 입력 게인(dB). 0 은 그대로.</summary>
+        float MicGainDb { get; set; }
+
+        /// <summary>오픈 마이크일 때 기준보다 작은 소리(키보드·잡음)를 보내지 않는다.</summary>
+        bool NoiseGateEnabled { get; set; }
+
+        /// <summary>노이즈 게이트가 열리는 크기(dBFS, 게인 적용 후).</summary>
+        float NoiseGateThresholdDb { get; set; }
+
         /// <summary>마우스 시점 감도 배율. 설정 에셋의 기본 감도에 곱한다.</summary>
         float MouseSensitivity { get; set; }
 

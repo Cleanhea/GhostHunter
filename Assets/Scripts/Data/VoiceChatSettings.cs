@@ -29,6 +29,14 @@ namespace GhostHunter.Data
         [SerializeField] private float _openThreshold = -42f;
         [SerializeField] private float _closeThreshold = -48f;
         [SerializeField] private float _hangoverSeconds = 0.35f;
+        // 노이즈 게이트(2026-10-03). 여는 기준(dB)은 개인 설정이고, 닫힘 여유·유지·앞당김은 여기서 튜닝한다.
+        // 말끝이 잘리지 않게 닫힘은 기준보다 낮게, 유지 시간은 길게, 여는 순간 직전 소리를 앞당겨 보낸다.
+        [SerializeField] private float _gateHysteresisDb = 6f;
+        [SerializeField] private float _gateHoldSeconds = 0.5f;
+        [SerializeField] private int _gatePrerollFrames = 3;
+        // Opus 인코더. 48kHz mono 음성 기준 24kbps 면 20ms 프레임이 약 60B 다.
+        [SerializeField] private int _opusBitrate = 24000;
+        [SerializeField] private int _opusComplexity = 5;
         [SerializeField] private VoiceMode _mode = VoiceMode.OpenMic;
         [SerializeField] private float _sendHz = 20f;
         [SerializeField] private int _serverPacketsPerSecond = 30;
@@ -57,6 +65,11 @@ namespace GhostHunter.Data
         public float OpenThreshold => Mathf.Clamp(_openThreshold, -80f, 0f);
         public float CloseThreshold => Mathf.Min(OpenThreshold, _closeThreshold);
         public float HangoverSeconds => Mathf.Max(0f, _hangoverSeconds);
+        public float GateHysteresisDb => Mathf.Clamp(_gateHysteresisDb, 0f, 20f);
+        public float GateHoldSeconds => Mathf.Clamp(_gateHoldSeconds, 0f, 2f);
+        public int GatePrerollFrames => Mathf.Clamp(_gatePrerollFrames, 0, 10);
+        public int OpusBitrate => Mathf.Clamp(_opusBitrate, 6000, 64000);
+        public int OpusComplexity => Mathf.Clamp(_opusComplexity, 0, 10);
         public VoiceMode Mode => _mode;
         public float SendHz => Mathf.Clamp(_sendHz, 1f, 20f);
         public int ServerPacketsPerSecond => Mathf.Clamp(_serverPacketsPerSecond, 1, 30);

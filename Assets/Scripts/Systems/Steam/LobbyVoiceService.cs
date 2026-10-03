@@ -230,7 +230,8 @@ namespace GhostHunter.Systems.Steam
                 speaker.LastSequence = sequence;
                 int length = (int)size - HeaderLength;
                 Buffer.BlockCopy(_incoming, HeaderLength, _frame, 0, length);
-                int samples = _capture.Decode(_frame, length, _pcm);
+                speaker.Decoder ??= _capture.CreateDecoder();
+                int samples = speaker.Decoder.Decode(_frame, length, _pcm);
                 if (samples > 0)
                     speaker.Receiver.Enqueue(_pcm, samples);
             }
@@ -247,6 +248,8 @@ namespace GhostHunter.Systems.Steam
             public string DisplayName { get; }
             public float Volume { get; set; } = 1f;
             public VoiceReceiver Receiver { get; set; }
+            // Opus 디코더는 상태를 가져 화자마다 따로 둔다.
+            public IVoiceDecoder Decoder { get; set; }
             public ushort LastSequence { get; set; }
             public bool HasSequence { get; set; }
         }

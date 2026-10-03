@@ -124,9 +124,10 @@ namespace GhostHunter.Tests.PlayMode
             public int SampleRate => 24000;
             public void SetRecording(bool recording) { }
             public int ReadFrame(byte[] destination) => 0;
-            public int Decode(byte[] compressed, int count, float[] samples) => 0;
-            public bool OpenSettings() => false;
+            public IVoiceDecoder CreateDecoder() => null;
             public float InputLevelDb => -120f;
+            public bool IsGateOpen => false;
+            public bool IsMonitoring { get; set; }
         }
     }
 }

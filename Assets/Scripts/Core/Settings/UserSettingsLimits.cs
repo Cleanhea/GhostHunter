@@ -7,6 +7,13 @@ namespace GhostHunter.Core.Settings
         public const float MaxMouseSensitivity = 3f;
         public const float DefaultMouseSensitivity = 1f;
 
+        public const float MinMicGainDb = -12f;
+        public const float MaxMicGainDb = 12f;
+
+        public const float MinNoiseGateThresholdDb = -70f;
+        public const float MaxNoiseGateThresholdDb = -20f;
+        public const float DefaultNoiseGateThresholdDb = -50f;
+
         /// <summary>설정 창이 고를 수 있는 프레임 상한. 0 은 무제한.</summary>
         public static readonly int[] FrameRateLimits = { 0, 30, 60, 120, 144, 240 };
     }

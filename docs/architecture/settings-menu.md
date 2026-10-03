@@ -1,6 +1,8 @@
 # 설정 창 구현
 
 > 상태: **구현 (2026-10-03). 자동 테스트만 통과, 실기 수동 검증 대기.**
+> **같은 날 2차:** 마이크 캡처를 Steam Voice 에서 Unity Microphone + Opus 로 바꿔([ADR-0022](decisions/ADR-0022-unity-microphone-opus-voice.md))
+> 입력 장치·게인·노이즈 게이트·내 목소리 듣기를 게임 안에서 바꾼다. "Steam 음성 설정 열기" 버튼은 없앴다.
 > 항목은 사용자 요청(2026-10-03 "게임 테마에 맞는 설정창, 오디오·마이크 설정은 꼭")으로 정했다 —
 > [pause-menu-system.md §4.3](../project/pause-menu-system.md) PM-6 해소.
 
@@ -13,8 +15,11 @@
 | 오디오 | 플레이어별 음량·음소거 | **저장 안 함**(이번 게임만) | `IVoiceParticipant.Volume`. 스테이지·인게임 로비에서만 목록이 생긴다 |
 | 마이크 | 마이크 켜짐/꺼짐 | `Voice.Muted` | 게임 중 `M` 과 같은 값 |
 | 마이크 | 송신 방식 — 오픈 마이크 / 눌러서 말하기(V) | `Voice.Mode` | 기본 오픈 마이크(VC-3) |
-| 마이크 | 입력 레벨 막대(-60~0 dBFS) | — | `IVoiceCaptureService.InputLevelDb` (§4) |
-| 마이크 | Steam 음성 설정 열기 | — | 입력 장치·감도·노이즈 제거는 Steam 몫(VC 기획 §5.1 제약 1, VC-19) |
+| 마이크 | 입력 장치(기본 장치 + 연결된 장치) | `Mic.Device` | 바꾸면 녹음 중이어도 바로 다시 연다. 저장된 장치가 빠지면 "(연결 안 됨)" 으로 표시하고 기본 장치를 쓴다 |
+| 마이크 | 입력 게인 -12~+12 dB | `Mic.GainDb` | 압축 전 PCM 에 곱한다(±1 클램프) |
+| 마이크 | 노이즈 게이트 켬/끔(기본 켬) · 게이트 기준 -70~-20 dB(기본 -50) | `Mic.NoiseGate`·`Mic.NoiseGateThresholdDb` | 오픈 마이크에서만 거른다 |
+| 마이크 | 입력 레벨 막대(-70~0 dBFS) + 게이트 기준선 | — | `IVoiceCaptureService.InputLevelDb`·`IsGateOpen` — 보내는 중이면 진하게, 걸러지면 흐리게 (§4) |
+| 마이크 | 내 목소리 듣기 | 저장 안 함 | `IVoiceCaptureService.IsMonitoring`. 창·탭을 벗어나면 꺼진다 |
 | 조작 | 마우스 감도 x0.10~x3.00 | `Input.MouseSensitivity` | `PlayerMoveSettings.MouseSensitivity`·`SpectatorSettings.LookSensitivity` 에 **곱한다** |
 | 조작 | 상하 반전 | `Input.InvertMouseY` | 생존자 시점·관전 자유비행 |
 | 화면 | 화면 모드(전체/창 모드 전체/창) · 해상도 | Unity 자체 저장 | `Screen.fullScreenMode`·`Screen.SetResolution`. 에디터에서는 바뀌지 않는다 |
@@ -70,9 +75,9 @@ UI/SettingsUiKit                     색·UGUI 위젯 생성
 
 ## 4. 마이크 입력 막대
 
-`IVoiceCaptureService.InputLevelDb` 는 **누가 `ReadFrame` 을 부르든** 마지막으로 읽힌 블록에서 가장 큰
-20ms 창의 dBFS 다. 0.3초 넘게 읽힌 블록이 없거나 녹음 중이 아니면 -120 이다. `SteamVoiceCapture` 는 읽은 블록을
-한 번 더 풀어 잰다. 측정 실패는 무시한다 — `ReadFrame` 의 예외 경로는 음성 전체를 끄기 때문이다.
+`IVoiceCaptureService.InputLevelDb` 는 캡처가 처리한 마지막 20ms 프레임의 dBFS(게인 적용 후)다. 녹음 중이 아니거나
+0.3초 넘게 프레임이 없으면 -120 이다. `IsGateOpen` 은 그 순간 노이즈 게이트가 소리를 보내는지다(게이트 끔·눌러서 말하기면 녹음 중 항상 true).
+막대 위 흰 선이 게이트 기준이고, 걸러지는 동안 막대는 흐리게 칠한다.
 
 - **Title:** 아무도 마이크를 쓰지 않으므로 창이 녹음을 켜고 50ms 마다 읽어서 **버린다(송신하지 않는다).**
   마이크 탭을 벗어나거나 창을 닫으면 끈다.
@@ -83,7 +88,9 @@ UI/SettingsUiKit                     색·UGUI 위젯 생성
 
 | 항목 | 결과 |
 | --- | --- |
-| EditMode `UserSettingsStoreTests` 9건 — 기본값·자르기·영속·예전 음성 키·알림·탭 되돌리기·음성 서비스 위임 | 통과 §5.1 |
+| EditMode `UserSettingsStoreTests` 10건 — 기본값·자르기·영속·예전 음성 키·알림·탭 되돌리기·음성 서비스 위임·마이크 장치/게인/게이트 | 통과 §5.1 |
+| EditMode `MicrophoneVoiceTests` 7건 — 게이트 열림·유지·여유·재시작, Opus 왕복 크기·다중 프레임 블록·깨진 블록 | 통과 §5.1 |
+| 실제 마이크로 장치 전환·게인·게이트·내 목소리 듣기 | **미검증** |
 | 창 외형·클릭·ESC·마이크 막대·해상도 변경 (Title·Stage1, 빌드) | **미검증** |
 | Steam 2PC 에서 설정 창 뮤트/모드 변경이 상대에게 반영 | **미검증** |
 
@@ -94,4 +101,8 @@ UI/SettingsUiKit                     색·UGUI 위젯 생성
   `MoleSkillWiringTests` 소스 검사(굴착 노출·일시정지 잠금 분기)다.
 - PlayMode **94/94 통과** — 음성 흐름·재생 테스트 포함.
 
-최종 갱신: 2026-10-03 (최초 작성)
+2026-10-03 2차(마이크 캡처 교체 후):
+- EditMode **416건 중 414 통과** — 실패 2건은 같은 `MoleSkillWiringTests`. 처음엔 Opus 왕복 테스트가 실패했다(24kHz 에서 무음) → 48kHz 로 바꿔 통과.
+- PlayMode **94/94 통과**.
+
+최종 갱신: 2026-10-03 (마이크 캡처 교체 — ADR-0022. 이전: 최초 작성)

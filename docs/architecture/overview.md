@@ -60,6 +60,7 @@ Assets/Scripts/
 │   ├── SceneFlow/     SceneFlowController
 │   ├── Installers/    BootstrapInstaller, GameInstaller, SceneInstaller 파생
 │   ├── Settings/      UserSettingsStore (PlayerPrefs 저장·엔진 적용)
+│   ├── Voice/         MicrophoneVoiceCapture · Opus 블록 · 내 목소리 듣기 (ADR-0022)
 │   └── Steam/         SteamLobbyManager. **Steamworks 참조는 여기에만 존재**
 ├── DebugTools/    개발 전용 HUD·스모크 테스트 (릴리스 빌드 대상 아님)
 └── Editor/        에디터 전용 도구 — 빌드 가드·로컬 테스트 봇·Scene Ruler (별도 asmdef, 일회성 설치 도구는 두지 않는다 — ADR-0020)
@@ -103,7 +104,7 @@ DebugTools ──▶ 전부 (개발 전용, 아무도 DebugTools를 참조하지
 | `GhostHunter.Systems` | `Scripts/Systems` | Core, Data, Gameplay, Networking, Unity.Netcode.Runtime, UnityEngine.UI, FacepunchTransport, UniTask |
 | `GhostHunter.DebugTools` | `Scripts/DebugTools` | Core, Gameplay, Unity.Netcode.Runtime, Unity.InputSystem |
 | `GhostHunter.Editor` | `Scripts/Editor` | 런타임 7개 + 에디터/패키지 참조 (Editor 플랫폼 한정) |
-| `GhostHunter.Tests.EditMode` | `Tests/EditMode` | 런타임 7개 + Test Framework + nunit (Editor 한정) |
+| `GhostHunter.Tests.EditMode` | `Tests/EditMode` | 런타임 7개 + Test Framework + nunit + Concentus.dll (Editor 한정) |
 | `GhostHunter.Tests.PlayMode` | `Tests/PlayMode` | Core, Data, Gameplay, Networking + Test Framework + nunit |
 
 **규칙**

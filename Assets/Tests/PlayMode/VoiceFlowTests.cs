@@ -199,11 +199,19 @@ namespace GhostHunter.Tests.PlayMode
             public int SampleRate => 24000;
             public int DecodeCount { get; private set; }
             public float InputLevelDb => -120f;
+            public bool IsGateOpen => IsRecording;
+            public bool IsMonitoring { get; set; }
             public void SetRecording(bool value) => IsRecording = value;
-            public bool OpenSettings() => false;
             public int ReadFrame(byte[] destination) { destination[0] = 7; return IsRecording ? 1 : 0; }
-            public int Decode(byte[] source, int count, float[] destination)
-            { DecodeCount++; for (int i = 0; i < 2400; i++) destination[i] = 0.1f; return 2400; }
+            // 디코더는 화자마다 따로 만들어지지만, 테스트는 몇 번 풀었는지 한곳에서 센다.
+            public IVoiceDecoder CreateDecoder() => new CountingDecoder(this);
+            private sealed class CountingDecoder : IVoiceDecoder
+            {
+                private readonly FakeCapture _owner;
+                public CountingDecoder(FakeCapture owner) => _owner = owner;
+                public int Decode(byte[] source, int count, float[] destination)
+                { _owner.DecodeCount++; for (int i = 0; i < 2400; i++) destination[i] = 0.1f; return 2400; }
+            }
         }
     }
 }

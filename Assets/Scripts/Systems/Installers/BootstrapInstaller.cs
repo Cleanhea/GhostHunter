@@ -7,6 +7,7 @@ using GhostHunter.Networking;
 using GhostHunter.Systems.Steam;
 using GhostHunter.Systems.SceneFlow;
 using GhostHunter.Systems.Settings;
+using GhostHunter.Systems.Voice;
 using GhostHunter.Systems.Shop;
 using GhostHunter.Data;
 using UnityEngine;
@@ -24,7 +25,7 @@ namespace GhostHunter.Systems.Installers
         [SerializeField] private SceneFlowController _sceneFlow;
         [SerializeField] private SteamLobbyManager _steamLobby;
         [SerializeField] private ConnectionManager _connection;
-        [SerializeField] private SteamVoiceCapture _voiceCapture;
+        [SerializeField] private MicrophoneVoiceCapture _voiceCapture;
         [SerializeField] private VoiceChatSettings _lobbyVoiceSettings;
 
         protected override void InstallBindings()
@@ -59,7 +60,12 @@ namespace GhostHunter.Systems.Installers
                     recovery = gameObject.AddComponent<StageRecoveryCoordinator>();
                 recovery.Initialize(_steamLobby, _connection, _sceneFlow);
             }
-            if (_voiceCapture != null) Bind<IVoiceCaptureService>(_voiceCapture);
+            if (_voiceCapture != null)
+            {
+                // 마이크 장치·게인·게이트는 개인 설정을, 게이트 튜닝·Opus 비트레이트는 음성 설정 에셋을 따른다.
+                _voiceCapture.Initialize(userSettings, _lobbyVoiceSettings);
+                Bind<IVoiceCaptureService>(_voiceCapture);
+            }
             if (_steamLobby != null && _voiceCapture != null && _sceneFlow != null)
             {
                 LobbyVoiceService lobbyVoice = GetComponent<LobbyVoiceService>();

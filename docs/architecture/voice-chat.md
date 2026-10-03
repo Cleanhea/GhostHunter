@@ -5,10 +5,15 @@
 
 기준: [기획서](../project/voice-chat-system.md) 0.2와 2026-09-17 사용자 정책 승인.
 
+> **2026-10-03 — 캡처 교체([ADR-0022](decisions/ADR-0022-unity-microphone-opus-voice.md)).** Steam Voice 대신 Unity `Microphone` + Opus(Concentus 1.1.7)다.
+> 입력 장치·게인·노이즈 게이트·내 목소리 듣기는 설정 창 마이크 탭에서 바꾼다. 아래 "캡처" 절이 현재 사실이고,
+> 그 뒤의 Steam `ReadVoiceData`·24kHz 서술과 날짜 붙은 검증 기록은 당시 기록이다. 전송·컬링·재생은 그대로다.
+
 ## 구성과 수명
 
 - `Core/Voice`: `IVoiceCaptureService`, `IVoiceChatService`, `IVoiceParticipant`, `VoiceMode`.
-- `Systems/Steam/SteamVoiceCapture`: Steam 캡처·디코딩. BootstrapInstaller가 전역 등록한다.
+- `Systems/Voice/MicrophoneVoiceCapture`: Unity Microphone 캡처·게인·노이즈 게이트·Opus 압축(2026-10-03, 구 `SteamVoiceCapture` — 같은 guid).
+  BootstrapInstaller가 `IUserSettings`·음성 설정 에셋으로 초기화해 전역 등록한다. `OpusVoiceBlock`(블록 형식·디코더), `MicrophoneMonitorPlayer`(내 목소리 듣기).
 - `Gameplay/Voice/VoiceChatService`: GameInstaller가 등록하는 Game 참가자·설정 서비스.
 - `Systems/Steam/LobbyVoiceService`: Bootstrap에서 생성한다. Lobby·Result에서 Steam 로비 멤버끼리
   2D 음성을 주고받는다. Result 전환 때 Game의 Player 캡처는 멈춘다.
@@ -25,6 +30,26 @@
 
 새 어셈블리나 패키지는 추가하지 않았다. Gameplay와 테스트 asmdef에 기존 `Unity.Collections` 참조를
 추가해 NativeArray RPC를 사용한다. `Steamworks`는 Systems/Steam에만 등장한다.
+
+## 캡처 (2026-10-03)
+
+```
+Microphone(장치=IUserSettings.MicDevice, 1초 루프 클립) ─ 20ms 조각 ─▶ 48kHz 로 리샘플(장치가 다르면)
+  ─▶ 20ms 프레임(960) ─▶ 게인(±12dB, 클램프) ─▶ 크기 측정(InputLevelDb)
+  ─▶ 노이즈 게이트(오픈 마이크 + 켬일 때만) ─▶ Opus 압축(항상) ─▶ 열림: 송신 큐 / 닫힘: 앞당김 링(3프레임)
+ReadFrame ─▶ 송신 큐를 [길이 1B][Opus 프레임] 반복 블록으로 꺼낸다(송신기 50ms 마다)
+```
+
+- **48kHz:** Concentus 1.1.7 은 24kHz VOIP 에서 무음을 풀어 냈다(EditMode `MicrophoneVoiceTests` 가 잡았다). 16·48kHz 는 정상.
+- **게이트:** 기준(개인 설정, 기본 -50dBFS) 이상에서 열고, `기준 - 6dB` 아래로 0.5초 머물면 닫는다. 여는 순간 직전 60ms(3프레임)를 앞당겨 보낸다.
+  닫혀 있어도 압축은 계속한다 — 인코더 상태가 이어져야 앞당긴 프레임이 자연스럽게 풀린다. 눌러서 말하기는 거르지 않는다.
+  여유·유지·앞당김·비트레이트(24kbps)·복잡도(5)는 `VoiceChatSettings`.
+- **밀림:** 마이크 클립에 200ms 넘게 밀리면(씬 로드) 오래된 소리를 버린다. 아무도 읽지 않으면 송신 큐는 10프레임(200ms)까지만 둔다.
+- **디코더는 화자마다:** Opus 는 상태(예측·손실 은닉)를 가진다. `IVoiceCaptureService.CreateDecoder()` 로 원격 화자(`PlayerVoiceEmitter` 인스턴스·`LobbySpeaker`)마다,
+  송신기의 "말하는 중" 판정용으로 하나 더 만든다.
+- **코덱 번호:** `VoiceCodecs.Opus`(2). 구 Steam(0)은 받지 않는다 — 이전 빌드와는 음성이 섞이지 않는다. 개발 빌드는 사인파(1)도 받는다.
+- **내 목소리 듣기:** `IsMonitoring` 이 켜지면 게이트 적용 후 PCM(닫히면 무음)을 `MicrophoneMonitorPlayer` 가 2D 로 재생한다. 설정 창을 닫거나 탭을 옮기면 꺼진다.
+- **macOS:** Player 설정의 Microphone Usage Description 이 비어 있다 — 맥 빌드 전에 채워야 한다(ProjectSettings, 사용자 확인 대기).
 
 ## 캡처·전송·재생
 
@@ -95,6 +120,7 @@ Result 공용 채널도 2D 전역 음성이며, Game 중의 생존자 근접·�
 (도구는 ADR-0020으로 삭제). 믹서를 고칠 때는 에디터 Audio Mixer 창을 쓴다.
 
 모드·마이크 뮤트·마스터 음량은 PlayerPrefs에 저장하고 세션 종료 때 flush한다(VAD 임계값 슬라이더는 2026-09-27 삭제).
+**2026-10-03 캡처 교체 후:** 입력 장치(`Mic.Device`)·게인(`Mic.GainDb`)·노이즈 게이트(`Mic.NoiseGate`·`Mic.NoiseGateThresholdDb`)도 같은 `IUserSettings` 에 있다.
 **2026-10-03:** 저장은 `IUserSettings`(Bootstrap 전역)가 맡고 `VoiceChatService` 는 그 값을 위임해 읽고 쓴다 — 키(`Voice.*`)는 그대로다.
 설정 창과 `M` 키가 같은 값을 본다. 마이크 입력 막대용 `IVoiceCaptureService.InputLevelDb` 를 추가했다 → [settings-menu.md](settings-menu.md)
 개별 화자 음량/뮤트는 세션 동안만 유지한다. NGO clientId는 다음 접속에서 달라지므로 영구 키로 쓰지 않는다.

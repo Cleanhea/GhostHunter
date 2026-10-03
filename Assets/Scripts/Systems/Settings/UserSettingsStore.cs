@@ -16,6 +16,10 @@ namespace GhostHunter.Systems.Settings
         public const string VoiceVolumeKey = "Voice.Volume";
         public const string VoiceModeKey = "Voice.Mode";
         public const string MicMutedKey = "Voice.Muted";
+        public const string MicDeviceKey = "Mic.Device";
+        public const string MicGainDbKey = "Mic.GainDb";
+        public const string NoiseGateKey = "Mic.NoiseGate";
+        public const string NoiseGateThresholdKey = "Mic.NoiseGateThresholdDb";
         public const string MouseSensitivityKey = "Input.MouseSensitivity";
         public const string InvertMouseYKey = "Input.InvertMouseY";
         public const string VSyncKey = "Display.VSync";
@@ -28,6 +32,10 @@ namespace GhostHunter.Systems.Settings
         private float _voiceVolume;
         private VoiceMode _voiceMode;
         private bool _micMuted;
+        private string _micDevice;
+        private float _micGainDb;
+        private bool _noiseGateEnabled;
+        private float _noiseGateThresholdDb;
         private float _mouseSensitivity;
         private bool _invertMouseY;
         private bool _vSync;
@@ -43,6 +51,11 @@ namespace GhostHunter.Systems.Settings
             _voiceVolume = Mathf.Clamp01(_storage.GetFloat(VoiceVolumeKey, 1f));
             _voiceMode = ToVoiceMode(_storage.GetInt(VoiceModeKey, (int)VoiceMode.OpenMic));
             _micMuted = _storage.GetInt(MicMutedKey, 0) != 0;
+            _micDevice = _storage.GetString(MicDeviceKey, string.Empty) ?? string.Empty;
+            _micGainDb = ClampGain(_storage.GetFloat(MicGainDbKey, 0f));
+            _noiseGateEnabled = _storage.GetInt(NoiseGateKey, 1) != 0;
+            _noiseGateThresholdDb = ClampGateThreshold(
+                _storage.GetFloat(NoiseGateThresholdKey, UserSettingsLimits.DefaultNoiseGateThresholdDb));
             _mouseSensitivity = ClampSensitivity(
                 _storage.GetFloat(MouseSensitivityKey, UserSettingsLimits.DefaultMouseSensitivity));
             _invertMouseY = _storage.GetInt(InvertMouseYKey, 0) != 0;
@@ -112,6 +125,65 @@ namespace GhostHunter.Systems.Settings
 
                 _micMuted = value;
                 _storage.SetInt(MicMutedKey, value ? 1 : 0);
+                Changed?.Invoke();
+            }
+        }
+
+        public string MicDevice
+        {
+            get => _micDevice;
+            set
+            {
+                string next = value ?? string.Empty;
+                if (next == _micDevice)
+                    return;
+
+                _micDevice = next;
+                _storage.SetString(MicDeviceKey, next);
+                Changed?.Invoke();
+            }
+        }
+
+        public float MicGainDb
+        {
+            get => _micGainDb;
+            set
+            {
+                float next = ClampGain(value);
+                if (Mathf.Approximately(next, _micGainDb))
+                    return;
+
+                _micGainDb = next;
+                _storage.SetFloat(MicGainDbKey, next);
+                Changed?.Invoke();
+            }
+        }
+
+        public bool NoiseGateEnabled
+        {
+            get => _noiseGateEnabled;
+            set
+            {
+                if (value == _noiseGateEnabled)
+                    return;
+
+                _noiseGateEnabled = value;
+                _storage.SetInt(NoiseGateKey, value ? 1 : 0);
+                Changed?.Invoke();
+            }
+        }
+
+        public float NoiseGateThresholdDb
+        {
+            get => _noiseGateThresholdDb;
+            set
+            {
+                float next = ClampGateThreshold(value);
+                if (Mathf.Approximately(next, _noiseGateThresholdDb))
+                    return;
+
+                _noiseGateThresholdDb = next;
+                _storage.SetFloat(NoiseGateThresholdKey, next);
                 Changed?.Invoke();
             }
         }
@@ -187,6 +259,10 @@ namespace GhostHunter.Systems.Settings
                 case UserSettingsGroup.Microphone:
                     VoiceMode = VoiceMode.OpenMic;
                     MicMuted = false;
+                    MicDevice = string.Empty;
+                    MicGainDb = 0f;
+                    NoiseGateEnabled = true;
+                    NoiseGateThresholdDb = UserSettingsLimits.DefaultNoiseGateThresholdDb;
                     break;
                 case UserSettingsGroup.Controls:
                     MouseSensitivity = UserSettingsLimits.DefaultMouseSensitivity;
@@ -218,6 +294,12 @@ namespace GhostHunter.Systems.Settings
 
         private static VoiceMode ToVoiceMode(int value)
             => value == (int)VoiceMode.PushToTalk ? VoiceMode.PushToTalk : VoiceMode.OpenMic;
+
+        private static float ClampGain(float value)
+            => Mathf.Clamp(value, UserSettingsLimits.MinMicGainDb, UserSettingsLimits.MaxMicGainDb);
+
+        private static float ClampGateThreshold(float value)
+            => Mathf.Clamp(value, UserSettingsLimits.MinNoiseGateThresholdDb, UserSettingsLimits.MaxNoiseGateThresholdDb);
 
         private static float ClampSensitivity(float value)
             => Mathf.Clamp(value, UserSettingsLimits.MinMouseSensitivity, UserSettingsLimits.MaxMouseSensitivity);

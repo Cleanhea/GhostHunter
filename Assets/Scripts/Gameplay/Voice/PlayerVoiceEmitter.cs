@@ -29,8 +29,12 @@ namespace GhostHunter.Gameplay.Voice
         private readonly List<ulong> _targets = new(4);
         private readonly VoicePacketLimiter _limiter = new();
         private IVoiceChatService _chat;
-        private IVoiceCaptureService _steamCapture;
+        private IVoiceCaptureService _capture;
         private IVoiceCaptureService _activeCapture;
+        // Opus 디코더는 상태를 가진다. 이 화자 전용으로 코덱마다 하나씩 둔다.
+        private IVoiceDecoder _decoder;
+        private IVoiceDecoder _testDecoder;
+        private IVoiceDecoder _localDecoder;
         private double _nextSend;
         private double _lastCapture;
         private double _nextRateWarning;
@@ -62,12 +66,12 @@ namespace GhostHunter.Gameplay.Voice
             if (_settings == null || _receiver == null || _sanity == null)
             { Debug.LogError("[PlayerVoiceEmitter] 음성 설정/재생/상태 배선 누락", this); enabled = false; return; }
             _chat = Services.Get<IVoiceChatService>();
-            _steamCapture = Services.Get<IVoiceCaptureService>();
+            _capture = Services.Get<IVoiceCaptureService>();
             DisplayName = IsOwner ? "나" : $"Player {OwnerClientId}";
             _chat.Register(this, IsOwner);
             _sanity.AliveStateChanged += HandleAliveChanged;
-            if (IsClient && !IsOwner) _receiver.Initialize(_settings, this, _chat, _steamCapture.SampleRate);
-            if (IsOwner) { _activeCapture = _chat.Capture; _lastMode = _chat.Mode; }
+            if (IsClient && !IsOwner) _receiver.Initialize(_settings, this, _chat, _capture.SampleRate);
+            if (IsOwner) { _activeCapture = _chat.Capture; _localDecoder = _activeCapture.CreateDecoder(); _lastMode = _chat.Mode; }
         }
         public override void OnNetworkDespawn()
         {
@@ -97,6 +101,7 @@ namespace GhostHunter.Gameplay.Voice
             {
                 StopCapture();
                 _activeCapture = _chat.Capture;
+                _localDecoder = _activeCapture.CreateDecoder();
                 _lastMode = _chat.Mode;
                 _wasMuted = _chat.IsMuted;
             }
@@ -173,14 +178,14 @@ namespace GhostHunter.Gameplay.Voice
             if (!IsClient || _chat == null || !_chat.IsActive || rpcParams.Receive.SenderClientId != NetworkManager.ServerClientId ||
                 !ValidatePacket(frame) || !IsCodecAllowed(codec) || aliveChannel != IsAlive) return;
             if (IsOwner && !SelfMonitorActive) return;
+            IVoiceDecoder decoder = DecoderFor(codec);
+            if (decoder == null) return;
             if (_hasSequence && Time.unscaledTimeAsDouble - _lastReceivedTime < 2d && (short)(sequence - _lastReceivedSequence) <= 0) return;
             _lastReceivedTime = Time.unscaledTimeAsDouble;
             _hasSequence = true;
             _lastReceivedSequence = sequence;
             IVoiceParticipant listener = _chat.LocalParticipant;
             if (listener == null || (!_chat.IsResultChannel && listener.IsAlive != IsAlive) || Volume <= 0f) return;
-            IVoiceCaptureService decoder = codec == 0 ? _steamCapture : _chat.TestDecoder;
-            if (decoder == null || decoder.Codec != codec) return;
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
             if (IsOwner && !EnsureEcho()) return;
 #endif
@@ -215,10 +220,18 @@ namespace GhostHunter.Gameplay.Voice
         private static bool IsCodecAllowed(byte codec)
         {
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
-            return codec <= 1;
+            return codec == VoiceCodecs.Opus || codec == VoiceCodecs.TestTone;
 #else
-            return codec == 0;
+            return codec == VoiceCodecs.Opus;
 #endif
+        }
+        /// <summary>이 화자의 디코더. 처음 받은 코덱에서 만든다. 개발용 사인파는 HUD 가 건 테스트 디코더로 푼다.</summary>
+        private IVoiceDecoder DecoderFor(byte codec)
+        {
+            if (codec == _capture.Codec) return _decoder ??= _capture.CreateDecoder();
+            IVoiceCaptureService test = _chat.TestDecoder;
+            if (test == null || test.Codec != codec) return null;
+            return _testDecoder ??= test.CreateDecoder();
         }
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
         private bool SelfMonitorActive => _chat != null && _chat.SelfMonitor;
@@ -278,7 +291,7 @@ namespace GhostHunter.Gameplay.Voice
         /// </summary>
         private void UpdateSpeech(int count)
         {
-            int samples = _activeCapture.Decode(_frame, count, _pcm);
+            int samples = _localDecoder.Decode(_frame, count, _pcm);
             int window = Math.Max(1, _activeCapture.SampleRate / 50);
             for (int offset = 0; offset < samples; offset += window)
             {

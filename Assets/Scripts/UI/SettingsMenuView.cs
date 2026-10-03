@@ -18,11 +18,18 @@ namespace GhostHunter.UI
     [DisallowMultipleComponent]
     public sealed class SettingsMenuView : MonoBehaviour
     {
-        private const float LevelFloorDb = -60f;
+        // 노이즈 게이트 기준 하한(-70)까지 막대 위에 표시한다.
+        private const float LevelFloorDb = -70f;
         private const float SilenceDb = -119f;
         private const float MicTestReadSeconds = 0.05f;
         private const float ParticipantRefreshSeconds = 0.5f;
         private const float LevelFallPerSecond = 1.6f;
+
+        private const string MonitoringStatus = "내 목소리를 듣는 중 — 헤드폰을 쓰세요(스피커면 소리가 되먹임됩니다). 들리는 소리가 다른 사람이 듣는 소리입니다.";
+        private const string GateStatus = "막대가 흰 선을 넘을 때만 전송됩니다. 숨소리·키보드 소리가 선을 넘으면 기준을 올리세요.";
+        private const string RecordingStatus = "말해 보세요. 막대가 움직이면 정상입니다.";
+        private const string TestGateStatus = "마이크 테스트 중(다른 사람에게 들리지 않음) — 막대가 흰 선을 넘을 때만 전송됩니다.";
+        private const string TestStatus = "마이크 테스트 중(다른 사람에게 들리지 않음) — 말해 보세요. 막대가 움직이면 정상입니다.";
 
         private static readonly string[] TabNames = { "오디오", "마이크", "조작", "화면" };
         private static readonly string[] OffOn = { "끔", "켬" };
@@ -51,7 +58,10 @@ namespace GhostHunter.UI
         private RectTransform _levelFill;
         private Text _levelText;
         private Text _micStatusText;
-        private Text _steamHintText;
+        private Image _levelFillImage;
+        private RectTransform _gateMarker;
+        private string[] _deviceNames = Array.Empty<string>();
+        private string[] _deviceValues = Array.Empty<string>();
         private RectTransform _participantList;
         private Text _participantEmptyText;
         private bool _ownsMicTest;
@@ -132,6 +142,7 @@ namespace GhostHunter.UI
                 _settings.Changed += RefreshAll;
 
             ReadScreenState();
+            ReadMicrophoneDevices();
             _isOpen = true;
             gameObject.SetActive(true);
             SelectTab(_tab);
@@ -175,7 +186,7 @@ namespace GhostHunter.UI
             SettingsUiKit.Fill(backdrop.rectTransform);
 
             Image edge = SettingsUiKit.CreateImage("PanelEdge", transform, SettingsUiKit.PanelEdge, raycast: true);
-            edge.rectTransform.sizeDelta = new Vector2(1044f, 764f);
+            edge.rectTransform.sizeDelta = new Vector2(1044f, 960f);
             Image panel = SettingsUiKit.CreateImage("Panel", edge.transform, SettingsUiKit.Panel);
             SettingsUiKit.Stretch(panel.rectTransform, Vector2.zero, Vector2.one, new Vector2(2f, 2f), new Vector2(-2f, -2f));
             Transform body = panel.transform;
@@ -292,29 +303,48 @@ namespace GhostHunter.UI
                 ? SettingsUiKit.Danger
                 : SettingsUiKit.TextBright);
 
+            // 장치 목록은 열 때마다 다시 읽는다(꽂고 뺄 수 있다).
+            AddChoice(page, "입력 장치", () => _deviceNames,
+                () => Mathf.Max(0, Array.IndexOf(_deviceValues, _settings?.MicDevice ?? string.Empty)),
+                index => { if (_settings != null) _settings.MicDevice = _deviceValues[index]; });
+
             AddChoice(page, "송신 방식", VoiceModes,
                 () => _settings != null && _settings.VoiceMode == VoiceMode.PushToTalk ? 1 : 0,
                 index => { if (_settings != null) _settings.VoiceMode = index == 1 ? VoiceMode.PushToTalk : VoiceMode.OpenMic; });
 
+            AddSlider(page, "입력 게인", UserSettingsLimits.MinMicGainDb, UserSettingsLimits.MaxMicGainDb,
+                () => _settings?.MicGainDb ?? 0f,
+                value => { if (_settings != null) _settings.MicGainDb = Mathf.Round(value); },
+                FormatDecibels);
+
+            AddChoice(page, "노이즈 게이트", OffOn,
+                () => _settings == null || _settings.NoiseGateEnabled ? 1 : 0,
+                index => { if (_settings != null) _settings.NoiseGateEnabled = index == 1; });
+
+            AddSlider(page, "게이트 기준", UserSettingsLimits.MinNoiseGateThresholdDb, UserSettingsLimits.MaxNoiseGateThresholdDb,
+                () => _settings?.NoiseGateThresholdDb ?? UserSettingsLimits.DefaultNoiseGateThresholdDb,
+                value => { if (_settings != null) _settings.NoiseGateThresholdDb = Mathf.Round(value); },
+                FormatDecibels);
+
             RectTransform meter = SettingsUiKit.CreateRow(page, "입력 레벨", out _);
             Image track = SettingsUiKit.CreateImage("Track", meter, SettingsUiKit.Track);
             SettingsUiKit.Stretch(track.rectTransform, new Vector2(0f, 0.5f), new Vector2(0.8f, 0.5f), new Vector2(0f, -8f), new Vector2(0f, 8f));
-            Image fill = SettingsUiKit.CreateImage("Fill", track.transform, SettingsUiKit.Accent);
-            _levelFill = fill.rectTransform;
+            _levelFillImage = SettingsUiKit.CreateImage("Fill", track.transform, SettingsUiKit.Accent);
+            _levelFill = _levelFillImage.rectTransform;
             SettingsUiKit.Stretch(_levelFill, Vector2.zero, new Vector2(0f, 1f));
+            // 게이트 기준선 — 막대가 이 선을 넘어야 전송된다.
+            Image marker = SettingsUiKit.CreateImage("GateMarker", track.transform, SettingsUiKit.TextBright);
+            _gateMarker = marker.rectTransform;
+            SettingsUiKit.Stretch(_gateMarker, Vector2.zero, new Vector2(0f, 1f), new Vector2(-1f, -6f), new Vector2(1f, 6f));
             _levelText = SettingsUiKit.CreateText("Value", meter, "—", SettingsUiKit.LabelSize, SettingsUiKit.TextDim, TextAnchor.MiddleRight);
             SettingsUiKit.Stretch(_levelText.rectTransform, new Vector2(0.8f, 0f), Vector2.one);
 
+            AddChoice(page, "내 목소리 듣기", OffOn,
+                () => _capture != null && _capture.IsMonitoring ? 1 : 0,
+                index => { if (_capture != null) _capture.IsMonitoring = index == 1; });
+
             _micStatusText = SettingsUiKit.CreateNote(page, string.Empty);
-
-            RectTransform steam = SettingsUiKit.CreateRow(page, "입력 장치 · 노이즈 제거", out _);
-            Button open = SettingsUiKit.CreateButton("OpenSteamVoice", steam, "Steam 음성 설정 열기", 20, out _);
-            SettingsUiKit.Fill((RectTransform)open.transform);
-            open.onClick.AddListener(HandleOpenSteamVoiceClicked);
-            _steamHintText = SettingsUiKit.CreateNote(page,
-                "마이크 장치 선택·입력 감도·노이즈 제거는 Steam 이 처리합니다. 게임은 소리를 거르지 않고 그대로 보냅니다.");
-
-            SettingsUiKit.CreateNote(page, "게임 중 단축키 — M: 마이크 켜기/끄기 · V: 누르는 동안 말하기(눌러서 말하기 모드)");
+            SettingsUiKit.CreateNote(page, "게임 중 단축키 — M: 마이크 켜기/끄기 · V: 누르는 동안 말하기(눌러서 말하기 모드). 노이즈 게이트는 오픈 마이크에서만 동작합니다.");
         }
 
         private void BuildControlsPage(Transform page)
@@ -398,6 +428,10 @@ namespace GhostHunter.UI
 
         /// <summary>"&lt; 값 &gt;" 로 넘기는 선택 줄. 끝에서 반대쪽 끝으로 돈다. 값 글자를 돌려준다.</summary>
         private Text AddChoice(Transform page, string label, string[] options, Func<int> read, Action<int> write)
+            => AddChoice(page, label, () => options, read, write);
+
+        /// <summary>선택지가 열 때마다 바뀌는 줄(입력 장치).</summary>
+        private Text AddChoice(Transform page, string label, Func<string[]> optionsSource, Func<int> read, Action<int> write)
         {
             RectTransform control = SettingsUiKit.CreateRow(page, label, out _);
 
@@ -412,6 +446,7 @@ namespace GhostHunter.UI
 
             void Step(int delta)
             {
+                string[] options = optionsSource();
                 if (options.Length == 0)
                     return;
 
@@ -422,7 +457,11 @@ namespace GhostHunter.UI
 
             previous.onClick.AddListener(() => Step(-1));
             next.onClick.AddListener(() => Step(1));
-            _refreshers.Add(() => value.text = options.Length == 0 ? "-" : options[Mathf.Clamp(read(), 0, options.Length - 1)]);
+            _refreshers.Add(() =>
+            {
+                string[] options = optionsSource();
+                value.text = options.Length == 0 ? "-" : options[Mathf.Clamp(read(), 0, options.Length - 1)];
+            });
             return value;
         }
 
@@ -479,14 +518,6 @@ namespace GhostHunter.UI
             }
 
             RefreshAll();
-        }
-
-        private void HandleOpenSteamVoiceClicked()
-        {
-            bool opened = _capture != null && _capture.OpenSettings();
-            _steamHintText.text = opened
-                ? "Steam 오버레이에서 음성 설정을 바꾼 뒤 이 창으로 돌아오세요."
-                : "Steam 오버레이를 열 수 없습니다. Steam → 설정 → 음성 에서 마이크 장치와 입력 감도를 바꿀 수 있습니다.";
         }
 
         #endregion
@@ -560,6 +591,19 @@ namespace GhostHunter.UI
                 : Mathf.MoveTowards(_shownLevel, target, LevelFallPerSecond * Time.unscaledDeltaTime);
             _levelFill.anchorMax = new Vector2(_shownLevel, 1f);
 
+            // 게이트가 거르는 중이면 기준선을 보이고, 닫혀서 보내지 않는 소리는 흐리게 칠한다.
+            bool gateActive = IsGateActive;
+            _gateMarker.gameObject.SetActive(gateActive);
+            if (gateActive)
+            {
+                float position = Mathf.InverseLerp(LevelFloorDb, 0f, _settings.NoiseGateThresholdDb);
+                _gateMarker.anchorMin = new Vector2(position, 0f);
+                _gateMarker.anchorMax = new Vector2(position, 1f);
+            }
+
+            bool sending = _capture != null && _capture.IsGateOpen;
+            _levelFillImage.color = sending ? SettingsUiKit.Accent : SettingsUiKit.AccentFaint;
+
             int rounded = decibels <= SilenceDb ? int.MinValue : Mathf.RoundToInt(decibels);
             if (rounded != _shownDb)
             {
@@ -572,18 +616,24 @@ namespace GhostHunter.UI
                 _micStatusText.text = status;
         }
 
+        private bool IsGateActive => _settings != null && _settings.NoiseGateEnabled && _settings.VoiceMode == VoiceMode.OpenMic;
+
         private string MicrophoneStatus()
         {
             if (_capture == null)
                 return "음성 기능이 연결되지 않았습니다.";
             if (!_capture.IsAvailable)
-                return "Steam 에 연결되지 않아 마이크를 쓸 수 없습니다. Steam 을 켠 상태로 실행하세요.";
-            if (_ownsMicTest)
-                return "마이크 테스트 중 — 말해 보세요. 막대가 움직이면 정상입니다. (다른 사람에게 들리지 않습니다)";
-            if (_settings != null && _settings.MicMuted)
+                return "마이크를 찾지 못했거나 열 수 없습니다. 연결 상태와 운영체제의 마이크 권한을 확인하세요.";
+            if (_capture.IsMonitoring)
+                return MonitoringStatus;
+            if (_settings != null && _settings.MicMuted && !_ownsMicTest)
                 return "마이크가 꺼져 있어 다른 사람에게 들리지 않습니다.";
             if (_capture.IsRecording)
-                return "말해 보세요. 막대가 움직이면 정상입니다.";
+            {
+                if (_ownsMicTest)
+                    return IsGateActive ? TestGateStatus : TestStatus;
+                return IsGateActive ? GateStatus : RecordingStatus;
+            }
             if (_settings != null && _settings.VoiceMode == VoiceMode.PushToTalk)
                 return "눌러서 말하기 — V 를 누르는 동안 입력이 표시됩니다.";
             return "마이크 입력을 기다리는 중입니다.";
@@ -591,6 +641,10 @@ namespace GhostHunter.UI
 
         private void StopMicTest()
         {
+            // 내 목소리 듣기는 이 창에서만 켠다. 창이나 탭을 벗어나면 끈다 — 켜 둔 채 잊으면 게임 내내 자기 목소리가 들린다.
+            if (_capture != null)
+                _capture.IsMonitoring = false;
+
             if (!_ownsMicTest)
                 return;
 
@@ -693,5 +747,35 @@ namespace GhostHunter.UI
         #endregion
 
         private static string FormatPercent(float value) => Mathf.RoundToInt(value * 100f) + "%";
+
+        private static string FormatDecibels(float value)
+        {
+            int rounded = Mathf.RoundToInt(value);
+            return (rounded > 0 ? "+" : string.Empty) + rounded + " dB";
+        }
+
+        /// <summary>"기본 장치" + 꽂힌 장치. 저장된 장치가 빠져 있으면 끝에 "(연결 안 됨)" 으로 남겨 둔다.</summary>
+        private void ReadMicrophoneDevices()
+        {
+            string[] devices = Microphone.devices;
+            string saved = _settings?.MicDevice ?? string.Empty;
+            bool savedMissing = saved.Length > 0 && Array.IndexOf(devices, saved) < 0;
+            int count = 1 + devices.Length + (savedMissing ? 1 : 0);
+            _deviceNames = new string[count];
+            _deviceValues = new string[count];
+            _deviceNames[0] = "기본 장치";
+            _deviceValues[0] = string.Empty;
+            for (int i = 0; i < devices.Length; i++)
+            {
+                _deviceNames[i + 1] = devices[i];
+                _deviceValues[i + 1] = devices[i];
+            }
+
+            if (savedMissing)
+            {
+                _deviceNames[count - 1] = saved + " (연결 안 됨)";
+                _deviceValues[count - 1] = saved;
+            }
+        }
     }
 }
