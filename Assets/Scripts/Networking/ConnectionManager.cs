@@ -177,9 +177,9 @@ namespace GhostHunter.Networking
                 // 개발 HUD 의 Host 는 Title 위에서 눌린다. 그 자리에서 StartHost 하면 플레이어가
                 // Game 씬 서비스(스폰 레지스트리·로컬 플레이어 컨텍스트) 없이 스폰돼 조작이 전부 죽는다.
                 // 메뉴 흐름과 같은 순서(씬 로드 → StartHost)를 따른다 → docs/architecture/networking.md §3.6
-                // 메뉴 흐름처럼 첫 스테이지 Tutorial 에서 세션을 연다.
+                // 메뉴 흐름처럼 인게임 로비(드릴카 상점)에서 세션을 연다. 첫 출발이 Tutorial 이다.
                 if (ShouldLoadGameSceneBeforeLocalHost(_sceneFlow != null, _sceneFlow?.Current ?? SceneId.Bootstrap))
-                    StartHostInGameScene(SceneId.Tutorial);
+                    StartHostInGameScene(SceneId.InGameLobby);
                 else
                     StartHostInternal();
 

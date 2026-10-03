@@ -19,7 +19,8 @@
 
 ## 결정 (Decision)
 
-첫 게임의 시작 씬은 Tutorial이다. 종료/전멸은 기존 Result와 InGameLobby를 거치고, 다음 출발은 Stage1이다.
+세션은 InGameLobby(드릴카 상점)에서 열리고, 첫 출발은 Tutorial이다. 종료/전멸은 기존 Result와 InGameLobby를 거치고, 다음 출발은 Stage1이다.
+(2026-10-03 사용자 정정: 처음엔 일반 로비에서 Tutorial로 바로 들어갔으나, 드릴카 상점 → Tutorial → 드릴카 상점 → Stage1 순서로 바꿨다.)
 SceneId.Tutorial은 값 7로 추가하여 기존 직렬화 값을 유지한다. SceneId.IsStage에 포함해 정신력·사망·정산·음성·씬 전환의 기존 계약을 사용한다.
 StageSessionFlow는 각 피어의 Tutorial → Result 전환으로 완료를 기억하며 실제 출발/복귀는 기존 서버 권위를 유지한다.
 정산 없는 ESC 이탈은 완료로 보지 않는다. Title/Lobby 진입 시 상태를 초기화하고 디스크에 저장하지 않는다.

@@ -137,7 +137,7 @@ namespace GhostHunter.UI
             _departing = true;
             SetStatus("이전 호스트가 떠났습니다. 스테이지 로딩을 이어갑니다.");
             _connection.SetTransportMode(TransportMode.Steam);
-            _connection.StartHostInGameScene(SceneId.Tutorial);
+            _connection.StartHostInGameScene(SceneId.InGameLobby);
         }
 
         /// <summary>
@@ -170,7 +170,7 @@ namespace GhostHunter.UI
 
             _departing = true;
             _connection.SetTransportMode(TransportMode.Steam);
-            _connection.StartHostInGameScene(SceneId.Tutorial);
+            _connection.StartHostInGameScene(SceneId.InGameLobby);
         }
 
         private void HandleReadyClicked()

@@ -48,6 +48,27 @@ ADR-0010(서버 권위 가구 물리) 예외에 해당하지 않는다. 서버�
 - 그림자는 `PC_RPAsset`의 Additional Light Shadows(켜짐)에 기댄다. `Mobile_RPAsset`은 꺼져 있어 그림자가 없다.
   Additional Lights Per Object 한도 4 — 방 조명이 많은 곳에서 가까운 오브젝트 위주로 잘릴 수 있다.
 
+### 4.1 쿠키·빛줄기 (2026-10-03)
+
+스포트 라이트만으로는 표면에 동그란 원 하나만 맺혀 어색했다. 표면 무늬와 공기 중 빛줄기를 더한다. 둘 다 런타임 생성물이고 네트워크와 무관한 로컬 연출이다.
+
+| 대상 | 경로 | 역할 |
+| --- | --- | --- |
+| `HeadlampVisuals` | `Assets/Scripts/Gameplay/Player/HeadlampVisuals.cs` | 쿠키 텍스처(128², Clamp)·원뿔 메시 생성 — EditMode `HeadlampVisualsTests` |
+| 빛줄기 셰이더 | `Assets/Shaders/HeadlampBeam.shader` (`GhostHunter/HeadlampBeam`) | 가산 반투명 원뿔(가짜 볼류메트릭) |
+| 빛줄기 재질 | `Assets/Materials/M_HeadlampBeam.mat` | 윤곽 흐림·길이 감쇠·벽 경계 흐림·자기 시점 배율 |
+
+- **쿠키** — 가운데 핫스팟(1) + 테두리 링 + 바깥으로 흐려지는 주변광, 바깥 각도(반지름 1) 이상은 0. `HeadlampSettings`의
+  `CookieHotspotRadius`·`CookieSpill`·`CookieRingStrength`로 만들고, `CookieOverride`에 직접 그린 텍스처를 넣으면 그걸 쓴다.
+  스포트의 안쪽·바깥 각도 감쇠와 곱해진다. `PC_RPAsset`·`Mobile_RPAsset` 모두 Light Cookies 켜짐.
+- **빛줄기** — `Headlamp` 아래 `HeadlampBeam`(MeshRenderer, 그림자 끔). 각도 `BeamAngle`(36°, 조명 바깥 62°보다 좁게), 최대 길이 `BeamLength`(6m),
+  세기 `BeamIntensity`(조명 색에 곱함). 켜짐은 조명과 같다(저전력 깜빡임 포함).
+  - 길이는 매 프레임 램프 정면 레이캐스트(`BeamOcclusionMask`, 트리거·자기 몸 제외)로 가로막는 표면 + 0.3m까지 줄인다 — 벽 너머로 새지 않게.
+    줄어들 땐 즉시, 늘어날 땐 부드럽게. 스케일 1 규칙 때문에 트랜스폼이 아니라 `MaterialPropertyBlock`의 `_BeamLength`로 정점을 늘린다.
+  - 자기 시점: 셰이더가 카메라–램프 거리로 판단해 `_NearApexScale`(0.35)만큼 약하게 그린다. 관전 1인칭 추종도 같은 규칙이라 코드 분기가 없다.
+  - 벽·바닥 경계 흐림은 카메라 깊이 텍스처가 필요하다 — `PC_RPAsset` 켜짐, `Mobile_RPAsset` 꺼짐(쓰려면 재질의 Soft Intersection을 끈다).
+- 화면 검증 전 임시값이다(HL-2와 함께 조정).
+
 ## 5. 호스트 이전
 
 `StageRecoverySnapshot.PlayerState`에 `HeadlampOn`·`HeadlampDrained`(쓴 양)를 싣는다. 남은 양이 아니라 쓴 양이라서
@@ -55,7 +76,8 @@ ADR-0010(서버 권위 가구 물리) 예외에 해당하지 않는다. 서버�
 
 ## 6. 검증
 
-- EditMode `HeadlampBatteryTests`(배터리·토글·충전·깜빡임), `ProjectWiringTests`(F 바인딩·프리팹 배선).
+- EditMode `HeadlampBatteryTests`(배터리·토글·충전·깜빡임), `HeadlampVisualsTests`(쿠키 모양·빛줄기 메시),
+  `ProjectWiringTests`(F 바인딩·프리팹 배선·빛줄기 재질).
 - 실제 화면·효과음·Host/Client·Steam 2PC는 미검증.
 
 ## 7. 라이터 (2026-09-29)

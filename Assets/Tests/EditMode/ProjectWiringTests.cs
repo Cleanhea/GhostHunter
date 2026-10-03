@@ -373,6 +373,12 @@ namespace GhostHunter.Tests.EditMode
             foreach (string reference in new[] { "_input", "_look", "_motor", "_sanity" })
                 Assert.IsNotNull(serialized.FindProperty(reference).objectReferenceValue,
                     $"Player 헤드라이트의 {reference} 가 배선되지 않았습니다.");
+
+            Assert.IsNotNull(settings.BeamMaterial, "헤드라이트 빛줄기 재질이 비어 있습니다.");
+            Assert.AreEqual("GhostHunter/HeadlampBeam", settings.BeamMaterial.shader.name,
+                "헤드라이트 빛줄기 재질의 셰이더가 GhostHunter/HeadlampBeam 이 아닙니다.");
+            Assert.IsFalse(ShaderUtil.ShaderHasError(settings.BeamMaterial.shader),
+                "GhostHunter/HeadlampBeam 셰이더에 컴파일 오류가 있습니다.");
         }
 
         [Test]

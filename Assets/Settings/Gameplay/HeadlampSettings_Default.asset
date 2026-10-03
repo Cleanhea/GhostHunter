@@ -28,6 +28,17 @@ MonoBehaviour:
   _color: {r: 1, g: 0.95, b: 0.86, a: 1}
   _shadows: 2
   _shadowStrength: 0.9
+  _cookieOverride: {fileID: 0}
+  _cookieHotspotRadius: 0.32
+  _cookieSpill: 0.45
+  _cookieRingStrength: 0.12
+  _beamMaterial: {fileID: 2100000, guid: 790577a8d3ad4894ae1c516795fcc3f5, type: 2}
+  _beamAngle: 36
+  _beamLength: 6
+  _beamIntensity: 0.12
+  _beamOcclusionMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
   _onClip: {fileID: 0}
   _offClip: {fileID: 0}
   _brokenClip: {fileID: 0}

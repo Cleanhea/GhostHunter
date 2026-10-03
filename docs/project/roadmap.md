@@ -13,7 +13,7 @@
 관련 EditMode 35/35·PlayMode 43/43 통과. 전체 EditMode 399건 중 397 통과(기존 MoleSkillWiringTests 실패 2건).\nLocal Host 배치·실제 CharacterController 계단/입구 이동·책 후보 4곳 안착·발사/청소/반출 안내·다음 Stage1 흐름 확인. 가구별 가격·다인 플레이 시간/체감·Steam 확인 필요 → [tutorial-stage.md](tutorial-stage.md).
 
 **Tutorial 첫 스테이지 최초 검증(2026-10-02):** 모텔 텍스처 268개·URP 재질 156개, 스케일 1 프리팹, Stage1 밤 조명 참조, 앞쪽 드릴카 배치 완료.
-일반 로비/Local Host → Tutorial → 종료·전멸 후 Result → InGameLobby → Stage1. 정산 없는 ESC 이탈은 Tutorial 재시도.
+일반 로비/Local Host → InGameLobby(드릴카 상점) → Tutorial → 종료·전멸 후 Result → InGameLobby → Stage1. 정산 없는 ESC 이탈은 Tutorial 재시도.
 컴파일·Tutorial 구조 검사 4/4·Local Host 흐름 3/3 통과. 전체 EditMode 394건 중 392 통과. 남은 2건은 이번 변경과 무관한 MoleSkillWiringTests 소스 검사(일시정지 잠금 순서·귀신 굴착 노출)다.
 Unity 렌더 캡처로 외형/암흑/발광 확인. 후속 원룸 작업에서 계단/202호 입구 이동 확인. 드릴카 램프 입력·Steam 2PC는 확인 필요 → [tutorial-stage.md](tutorial-stage.md), [ADR-0021](../architecture/decisions/ADR-0021-tutorial-first-stage.md).
 
@@ -43,7 +43,7 @@ B안(`PlanBFurnitureSpawnSetup` — 가구 풀·후보·서버 생성기·앞마
 
 | 시스템 | 상태 |
 | --- | --- |
-| 일반 로비·인게임 로비·상점·스테이지 전환 | 세션 유지, 전환마다 플레이어 재스폰, 인게임 로비 ⇄ 스테이지는 이전 씬 먼저 언로드([ADR-0018](../architecture/decisions/ADR-0018-persistent-session-in-game-lobby.md)). 코드·설치 도구 반영(2026-09-28), 게스트·Steam 다인 미검증. 첫 게임은 **Tutorial**, 정산 뒤 출발은 **Stage1**(B안·드릴카 안전 구역·조립 영역·정신력 UI·귀신·청소·부활 의식), 구 Game 은 **ProtoTypeGame**([ADR-0019](../architecture/decisions/ADR-0019-stage1-scene-split.md)) — 에디터 메뉴 실행·Stage1 진입 확인(ST-9) |
+| 일반 로비·인게임 로비·상점·스테이지 전환 | 세션 유지, 전환마다 플레이어 재스폰, 인게임 로비 ⇄ 스테이지는 이전 씬 먼저 언로드([ADR-0018](../architecture/decisions/ADR-0018-persistent-session-in-game-lobby.md)). 코드·설치 도구 반영(2026-09-28), 게스트·Steam 다인 미검증. 세션은 InGameLobby에서 열리고 첫 출발은 **Tutorial**, 정산 뒤 출발은 **Stage1**(B안·드릴카 안전 구역·조립 영역·정신력 UI·귀신·청소·부활 의식), 구 Game 은 **ProtoTypeGame**([ADR-0019](../architecture/decisions/ADR-0019-stage1-scene-split.md)) — 에디터 메뉴 실행·Stage1 진입 확인(ST-9) |
 | 드릴카(모델) | Stage1 에 모델 프리팹 고정 배치(2026-09-29) — 임포트 0.9배(1.3m 캐릭터 기준), 텍스처 연결, 실내 = 안전·반출 구역, 정신력 현황판 실내 앞벽, 조립 영역은 램프 앞. 자동 테스트 통과(기존 실패 3건 제외), Host/Client 실기·귀신 NavMesh 재굽기 미검증 → [stage-system.md §2.1](stage-system.md) |
 | 귀신(모델) | 2026-09-30 — `Ghost_Prototype` 본체 캡슐을 `Mesh/Ghost/Ghost.fbx`(천 귀신 스킨 메시)로 교체. 임포트 2배(높이 약 1.52m, 0.2m 부양), Y +90°로 정면 맞춤, 재질 `M_Ghost`(Lit 반투명 + 발광 텍스처, 어둠에선 윤곽만). 보는 사람 정신력이 낮을수록 선명(알파 0.3→0.9, 피어별 연출). EditMode 380개 중 378 통과(기존 소스 검사 실패 2건), 에디터·Host/Client 실기 외형 미검증 → [ghost-prototype.md §4](../architecture/ghost-prototype.md) |
 | 부활 의식 | 2026-09-30 — Stage1 에 방 하나를 무작위로 **의식 방**으로 비우고(가구·얼룩 없음) 가운데 마법진·둘레 촛대 5개, 촛대에 E 로 촛불 꽂기(팀 재고 소모)·타이밍 점화·귀신 문 열기/방 이탈/점화 중 이동 시 초기화·정상/폐급(98%)/저주(2%) 판정·3초 보호. 폐급 효과는 키 반대·저주 이동만. 자동 테스트만, Host/Client 실기 미검증 → [revival-system.md](revival-system.md) |

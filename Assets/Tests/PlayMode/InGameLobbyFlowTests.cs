@@ -149,7 +149,7 @@ namespace GhostHunter.Tests.PlayMode
         }
 
         [UnityTest, Timeout(400000)]
-        public IEnumerator 첫_게임은_Tutorial로_시작하고_종료_후_Stage1로_진행한다()
+        public IEnumerator 첫_출발은_Tutorial이고_종료_후_Stage1로_진행한다()
         {
             yield return VerifyTutorialEnd(false);
         }
@@ -170,6 +170,9 @@ namespace GhostHunter.Tests.PlayMode
                 transport.SetConnectionData("127.0.0.1", TestPort, "127.0.0.1");
             connection.SetTransportMode(TransportMode.Local);
             connection.StartHost();
+            // 세션은 인게임 로비(드릴카 상점)에서 열리고, 첫 출발이 Tutorial 이다.
+            yield return WaitForPlayerIn(sceneFlow, stageFlow, SceneId.InGameLobby);
+            Assert.IsTrue(stageFlow.StartStage());
             yield return WaitForPlayerIn(sceneFlow, stageFlow, SceneId.Tutorial);
             AssertTutorialContents(LocalPlayer());
 
@@ -214,6 +217,9 @@ namespace GhostHunter.Tests.PlayMode
                 transport.SetConnectionData("127.0.0.1", TestPort, "127.0.0.1");
             connection.SetTransportMode(TransportMode.Local);
             connection.StartHost();
+            // 세션은 인게임 로비(드릴카 상점)에서 열리고, 첫 출발이 Tutorial 이다.
+            yield return WaitForPlayerIn(sceneFlow, stageFlow, SceneId.InGameLobby);
+            Assert.IsTrue(stageFlow.StartStage());
             yield return WaitForPlayerIn(sceneFlow, stageFlow, SceneId.Tutorial);
             var furniture = Object.FindFirstObjectByType<GhostHunter.Gameplay.Map.FurnitureSpawnController>();
             CleaningController cleaning = Object.FindFirstObjectByType<CleaningController>();
@@ -288,7 +294,11 @@ namespace GhostHunter.Tests.PlayMode
             Assert.IsTrue(launcher.HasLaunched);
             yield return new WaitForSeconds(.3f);
             var hud = Object.FindFirstObjectByType<GhostHunter.UI.TutorialHud>();
-            Assert.IsTrue(Array.Exists(hud.GetComponentsInChildren<UnityEngine.UI.Text>(), text => text.text.Contains("2. 얼룩 청소")));
+            // 처음엔 가운데에 기본 조작 카드가 뜬다. 닫으면 지금 단계(청소) 카드가 뜬다.
+            Assert.IsTrue(Array.Exists(hud.GetComponentsInChildren<UnityEngine.UI.Text>(true), text => text.text.Contains("기본 조작")));
+            hud.Dismiss();
+            yield return null;
+            Assert.IsTrue(Array.Exists(hud.GetComponentsInChildren<UnityEngine.UI.Text>(true), text => text.text.Contains("얼룩 청소")));
 
             // 실제 서버 기록을 닦기/반출로 갱신하고 HUD가 같은 기준을 읽는지 확인한다.
             foreach (CleaningStain stain in cleaning.Stains)
@@ -307,7 +317,8 @@ namespace GhostHunter.Tests.PlayMode
                 }
             yield return new WaitForSeconds(.3f);
             Assert.AreEqual(6, cleaning.TaskProgress.DeliveredFurniture);
-            Assert.IsTrue(Array.Exists(hud.GetComponentsInChildren<UnityEngine.UI.Text>(), text => text.text.Contains("원룸 목표 완료")));
+            Assert.IsTrue(Array.Exists(hud.GetComponentsInChildren<UnityEngine.UI.Text>(true), text => text.text.Contains("목표 완료")),
+                "청소 카드를 닫지 않았어도 팀이 다음 단계로 가면 새 카드로 바뀐다");
             Assert.IsEmpty(_exceptions);
         }
 

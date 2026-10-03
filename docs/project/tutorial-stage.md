@@ -6,7 +6,7 @@
 - 1m = 원본 도면 100px. Unity에서는 1 unit = 1m이며 모든 작성한 맵·Tutorial 가구 Transform의 localScale은 1이다.
 - 목표 플레이 시간 5~8분, 10분 이내는 설계 목표다. 시간 제한에 따른 강제 종료·탈락은 없다. 실제 다인 플레이 시간과 난이도 평가는 필요하다.
 - 베이직 귀신 1명. 매 판 초자연현상 **3종류**를 선택해 반복하며 직전 종류는 연속 선택하지 않는다.
-- 첫 게임: 일반 Lobby 또는 Local Host → Tutorial. 드릴카 종료나 팀 전멸 → Result → InGameLobby → 다음 출발 Stage1.
+- 첫 게임: 일반 Lobby 또는 Local Host → InGameLobby(드릴카 상점) → 출발 → Tutorial. 드릴카 종료나 팀 전멸 → Result → InGameLobby → 다음 출발 Stage1.
 - 정산 없이 ESC로 나가면 Tutorial을 다시 시작한다. Title/일반 Lobby로 돌아가면 첫 스테이지 기록을 초기화한다. 완료 기록을 디스크에 저장하지 않는다.
 - Stage1 밤·안개·StageLightingSettings_Default를 참조한다. 드릴카는 모텔 앞에 배치한다.
 
@@ -34,7 +34,10 @@ TV/선반을 포함한 가구별 가격표는 미정이다. 현재 정산·상�
 
 ## 안내와 퀘스트
 
-TutorialHud가 화면 오른쪽 위에서 키캡과 팀 목표를 보여 준다. 기존 청소 진행도 HUD도 함께 사용한다.
+**2026-10-03 사용자 변경 — 상시 패널 대신 가운데 카드 연출.** TutorialHud 는 단계가 바뀔 때 화면 가운데에 카드를 띄우고(페이드·살짝 커지며 등장),
+플레이어가 **[X]** 로 닫는다(커서가 잠겨 있어 클릭이 아니라 키, Enter 는 공격 키라 쓰지 않는다). 처음엔 **기본 조작 카드**(키캡 8개)가 뜨고, 닫으면 지금 단계 카드가 뜬다.
+닫은 카드는 다시 뜨지 않는다. 카드가 떠 있는 동안 팀이 다음 단계로 넘어가면 새 단계 카드로 바뀐다. 카드는 입력을 막지 않고, ESC 메뉴가 열린 동안 숨는다.
+진행 수치(얼룩·반출 개수)는 기존 청소 진행도 HUD 가 보여 준다. **이전 패널에 있던 "조준한 가구 내구도 n/100" 상시 표시와 "밀치기 연습 □/✓" 표시는 없앴다.**
 
 1. **루시우(가구 밀치기)**: Tab으로 맨손 선택, 가구 조준, 좌클릭 홀드 후 해제. 강한 벽·바닥 충돌은 내구도를 줄인다고 안내하며 조준 가구의 현재 내구도를 표시한다.
 2. **청소**: 팀의 가구 발사가 한 번 확인되면 Tab 대걸레 선택·좌클릭 청소·Q 탐지를 안내한다. 얼룩 목표 7개를 표시한다.
@@ -84,7 +87,7 @@ TutorialHud가 화면 오른쪽 위에서 키캡과 팀 목표를 보여 준다.
 | Assets/Mesh/TutorialMap/Materials/ | FBX 재질 156개를 URP/Lit로 연결 |
 | Assets/Mesh/TutorialMap/Textures/ | PNG 268개를 BaseMap·Normal·MetallicSmoothness·발광/데칼에 연결 |
 | Assets/Mesh/TutorialMap/Baked/ | 스케일/치수/축/가구 변환을 반영한 native Mesh |
-| Assets/Scripts/UI/TutorialHud.cs | 키캡·연습 기록·청소/반출 목표·조준 가구 내구도 안내 |
+| Assets/Scripts/UI/TutorialHud.cs | 가운데 안내 카드 — 기본 조작(키캡)·단계별 안내, [X] 로 닫기 (2026-10-03) |
 
 원본 FBX와 NavMesh에 쓰는 모든 native 메시의 Read/Write를 켰다. 귀신이 PhysicsColliders로 런타임 NavMesh를 만들 때 원본 메시 읽기가 필요하다.
 Normal은 normal map 타입, MetallicSmoothness는 Linear다. 원본 재내보내기 시 외부 재질 매핑·프리팹·Baked를 함께 검토한다.

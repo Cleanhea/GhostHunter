@@ -33,6 +33,15 @@ namespace GhostHunter.Gameplay.Player
         /// <summary>배터리 값을 복제하는 간격(초). 전원은 바뀌는 즉시 보낸다.</summary>
         private const float BatteryPublishInterval = 0.25f;
 
+        /// <summary>빛줄기를 가로막은 표면 너머로 더 그리는 거리(m) — 경계는 셰이더의 깊이 흐림이 처리한다.</summary>
+        private const float BeamOcclusionMargin = 0.3f;
+
+        /// <summary>가로막던 것이 치워졌을 때 빛줄기가 다시 늘어나는 속도(지수 감쇠 계수). 줄어들 때는 즉시.</summary>
+        private const float BeamGrowRate = 12f;
+
+        private static readonly int BeamLengthId = Shader.PropertyToID("_BeamLength");
+        private static readonly int BeamColorId = Shader.PropertyToID("_BeamColor");
+
         [SerializeField] private HeadlampSettings _settings;
         [SerializeField] private PlayerInputReader _input;
         [SerializeField] private PlayerLook _look;
@@ -52,6 +61,12 @@ namespace GhostHunter.Gameplay.Player
         private HeadlampBattery _state;
         private PlayerLighter _lighter;
         private Light _light;
+        private Texture2D _cookie;
+        private MeshRenderer _beamRenderer;
+        private Mesh _beamMesh;
+        private MaterialPropertyBlock _beamProperties;
+        private readonly RaycastHit[] _beamHits = new RaycastHit[8];
+        private float _beamLength;
         private AudioSource _audio;
         private ISceneFlow _sceneFlow;
         private float _nextBatteryPublishAt;
@@ -164,8 +179,22 @@ namespace GhostHunter.Gameplay.Player
                 _settings.BlinkOnSeconds);
 
             _light.enabled = on && !blinkDark;
+            if (_beamRenderer != null)
+                _beamRenderer.enabled = _light.enabled;
             if (on)
                 FollowHead();
+            if (_light.enabled && _beamRenderer != null)
+                UpdateBeam(Time.deltaTime);
+        }
+
+        public override void OnDestroy()
+        {
+            // 런타임에 만든 쿠키·메시는 씬이 정리해 주지 않는다.
+            if (_cookie != null)
+                Destroy(_cookie);
+            if (_beamMesh != null)
+                Destroy(_beamMesh);
+            base.OnDestroy();
         }
 
         private void OwnerTick(float deltaTime)
@@ -251,6 +280,35 @@ namespace GhostHunter.Gameplay.Player
             lamp.localRotation = pitch;
         }
 
+        /// <summary>
+        /// 앞을 가로막는 표면까지만 빛줄기를 그린다 — 벽 너머로 새어 나가 보이지 않게. 자기 몸 충돌체는 건너뛴다
+        /// (엎드려 아래를 볼 때 램프가 캡슐 밖에 있을 수 있다).
+        /// </summary>
+        private void UpdateBeam(float deltaTime)
+        {
+            Transform lamp = _light.transform;
+            float maxLength = _settings.BeamLength;
+            int count = Physics.RaycastNonAlloc(
+                lamp.position, lamp.forward, _beamHits, maxLength,
+                _settings.BeamOcclusionMask, QueryTriggerInteraction.Ignore);
+
+            float target = maxLength;
+            for (int i = 0; i < count; i++)
+            {
+                RaycastHit hit = _beamHits[i];
+                if (hit.distance < target && !hit.collider.transform.IsChildOf(transform))
+                    target = hit.distance;
+            }
+
+            target = Mathf.Min(maxLength, target + BeamOcclusionMargin);
+            _beamLength = target < _beamLength
+                ? target
+                : Mathf.Lerp(_beamLength, target, 1f - Mathf.Exp(-BeamGrowRate * deltaTime));
+
+            _beamProperties.SetFloat(BeamLengthId, _beamLength);
+            _beamRenderer.SetPropertyBlock(_beamProperties);
+        }
+
         private void BuildLight()
         {
             GameObject lampObject = new("Headlamp");
@@ -265,12 +323,56 @@ namespace GhostHunter.Gameplay.Player
             _light.color = _settings.Color;
             _light.shadows = _settings.Shadows;
             _light.shadowStrength = _settings.ShadowStrength;
+            // 동그란 원 하나 대신 핫스팟·링·주변광 무늬를 씌운다.
+            if (_settings.CookieOverride != null)
+            {
+                _light.cookie = _settings.CookieOverride;
+            }
+            else
+            {
+                _cookie = HeadlampVisuals.CreateCookie(
+                    _settings.CookieHotspotRadius, _settings.CookieSpill, _settings.CookieRingStrength);
+                _light.cookie = _cookie;
+            }
+
             _light.enabled = false;
+            BuildBeam(lampObject.transform);
 
             // 전원 효과음은 누른 사람에게만 들린다(기획서 §4 — F키 입력 시 재생).
             _audio = lampObject.AddComponent<AudioSource>();
             _audio.playOnAwake = false;
             _audio.spatialBlend = 0f;
+        }
+
+        /// <summary>
+        /// 공기 중에 보이는 빛줄기 원뿔. 램프 오브젝트의 자식이라 위치·방향은 <see cref="FollowHead"/> 를 따른다.
+        /// 길이는 스케일이 아니라 셰이더 속성으로 바꾼다(씬 오브젝트 스케일 1 규칙).
+        /// </summary>
+        private void BuildBeam(Transform lamp)
+        {
+            if (_settings.BeamMaterial == null)
+                return;
+
+            GameObject beamObject = new("HeadlampBeam");
+            beamObject.transform.SetParent(lamp, false);
+
+            _beamMesh = HeadlampVisuals.CreateBeamMesh(_settings.BeamAngle, _settings.BeamLength);
+            beamObject.AddComponent<MeshFilter>().sharedMesh = _beamMesh;
+
+            // 그림자를 드리우면 자기 스포트 라이트를 가린다.
+            _beamRenderer = beamObject.AddComponent<MeshRenderer>();
+            _beamRenderer.sharedMaterial = _settings.BeamMaterial;
+            _beamRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            _beamRenderer.receiveShadows = false;
+            _beamRenderer.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off;
+            _beamRenderer.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
+            _beamRenderer.enabled = false;
+
+            _beamLength = _settings.BeamLength;
+            _beamProperties = new MaterialPropertyBlock();
+            _beamProperties.SetColor(BeamColorId, _settings.Color * _settings.BeamIntensity);
+            _beamProperties.SetFloat(BeamLengthId, _beamLength);
+            _beamRenderer.SetPropertyBlock(_beamProperties);
         }
     }
 }

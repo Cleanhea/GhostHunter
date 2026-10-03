@@ -59,6 +59,35 @@ namespace GhostHunter.Gameplay.Player
 
         [SerializeField, Range(0f, 1f)] private float _shadowStrength = 0.9f;
 
+        [Header("쿠키 — 표면에 맺히는 무늬. 가운데 핫스팟 + 테두리 링 + 흐린 주변광")]
+        [Tooltip("직접 그린 쿠키 텍스처(가운데 = 원뿔 축, 가장자리는 검정, Wrap Clamp). 비어 있으면 아래 값으로 만든다.")]
+        [SerializeField] private Texture2D _cookieOverride;
+
+        [Tooltip("핫스팟 반지름 — 쿠키 반지름(바깥 각도) 대비 비율.")]
+        [SerializeField, Range(0.05f, 0.9f)] private float _cookieHotspotRadius = 0.32f;
+
+        [Tooltip("핫스팟 밖 주변광 밝기(핫스팟 = 1). 낮을수록 동그란 원만 남는다.")]
+        [SerializeField, Range(0f, 1f)] private float _cookieSpill = 0.45f;
+
+        [Tooltip("핫스팟 테두리에 생기는 밝은 링 세기. 반사경 손전등 느낌.")]
+        [SerializeField, Range(0f, 0.5f)] private float _cookieRingStrength = 0.12f;
+
+        [Header("빛줄기 — 공기 중에 은은하게 보이는 원뿔(가짜 볼류메트릭)")]
+        [Tooltip("GhostHunter/HeadlampBeam 재질. 윤곽·감쇠·벽 경계 흐림은 재질에서 조정한다. 비어 있으면 빛줄기를 만들지 않는다.")]
+        [SerializeField] private Material _beamMaterial;
+
+        [Tooltip("빛줄기 원뿔 각도(도). 조명 바깥 각도보다 좁게 — 핫스팟 언저리만 보이게 한다.")]
+        [SerializeField, Range(1f, 120f)] private float _beamAngle = 36f;
+
+        [Tooltip("빛줄기 최대 길이(m). 앞이 가로막히면 그 거리까지만 그린다.")]
+        [SerializeField, Min(0.5f)] private float _beamLength = 6f;
+
+        [Tooltip("빛줄기 세기(조명 색에 곱한다). 다른 플레이어 기준 — 자기 시점은 재질의 Near Lamp Scale 만큼 더 약하다.")]
+        [SerializeField, Range(0f, 1f)] private float _beamIntensity = 0.12f;
+
+        [Tooltip("빛줄기를 자르는 레이어. 벽·가구·플레이어처럼 빛을 막는 것.")]
+        [SerializeField] private LayerMask _beamOcclusionMask = ~0;
+
         [Header("효과음 (기획서 §4) — 비어 있으면 재생하지 않는다")]
         [Tooltip("SFX_flashlight_on")]
         [SerializeField] private AudioClip _onClip;
@@ -87,6 +116,15 @@ namespace GhostHunter.Gameplay.Player
         public Color Color => _color;
         public LightShadows Shadows => _shadows;
         public float ShadowStrength => _shadowStrength;
+        public Texture2D CookieOverride => _cookieOverride;
+        public float CookieHotspotRadius => _cookieHotspotRadius;
+        public float CookieSpill => _cookieSpill;
+        public float CookieRingStrength => _cookieRingStrength;
+        public Material BeamMaterial => _beamMaterial;
+        public float BeamAngle => _beamAngle;
+        public float BeamLength => _beamLength;
+        public float BeamIntensity => _beamIntensity;
+        public LayerMask BeamOcclusionMask => _beamOcclusionMask;
         public AudioClip OnClip => _onClip;
         public AudioClip OffClip => _offClip;
         public AudioClip BrokenClip => _brokenClip;
