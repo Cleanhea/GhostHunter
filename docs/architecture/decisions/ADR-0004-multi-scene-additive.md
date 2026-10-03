@@ -39,10 +39,12 @@
 
 전환 순서는 MUST **① 새 씬 additive 로드 → ② `SetActiveScene` → ③ 이전 씬 언로드** 다.
 
-언로드 경로는 씬을 올린 주체에 따라 갈린다.
+언로드 경로는 **내리는 시점에 세션이 도는가**로 갈린다(씬을 올린 주체가 아니다).
 
-- NGO가 올린 씬 → `NetworkManager.SceneManager.UnloadScene`. 서버만 시작할 수 있고 클라이언트는 동기화로 따라온다.
-- 로컬로 올린 씬 → 각 피어가 `SceneManager.UnloadSceneAsync`로 직접 내린다. NGO는 이 씬을 추적하지 않는다.
+- 세션 중인 서버 → `NetworkManager.SceneManager.UnloadScene`. 클라이언트는 동기화로 따라온다.
+  NGO는 `StartHost` 시점에 이미 올라와 있던 씬(호스트가 세션 전에 로컬로 올린 첫 인게임 로비)도 추적해
+  게스트에게 동기화하므로, 그 씬도 NGO로 내려야 한다. 로컬로 내리면 게스트 화면에 남는다(2026-10-03 수정).
+- 세션 밖(시작 전·종료 중·종료 후) → 각 피어가 `SceneManager.UnloadSceneAsync`로 직접 내린다.
 
 ## 근거 (Rationale)
 

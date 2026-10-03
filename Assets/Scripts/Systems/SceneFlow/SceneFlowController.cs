@@ -398,7 +398,6 @@ namespace GhostHunter.Systems.SceneFlow
             IsLoading = true;
 
             Scene previousScene = _currentScene;
-            bool previousLoadedByNgo = _currentLoadedByNgo;
             List<Behaviour> suspended = SuspendSceneInput(previousScene);
             bool unloadFirst = UnloadsBeforeLoad(Current, target);
 
@@ -411,7 +410,7 @@ namespace GhostHunter.Systems.SceneFlow
                     Scene bootstrap = SceneManager.GetSceneByName(_scenes.GetSceneName(SceneId.Bootstrap));
                     if (bootstrap.IsValid() && bootstrap.isLoaded)
                         SceneManager.SetActiveScene(bootstrap);
-                    await UnloadAsync(networkManager, previousScene, previousLoadedByNgo);
+                    await UnloadAsync(networkManager, previousScene);
                 }
 
                 Scene loaded = useNgo
@@ -441,7 +440,7 @@ namespace GhostHunter.Systems.SceneFlow
                 }
 
                 if (!unloadFirst && previousScene.IsValid() && previousScene.isLoaded)
-                    await UnloadAsync(networkManager, previousScene, previousLoadedByNgo);
+                    await UnloadAsync(networkManager, previousScene);
 
                 SceneChanged?.Invoke(target);
                 if (returnFromStage)
@@ -531,8 +530,14 @@ namespace GhostHunter.Systems.SceneFlow
             void OnLoadCompleted(
                 string loadedName, LoadSceneMode mode, List<ulong> completed, List<ulong> timedOut)
             {
-                if (loadedName == sceneName)
-                    completion.TrySetResult();
+                if (loadedName != sceneName)
+                    return;
+
+                if (timedOut.Count > 0)
+                    Debug.LogWarning(
+                        $"{nameof(SceneFlowController)}: {sceneName} 로드 완료를 보고하지 않은 클라이언트 — " +
+                        string.Join(", ", timedOut), this);
+                completion.TrySetResult();
             }
 
             networkManager.SceneManager.OnLoadEventCompleted += OnLoadCompleted;
@@ -549,7 +554,9 @@ namespace GhostHunter.Systems.SceneFlow
                     return default;
                 }
 
-                await completion.Task.AttachExternalCancellation(destroyCancellationToken);
+                if (!await WaitForSceneEventAsync(networkManager, completion.Task))
+                    Debug.LogWarning(
+                        $"{nameof(SceneFlowController)}: {sceneName} 로드를 기다리는 중 세션이 끝났다.", this);
             }
             finally
             {
@@ -558,25 +565,36 @@ namespace GhostHunter.Systems.SceneFlow
                     networkManager.SceneManager.OnLoadEventCompleted -= OnLoadCompleted;
             }
 
-            return SceneManager.GetSceneByName(sceneName);
+            // 세션이 끝나 기다림이 풀렸어도 씬이 이미 올라왔으면 받아들인다. 버리면 서비스를 등록한 채 고아로 남는다.
+            Scene loaded = SceneManager.GetSceneByName(sceneName);
+            return loaded.isLoaded ? loaded : default;
         }
 
-        /// <summary>올린 주체가 내린다. NGO 가 올린 씬을 로컬로 내리면 클라이언트와 어긋난다.</summary>
-        private async UniTask UnloadAsync(NetworkManager networkManager, Scene scene, bool loadedByNgo)
+        /// <summary>
+        /// NGO 씬 이벤트 완료를 기다린다. 기다리는 동안 세션이 내려가면 NGO 는 이벤트를 버려 완료가 오지 않는다 —
+        /// 그때도 풀려나야 <see cref="IsLoading"/> 에 박혀 이후 전환(타이틀 복귀 포함)이 전부 거부되지 않는다.
+        /// 정지 콜백 안에서 이어 달리면 셧다운 도중 NGO 를 다시 건드리므로 프레임마다 확인한다.
+        /// </summary>
+        /// <returns>이벤트가 완료됐으면 true, 세션이 먼저 끝났으면 false.</returns>
+        private async UniTask<bool> WaitForSceneEventAsync(NetworkManager networkManager, UniTask completed)
         {
-            if (!loadedByNgo)
+            int winner = await UniTask.WhenAny(
+                completed,
+                UniTask.WaitUntil(() => !networkManager.IsListening, cancellationToken: destroyCancellationToken));
+            return winner == 0;
+        }
+
+        /// <summary>
+        /// 세션 중인 서버는 NGO 로 내린다 — <b>누가 올렸든</b>. NGO 는 <c>StartHost</c> 시점에 이미 올라와 있던 씬
+        /// (호스트가 세션 전에 로컬로 올린 첫 인게임 로비)도 추적해 게스트에게 동기화하므로, 그 씬을 로컬로 내리면
+        /// 게스트에게 언로드가 전달되지 않아 화면에 남는다. 세션 밖에서는 로컬로 내린다.
+        /// </summary>
+        private async UniTask UnloadAsync(NetworkManager networkManager, Scene scene)
+        {
+            if (networkManager == null || !networkManager.IsListening || !networkManager.IsServer
+                || networkManager.ShutdownInProgress || !networkManager.NetworkConfig.EnableSceneManagement)
             {
-                AsyncOperation operation = SceneManager.UnloadSceneAsync(scene);
-
-                if (operation != null)
-                    await operation.ToUniTask(cancellationToken: destroyCancellationToken);
-
-                return;
-            }
-
-            if (networkManager == null || !networkManager.IsListening || !networkManager.IsServer)
-            {
-                // 세션이 이미 끝났으면 NGO 가 씬을 추적하지 않는다. 로컬로 내리는 수밖에 없다.
+                // 세션이 없거나 끝나는 중이면 NGO 가 씬을 추적하지 않는다. 로컬로 내리는 수밖에 없다.
                 AsyncOperation operation = SceneManager.UnloadSceneAsync(scene);
 
                 if (operation != null)
@@ -608,7 +626,15 @@ namespace GhostHunter.Systems.SceneFlow
                     return;
                 }
 
-                await completion.Task.AttachExternalCancellation(destroyCancellationToken);
+                if (!await WaitForSceneEventAsync(networkManager, completion.Task)
+                    && scene.IsValid() && scene.isLoaded)
+                {
+                    // 세션이 끝나 NGO 가 언로드를 버렸다. 이제 아무도 추적하지 않으니 로컬로 내린다.
+                    AsyncOperation operation = SceneManager.UnloadSceneAsync(scene);
+
+                    if (operation != null)
+                        await operation.ToUniTask(cancellationToken: destroyCancellationToken);
+                }
             }
             finally
             {

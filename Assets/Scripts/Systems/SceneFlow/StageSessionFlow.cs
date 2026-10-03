@@ -21,8 +21,6 @@ namespace GhostHunter.Systems.SceneFlow
     [DisallowMultipleComponent]
     public sealed class StageSessionFlow : MonoBehaviour, IStageSessionFlow
     {
-        private static readonly TimeSpan TransitionTimeout = TimeSpan.FromSeconds(60);
-
         private ISceneFlow _sceneFlow;
         private bool _transitioning;
         private bool _tutorialCompleted;
@@ -90,14 +88,6 @@ namespace GhostHunter.Systems.SceneFlow
         {
             _transitioning = true;
             NetworkManager network = NetworkManager.Singleton;
-            var changed = new UniTaskCompletionSource();
-            void HandleSceneChanged(SceneId id)
-            {
-                if (id == target)
-                    changed.TrySetResult();
-            }
-
-            _sceneFlow.SceneChanged += HandleSceneChanged;
             try
             {
                 DespawnPlayers(network);
@@ -112,14 +102,13 @@ namespace GhostHunter.Systems.SceneFlow
                     return;
                 }
 
-                await changed.Task.Timeout(TransitionTimeout).AttachExternalCancellation(destroyCancellationToken);
+                // 자체 시간 제한을 두지 않는다. 전환은 NGO LoadSceneTimeOut(늦은 게스트는 timedOut 으로 넘김)이나
+                // 세션 종료로 반드시 끝난다. 그보다 짧게 끊으면 뒤늦게 끝난 전환에서 아무도 플레이어를 되살리지 않는다.
+                await UniTask.WaitUntil(() => !_sceneFlow.IsLoading, cancellationToken: destroyCancellationToken);
+
+                if (_sceneFlow.Current != target)
+                    Debug.LogWarning($"{nameof(StageSessionFlow)}: {target} 전환이 실패했다. 플레이어를 지금 씬에 되살린다.", this);
                 SpawnMissingPlayers(network);
-            }
-            catch (TimeoutException)
-            {
-                Debug.LogError($"{nameof(StageSessionFlow)}: {target} 전환이 시간 안에 끝나지 않았다.", this);
-                if (_sceneFlow.Current == target)
-                    SpawnMissingPlayers(network);
             }
             catch (OperationCanceledException)
             {
@@ -127,7 +116,6 @@ namespace GhostHunter.Systems.SceneFlow
             }
             finally
             {
-                _sceneFlow.SceneChanged -= HandleSceneChanged;
                 _transitioning = false;
             }
         }

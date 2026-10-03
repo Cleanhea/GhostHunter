@@ -174,6 +174,11 @@ private readonly NetworkVariable<bool> _isOpen =
 - **인게임 로비 ⇄ 스테이지(Tutorial·Stage1·ProtoTypeGame)는 이전 씬을 먼저 내린다**(`SceneFlowController.UnloadsBeforeLoad`, 2026-09-28). 두 씬의 설치 컴포넌트가
   같은 서비스를 등록해 겹치면 충돌한다. 이 전환은 `IStageSessionFlow` 가 플레이어를 디스폰한 뒤 시작하고, 새 씬이 올라오면
   접속자마다 플레이어를 다시 스폰한다 → [ADR-0018](decisions/ADR-0018-persistent-session-in-game-lobby.md)
+- **NGO 씬 이벤트 대기는 세션 종료로도 풀린다**(`SceneFlowController.WaitForSceneEventAsync`, 2026-10-03). 게스트가 로드 완료를
+  보고하지 않으면 호스트는 `LoadSceneTimeOut`(120초)까지 기다리는데, 그 사이 세션이 내려가면 NGO는 완료 이벤트를 버린다.
+  예전에는 `IsLoading`에 박혀 타이틀 복귀까지 거부됐다. 늦은 게스트는 완료 시 `timedOut` 목록으로 경고 로그에 남는다.
+  `IStageSessionFlow`는 자체 시간 제한 없이 `ISceneFlow.IsLoading`이 꺼질 때까지 기다린 뒤 플레이어를 되살린다 —
+  예전 60초 제한은 NGO 제한보다 짧아, 뒤늦게 끝난 전환에서 플레이어가 영영 스폰되지 않았다.
 
 ### 3.6 세션 시작 순서 (MUST)
 
