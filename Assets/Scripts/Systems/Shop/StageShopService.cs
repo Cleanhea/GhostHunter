@@ -91,6 +91,24 @@ namespace GhostHunter.Systems.Shop
             return _localGear.TryGetValue(memberKey, out MemberGear gear) ? gear : MemberGear.Starting;
         }
 
+        public bool TrySetBalanceForDebug(int balance)
+        {
+            if (balance < 0 || !CanManage)
+                return false;
+            NetworkManager network = NetworkManager.Singleton;
+            if (network != null && network.IsListening && (!network.IsServer || network.ShutdownInProgress))
+                return false;
+            if (InSteamRoom)
+                return _lobby.TrySetShopBalanceForDebug(balance);
+            if (!IsLocalHost)
+                return false;
+            if (_localBalance == balance)
+                return true;
+            _localBalance = balance;
+            LocalStateChanged();
+            return true;
+        }
+
         public bool TryPurchase(ShopItem item, ulong memberKey)
         {
             if (InSteamRoom)
@@ -185,7 +203,7 @@ namespace GhostHunter.Systems.Shop
             }
             if (!IsLocalHost)
                 return;
-            _localBalance += StageShopRules.StageReward;
+            _localBalance = (int)Math.Min((long)_localBalance + StageShopRules.StageReward, int.MaxValue);
             LocalStateChanged();
         }
 

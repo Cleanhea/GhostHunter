@@ -51,6 +51,9 @@ namespace GhostHunter.Core.Steam
         /// <summary>서버 전용 — 한 판이 끝났다(전멸 포함). <see cref="StageShopRules.StageReward"/> 를 더한다.</summary>
         void ServerGrantStageReward();
 
+        /// <summary>개발 튜닝 — 호스트가 현재 공동 잔액을 0 이상의 정수로 바꾼다. 세션 상태에만 반영한다.</summary>
+        bool TrySetBalanceForDebug(int balance);
+
         /// <summary>잔액·재고·장비·참가자가 바뀌었다.</summary>
         event Action Changed;
     }

@@ -32,6 +32,9 @@ namespace GhostHunter.Core.Steam
         /// <summary>방장이 한 판 보상(<see cref="StageShopRules.StageReward"/>)을 공동 잔액에 더한다.</summary>
         bool TryGrantStageReward();
 
+        /// <summary>개발 튜닝 — 방장이 공동 잔액을 바꾼다. 촛불 재고와 장비는 보존한다.</summary>
+        bool TrySetShopBalanceForDebug(int balance);
+
         /// <summary>플레이어 한 명의 장비. 기록이 없으면 <see cref="MemberGear.Starting"/>.</summary>
         MemberGear GetMemberGear(ulong steamId);
 

@@ -295,6 +295,7 @@ namespace GhostHunter.Tests.PlayMode
             public int CandleCount => 0;
             public bool TryConsumeCandle() => false;
             public bool TryGrantStageReward() => false;
+            public bool TrySetShopBalanceForDebug(int balance) => false;
             public MemberGear GetMemberGear(ulong steamId) => MemberGear.Starting;
             public bool TryPurchase(ShopItem item, ulong forSteamId) => false;
             public bool TryRepairDriver(ulong steamId) => false;

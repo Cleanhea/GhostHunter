@@ -9,6 +9,7 @@
 
 | 날짜 | 태스크 | 비고 |
 | --- | --- | --- |
+| 2026-10-05 | **튜닝 창에 현재 돈 추가(ST-10)** | F2 창에 실제 공동 잔액 표시·입력/적용·±$1. `IStageShopService`를 통해 호스트만 변경하고 Local/Steam 기존 상태 전송 경로 사용. 촛불 재고·보유 장비와 시작 자금·가격·보상 단가 보존, 정수 최대 보상 오버플로 방지. Unity 컴파일·상점 EditMode 10/10·관련 PlayMode 12/12 통과. 실제 F2 입력·원격 Steam 다인 미검증 → [stage-system.md](stage-system.md) |
 | 2026-10-04 | **Local Tutorial 종료 확인창과 실내 판정 수정(SF-FIX-2)** | Input System 전용 설정에서 IMGUI 클릭에 의존하던 종료·취소 및 정산 로비 복귀 버튼에 Mouse 누름/놓음 처리를 추가. 실제 실내 바닥 약 Y 0.86(차 로컬)에 선 발 위치가 SafeZone 하단 1.282m 아래여서 서버가 종료를 거부함을 재현하고 하단을 0.782m로 보정. 상단과 단말기·선반 월드 위치 유지. Unity 컴파일·관련 EditMode 21/21·PlayMode 4/4 통과(실제 마우스 이벤트 취소/종료/복귀, 버튼 밖 드래그 거부, 종료/전멸/재시도, Tutorial → Result → InGameLobby → Stage1 세션 유지). 기존 NGO 핸들 오류 SF-FIX-1은 미해결, 실제 사용자 화면·Steam 다인 미검증 → [stage-system.md §4.1](stage-system.md#41-드릴카-종료-버튼) |
 | 2026-10-04 | **작업 내역별 커밋·푸시 전 검증** | 현재 변경 전체 Unity 컴파일 통과, EditMode 452건 중 450 통과·기존 `MoleSkillWiringTests` 소스 검사 2건 실패, 변경 관련 PlayMode 47/47 통과(실패·스킵 0). 첫 InGameLobby 출발의 NGO 씬 핸들 연결 오류는 테스트가 로그를 무시하여 통과와 별개로 남음(SF-FIX-1, 미수정). 빌드 압축본 `Build.zip`·Unity 복구 씬 `Assets/_Recovery`는 커밋에서 제외. 원격 Host/Client 실기 미검증 |
 | 2026-10-04 | **설치·반출 구역을 드릴카 오른쪽으로 이동(DC-ZONE-1)** | Stage1·Tutorial 모두 차체 오른쪽(+X) 옆으로 이동. 반출은 드릴 쪽 로컬 (5.5, 1.25, 3), 조립은 램프 쪽 (5.5, 0, −3). `DrillCar.prefab` 반출 구역·두 씬 조립 트리거를 옮겨 형광 표시와 실제 판정 위치를 일치시킴. 크기·지면 높이 유지. Unity 컴파일·관련 EditMode 7/7 통과(두 구역의 오른쪽 위치·차체/실내/서로/주변 장애물 겹침 없음·지면 지지). 게임 화면·원격 Host/Client 실기는 미확인 → [stage-system.md §2.1](stage-system.md#21-드릴카-stage1-2026-09-29) |

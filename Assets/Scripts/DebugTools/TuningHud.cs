@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Reflection;
 using System.Text;
+using GhostHunter.Core;
+using GhostHunter.Core.Steam;
 using GhostHunter.Gameplay.Furniture;
 using GhostHunter.Gameplay.Ghost;
 using GhostHunter.Gameplay.Lighting;
@@ -27,6 +29,8 @@ namespace GhostHunter.DebugTools
     /// 온다 — 별도 배선이 필요 없다. 수정은 그 플레이 세션 동안 즉시 적용되고, 에디터에서는 SO
     /// 인스턴스가 되돌려지지 않으므로 이후 플레이에도 남는다(디스크 영구 반영은 인스펙터). 빌드에서는
     /// 세션 한정이다. "되돌리기"는 창이 SO 를 처음 붙잡은 시점의 값으로 되돌린다.</para>
+    /// <para>현재 공동 잔액은 SO가 아닌 세션 상태다. <see cref="IStageShopService"/>를 통해 호스트만 바꾸며,
+    /// SO 설정의 전체 되돌리기에는 포함하지 않는다.</para>
     /// </summary>
     internal sealed class TuningHud
     {
@@ -87,6 +91,8 @@ namespace GhostHunter.DebugTools
         private Rect _windowRect = new(430f, 10f, 560f, 660f);
         private Vector2 _scroll;
         private string _filter = string.Empty;
+        private string _balanceBuffer = string.Empty;
+        private int _displayedBalance = -1;
 
         public bool Visible => _visible;
 
@@ -121,6 +127,9 @@ namespace GhostHunter.DebugTools
                 _visible = false;
             GUILayout.EndHorizontal();
 
+            string filter = string.IsNullOrWhiteSpace(_filter) ? null : _filter.Trim().ToLowerInvariant();
+            DrawBalance(filter);
+
             if (_targets.Count == 0)
             {
                 GUILayout.Label("세션을 시작하면(Host) 플레이어·귀신·가구에서 설정을 읽어 옵니다.");
@@ -131,8 +140,6 @@ namespace GhostHunter.DebugTools
             GUILayout.Label(
                 "값은 지금 플레이에 즉시 적용 · 되돌리기 = 이 세션 시작값 · 영구 반영은 인스펙터",
                 GUI.skin.label);
-
-            string filter = string.IsNullOrWhiteSpace(_filter) ? null : _filter.Trim().ToLowerInvariant();
 
             _scroll = GUILayout.BeginScrollView(_scroll);
 
@@ -147,6 +154,47 @@ namespace GhostHunter.DebugTools
             GUILayout.EndScrollView();
 
             GUI.DragWindow(new Rect(0, 0, 100000, 22));
+        }
+
+        private void DrawBalance(string filter)
+        {
+            if (filter != null && "현재 돈 공동 잔액 자금 balance money cash".IndexOf(filter, StringComparison.Ordinal) < 0)
+                return;
+
+            GUILayout.Label("공동 자금 · 현재 돈", SectionStyle);
+            if (!Services.TryGet(out IStageShopService shop) || !shop.IsAvailable)
+            {
+                _displayedBalance = -1;
+                GUILayout.Label("세션을 시작하면 현재 공동 잔액을 조절할 수 있습니다.");
+                return;
+            }
+
+            int balance = shop.Balance;
+            if (_displayedBalance != balance)
+            {
+                _displayedBalance = balance;
+                _balanceBuffer = balance.ToString(CultureInfo.InvariantCulture);
+            }
+
+            GUILayout.BeginHorizontal();
+            GUILayout.Label($"현재 돈  ${balance}", GUILayout.Width(190f));
+            bool wasEnabled = GUI.enabled;
+            GUI.enabled = wasEnabled && shop.CanManage;
+            if (GUILayout.Button("−", GUILayout.Width(24f)))
+                shop.TrySetBalanceForDebug(Math.Max(0, balance - 1));
+            if (GUILayout.Button("+", GUILayout.Width(24f)))
+                shop.TrySetBalanceForDebug(balance == int.MaxValue ? balance : balance + 1);
+            _balanceBuffer = GUILayout.TextField(_balanceBuffer, GUILayout.Width(96f));
+            bool valid = int.TryParse(_balanceBuffer, NumberStyles.Integer, CultureInfo.InvariantCulture, out int typed)
+                && typed >= 0;
+            GUI.enabled = wasEnabled && shop.CanManage && valid;
+            if (GUILayout.Button("적용", GUILayout.Width(52f)))
+                shop.TrySetBalanceForDebug(typed);
+            GUI.enabled = wasEnabled;
+            GUILayout.EndHorizontal();
+            GUILayout.Label(shop.CanManage
+                ? "현재 공동 잔액에 즉시 반영 · 세션 한정"
+                : "잔액 변경은 호스트만 가능합니다.");
         }
 
         /// <summary>

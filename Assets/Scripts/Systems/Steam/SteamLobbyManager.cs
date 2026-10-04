@@ -155,7 +155,7 @@ namespace GhostHunter.Systems.Steam
             if (!CurrentLobby.HasValue || !IsLobbyOwner)
                 return false;
             ReadShopState(out int balance, out int candles);
-            if (!WriteShopState(balance + StageShopRules.StageReward, candles))
+            if (!WriteShopState((int)Math.Min((long)balance + StageShopRules.StageReward, int.MaxValue), candles))
                 return false;
             LobbyUpdated?.Invoke();
             return true;
@@ -167,6 +167,17 @@ namespace GhostHunter.Systems.Steam
                 return false;
             ReadShopState(out int balance, out int candles);
             if (candles <= 0 || !WriteShopState(balance, candles - 1))
+                return false;
+            LobbyUpdated?.Invoke();
+            return true;
+        }
+
+        public bool TrySetShopBalanceForDebug(int balance)
+        {
+            if (balance < 0 || !CurrentLobby.HasValue || !IsLobbyOwner)
+                return false;
+            ReadShopState(out _, out int candles);
+            if (!WriteShopState(balance, candles))
                 return false;
             LobbyUpdated?.Invoke();
             return true;

@@ -81,6 +81,8 @@ namespace GhostHunter.Tests.PlayMode
             ISceneFlow sceneFlow = Services.Get<ISceneFlow>();
             IStageSessionFlow stageFlow = Services.Get<IStageSessionFlow>();
             IConnectionService connection = Services.Get<IConnectionService>();
+            Assert.IsFalse(Services.Get<IStageShopService>().TrySetBalanceForDebug(100),
+                "세션을 열기 전 로컬 잔액 변경을 거절한다");
             foreach (UnityTransport transport in Object.FindObjectsByType<UnityTransport>(
                          FindObjectsInactive.Include, FindObjectsSortMode.None))
                 transport.SetConnectionData("127.0.0.1", TestPort, "127.0.0.1");
@@ -109,6 +111,21 @@ namespace GhostHunter.Tests.PlayMode
             Assert.AreEqual(StageShopRules.StartingBalance - StageShopRules.PriceOf(ShopItem.IronLighter), shop.Balance);
             Assert.IsTrue(shop.GetMemberGear(me).HasLighter);
             Assert.IsFalse(shop.TryPurchase(ShopItem.IronDriver, me), "잔액이 모자라면 못 산다");
+
+            int balanceBeforeTuning = shop.Balance;
+            Assert.IsFalse(shop.TrySetBalanceForDebug(-1), "음수 잔액은 거절한다");
+            Assert.AreEqual(balanceBeforeTuning, shop.Balance);
+            Assert.IsTrue(shop.TrySetBalanceForDebug(100), "호스트가 현재 돈을 튜닝한다");
+            Assert.AreEqual(100, shop.Balance);
+            Assert.IsTrue(shop.GetMemberGear(me).HasLighter, "잔액 튜닝으로 보유 장비가 바뀌면 안 된다");
+            Assert.IsTrue(shop.TryPurchase(ShopItem.CandleSet, me), "튜닝한 잔액으로 실제 상점 구매가 가능하다");
+            Assert.AreEqual(100 - StageShopRules.PriceOf(ShopItem.CandleSet), shop.Balance);
+            Assert.AreEqual(StageShopRules.CandlesPerSet, shop.CandleCount);
+            Assert.IsTrue(shop.TrySetBalanceForDebug(int.MaxValue));
+            shop.ServerGrantStageReward();
+            Assert.AreEqual(int.MaxValue, shop.Balance, "최대 정수 잔액의 보상이 음수로 오버플로하면 안 된다");
+            Assert.IsTrue(shop.TrySetBalanceForDebug(balanceBeforeTuning));
+            Assert.AreEqual(StageShopRules.CandlesPerSet, shop.CandleCount, "잔액 튜닝은 촛불 재고를 보존한다");
 
             Assert.IsTrue(stageFlow.StartStage());
             yield return WaitForPlayerIn(sceneFlow, stageFlow, SceneId.Tutorial);
