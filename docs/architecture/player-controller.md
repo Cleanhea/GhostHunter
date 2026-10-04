@@ -238,7 +238,7 @@ Player 프리팹 배선은 저장된 에셋이 원본이다(설치 메뉴 `Playe
 |---|---|
 | 에셋 | 모델 `Assets/Mesh/MainCharacter.fbx`(Blender), 애니메이션 `Idle.fbx`·`Walking.fbx`(Mixamo, 스킨 없음). 클립 이름 `A_Player_Idle`·`A_Player_Walk`, 컨트롤러 `Assets/Animations/PlayerCharacter.controller` |
 | 리그 | **세 파일 모두 Humanoid, 아바타는 각자 생성.** 모델은 본이 `Armature` 아래 43개, 애니메이션은 Mixamo 원본이라 루트 `Hips` 아래 57개다. 본 경로가 달라 Generic 으로는 바인딩되지 않는다 |
-| 크기 | 모델 높이를 서 있는 캡슐(`PlayerMoveSettings.StandingHeight` 1.3m)에 맞춘다. 원본 높이가 1.30m 라 **임포트 배율**(`globalScale`)은 1이다(2026-09-29, 1.8m → 1.3m 사용자 지정). 트랜스폼 스케일은 1로 둔다 |
+| 크기 | 모델 높이를 서 있는 캡슐(`PlayerMoveSettings.StandingHeight` 1.3m)에 맞춘다(2026-09-29, 1.8m → 1.3m 사용자 지정). **임포트 배율 0.83**(`MainCharacter.fbx` `globalScale`), 트랜스폼 스케일은 1. 2026-10-04 수정: 이전에는 바인드 포즈 키(1.30m)만 보고 배율 1로 두었는데, 휴머노이드 Idle 로 서면 **1.57m** 라 머리가 캡슐 위로 27cm 나와 낮은 천장을 뚫었다. Idle 을 샘플해 구운 정점으로 재면 지금 1.30m(발 0m). 폭은 팔 포함 약 0.72m 로 캡슐 지름(0.6m)보다 조금 넓다. 검증 PlayMode `PlayerBodyFitTests` |
 | 루트 모션 | `Animator.applyRootMotion` 끔 — 이동은 `PlayerMotor` 가 한다. 걷기 클립은 XZ 를 포즈에 굽지 않아 전진량이 루트 모션으로 빠졌다가 버려진다(제자리 걸음). 회전·높이는 포즈에 굽는다(원본 기준) |
 | 상태 | `Idle`(기본) ↔ `Walk`. 파라미터 `IsMoving`(Bool, 전환 0.15초·Exit Time 없음), `WalkSpeed`(Float, Walk 상태 재생 배속) |
 | 속도 입력 | `PlayerCharacterAnimator` 가 **자기 화면의 루트 변위**로 수평 속도를 잰다. 소유자는 CharacterController, 원격은 ClientNetworkTransform 보간이 루트를 옮기므로 **새 NetworkVariable·RPC 가 없다.** 순간이동(스폰·텔레포트) 프레임은 무시한다 |
