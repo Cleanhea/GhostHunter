@@ -58,6 +58,17 @@ PlayMode `InGameLobbyFlowTests` — 실제 씬으로 Bootstrap → Local Host �
 로비 언로드) → 정산 → 인게임 로비(재스폰, 세션 유지) → 두 번째 스테이지 → 스테이지 나가기 → 인게임 로비, 예외 0건.
 EditMode `InGameLobbyTests` 5건. **게스트(원격 클라이언트) 씬 동기화·Steam 2~4인은 실기 미검증.**
 
+### 검증 주의 (2026-10-04)
+
+현재 복제 프로젝트 검증은 EditMode 452건 중 450 통과·기존 `MoleSkillWiringTests` 소스 검사 2건 실패,
+변경 관련 PlayMode 47/47 통과다. 씬 전환 검사 `InGameLobbyFlowTests`는 Steam 초기화 환경 때문에
+`LogAssert.ignoreFailingMessages`를 켜므로, 테스트 통과를 오류 로그 0건으로 해석하면 안 된다.
+
+실제 사용자 실행과 자동 검사 모두 첫 로비 출발에서 `Failed to remove InGameLobby scene handles`가 확인됐다.
+세션 시작 전에 로컬로 로드한 씬은 NGO의 `ScenesLoaded`에는 들어가지만 서버↔로컬 핸들 연결에 빠지는 경로가 있다.
+NGO가 오류를 남긴 뒤에도 언로드를 이어가 로컬 흐름 검사는 통과했다. 씬 등록 처리는 아직 수정하지 않았고,
+원격 게스트에 대한 영향은 확인 필요다 → 로드맵 `SF-FIX-1`.
+
 ## 재검토 조건
 
 - 인게임 로비에 스테이지 상태(드릴카 선반 배치 등)를 들고 가야 하면 재스폰 대신 서비스 재바인딩을 검토한다.

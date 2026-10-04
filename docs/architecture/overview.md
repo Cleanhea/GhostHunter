@@ -159,7 +159,7 @@ additive로 얹었다 내린다 → [ADR-0004](decisions/ADR-0004-multi-scene-ad
 | `Lobby` | 방 코드 표시·멤버 목록·준비·시작 | Additive (로컬) |
 | `InGameLobby` | 세션을 연 채 스테이지 사이에 머무는 방 — 상점·정산 이력·스테이지 출발([ADR-0018](decisions/ADR-0018-persistent-session-in-game-lobby.md)) | Additive — `NetworkManager.SceneManager` |
 | `Tutorial` | 첫 스테이지 원룸(202호)·청소/반출·귀신·튜토리얼 UI·앞마당 드릴카·정신력·종료 단말기. 정산 후 다음 출발은 Stage1([ADR-0021](decisions/ADR-0021-tutorial-first-stage.md)) | Additive — `NetworkManager.SceneManager` |
-| `Stage1` | 스테이지. B안 집·드릴카(모델 프리팹 `Prefabs/Map/DrillCar` — 안전·반출 구역·정신력 UI 내장 배치)·가구 조립 영역. 귀신·청소·부활 의식 포함([ADR-0019](decisions/ADR-0019-stage1-scene-split.md)). ProtoTypeGame 에서 복사해 만들었다 | Additive — `NetworkManager.SceneManager` |
+| `Stage1` | 스테이지. B안 집·드릴카(모델 프리팹 `Prefabs/Map/DrillCar` — 실내 안전 구역·정신력 UI, 차체 오른쪽 옆 반출 구역 내장 배치)·같은 오른쪽 옆 가구 조립 영역. 귀신·청소·부활 의식 포함([ADR-0019](decisions/ADR-0019-stage1-scene-split.md)). ProtoTypeGame 에서 복사해 만들었다 | Additive — `NetworkManager.SceneManager` |
 | `ProtoTypeGame` | 프로토타입 검증 씬(구 `Game`). 비교용 집·테스트베드·귀신·청소까지 전부. 자동 검증 대상 | Additive — `NetworkManager.SceneManager` |
 | `Result` | 결과 정산 | Additive |
 
@@ -261,7 +261,7 @@ Furniture (씬 배치 NetworkObject, 프리팹 인스턴스)
 ├─ Collider
 ├─ NetworkTransform         서버 권위 복제
 ├─ FurnitureGrabTarget      홀더 슬롯(NetworkList) 관리, 잡기 가능 여부 판정
-├─ FurnitureHoverMotor      서버 전용. 2인 잡기 중 조준점 중간·휠 목표 자세로 고정 추종
+├─ FurnitureHoverMotor      서버 전용. 2인 운반 — 두 손잡이 추종(FurnitureCarrySession)·끼임 보조·운반 중 마찰/문짝 충돌 처리
 ├─ FurnitureLauncher        서버 전용. 발사 속도와 보정 각도 계산·적용
 └─ FurnitureOutline         클라이언트 전용. 조준/홀드 상태에 따라 윤곽선 표시
 
@@ -306,7 +306,7 @@ UI (씬별, 로컬 전용)
 | 에셋 | 담는 값 |
 | --- | --- |
 | `PlayerMoveSettings` | 이동 속도, 가속, 점프 높이, 중력 배수, 마우스 감도 |
-| `FurnitureThrowSettings` | 부양 거리, 2인 고정 추종 최대 속력·각속력, 휠 한 칸 각도, 차지 시간, 1인/2인 발사 속도, 최대 사거리 |
+| `FurnitureThrowSettings` | 2인 운반 손잡이 거리·응답 시간·속도/가속 제한·기울기·마찰·끼임 보조, 휠 한 칸 각도, 차지 시간, 1인/2인 발사 속도, 최대 사거리 |
 | `FurnitureDefinition` | 가구 종류별 질량, 무게 등급(1인/2인), 기본 프리팹 참조 |
 | `FurnitureSpawnSettings` | 맵별 풀·Target Type/Count 범위·방 상한·시드·탐색 예산·B안 후보 설치값. 최초 임시 4종 16개 |
 | `GhostPrototypeSettings` | 팀 평균 임계값(80/60/30), 상태 지속시간, §7.3 어택 확률표, 시야·소리·추격·수색 수치. **정신력 값 필드도 활동도 필드도 없다** |
