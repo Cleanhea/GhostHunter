@@ -54,6 +54,7 @@ namespace GhostHunter.DebugTools
         private bool _showSkill;
         private bool _showCleaning = true;
         private bool _showFurniture = true;
+        private bool _showThrow = true;
         private bool _showLighting;
         private bool _showLightingRooms;
         private bool _showLightingValues = true;
@@ -165,6 +166,10 @@ namespace GhostHunter.DebugTools
             if (_showFurniture)
                 DrawFurnitureBody();
 
+            _showThrow = SectionHeader("가구 투척 힘", _showThrow);
+            if (_showThrow)
+                DrawThrowBody();
+
             _showLighting = SectionHeader(SectionTitle("조명", _lighting != null), _showLighting);
             if (_showLighting)
                 DrawLightingBody();
@@ -201,6 +206,45 @@ namespace GhostHunter.DebugTools
             GUI.enabled = wasEnabled;
             GUILayout.Label("R: 배치 위치로 복귀 + 내구도 복구 · 호스트 전용");
             _showDurabilityLabels = GUILayout.Toggle(_showDurabilityLabels, " 가구 위에 내구도 표시 (HUD 켜진 동안)");
+        }
+
+        // 미리보기 줄의 누른 시간(초). 0.1초 = 살짝 눌렀다 뗀 탭.
+        private static readonly float[] ThrowPreviewSeconds = { 0.1f, 0.3f, 0.6f };
+
+        /// <summary>
+        /// 날리는 힘(throw-system.md §4·§5) — 누른 시간별 실제 발사 속도 미리보기와 FurnitureThrowSettings 의
+        /// "차징 / 발사" 값 줄. 값은 튜닝 창(F2)과 같은 SO 라 즉시 적용되고, 발사는 서버가 하므로 호스트의 값이 쓰인다.
+        /// </summary>
+        private void DrawThrowBody()
+        {
+            if (!_tuning.TryGetSettings("투척", out FurnitureThrowSettings settings))
+            {
+                GUILayout.Label("세션을 시작하면 FurnitureThrowSettings 를 읽어 옵니다.");
+                return;
+            }
+
+            GUILayout.Label("누른 시간 → 힘 · 발사 속도 (1인 / 2인, m/s)", GUI.skin.label);
+            foreach (float seconds in ThrowPreviewSeconds)
+            {
+                if (seconds < settings.ChargeTime)
+                    DrawThrowPreview($"{seconds:0.0}초", seconds / settings.ChargeTime, settings);
+            }
+
+            DrawThrowPreview($"끝까지 {settings.ChargeTime:0.0#}초", 1f, settings);
+            GUILayout.Label($"무거운 가구를 혼자 던지면 ×{settings.HeavySoloMultiplier:0.##}", GUI.skin.label);
+
+            GUILayout.Space(3);
+            GUILayout.Label("수치 — 즉시 적용 · 호스트 값으로 발사 · 튜닝 창(F2)과 같은 값", GUI.skin.label);
+            _tuning.DrawInline("투척", group: "차징 / 발사");
+        }
+
+        private static void DrawThrowPreview(string label, float charge, FurnitureThrowSettings settings)
+        {
+            float ratio = settings.ForceRatio(charge);
+            GUILayout.Label(
+                $"  {label,-10}  힘 {ratio * 100f,3:0}%   →   {settings.OneHolderForce * ratio:0.0} / " +
+                $"{settings.TwoHolderForce * ratio:0.0}",
+                GUI.skin.label);
         }
 
         private const float DurabilityLabelWidth = 84f;

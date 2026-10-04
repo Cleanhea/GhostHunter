@@ -156,8 +156,12 @@ namespace GhostHunter.DebugTools
         /// </summary>
         /// <param name="shortTitle"><see cref="Sources"/> 의 짧은 이름(예: "굴착").</param>
         /// <param name="labelWidth">HUD 폭이 창보다 좁아 라벨을 줄인다.</param>
+        /// <param name="group">
+        /// 주면 그 <see cref="HeaderAttribute"/> 그룹만 그리고, 되돌리기도 그 그룹만 한다 — 필드가 많은 SO 에서
+        /// 섹션에 필요한 줄만 꺼낼 때 쓴다.
+        /// </param>
         /// <returns>대상 SO 를 아직 못 찾았으면 false — 세션이 시작되기 전이다.</returns>
-        public bool DrawInline(string shortTitle, float labelWidth = 132f)
+        public bool DrawInline(string shortTitle, float labelWidth = 132f, string group = null)
         {
             ResolveTargets();
 
@@ -167,15 +171,29 @@ namespace GhostHunter.DebugTools
 
             foreach (Group g in target.Groups)
             {
-                GUILayout.Label(Shorten(g.Name), GUI.skin.label);
+                if (group != null && g.Name != group)
+                    continue;
+
+                if (group == null)
+                    GUILayout.Label(Shorten(g.Name), GUI.skin.label);
                 foreach (Row row in g.Rows)
                     DrawRow(target, row, labelWidth);
             }
 
             if (GUILayout.Button("이 수치 되돌리기 (세션 시작값)"))
-                RestoreSnapshot(target);
+                RestoreSnapshot(target, group);
 
             return true;
+        }
+
+        /// <summary>
+        /// 튜닝 대상 SO 를 꺼낸다 — Hub 섹션이 값으로 미리보기(예: 탭 투척 속도)를 계산할 때 쓴다. 세션 전이면 false.
+        /// </summary>
+        public bool TryGetSettings<T>(string shortTitle, out T settings) where T : ScriptableObject
+        {
+            ResolveTargets();
+            settings = _targets.Find(x => x.ShortTitle == shortTitle)?.So as T;
+            return settings != null;
         }
 
         private void DrawFoldout(Target t)
@@ -413,10 +431,17 @@ namespace GhostHunter.DebugTools
             GUILayout.EndHorizontal();
         }
 
-        private void RestoreSnapshot(Target t)
+        private void RestoreSnapshot(Target t, string group = null)
         {
+            Group only = group != null ? Array.Find(t.Groups, g => g.Name == group) : null;
+            if (group != null && only == null)
+                return;
+
             for (int i = 0; i < t.Rows.Length; i++)
             {
+                if (only != null && Array.IndexOf(only.Rows, t.Rows[i]) < 0)
+                    continue;
+
                 t.Rows[i].Field.SetValue(t.So, t.Snapshot[i]);
                 _buffers.Remove(t.Rows[i].Field);
             }

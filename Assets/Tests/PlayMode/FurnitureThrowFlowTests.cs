@@ -101,18 +101,48 @@ namespace GhostHunter.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator ServerRelease_한_명이_놓으면_발사되어_속도를_얻는다()
+        public IEnumerator ServerRelease_살짝_눌렀다_떼면_최소_힘으로_약하게_발사된다()
         {
             FurnitureGrabTarget furniture = SpawnFurniture();
             yield return null;
 
             furniture.ServerTryAddHolder(HostClientId, AimOrigin, AimDirection);
+            Vector3 before = BodyOf(furniture).linearVelocity;
             furniture.ServerRelease(HostClientId, AimDirection, false);
 
             yield return new WaitForFixedUpdate();
 
+            // 차지 0 → 1인 최대 힘 × 최소 비율.
+            float expected = Settings.OneHolderForce * Settings.MinChargeRatio;
+            float speed = LaunchDelta(furniture, before).magnitude;
             Assert.AreEqual(FurnitureState.Launched, furniture.State);
-            Assert.Greater(BodyOf(furniture).linearVelocity.magnitude, 5f);
+            Assert.AreEqual(expected, speed, 0.5f, "살짝 누르면 최소 힘으로 나가야 합니다.");
+            Assert.Less(speed, Settings.OneHolderForce * 0.5f);
+        }
+
+        [UnityTest]
+        public IEnumerator ServerRelease_끝까지_차지하면_최대_힘으로_발사된다()
+        {
+            SetPrivateField(Settings, "_chargeTime", 0.1f);
+            FurnitureGrabTarget furniture = SpawnFurniture();
+            yield return null;
+
+            furniture.ServerTryAddHolder(HostClientId, AimOrigin, AimDirection);
+            yield return new WaitForSeconds(0.2f);
+            yield return new WaitForFixedUpdate();
+            Assert.AreEqual(1f, furniture.LaunchPower, 0.001f, "차지 시간이 지나면 힘 100%");
+
+            Vector3 before = BodyOf(furniture).linearVelocity;
+            furniture.ServerRelease(HostClientId, AimDirection, false);
+            yield return new WaitForFixedUpdate();
+
+            Assert.AreEqual(Settings.OneHolderForce, LaunchDelta(furniture, before).magnitude, 0.5f);
+        }
+
+        /// <summary>놓은 뒤 한 물리 스텝의 속도 변화에서 중력 몫을 뺀 발사 속도 변화량.</summary>
+        private Vector3 LaunchDelta(FurnitureGrabTarget furniture, Vector3 before)
+        {
+            return BodyOf(furniture).linearVelocity - before - Physics.gravity * Time.fixedDeltaTime;
         }
 
         /// <summary>

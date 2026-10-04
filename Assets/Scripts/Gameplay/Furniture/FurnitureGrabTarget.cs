@@ -34,7 +34,11 @@ namespace GhostHunter.Gameplay.Furniture
         private readonly Dictionary<ulong, HolderAim> _aims = new();
         private readonly List<Vector3> _releasedDirections = new(MaxHolders);
 
+        private readonly List<Collider> _holderColliderScratch = new();
+        private readonly List<Collider> _playerColliderScratch = new();
+
         private Rigidbody _rigidbody;
+        private FurnitureCollisionIgnoreSet _holderIgnores;
         private FurnitureLauncher _launcher;
         private RandomFurnitureItem _randomItem;
         private FurnitureDriverPoolItem _driverPoolItem;
@@ -54,6 +58,9 @@ namespace GhostHunter.Gameplay.Furniture
         public NetworkList<ulong> Holders => _holders;
         public FurnitureState State => _state.Value;
         public float Charge => _charge.Value;
+
+        /// <summary>지금 놓으면 나갈 힘의 비율(최대 힘 대비, 차지 곡선 적용). 차지 게이지가 표시한다.</summary>
+        public float LaunchPower => _settings != null ? _settings.ForceRatio(_charge.Value) : _charge.Value;
         public int HolderCount => _holders.Count;
         public bool HasFreeSlot => _holders.Count < MaxHolders;
 
@@ -64,6 +71,7 @@ namespace GhostHunter.Gameplay.Furniture
         private void Awake()
         {
             _rigidbody = GetComponent<Rigidbody>();
+            _holderIgnores = new FurnitureCollisionIgnoreSet(GetComponentsInChildren<Collider>(true));
             _launcher = GetComponent<FurnitureLauncher>();
             _randomItem = GetComponent<RandomFurnitureItem>();
             _driverPoolItem = GetComponent<FurnitureDriverPoolItem>();
@@ -82,24 +90,39 @@ namespace GhostHunter.Gameplay.Furniture
         public override void OnNetworkSpawn()
         {
             _state.OnValueChanged += HandleStateValueChanged;
+            _holders.OnListChanged += HandleHoldersChanged;
 
             if (IsServer && NetworkManager != null)
                 NetworkManager.OnClientDisconnectCallback += HandleClientDisconnected;
+
+            RefreshHolderCollisionIgnore();
         }
 
         public override void OnNetworkDespawn()
         {
             _state.OnValueChanged -= HandleStateValueChanged;
+            _holders.OnListChanged -= HandleHoldersChanged;
 
             if (IsServer && NetworkManager != null)
                 NetworkManager.OnClientDisconnectCallback -= HandleClientDisconnected;
 
             _aims.Clear();
             _releasedDirections.Clear();
+            _holderIgnores.ClearImmediately();
+        }
+
+        public override void OnDestroy()
+        {
+            _holderIgnores?.ClearImmediately();
+            base.OnDestroy();
         }
 
         private void FixedUpdate()
         {
+            // 모든 피어 — 운반이 끝난 홀더와의 충돌을 떨어지는 대로 다시 켠다.
+            if (!_holderIgnores.IsEmpty)
+                _holderIgnores.Tick();
+
             if (!IsServer || _settings == null)
                 return;
 
@@ -406,7 +429,87 @@ namespace GhostHunter.Gameplay.Furniture
 
         private void HandleStateValueChanged(FurnitureState previous, FurnitureState current)
         {
+            RefreshHolderCollisionIgnore();
             StateChanged?.Invoke(previous, current);
+        }
+
+        private void HandleHoldersChanged(NetworkListEvent<ulong> change)
+        {
+            RefreshHolderCollisionIgnore();
+        }
+
+        /// <summary>2인 운반 중 충돌을 끈(또는 다시 켜기를 기다리는) 홀더 플레이어 콜라이더인가 — 끼임 보조가 겹침 검사에서 뺀다.</summary>
+        internal bool IsIgnoringHolderCollider(Collider other)
+        {
+            return _holderIgnores != null && _holderIgnores.Contains(other);
+        }
+
+        /// <summary>
+        /// 2인 운반(Held) 중에는 두 홀더의 플레이어 콜라이더와 가구의 충돌을 끈다 — 서버에서는 가구가 들고 있는 사람
+        /// 몸에 막히지 않고, 각 클라이언트에서는 자기 캐릭터가 키네마틱 가구 사본에 막히지 않는다(throw-system.md §3.3).
+        /// 상태와 홀더 목록이 모든 피어에 복제되므로 각 피어가 같은 판단을 한다.
+        /// </summary>
+        private void RefreshHolderCollisionIgnore()
+        {
+            if (_holderIgnores == null)
+                return;
+
+            _holderColliderScratch.Clear();
+            if (_settings != null && _settings.CarryIgnoresHolders && _state.Value == FurnitureState.Held)
+            {
+                for (int i = 0; i < _holders.Count; i++)
+                {
+                    NetworkObject player = FindPlayerObject(_holders[i]);
+                    if (player == null)
+                        continue;
+
+                    _playerColliderScratch.Clear();
+                    player.GetComponentsInChildren(_playerColliderScratch);
+                    foreach (Collider part in _playerColliderScratch)
+                    {
+                        if (!part.isTrigger)
+                            _holderColliderScratch.Add(part);
+                    }
+                }
+            }
+
+            for (int i = _holderIgnores.Ignored.Count - 1; i >= 0; i--)
+            {
+                Collider ignored = _holderIgnores.Ignored[i];
+                if (!_holderColliderScratch.Contains(ignored))
+                    _holderIgnores.Release(ignored);
+            }
+
+            foreach (Collider part in _holderColliderScratch)
+                _holderIgnores.Ignore(part);
+        }
+
+        /// <summary>
+        /// 홀더의 플레이어 오브젝트. 클라이언트-서버 구조에서 <c>GetPlayerNetworkObject</c>는 서버만 남의 것을 주므로
+        /// 클라이언트는 스폰 목록에서 찾는다(홀더가 바뀔 때만 부른다).
+        /// </summary>
+        private NetworkObject FindPlayerObject(ulong clientId)
+        {
+            if (NetworkManager == null)
+                return null;
+
+            if (IsServer)
+            {
+                return NetworkManager.ConnectedClients.TryGetValue(clientId, out NetworkClient client)
+                    ? client.PlayerObject
+                    : null;
+            }
+
+            if (NetworkManager.SpawnManager == null)
+                return null;
+
+            foreach (NetworkObject spawned in NetworkManager.SpawnManager.SpawnedObjectsList)
+            {
+                if (spawned != null && spawned.IsPlayerObject && spawned.OwnerClientId == clientId)
+                    return spawned;
+            }
+
+            return null;
         }
 
         private static bool TrySanitizeAim(

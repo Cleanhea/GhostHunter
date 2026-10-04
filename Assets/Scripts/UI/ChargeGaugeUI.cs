@@ -41,7 +41,9 @@ namespace GhostHunter.UI
 
             float width = Mathf.Min(360f, Screen.width * 0.45f);
             Rect outer = new(Screen.width * 0.5f - width * 0.5f, Screen.height - 130f, width, 24f);
-            Rect inner = new(outer.x + 3f, outer.y + 3f, (outer.width - 6f) * target.Charge, outer.height - 6f);
+            // 누른 시간이 아니라 지금 놓으면 나갈 힘을 채운다 — 살짝 누르면 짧게 보여야 약하게 나가는 걸 안다.
+            float power = target.LaunchPower;
+            Rect inner = new(outer.x + 3f, outer.y + 3f, (outer.width - 6f) * power, outer.height - 6f);
 
             Color previous = GUI.color;
             GUI.color = new Color(0.05f, 0.07f, 0.1f, 0.9f);
@@ -61,7 +63,7 @@ namespace GhostHunter.UI
             float labelWidth = Mathf.Min(560f, Screen.width - 20f);
             GUI.Label(
                 new Rect(Screen.width * 0.5f - labelWidth * 0.5f, outer.y - 23f, labelWidth, 22f),
-                $"{holders}  {target.Charge * 100f:0}%",
+                $"{holders}  힘 {power * 100f:0}%",
                 _labelStyle);
             GUI.color = previous;
         }

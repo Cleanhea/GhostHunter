@@ -128,5 +128,81 @@ namespace GhostHunter.Tests.EditMode
         {
             Assert.AreEqual(Vector3.right, FurnitureHeldControl.TiltAxis(Vector3.down));
         }
+
+        [Test]
+        public void TryFollowRotation_두_손이_진입_때와_같은_방향이면_돌지_않는다()
+        {
+            Assert.IsTrue(FurnitureHeldControl.TryFollowRotation(
+                Vector3.right, new Vector3(2.5f, 0f, 0f), 0.35f, 25f, out Quaternion follow));
+
+            Assert.Less(Quaternion.Angle(follow, Quaternion.identity), 0.01f);
+        }
+
+        [Test]
+        public void TryFollowRotation_두_사람이_돌아_서면_가구도_같은_각도로_돈다()
+        {
+            Assert.IsTrue(FurnitureHeldControl.TryFollowRotation(
+                Vector3.right, new Vector3(0f, 0f, 1.5f), 0.35f, 25f, out Quaternion follow));
+
+            Assert.Less(Vector3.Distance(follow * Vector3.right, Vector3.forward), 0.001f);
+        }
+
+        [Test]
+        public void TryFollowRotation_높이_차이는_최대_기울기까지만_따른다()
+        {
+            Assert.IsTrue(FurnitureHeldControl.TryFollowRotation(
+                Vector3.right, new Vector3(1f, 1f, 0f), 0.35f, 25f, out Quaternion follow));
+
+            Vector3 axis = follow * Vector3.right;
+            float elevation = Mathf.Atan2(axis.y, new Vector2(axis.x, axis.z).magnitude) * Mathf.Rad2Deg;
+            Assert.AreEqual(25f, elevation, 0.01f, "손 1 쪽이 높으면 그쪽 끝이 최대 기울기만큼 올라가야 합니다.");
+            Assert.Greater(axis.x, 0f, "수평 방향은 그대로여야 합니다.");
+        }
+
+        [Test]
+        public void TryFollowRotation_기울기_0이면_수평을_유지한다()
+        {
+            Assert.IsTrue(FurnitureHeldControl.TryFollowRotation(
+                Vector3.right, new Vector3(0f, 1f, 1f), 0.35f, 0f, out Quaternion follow));
+
+            Assert.Less(Vector3.Distance(follow * Vector3.right, Vector3.forward), 0.001f);
+        }
+
+        [Test]
+        public void TryFollowRotation_손잡이가_붙어_있거나_두_손이_겹치면_방향을_정하지_않는다()
+        {
+            Assert.IsFalse(FurnitureHeldControl.TryFollowRotation(
+                new Vector3(0.2f, 0f, 0f), Vector3.forward, 0.35f, 25f, out _), "손잡이 간격이 짧다");
+            Assert.IsFalse(FurnitureHeldControl.TryFollowRotation(
+                Vector3.right, new Vector3(0.05f, 1f, 0f), 0.35f, 25f, out _), "두 손이 수평으로 겹친다");
+        }
+
+        [Test]
+        public void SolveCarryPosition_손잡이_중점이_손_중점에_온다()
+        {
+            Quaternion rotation = Quaternion.Euler(0f, 90f, 0f);
+            Vector3 gripMidpointLocal = new(0.5f, 0.2f, 0f);
+            Vector3 handMidpoint = new(3f, 1.2f, -2f);
+
+            Vector3 position = FurnitureHeldControl.SolveCarryPosition(handMidpoint, rotation, gripMidpointLocal);
+
+            Assert.Less(Vector3.Distance(position + rotation * gripMidpointLocal, handMidpoint), 0.0001f);
+        }
+
+        [Test]
+        public void LimitChange_최대_변화량만큼만_바꾼다()
+        {
+            Vector3 result = FurnitureHeldControl.LimitChange(Vector3.zero, new Vector3(0f, 0f, 10f), 1.2f);
+
+            Assert.AreEqual(1.2f, result.z, 0.0001f);
+            Assert.AreEqual(Vector3.one, FurnitureHeldControl.LimitChange(Vector3.zero, Vector3.one, 5f));
+        }
+
+        [Test]
+        public void SmoothingFactor_시간_상수만큼_지나면_63퍼센트를_따라간다()
+        {
+            Assert.AreEqual(1f - Mathf.Exp(-1f), FurnitureHeldControl.SmoothingFactor(0.05f, 0.05f), 0.0001f);
+            Assert.AreEqual(1f, FurnitureHeldControl.SmoothingFactor(0.02f, 0f), "0이면 즉시 따라간다");
+        }
     }
 }

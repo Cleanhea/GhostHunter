@@ -9,8 +9,6 @@ namespace GhostHunter.Gameplay.Furniture
     {
         private const float MinimumLaunchAngle = 20f;
         private const float MaximumLaunchAngle = 70f;
-        private const float MinimumOneHolderLaunchSpeed = 30f;
-        private const float MinimumTwoHolderLaunchSpeed = 50f;
 
         [SerializeField] private FurnitureThrowSettings _settings;
 
@@ -46,21 +44,15 @@ namespace GhostHunter.Gameplay.Furniture
             if (!IsServer || _settings == null || !IsFinite(aimDirection))
                 return;
 
-            float baseForce = holderCount >= 2
-                ? Mathf.Max(_settings.TwoHolderForce, MinimumTwoHolderLaunchSpeed)
-                : Mathf.Max(_settings.OneHolderForce, MinimumOneHolderLaunchSpeed);
+            // 힘은 설정 에셋 값 그대로 쓴다 — Hub·튜닝 창에서 내린 값이 그대로 먹혀야 한다(2026-10-04, 코드 하한 30/50 제거).
+            float baseForce = holderCount >= 2 ? _settings.TwoHolderForce : _settings.OneHolderForce;
 
             bool heavySolo = holderCount < 2
                 && _networkPhysics.Definition != null
                 && _networkPhysics.Definition.IsHeavy;
 
             float weightMultiplier = heavySolo ? _settings.HeavySoloMultiplier : 1f;
-            float chargeMultiplier = Mathf.Lerp(
-                _settings.MinChargeRatio,
-                1f,
-                Mathf.Clamp01(charge));
-
-            float magnitude = baseForce * weightMultiplier * chargeMultiplier;
+            float magnitude = baseForce * weightMultiplier * _settings.ForceRatio(charge);
             Vector3 direction = ResolveLaunchDirection(
                 aimDirection,
                 MinimumLaunchAngle,

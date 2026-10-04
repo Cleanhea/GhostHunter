@@ -14,12 +14,30 @@ MonoBehaviour:
   m_EditorClassIdentifier: GhostHunter.Runtime::GhostHunter.Furniture.FurnitureThrowSettings
   _maxTargetDistance: 2
   _holdBreakDistance: 4
-  _hoverDistance: 3
+  _carryMinHandDistance: 0.9
+  _carryMaxHandDistance: 2.2
+  _carryAimSmoothing: 0.05
+  _carryPositionResponse: 0.06
+  _carryRotationResponse: 0.08
   _heldMaxLinearSpeed: 15
   _heldMaxAngularSpeed: 720
+  _carryMaxAcceleration: 60
+  _carryMaxAngularAcceleration: 3600
+  _carryFollowMinGripSpan: 0.35
+  _carryMaxFollowPitch: 25
+  _carryFriction: 0.05
+  _carryIgnoresHolders: 1
+  _carryPassesOpenDoors: 1
+  _squeezeTriggerDistance: 0.1
+  _squeezeMaxYaw: 40
+  _squeezeYawStep: 10
+  _squeezeMaxLateral: 0.3
+  _squeezeLateralStep: 0.1
+  _squeezeProbeDistance: 0.12
   _wheelStepDegrees: 15
   _chargeTime: 1
-  _minChargeRatio: 0.4
+  _minChargeRatio: 0.15
+  _chargeCurve: 2
   _oneHolderForce: 30
   _twoHolderForce: 50
   _upwardBias: 0.45
