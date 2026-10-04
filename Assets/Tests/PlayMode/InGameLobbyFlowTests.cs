@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Reflection;
 using GhostHunter.Core;
 using GhostHunter.Core.Networking;
 using GhostHunter.Core.Scenes;
@@ -15,6 +16,8 @@ using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
 using UnityEngine;
 using UnityEngine.AI;
+using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.LowLevel;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
 using Object = UnityEngine.Object;
@@ -162,6 +165,7 @@ namespace GhostHunter.Tests.PlayMode
 
         private IEnumerator VerifyTutorialEnd(bool teamWiped)
         {
+            LogAssert.ignoreFailingMessages = true;
             ISceneFlow sceneFlow = Services.Get<ISceneFlow>();
             IStageSessionFlow stageFlow = Services.Get<IStageSessionFlow>();
             IConnectionService connection = Services.Get<IConnectionService>();
@@ -190,13 +194,14 @@ namespace GhostHunter.Tests.PlayMode
             if (teamWiped)
                 Assert.IsTrue(LocalPlayer().GetComponent<SanityNetworkState>().ServerMarkDead());
             else
-                Services.Get<ISanityTeamService>().ServerEndStageByExit();
+                yield return EndStageThroughTerminal();
 
             yield return WaitUntil(() => sceneFlow.Current == SceneId.Result && !sceneFlow.IsLoading,
                 "Tutorial 이 정상 종료·전멸 후 정산 화면으로 가지 못했다");
             Assert.AreEqual(1, sceneFlow.SettlementHistory.Count);
             Assert.AreEqual(teamWiped, sceneFlow.SettlementHistory[0].TeamWiped);
-            Assert.IsTrue(stageFlow.ReturnToInGameLobby());
+            Assert.IsTrue(connection.IsRunning, "정산 화면에서도 세션이 유지돼야 한다");
+            yield return ClickResultReturn();
             yield return WaitForPlayerIn(sceneFlow, stageFlow, SceneId.InGameLobby);
             Assert.IsTrue(stageFlow.StartStage());
             yield return WaitForPlayerIn(sceneFlow, stageFlow, SceneId.Stage1);
@@ -205,10 +210,100 @@ namespace GhostHunter.Tests.PlayMode
             Assert.IsEmpty(_exceptions, "예외:\n" + string.Join("\n---\n", _exceptions));
         }
 
+        private static IEnumerator EndStageThroughTerminal()
+        {
+            StageExitInteractable terminal = Object.FindFirstObjectByType<StageExitInteractable>();
+            DrillCarSafeZone zone = terminal.GetComponentInParent<DrillCarSafeZone>();
+            Vector3 probe = terminal.transform.position - zone.transform.forward * 0.8f;
+            Assert.IsTrue(Physics.Raycast(probe, Vector3.down, out RaycastHit floor, 4f,
+                Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore), "종료 단말기 앞 실내 바닥이 있어야 한다");
+
+            NetworkObject player = LocalPlayer();
+            CharacterController controller = player.GetComponent<CharacterController>();
+            controller.enabled = false;
+            player.transform.position = floor.point + Vector3.up * 0.02f;
+            controller.enabled = true;
+            Physics.SyncTransforms();
+            Assert.IsTrue(DrillCarSafeZone.Contains(player.transform.position),
+                $"실내 바닥에 선 플레이어가 드릴카 안으로 판정돼야 한다 — 플레이어 {player.transform.position}, " +
+                $"세이프 존 {zone.transform.position}, 크기 {zone.Size}");
+            PlayerInteractor interactor = player.GetComponent<PlayerInteractor>();
+            const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            FieldInfo confirmation = typeof(PlayerInteractor).GetField("_confirmStageExit", flags);
+            typeof(PlayerInteractor).GetField("_currentStageExit", flags).SetValue(interactor, terminal);
+            MethodInfo open = typeof(PlayerInteractor).GetMethod("OpenStageExitConfirmation", flags);
+            InputSettings.BackgroundBehavior previousBackground = InputSystem.settings.backgroundBehavior;
+            InputSettings.EditorInputBehaviorInPlayMode previousBehavior = InputSystem.settings.editorInputBehaviorInPlayMode;
+            InputSystem.settings.backgroundBehavior = InputSettings.BackgroundBehavior.IgnoreFocus;
+            InputSystem.settings.editorInputBehaviorInPlayMode =
+                InputSettings.EditorInputBehaviorInPlayMode.AllDeviceInputAlwaysGoesToGameView;
+            Mouse mouse = InputSystem.AddDevice<Mouse>();
+            try
+            {
+                open.Invoke(interactor, null);
+                yield return null;
+                Assert.IsTrue((bool)confirmation.GetValue(interactor));
+                Assert.AreEqual(CursorLockMode.None, Cursor.lockState);
+                Vector2 cancel = new(Screen.width * 0.5f, Screen.height * 0.5f - 34f);
+                InputSystem.QueueStateEvent(mouse, new MouseState { position = Vector2.zero }.WithButton(MouseButton.Left));
+                yield return null;
+                InputSystem.QueueStateEvent(mouse, new MouseState { position = cancel });
+                yield return null;
+                Assert.IsTrue((bool)confirmation.GetValue(interactor), "버튼 밖에서 눌러 안에서 놓는 드래그는 클릭이 아니다");
+                yield return Click(mouse, cancel);
+                Assert.IsFalse((bool)confirmation.GetValue(interactor), "새 Input System 클릭으로 취소창이 닫혀야 한다");
+                Assert.AreEqual(SceneId.Tutorial, Services.Get<ISceneFlow>().Current);
+
+                typeof(PlayerInteractor).GetField("_currentStageExit", flags).SetValue(interactor, terminal);
+                open.Invoke(interactor, null);
+                yield return null;
+                Vector2 confirm = new(Screen.width * 0.5f, Screen.height * 0.5f + 7f);
+                yield return Click(mouse, confirm);
+                Assert.IsFalse((bool)confirmation.GetValue(interactor), "새 Input System 클릭으로 종료 확인창이 닫혀야 한다");
+            }
+            finally
+            {
+                InputSystem.RemoveDevice(mouse);
+                InputSystem.settings.editorInputBehaviorInPlayMode = previousBehavior;
+                InputSystem.settings.backgroundBehavior = previousBackground;
+            }
+        }
+
+        private static IEnumerator Click(Mouse mouse, Vector2 position)
+        {
+            InputSystem.QueueStateEvent(mouse, new MouseState { position = position }.WithButton(MouseButton.Left));
+            yield return null;
+            InputSystem.QueueStateEvent(mouse, new MouseState { position = position });
+            yield return null;
+        }
+
+        private static IEnumerator ClickResultReturn()
+        {
+            InputSettings.BackgroundBehavior previousBackground = InputSystem.settings.backgroundBehavior;
+            InputSettings.EditorInputBehaviorInPlayMode previousBehavior = InputSystem.settings.editorInputBehaviorInPlayMode;
+            InputSystem.settings.backgroundBehavior = InputSettings.BackgroundBehavior.IgnoreFocus;
+            InputSystem.settings.editorInputBehaviorInPlayMode =
+                InputSettings.EditorInputBehaviorInPlayMode.AllDeviceInputAlwaysGoesToGameView;
+            Mouse mouse = InputSystem.AddDevice<Mouse>();
+            try
+            {
+                yield return null;
+                yield return Click(mouse, new Vector2(Screen.width * 0.5f, Screen.height * 0.5f - 110f));
+            }
+            finally
+            {
+                InputSystem.RemoveDevice(mouse);
+                InputSystem.settings.editorInputBehaviorInPlayMode = previousBehavior;
+                InputSystem.settings.backgroundBehavior = previousBackground;
+            }
+        }
+
 
         [UnityTest, Timeout(400000)]
         public IEnumerator Tutorial의_배치와_청소_반출_퀘스트가_실제_세션에서_진행된다()
         {
+            // 테스트 러너는 SetUp 이후 로그 범위를 초기화하므로 테스트 본문에서도 적용한다.
+            LogAssert.ignoreFailingMessages = true;
             ISceneFlow sceneFlow = Services.Get<ISceneFlow>();
             IStageSessionFlow stageFlow = Services.Get<IStageSessionFlow>();
             IConnectionService connection = Services.Get<IConnectionService>();

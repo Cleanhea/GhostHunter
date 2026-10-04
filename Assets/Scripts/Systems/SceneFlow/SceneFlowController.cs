@@ -9,6 +9,7 @@ using GhostHunter.Data.Scenes;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 
 namespace GhostHunter.Systems.SceneFlow
@@ -33,6 +34,7 @@ namespace GhostHunter.Systems.SceneFlow
         private bool _settlementRecorded;
         private int _stageSettlementStartCount;
         private float _nextSettlementPublishAttempt;
+        private bool _resultReturnPressed;
 
         public SceneId Current { get; private set; } = SceneId.Bootstrap;
         public bool IsLoading { get; private set; }
@@ -170,7 +172,50 @@ namespace GhostHunter.Systems.SceneFlow
             {
                 ReleaseCursorForResult();
                 HandleLobbyUpdated();
+                HandleResultReturnInput();
             }
+            else
+                _resultReturnPressed = false;
+        }
+
+        private static Rect ResultReturnButtonRect()
+        {
+            float width = Mathf.Min(400f, Screen.width - 32f);
+            return new Rect((Screen.width - width) * 0.5f + 12f,
+                (Screen.height + 280f) * 0.5f - 48f, width - 24f, 36f);
+        }
+
+        private void HandleResultReturnInput()
+        {
+            Mouse mouse = Mouse.current;
+            if (IsLoading || mouse == null)
+            {
+                _resultReturnPressed = false;
+                return;
+            }
+            Vector2 position = mouse.position.ReadValue();
+            position.y = Screen.height - position.y;
+            bool inside = ResultReturnButtonRect().Contains(position);
+            if (mouse.leftButton.wasPressedThisFrame)
+                _resultReturnPressed = inside;
+            if (!mouse.leftButton.wasReleasedThisFrame)
+                return;
+            bool clicked = _resultReturnPressed && inside;
+            _resultReturnPressed = false;
+            if (clicked)
+                ReturnFromResult();
+        }
+
+        private void ReturnFromResult()
+        {
+            NetworkManager network = NetworkManager.Singleton;
+            if (network != null && network.IsListening)
+            {
+                if (network.IsServer && Services.TryGet(out IStageSessionFlow stageFlow))
+                    stageFlow.ReturnToInGameLobby();
+            }
+            else if (_lobby == null || !_lobby.IsInLobby || _lobby.IsLobbyOwner)
+                Load(SceneId.Lobby);
         }
 
         /// <summary>
@@ -347,14 +392,11 @@ namespace GhostHunter.Systems.SceneFlow
             bool sessionRunning = network != null && network.IsListening;
             if (sessionRunning && network.IsServer)
             {
-                if (GUILayout.Button("인게임 로비로 이동", GUILayout.Height(36f))
-                    && Services.TryGet(out IStageSessionFlow stageFlow))
-                    stageFlow.ReturnToInGameLobby();
+                GUILayout.Space(48f);
             }
             else if (!sessionRunning && (_lobby == null || !_lobby.IsInLobby || _lobby.IsLobbyOwner))
             {
-                if (GUILayout.Button("로비로 이동", GUILayout.Height(36f)))
-                    Load(SceneId.Lobby);
+                GUILayout.Space(48f);
             }
             else
             {
@@ -362,6 +404,12 @@ namespace GhostHunter.Systems.SceneFlow
             }
 
             GUILayout.EndArea();
+            if ((sessionRunning && network.IsServer)
+                || (!sessionRunning && (_lobby == null || !_lobby.IsInLobby || _lobby.IsLobbyOwner)))
+            {
+                if (GUI.Button(ResultReturnButtonRect(), sessionRunning ? "인게임 로비로 이동" : "로비로 이동"))
+                    ReturnFromResult();
+            }
         }
 
         private async UniTaskVoid LoadAsync(SceneId target)

@@ -21,8 +21,6 @@ namespace GhostHunter.Tests.EditMode
         // 주차선처럼 땅에 붙은 얇은 장식은 장애물로 치지 않는다.
         private const float ObstacleClearance = 0.2f;
         private const float MinimumInteriorWidth = 3.6f;
-        // 실내 높이(2.29) ÷ 차체 높이(3.75) — 모델 배율이 바뀌어도 같다.
-        private const float InteriorToBodyHeight = 2.2861664f / 3.75f;
 
         [TestCase("Assets/Scenes/Stage1.unity")]
         [TestCase("Assets/Scenes/Tutorial.unity")]
@@ -84,8 +82,13 @@ namespace GhostHunter.Tests.EditMode
             // 2026-10-04 사용자 요청으로 1.4배(임포트 0.9 → 1.26). 커진 차체가 주변과 겹치지 않고 실내가 실제로 넓다.
             AssertNoObstacle(carBounds, ground, "드릴카", car);
             Assert.GreaterOrEqual(safe.Size.x, MinimumInteriorWidth, "드릴카 실내 폭이 좁습니다.");
-            Assert.AreEqual(carBounds.size.y, safe.Size.y / InteriorToBodyHeight, carBounds.size.y * 0.05f,
-                "실내 안전 구역이 차체와 같은 비율로 커지지 않았습니다 — 모델 배율과 SafeZone 크기를 같이 바꿔야 합니다.");
+            Vector3 probe = safe.ExitTerminalAnchor.position - safe.transform.forward * 0.8f;
+            Assert.IsTrue(Physics.Raycast(probe, Vector3.down, out RaycastHit floor, 4f,
+                Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore), "종료 단말기 앞 바닥이 없습니다.");
+            Assert.IsTrue(floor.collider.transform.IsChildOf(car), "종료 단말기 앞 바닥이 드릴카 모델이어야 합니다.");
+            Assert.IsTrue(interior.Contains(floor.point + Vector3.up * 0.02f),
+                "실제 실내 바닥에 선 플레이어 발 위치가 안전 구역에서 빠집니다.");
+            Assert.IsFalse(interior.Contains(floor.point - Vector3.up * 0.2f), "차체 바닥 아래까지 안전 구역에 포함되면 안 됩니다.");
         }
 
         private static T Find<T>(Scene scene) where T : Component

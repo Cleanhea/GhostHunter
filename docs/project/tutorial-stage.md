@@ -117,6 +117,7 @@ GhostPrototypeSettings_Tutorial은 물건 흔들기·소품 떨어뜨리기·조
 
 ## 검증
 
+- 2026-10-04 종료 확인창 수정: `MouseState` 이벤트로 취소·종료 버튼을 클릭하고 실제 소유자 RPC를 거쳐 정산 → 로비 복귀 버튼 클릭 → 다음 Stage1 출발을 검사했다. 실제 드릴카 콜라이더 바닥에 선 발 위치가 안전 구역 밖으로 판정되던 문제도 함께 보정했다. Unity 컴파일·관련 EditMode 21/21·`InGameLobbyFlowTests` PlayMode 4/4 통과(스킵 0). 종료·전멸·정산 없는 재시도와 세션 유지 포함. 최초 로비 언로드의 기존 NGO 핸들 오류 로그(SF-FIX-1)는 별도 미해결이며 테스트 통과를 오류 로그 0건으로 해석하지 않는다. 실제 사용자 화면·Steam 다인은 재확인 필요.
 - 관련 EditMode 35/35 통과: 32개 시드의 배치, 소품 중복 방지/고정 반출 위치, 얼룩 후보 구성, 욕실 고정, 책 적층, 현상 3종/복원, 지지 관계, 맵 스케일·텍스처·조명·식별자.
 - 원본 프로젝트 Unity 컴파일 통과. 전체 EditMode **399건 중 397 통과**, 실패 2건은 변경 전에도 실패한 MoleSkillWiringTests 소스 검사(귀신 굴착 노출·일시정지 잠금 순서)다.
 - 관련 PlayMode **43/43 통과**: InGameLobbyFlowTests, CleaningFlowTests, FurnitureThrowFlowTests, FurnitureCollisionFlowTests, GhostAiExperimentFlowTests.

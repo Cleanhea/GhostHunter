@@ -26,7 +26,7 @@ Transform:
   m_GameObject: {fileID: 34831436955027057}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -0.00733411, y: 2.8824, z: -0.5012}
+  m_LocalPosition: {x: -0.00733411, y: 2.6324, z: -0.5012}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -46,7 +46,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: edb3e57639217894eace9d244f01bbaf, type: 3}
   m_Name: 
   m_EditorClassIdentifier: GhostHunter.Gameplay::GhostHunter.Gameplay.Ghost.DrillCarSafeZone
-  _size: {x: 3.64911, y: 3.20063, z: 7.189}
+  _size: {x: 3.64911, y: 3.70063, z: 7.189}
   _gapBehindSpawns: 2.5
   _placeBehindSpawnsAtRuntime: 0
   _exitTerminalAnchor: {fileID: 1831643269183058557}
@@ -76,7 +76,7 @@ Transform:
   m_GameObject: {fileID: 822215912828458006}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0.7071068, z: -0, w: 0.7071068}
-  m_LocalPosition: {x: -1.39578, y: 0.223743, z: -2.5571}
+  m_LocalPosition: {x: -1.39578, y: 0.473743, z: -2.5571}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -204,7 +204,7 @@ Transform:
   m_GameObject: {fileID: 3881560609184510501}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -0.623, y: -0.3402, z: 1.2908}
+  m_LocalPosition: {x: -0.623, y: -0.0902, z: 1.2908}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []

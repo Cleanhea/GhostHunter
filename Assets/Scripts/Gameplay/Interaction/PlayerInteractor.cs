@@ -5,6 +5,7 @@ using GhostHunter.Gameplay.Revival;
 using GhostHunter.Gameplay.Sanity;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 namespace GhostHunter.Gameplay.Interaction
 {
@@ -31,6 +32,7 @@ namespace GhostHunter.Gameplay.Interaction
         private StageLobbyTerminal _currentLobbyTerminal;
         private RevivalCandleSlot _currentCandleSlot;
         private bool _confirmStageExit;
+        private int _pressedStageExitButton;
         private CursorLockMode _previousCursorLock;
         private bool _previousCursorVisible;
 
@@ -72,6 +74,8 @@ namespace GhostHunter.Gameplay.Interaction
                 // 다른 사람이 먼저 스테이지를 끝내 단말기가 씬과 함께 사라졌으면 Result 위에 창이 남지 않게 닫는다.
                 if (_input.IsDeathInputLocked || _input.IsGameplayInputLocked || _currentStageExit == null)
                     CloseStageExitConfirmation();
+                else
+                    HandleStageExitConfirmationInput();
                 return;
             }
 
@@ -128,11 +132,46 @@ namespace GhostHunter.Gameplay.Interaction
             if (!_confirmStageExit)
                 return;
             _confirmStageExit = false;
+            _pressedStageExitButton = 0;
             if (_input == null || !_input.IsGameplayInputLocked)
             {
                 Cursor.lockState = _previousCursorLock;
                 Cursor.visible = _previousCursorVisible;
             }
+        }
+
+        private static Rect StageExitConfirmationArea() => new(
+            (Screen.width - 320f) * 0.5f, (Screen.height - 150f) * 0.5f, 320f, 150f);
+
+        private static Rect StageExitButtonRect(bool confirm)
+        {
+            Rect area = StageExitConfirmationArea();
+            return new Rect(area.x + 12f, area.y + (confirm ? 50f : 94f), area.width - 24f,
+                confirm ? 36f : 30f);
+        }
+
+        private void HandleStageExitConfirmationInput()
+        {
+            // Input System 전용 빌드에서는 OnGUI에 마우스 이벤트가 전달되지 않는다.
+            Mouse mouse = Mouse.current;
+            if (mouse == null)
+                return;
+            Vector2 position = mouse.position.ReadValue();
+            position.y = Screen.height - position.y;
+            int button = StageExitButtonRect(true).Contains(position) ? 1
+                : StageExitButtonRect(false).Contains(position) ? 2 : 0;
+            if (mouse.leftButton.wasPressedThisFrame)
+                _pressedStageExitButton = button;
+            if (!mouse.leftButton.wasReleasedThisFrame)
+                return;
+
+            int pressed = _pressedStageExitButton;
+            _pressedStageExitButton = 0;
+            if (pressed == 0 || pressed != button)
+                return;
+            CloseStageExitConfirmation();
+            if (button == 1)
+                RequestStageEndRpc();
         }
 
         private void OnGUI()
@@ -157,19 +196,17 @@ namespace GhostHunter.Gameplay.Interaction
                 return;
             }
 
-            Rect area = new((Screen.width - 320f) * 0.5f,
-                (Screen.height - 150f) * 0.5f, 320f, 150f);
-            GUILayout.BeginArea(area, GUI.skin.box);
-            GUILayout.Label("스테이지를 종료하시겠습니까?");
-            GUILayout.Label("드릴카 밖의 생존자는 실종 처리됩니다.");
-            if (GUILayout.Button("종료", GUILayout.Height(36f)))
+            Rect area = StageExitConfirmationArea();
+            GUI.Box(area, GUIContent.none);
+            GUI.Label(new Rect(area.x + 12f, area.y + 10f, area.width - 24f, 20f), "스테이지를 종료하시겠습니까?");
+            GUI.Label(new Rect(area.x + 12f, area.y + 30f, area.width - 24f, 20f), "드릴카 밖의 생존자는 실종 처리됩니다.");
+            if (GUI.Button(StageExitButtonRect(true), "종료"))
             {
                 CloseStageExitConfirmation();
                 RequestStageEndRpc();
             }
-            if (GUILayout.Button("취소", GUILayout.Height(30f)))
+            if (GUI.Button(StageExitButtonRect(false), "취소"))
                 CloseStageExitConfirmation();
-            GUILayout.EndArea();
         }
 
         [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]

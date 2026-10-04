@@ -93,6 +93,7 @@ B안(`PlanBFurnitureSpawnSetup` — 가구 풀·후보·서버 생성기·앞마
 | # | 작업 | 상태 |
 | --- | --- | --- |
 | SF-FIX-1 | 첫 인게임 로비 출발의 NGO 씬 핸들 연결 누락 오류 수정 | 원인 확인·미수정 — `Failed to remove InGameLobby scene handles`. 자동 씬 전환 검사가 오류 로그를 무시하므로 통과와 별개로 남음. 원격 게스트 영향 확인 필요 → [ADR-0018 검증 주의](../architecture/decisions/ADR-0018-persistent-session-in-game-lobby.md#검증-주의-2026-10-04) |
+| SF-FIX-2 | Local Tutorial 종료 확인창 클릭·실내 판정과 정산 복귀 수정 | **구현·자동 검증 완료** — 새 Input System 클릭 처리, 실제 바닥에 맞춘 SafeZone 하단 보정. Unity 컴파일·관련 EditMode 21/21·PlayMode 4/4 통과. 실제 사용자 화면·Steam 다인은 확인 필요, SF-FIX-1은 별도 미해결 → [Tutorial 검증](tutorial-stage.md#검증) |
 
 ### 드릴카 구역 배치 (2026-10-04 사용자 요청)
 
