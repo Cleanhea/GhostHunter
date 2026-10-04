@@ -125,7 +125,7 @@ namespace GhostHunter.UI
             y -= TitleHeight + RowSpacing;
             _stainRow = CreateRow("Stains", "얼룩 닦기 (대걸레)", font, y);
             y -= rowBlock + RowSpacing;
-            _furnitureRow = CreateRow("Delivery", "물품 반출 (드릴카)", font, y);
+            _furnitureRow = CreateRow("Delivery", "물품 반출 (드릴카 옆)", font, y);
         }
 
         private Row CreateRow(string name, string label, Font font, float y)

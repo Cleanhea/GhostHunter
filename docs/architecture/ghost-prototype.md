@@ -27,8 +27,10 @@
 반대편)으로 옮긴다(`PlaceBehindSpawns`). 스폰 줄 끝에서 `_gapBehindSpawns`(2.5m [TEMP]) 떨어진
 자리이고, 바닥 높이는 아래로 레이를 쏴서 찾는다. B안에서는 앞마당(4m) 밖 땅(0.54m 낮음)에 서서
 현관에서 약 5.8m 떨어진다. 스폰 자리에 겹쳐 두던 때는 상자 안의 종료 단말기가 현관을 막았다.
-반출 구역·종료 단말기·공동 아이템 선반은 이 상자의 자식이라 같이 움직이고, 조립 영역
-(`FurnitureMultiDriverPrototype`)은 같은 이동량만큼 따라간다.
+종료 단말기·공동 아이템 선반은 이 상자의 자식이라 같이 움직이고, 조립 영역
+(`FurnitureMultiDriverPrototype`)은 같은 이동량만큼 따라간다. 2026-10-04부터 반출 구역은 상자 **오른쪽(+X) 바깥 땅**
+(`FurnitureDeliveryZone.CreateBesideDrillCar`, 4 × 3.5 × 4m, 초록 빛기둥·윤곽선 표시 `FurnitureDeliveryZoneView`), 조립 영역은 상자 **왼쪽(−X) 바깥 땅**에 둔다(`GameInstaller`) —
+이전에는 둘 다 상자 안이었다.
 
 ## 2. 생성, 청소, 상태
 

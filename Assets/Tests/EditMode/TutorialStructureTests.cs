@@ -107,7 +107,8 @@ namespace GhostHunter.Tests.EditMode
         public void 드릴카는_정면에_서고_램프와_시작_지점은_모텔을_향한다()
         {
             GameObject car = _scene.GetRootGameObjects().Single(x => x.name == "DrillCar");
-            Assert.AreEqual(new Vector3(0f, 0f, 13f), car.transform.position);
+            // 2026-10-04 드릴카 1.4배 확대 — 램프 끝이 같은 자리(z 8.36)에 오도록 13 → 14.86 으로 뒤로 뺐다(stage-system.md §2.1).
+            Assert.AreEqual(new Vector3(0f, 0f, 14.86f), car.transform.position);
             Assert.Greater(Vector3.Dot(car.transform.forward, Vector3.forward), 0.99f);
             DrillCarSafeZone zone = car.GetComponentInChildren<DrillCarSafeZone>(true);
             Assert.IsNotNull(zone);

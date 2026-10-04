@@ -25,6 +25,10 @@ namespace GhostHunter.Systems.Installers
     [DisallowMultipleComponent]
     public sealed class GameInstaller : SceneInstaller
     {
+        // ProtoTypeGame 임시 상자 옆 조립 영역 배치(m) — 영역 트리거가 5 × 5m 다.
+        private const float PrototypeAssemblyGap = 0.5f;
+        private const float PrototypeAssemblyHalfWidth = 2.5f;
+
         [SerializeField] private VoiceChatSettings _voiceSettings;
         [SerializeField] private PlayerSpawnRegistry _playerSpawns;
         [SerializeField] private SanityTeamService _sanityTeam;
@@ -45,13 +49,20 @@ namespace GhostHunter.Systems.Installers
                 FurnitureAssemblyZone assembly = FindFirstObjectByType<FurnitureAssemblyZone>();
                 if (assembly != null && assembly.transform.parent != null
                     && assembly.transform.parent.name == "FurnitureMultiDriverPrototype")
+                {
                     assembly.transform.parent.position +=
                         drillCar.transform.position - previousPosition;
+                    // 조립 영역은 상자 안이 아니라 왼쪽(−X) 바깥 땅에 둔다(2026-10-04). 반출 구역은 오른쪽이다.
+                    assembly.transform.position = drillCar.transform.TransformPoint(new Vector3(
+                        -(drillCar.Size.x * 0.5f + PrototypeAssemblyGap + PrototypeAssemblyHalfWidth),
+                        -drillCar.Size.y * 0.5f,
+                        0f));
+                }
             }
 
             if (GetComponent<FurnitureDeliveryTracker>() == null)
                 gameObject.AddComponent<FurnitureDeliveryTracker>();
-            FurnitureDeliveryZone.CreateInDrillCar();
+            FurnitureDeliveryZone.CreateBesideDrillCar();
             if (GetComponent<TemporaryShopShelf>() == null)
                 gameObject.AddComponent<TemporaryShopShelf>();
             StageExitInteractable.CreateInDrillCar();
