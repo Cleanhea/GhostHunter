@@ -31,7 +31,7 @@ docs/
 │   ├── revival-system.md         부활 의식 — 소환진·촛불 5개·타이밍 점화·폐급 두더지
 │   ├── stage-system.md           스테이지 시작·종료·정산·호스트 이전 — 기획 1.0과 2026-09-27 확정 사항
 │   ├── spectator-system.md         사망 후 능력 제한·자유시점·생존자 관전 — 코드 구현, Play 검증 대기
-│   ├── voice-chat-system.md        근접 음성 채팅(마이크) — 10m XZ 감쇠·벽 가림·층 차단, 기획 0.2 (선행 결정 4건 확정)
+│   ├── voice-chat-system.md        근접 음성 채팅(마이크) — 25m XZ 역거리 감쇠·벽 가림·층 차단, 기획 0.5 (선행 결정 4건 확정)
 │   ├── roadmap.md                  마일스톤 & 태스크 보드
 │   └── roadmap-history.md          완료 이력 — 완료 시 맨 위에 추가만, 작업 시작 시 읽지 않는다
 ├── architecture/                   어떻게 구성되는가

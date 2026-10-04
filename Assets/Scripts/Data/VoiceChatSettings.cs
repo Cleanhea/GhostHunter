@@ -10,7 +10,7 @@ namespace GhostHunter.Data
     {
         [SerializeField] private float _minimumDistance = 1.5f;
         [SerializeField] private float _fadeDistance = 7f;
-        [SerializeField] private float _maximumDistance = 10f;
+        [SerializeField] private float _maximumDistance = 25f;
         [SerializeField] private float _rolloffExponent = 0.9f;
         [SerializeField] private float _verticalNear = 1.2f;
         [SerializeField] private float _verticalCut = 2.6f;

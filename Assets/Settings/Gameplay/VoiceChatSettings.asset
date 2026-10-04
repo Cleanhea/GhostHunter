@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: GhostHunter.Data::GhostHunter.Data.VoiceChatSettings
   _minimumDistance: 1.5
   _fadeDistance: 7
-  _maximumDistance: 10
+  _maximumDistance: 25
   _rolloffExponent: 0.9
   _verticalNear: 1.2
   _verticalCut: 2.6

@@ -1,26 +1,47 @@
 using System;
 using System.Threading;
+using GhostHunter.Data;
 using GhostHunter.Gameplay.Voice;
 using NUnit.Framework;
 using Unity.Collections;
+using UnityEngine;
 
 namespace GhostHunter.Tests.EditMode
 {
     public sealed class VoiceTests
     {
-        [TestCase(0f, 1f)] [TestCase(1.5f, 1f)] [TestCase(10f, 0f)] [TestCase(12f, 0f)]
+        [TestCase(0f, 1f)] [TestCase(1.5f, 1f)] [TestCase(3f, 0.5358867f)] [TestCase(5f, 0.3383835f)]
+        [TestCase(7f, 0.2499735f)] [TestCase(10f, 0.167903f)]
+        [TestCase(15f, 0.0733941f)] [TestCase(20f, 0.0183286f)]
+        [TestCase(25f, 0f)] [TestCase(27f, 0f)]
         public void Horizontal_Boundaries(float distance, float expected)
-            => Assert.That(VoiceAttenuation.Horizontal(distance, 1.5f, 7f, 10f, 0.9f), Is.EqualTo(expected).Within(0.0001f));
+        {
+            var settings = ScriptableObject.CreateInstance<VoiceChatSettings>();
+            try
+            {
+                Assert.That(VoiceAttenuation.Horizontal(distance, settings.MinimumDistance, settings.FadeDistance,
+                    settings.MaximumDistance, settings.RolloffExponent),
+                    Is.EqualTo(expected).Within(0.0001f));
+            }
+            finally { UnityEngine.Object.DestroyImmediate(settings); }
+        }
         [Test]
         public void Horizontal_ApproachesBoundaryContinuously()
         {
-            float previous = 1f;
-            for (int i = 0; i <= 1000; i++)
+            var settings = ScriptableObject.CreateInstance<VoiceChatSettings>();
+            try
             {
-                float current = VoiceAttenuation.Horizontal(i / 100f, 1.5f, 7f, 10f, 0.9f);
-                Assert.That(current, Is.InRange(0f, previous));
-                previous = current;
+                float previous = 1f;
+                for (int i = 0; i <= 2500; i++)
+                {
+                    float current = VoiceAttenuation.Horizontal(i / 100f, settings.MinimumDistance, settings.FadeDistance,
+                        settings.MaximumDistance, settings.RolloffExponent);
+                    Assert.That(current, Is.InRange(0f, previous));
+                    Assert.That(previous - current, Is.LessThanOrEqualTo(0.007f));
+                    previous = current;
+                }
             }
+            finally { UnityEngine.Object.DestroyImmediate(settings); }
         }
         [TestCase(0f, 1f)] [TestCase(0.8f, 1f)] [TestCase(1.5f, 0.8819242f)]
         [TestCase(2.6f, 0f)] [TestCase(3f, 0f)]
@@ -36,18 +57,27 @@ namespace GhostHunter.Tests.EditMode
             for (int i = 0; i < 60; i++) value = VoiceAttenuation.Smooth(value, 1f, 1f / 60f, 0.12f);
             Assert.That(value, Is.EqualTo(VoiceAttenuation.Smooth(0f, 1f, 1f, 0.12f)).Within(0.00001f));
         }
-        [TestCase(true, true, 12f, 3.6f, true)] [TestCase(true, true, 12.01f, 0f, false)]
+        [TestCase(true, true, 25f, 0f, true)] [TestCase(true, true, 27f, 3.6f, true)]
+        [TestCase(true, true, 27.01f, 0f, false)]
         [TestCase(true, true, 0f, 3.61f, false)] [TestCase(false, false, 1000f, 1000f, true)]
         [TestCase(false, true, 0f, 0f, false)] [TestCase(true, false, 0f, 0f, false)]
         public void Relay_EnforcesChannelAndMargins(bool speaker, bool listener, float horizontal, float vertical, bool expected)
-            => Assert.That(VoiceAttenuation.CanRelay(speaker, listener, horizontal, vertical, 10f, 2.6f, 2f, 1f), Is.EqualTo(expected));
+        {
+            var settings = ScriptableObject.CreateInstance<VoiceChatSettings>();
+            try
+            {
+                Assert.That(VoiceAttenuation.CanRelay(speaker, listener, horizontal, vertical, settings.MaximumDistance,
+                    settings.VerticalCut, settings.ServerMarginXZ, settings.ServerMarginY), Is.EqualTo(expected));
+            }
+            finally { UnityEngine.Object.DestroyImmediate(settings); }
+        }
         [TestCase(true, false)]
         [TestCase(false, true)]
         [TestCase(true, true)]
         [TestCase(false, false)]
         public void ResultRelay_CombinesAllPlayersWithoutDistanceLimit(bool speaker, bool listener)
             => Assert.IsTrue(VoiceAttenuation.CanRelay(speaker, listener, 1000f, 1000f,
-                10f, 2.6f, 2f, 1f, resultChannel: true));
+                25f, 2.6f, 2f, 1f, resultChannel: true));
         [Test]
         public void Gate_HysteresisAndHangoverPreserveSentence()
         {
