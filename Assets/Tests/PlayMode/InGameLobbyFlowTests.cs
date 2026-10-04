@@ -11,6 +11,7 @@ using GhostHunter.Gameplay.FurnitureDriver;
 using GhostHunter.Gameplay.Ghost;
 using GhostHunter.Gameplay.Interaction;
 using GhostHunter.Gameplay.Sanity;
+using GhostHunter.UI;
 using NUnit.Framework;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
@@ -165,6 +166,49 @@ namespace GhostHunter.Tests.PlayMode
             Assert.IsFalse(SceneManager.GetSceneByName("Stage1").isLoaded, "스테이지 씬은 내려간다");
             Assert.IsTrue(connection.IsRunning);
 
+            Assert.IsEmpty(_exceptions, "예외:\n" + string.Join("\n---\n", _exceptions));
+        }
+
+        [UnityTest, Timeout(400000)]
+        public IEnumerator 상점_목록_순회_중_구매와_수리가_성공해도_예외가_없다()
+        {
+            ISceneFlow sceneFlow = Services.Get<ISceneFlow>();
+            IStageSessionFlow stageFlow = Services.Get<IStageSessionFlow>();
+            IConnectionService connection = Services.Get<IConnectionService>();
+            foreach (UnityTransport transport in Object.FindObjectsByType<UnityTransport>(
+                         FindObjectsInactive.Include, FindObjectsSortMode.None))
+                transport.SetConnectionData("127.0.0.1", TestPort, "127.0.0.1");
+            connection.SetTransportMode(TransportMode.Local);
+            connection.StartHostInGameScene(SceneId.InGameLobby);
+            yield return WaitForPlayerIn(sceneFlow, stageFlow, SceneId.InGameLobby);
+
+            IStageShopService shop = Services.Get<IStageShopService>();
+            yield return WaitUntil(() => shop.IsAvailable, "로컬 세션에서 상점이 열리지 않았다");
+            Assert.IsTrue(shop.TrySetBalanceForDebug(100));
+            InGameLobbyPanel panel = Object.FindFirstObjectByType<InGameLobbyPanel>();
+            Assert.IsNotNull(panel);
+            MethodInfo capture = typeof(InGameLobbyPanel).GetMethod("CaptureShopMembers",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.IsNotNull(capture);
+            var members = (IReadOnlyList<ShopMember>)capture.Invoke(panel, null);
+            Assert.AreEqual(1, members.Count, "로컬 호스트 한 명의 참가자 목록");
+
+            int visited = 0;
+            foreach (ShopMember member in members)
+            {
+                Assert.AreEqual(shop.LocalMemberKey, member.Key);
+                Assert.IsTrue(shop.TryPurchase(ShopItem.IronDriver, member.Key));
+                Assert.IsTrue(shop.TryPurchase(ShopItem.IronLighter, member.Key));
+                Assert.IsTrue(shop.TrySaveDriverDurability(member.Key, 90));
+                Assert.IsTrue(shop.TryRepairDriver(member.Key));
+                Assert.AreEqual(1, shop.GetMembers().Count, "서비스 목록을 다시 조회해도 UI 순회는 유지된다");
+                visited++;
+            }
+
+            Assert.AreEqual(1, visited, "목록 끝까지 순회해야 한다");
+            Assert.AreEqual(50, shop.Balance, "구매·수리 비용이 각각 한 번 차감된다");
+            Assert.AreEqual(100, shop.GetMemberGear(shop.LocalMemberKey).DriverDurability);
+            Assert.IsTrue(shop.GetMemberGear(shop.LocalMemberKey).HasLighter);
             Assert.IsEmpty(_exceptions, "예외:\n" + string.Join("\n---\n", _exceptions));
         }
 

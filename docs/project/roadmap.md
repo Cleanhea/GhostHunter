@@ -80,6 +80,7 @@ B안(`PlanBFurnitureSpawnSetup` — 가구 풀·후보·서버 생성기·앞마
 | ST-8 | 일반 로비 / 인게임 로비 분리 — 세션 유지, 인게임 로비 ⇄ 스테이지, 상점 이동(방장 전용), 인게임 로비부터 참가 차단 | **코드·설치 도구 반영(2026-09-28)** — Local Host 전 흐름 자동 검증. 에디터 메뉴 `GhostHunter > 인게임 로비 씬 생성` 실행·게스트 동기화·Steam 다인 검증 대기 → [ADR-0018](../architecture/decisions/ADR-0018-persistent-session-in-game-lobby.md) |
 | ST-9 | Game → ProtoTypeGame 이름 변경, 스테이지 씬 Stage1 신설·인게임 로비 출발 연동(B안·드릴카 안전 구역·조립 영역·정신력 UI 이전) | **코드·설치 도구 반영(2026-09-28)** — 검증용 복제 프로젝트에서 도구 실행·EditMode·PlayMode(인게임 로비 ⇄ Stage1) 자동 검증. 원본 에디터에서 메뉴 실행·Local Host Stage1 진입 확인 완료. 드릴카 종료·정산·게스트·Steam 다인 검증 대기. 귀신·청소 이전은 미정 → [ADR-0019](../architecture/decisions/ADR-0019-stage1-scene-split.md) |
 | ST-7 | 비정상 종료의 공동 아이템 복구 | 임시 공동 상점·선반 코드 반영. Temp 아이템은 사용자 결정에 따라 구매·보유만 가능하므로 현 단계에서 소비/복구 대상 없음. |
+| SHOP-FIX-1 | 상점 구매·수리 중 플레이어 목록 순회 예외 수정 | **구현·자동 검증 완료(2026-10-05)** — UI 전용 목록 재사용·원본 변경과 순회 분리. Unity 컴파일·상점 EditMode 10/10·로비 PlayMode 5/5 통과(구매·수리·잔액·장비 확인). 실제 IMGUI 버튼 클릭·Steam 다인은 확인 필요 → [stage-system.md §2.2](stage-system.md#22-상점경제-2026-09-29-사용자-확정) |
 | ST-10 | F2 튜닝 창에서 현재 공동 잔액 표시·조절 | **구현·자동 검증 완료(2026-10-05)** — 호스트만 숫자 입력/적용·±$1, 실제 상점 반영·재고/장비 보존. Unity 컴파일·EditMode 10/10·PlayMode 12/12 통과. 실제 F2 화면·Steam 다인은 확인 필요 → [stage-system.md §2.2](stage-system.md#22-상점경제-2026-09-29-사용자-확정) |
 
 ### Tutorial 원룸 (2026-10-02 사용자 요청)

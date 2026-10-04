@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using GhostHunter.Core;
 using GhostHunter.Core.Scenes;
 using GhostHunter.Core.Steam;
@@ -35,6 +36,7 @@ namespace GhostHunter.UI
         private bool _open;
         private string _status = string.Empty;
         private Vector2 _scroll;
+        private readonly List<ShopMember> _shopMembers = new();
 
         /// <summary>단말기 창이 열려 있는가.</summary>
         public bool IsOpen => _open;
@@ -173,6 +175,7 @@ namespace GhostHunter.UI
         /// <summary>공동 품목 한 줄 + 플레이어마다 드라이버·라이터·수리 한 줄(stage-system.md §2.2).</summary>
         private void DrawShop(bool isHost)
         {
+            List<ShopMember> members = CaptureShopMembers();
             GUILayout.Label($"공동 잔액 ${_shop.Balance}");
 
             GUILayout.Label("— 공동 —");
@@ -185,7 +188,7 @@ namespace GhostHunter.UI
 
             GUILayout.Space(6f);
             GUILayout.Label("— 플레이어별 —");
-            foreach (ShopMember member in _shop.GetMembers())
+            foreach (ShopMember member in members)
             {
                 MemberGear gear = _shop.GetMemberGear(member.Key);
                 GUILayout.Label($"{member.DisplayName}  —  {GearSummary(gear)}");
@@ -208,6 +211,16 @@ namespace GhostHunter.UI
                 GUI.enabled = true;
                 GUILayout.EndHorizontal();
             }
+        }
+
+        private List<ShopMember> CaptureShopMembers()
+        {
+            // 구매·수리 콜백이 서비스의 참가자 목록을 재구성하므로 UI는 별도 목록을 순회한다.
+            _shopMembers.Clear();
+            IReadOnlyList<ShopMember> members = _shop.GetMembers();
+            for (int i = 0; i < members.Count; i++)
+                _shopMembers.Add(members[i]);
+            return _shopMembers;
         }
 
         private bool ShopAvailable => _shop != null && _shop.IsAvailable;
