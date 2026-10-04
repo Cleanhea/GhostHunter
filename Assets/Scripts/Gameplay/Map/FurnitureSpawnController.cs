@@ -35,6 +35,9 @@ namespace GhostHunter.Gameplay.Map
         public bool IsReady => _isReady.Value;
         public int GenerationSeed => _generationSeed.Value;
 
+        /// <summary>씬 가구의 스폰·방 이동이 끝난 뒤, 배치 계획을 세우기 전에 서버에서 호출한다.</summary>
+        public event Action<int> ServerPreparingLayout;
+
         public override void OnNetworkSpawn()
         {
             if (!IsServer)
@@ -62,6 +65,7 @@ namespace GhostHunter.Gameplay.Map
 
         public override void OnNetworkDespawn()
         {
+            _excludedAreas.Clear();
             if (_spawnCancellation != null)
             {
                 _spawnCancellation.Cancel();
@@ -72,7 +76,7 @@ namespace GhostHunter.Gameplay.Map
 
         /// <summary>
         /// 서버 전용 — 이 영역에 후보 지점이 있는 방 전체를 랜덤 배치에서 뺀다(부활 의식 방을 비운다, revival-system.md).
-        /// 배치 전에 불러야 한다. 방을 빼서 전체 계획이 안 서면 제외 없이 다시 세운다.
+        /// 배치 전에 불러야 한다. 제외 조건을 만족하지 못하면 부분 배치 없이 실패한다.
         /// </summary>
         public void ServerExcludeArea(Func<Vector3, bool> contains)
         {
@@ -93,9 +97,11 @@ namespace GhostHunter.Gameplay.Map
         /// <summary>씬이나 SO를 변경하지 않고 지정 시드의 전체 배치 가능 여부를 검증한다.</summary>
         public bool TryBuildPlan(int seed, out FurniturePlacementPlanner.Candidate[] plan,
             out FurniturePlacementPlanner.Request[] requests, out string error)
-            => TryBuildPlan(seed, true, out plan, out requests, out error);
+            => TryBuildPlan(seed, null, out plan, out requests, out error);
 
-        private bool TryBuildPlan(int seed, bool useExclusions, out FurniturePlacementPlanner.Candidate[] plan,
+        /// <summary>기존 제외 조건에 방 하나를 추가했을 때의 배치 가능 여부를 상태 변경 없이 검증한다.</summary>
+        public bool TryBuildPlan(int seed, Func<Vector3, bool> additionalExcludedArea,
+            out FurniturePlacementPlanner.Candidate[] plan,
             out FurniturePlacementPlanner.Request[] requests, out string error)
         {
             plan = Array.Empty<FurniturePlacementPlanner.Candidate>();
@@ -125,11 +131,14 @@ namespace GhostHunter.Gameplay.Map
             var requestList = new List<FurniturePlacementPlanner.Request>();
             bool requestOverflow = false;
             var excludedRooms = new HashSet<int>();
-            if (useExclusions)
-                foreach (FurnitureSpawnPoint point in _points)
-                    foreach (Func<Vector3, bool> area in _excludedAreas)
-                        if (area(point.transform.position))
-                            excludedRooms.Add(point.RoomId);
+            foreach (FurnitureSpawnPoint point in _points)
+            {
+                if (additionalExcludedArea != null && additionalExcludedArea(point.transform.position))
+                    excludedRooms.Add(point.RoomId);
+                foreach (Func<Vector3, bool> area in _excludedAreas)
+                    if (area(point.transform.position))
+                        excludedRooms.Add(point.RoomId);
+            }
             var rooms = new SortedSet<int>();
             foreach (FurnitureSpawnPoint point in _points)
                 if (!excludedRooms.Contains(point.RoomId))
@@ -246,17 +255,12 @@ namespace GhostHunter.Gameplay.Map
                 }
                 int seed = _settings.UseFixedSeed ? _settings.Seed : Guid.NewGuid().GetHashCode();
                 _generationSeed.Value = seed;
-                if (!TryBuildPlan(seed, true, out FurniturePlacementPlanner.Candidate[] plan,
+                ServerPreparingLayout?.Invoke(seed);
+                if (!TryBuildPlan(seed, out FurniturePlacementPlanner.Candidate[] plan,
                     out FurniturePlacementPlanner.Request[] requests, out string error))
                 {
-                    if (_excludedAreas.Count == 0
-                        || !TryBuildPlan(seed, false, out plan, out requests, out string retryError))
-                    {
-                        Debug.LogError($"[FurnitureSpawnController] 배치 실패 (seed {seed}): {error}", this);
-                        return;
-                    }
-                    Debug.LogWarning($"[FurnitureSpawnController] 제외 영역(부활 의식 방)을 빼고는 배치가 안 서서 " +
-                        $"제외 없이 배치합니다 (seed {seed}): {error}", this);
+                    Debug.LogError($"[FurnitureSpawnController] 배치 실패 (seed {seed}): {error}", this);
+                    return;
                 }
                 foreach (RandomFurnitureItem item in _items)
                 {

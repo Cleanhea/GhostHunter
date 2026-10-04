@@ -226,6 +226,8 @@ namespace GhostHunter.Gameplay.Cleaning
             {
                 if (placed >= requested)
                     break;
+                if (point != null && IsExcluded(point.position))
+                    continue;
                 // 고정 작업은 가구를 옮겨 드러내야 할 수도 있으므로 장애물 여부로 생략하지 않는다.
                 if (point == null || !TryGetSupport(point.position, out Vector3 position))
                 {

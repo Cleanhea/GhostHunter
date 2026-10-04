@@ -78,6 +78,39 @@ namespace GhostHunter.Tests.PlayMode
             yield return null;
         }
 
+        [UnityTest]
+        public IEnumerator 의식_방의_고정_얼룩_지점도_제외한다()
+        {
+            CleaningStain stain = SpawnStain();
+            _controllerObject = new GameObject("CleaningRoomExclusionController");
+            _controllerObject.SetActive(false);
+            var networkObject = _controllerObject.AddComponent<NetworkObject>();
+            Set(networkObject, "GlobalObjectIdHash", 0x5F200002u);
+            var controller = _controllerObject.AddComponent<CleaningController>();
+            var fixedPoint = new GameObject("ExcludedFixedPoint").transform;
+            fixedPoint.SetParent(_controllerObject.transform);
+            fixedPoint.position = new Vector3(10f, 0f, 3f);
+            var point = new GameObject("RegularPoint").transform;
+            point.SetParent(_controllerObject.transform);
+            point.position = new Vector3(20f, 0f, 3f);
+            var floor = new GameObject("Floor");
+            floor.transform.SetParent(_controllerObject.transform);
+            floor.transform.position = new Vector3(15f, -0.5f, 3f);
+            floor.AddComponent<BoxCollider>().size = new Vector3(40f, 1f, 10f);
+            Set(controller, "_settings", _cleaningSettings);
+            Set(controller, "_stains", new[] { stain });
+            Set(controller, "_fixedPoints", new[] { fixedPoint });
+            Set(controller, "_points", new[] { point });
+            Set(controller, "_useAuthoredPositions", true);
+            controller.ServerExcludeArea(position => position.x < 15f);
+            _controllerObject.SetActive(true);
+            networkObject.Spawn();
+            for (int frame = 0; frame < 3; frame++)
+                yield return null;
+            Assert.IsTrue(stain.IsDirty);
+            Assert.That(stain.transform.position.x, Is.EqualTo(20f).Within(0.01f));
+        }
+
         [TearDown]
         public void DestroyCleaningObjects()
         {

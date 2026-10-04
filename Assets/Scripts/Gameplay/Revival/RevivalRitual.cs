@@ -199,7 +199,12 @@ namespace GhostHunter.Gameplay.Revival
                 RefreshStock();
                 DoorInteractable.ServerOpenedByGhost += HandleGhostOpenedDoor;
                 if (!IsPlaced)
-                    ServerChooseRoom();
+                {
+                    if (_furniture != null && !_furniture.IsReady)
+                        _furniture.ServerPreparingLayout += ServerChooseRoom;
+                    else
+                        ServerChooseRoom(_furniture != null ? _furniture.GenerationSeed : 0);
+                }
             }
 
             if (IsPlaced)
@@ -212,6 +217,8 @@ namespace GhostHunter.Gameplay.Revival
             _center.OnValueChanged -= HandleCenterChanged;
             _slots.OnValueChanged -= HandleSlotsChanged;
             DoorInteractable.ServerOpenedByGhost -= HandleGhostOpenedDoor;
+            if (_furniture != null)
+                _furniture.ServerPreparingLayout -= ServerChooseRoom;
             _localIgniting = false;
             if (_visualRoot != null)
                 Destroy(_visualRoot);
@@ -268,10 +275,12 @@ namespace GhostHunter.Gameplay.Revival
         }
 
         /// <summary>
-        /// 스폰 직후(가구·얼룩 배치 전) 의식 방을 무작위로 고르고, 랜덤 가구·얼룩이 그 방에 놓이지 않게 한다.
+        /// 방 이동이 끝난 뒤(가구·얼룩 배치 전), 작업 가구를 보존하며 비울 수 있는 방을 무작위로 고른다.
         /// </summary>
-        private void ServerChooseRoom()
+        private void ServerChooseRoom(int seed)
         {
+            if (!IsServer || IsPlaced || _chosenRoom >= 0)
+                return;
             var candidates = new List<int>();
             for (int i = 0; i < _rooms.Count; i++)
                 if (IsEligible(_rooms[i]))
@@ -283,13 +292,28 @@ namespace GhostHunter.Gameplay.Revival
                 return;
             }
 
-            _chosenRoom = candidates[Random.Range(0, candidates.Count)];
-            BoxCollider bounds = _rooms[_chosenRoom].Bounds;
-            bool Contains(Vector3 position) => IsInsideRoom(bounds, position);
-            if (_furniture != null)
-                _furniture.ServerExcludeArea(Contains);
-            if (Services.TryGet(out ICleaningService cleaning))
-                cleaning.ServerExcludeArea(Contains);
+            for (int i = 0; i < candidates.Count - 1; i++)
+            {
+                int other = Random.Range(i, candidates.Count);
+                (candidates[i], candidates[other]) = (candidates[other], candidates[i]);
+            }
+            foreach (int candidate in candidates)
+            {
+                BoxCollider bounds = _rooms[candidate].Bounds;
+                bool Contains(Vector3 position) => IsInsideRoom(bounds, position);
+                if (_furniture != null && !_furniture.TryBuildPlan(seed, Contains, out _, out _, out _))
+                    continue;
+
+                _chosenRoom = candidate;
+                if (_furniture != null)
+                    _furniture.ServerExcludeArea(Contains);
+                if (Services.TryGet(out ICleaningService cleaning))
+                    cleaning.ServerExcludeArea(Contains);
+                return;
+            }
+
+            Debug.LogError($"{nameof(RevivalRitual)}: 작업 가구 배치를 보존하며 비울 수 있는 의식 방이 없습니다 (seed {seed}).", this);
+            enabled = false;
         }
 
         /// <summary>
@@ -303,7 +327,7 @@ namespace GhostHunter.Gameplay.Revival
             int cleared = 0;
             foreach (FurnitureNetworkPhysics furniture in FindObjectsByType<FurnitureNetworkPhysics>(FindObjectsSortMode.None))
             {
-                if (furniture == null || !furniture.IsAvailable
+                if (furniture == null || furniture.gameObject.scene != gameObject.scene || !furniture.IsAvailable
                     || !IsInsideRoom(room.Bounds, furniture.transform.position))
                     continue;
 
@@ -311,9 +335,6 @@ namespace GhostHunter.Gameplay.Revival
                 FurnitureDriverPoolItem pool = furniture.GetComponent<FurnitureDriverPoolItem>();
                 if (random != null)
                 {
-                    // 랜덤 가구는 배치에서 이미 뺐다. 제외 없이 다시 세운 계획이면 작업 대상이 아닌 것만 치운다.
-                    if (random.IsAssignedWorkTarget)
-                        continue;
                     random.ServerPark();
                 }
                 else if (pool != null)
