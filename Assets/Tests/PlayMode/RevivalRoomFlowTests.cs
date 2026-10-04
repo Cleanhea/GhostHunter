@@ -73,7 +73,11 @@ namespace GhostHunter.Tests.PlayMode
             Assert.IsTrue(fixedFurniture.GetComponent<FurnitureNetworkPhysics>().IsStowed);
             Assert.IsFalse(fixedFurniture.GetComponent<Collider>().enabled);
             Assert.AreEqual(5, ritual.GetComponentsInChildren<RevivalCandleSlot>().Length);
-            Assert.IsNotNull(ritual.transform.Find("RevivalCircleVisual/MagicCircle"));
+            Transform circle = ritual.transform.Find("RevivalCircleVisual/MagicCircle");
+            Assert.IsNotNull(circle);
+            Assert.Greater(circle.position.y, 0.04f, "마법진이 방 바닥 마감 메시 밑에 묻히면 보이지 않는다.");
+            foreach (RevivalCandleSlot slot in ritual.GetComponentsInChildren<RevivalCandleSlot>())
+                Assert.GreaterOrEqual(slot.transform.position.y, 0.04f, "촛대 받침도 바닥 마감 위에 서야 한다.");
         }
 
         [UnityTest]
@@ -166,6 +170,15 @@ namespace GhostHunter.Tests.PlayMode
             GameObject door = CreateObject("Door", false);
             door.transform.SetParent(room.transform, false);
             door.AddComponent<DoorInteractable>();
+
+            // 실제 방처럼 충돌체 바닥보다 4cm 솟은 바닥 마감 메시(윗면 0.040m, 충돌체 없음).
+            GameObject finish = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            finish.name = "RoomFloor";
+            _objects.Add(finish);
+            Object.DestroyImmediate(finish.GetComponent<Collider>());
+            finish.transform.SetParent(room.transform, false);
+            finish.transform.localPosition = new Vector3(0f, 0.0225f, 0f);
+            finish.transform.localScale = new Vector3(6f, 0.035f, 6f);
         }
 
         private GameObject CreateObject(string name, bool active = true)

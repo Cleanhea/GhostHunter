@@ -13,7 +13,6 @@ MonoBehaviour:
   m_Name: RevivalRitualSettings_Default
   m_EditorClassIdentifier: GhostHunter.Gameplay::GhostHunter.Gameplay.Revival.RevivalRitualSettings
   _corpseRadius: 0.8
-  _circleRadius: 1.2
   _candleRingRadius: 1.45
   _minRoomSize: 4.1
   _interactDistance: 3

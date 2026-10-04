@@ -51,6 +51,17 @@ namespace GhostHunter.Tests.EditMode
         }
 
         [Test]
+        public void 게임용_스프라이트는_바닥을_덮는_메시를_가진다()
+        {
+            Sprite sprite = RevivalCircleTexture.Sprite;
+
+            // 읽기 불가 텍스처로 Tight 메시를 만들면 메시가 비어 아무것도 그려지지 않는다.
+            Assert.GreaterOrEqual(sprite.triangles.Length, 6, "스프라이트 메시가 비었다");
+            Assert.AreEqual(2f, sprite.bounds.size.x, 0.01f, "스프라이트 1 단위 = 텍스처 반 폭");
+            Assert.AreEqual(2f, sprite.bounds.size.y, 0.01f);
+        }
+
+        [Test]
         public void 확인용_그림을_남긴다()
         {
             string directory = Path.Combine(Application.dataPath, "..", "Logs", "tests");

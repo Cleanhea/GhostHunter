@@ -4,7 +4,8 @@ namespace GhostHunter.Gameplay.Revival
 {
     /// <summary>
     /// 바닥 마법진 텍스처를 런타임에 그린다 — 이중 바깥 원, 룬 띠, 오망성, 꼭짓점 작은 원, 안쪽 원, 가운데 원.
-    /// 오망성 꼭짓점 각도는 촛대 자리(<see cref="RevivalRitual.SlotPosition"/>)와 같다: 텍스처 u = 월드 +X, v = 월드 +Z.
+    /// 오망성 꼭짓점 각도는 촛대 자리(<see cref="RevivalRitual.SlotPosition"/>)와 같고, 마법진 크기는 꼭짓점이 촛대 위에 오도록
+    /// 촛대 원 반경 / <see cref="StarRadius"/> 로 정한다: 텍스처 u = 월드 +X, v = 월드 +Z.
     /// 아트 에셋이 들어오면 교체한다. 한 번 만들어 모든 피어·스테이지에서 같이 쓴다.
     /// </summary>
     public static class RevivalCircleTexture
@@ -94,10 +95,10 @@ namespace GhostHunter.Gameplay.Revival
 
             // 꼭짓점 작은 원
             foreach (Vector2 vertex in vertices)
-                distance = Mathf.Min(distance, Mathf.Abs((p - vertex).magnitude - 0.06f) - 0.005f);
+                distance = Mathf.Min(distance, Mathf.Abs((p - vertex).magnitude - 0.10f) - 0.006f);
 
             // 바깥 두 원 사이 룬 띠 — 짧은 방사선과 작은 호를 번갈아 새긴다(꼭짓점 원 근처는 비운다).
-            if (r > 0.905f && r < 0.965f && !NearVertex(p, vertices, 0.1f))
+            if (r > 0.905f && r < 0.965f && !NearVertex(p, vertices, 0.13f))
             {
                 float step = Mathf.PI * 2f / 60f;
                 float local = Mathf.Repeat(angle, step) - step * 0.5f;

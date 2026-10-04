@@ -13,10 +13,7 @@ namespace GhostHunter.Gameplay.Revival
         [Tooltip("시체가 이 반경(m, 수평) 안에 있으면 '소환진 중앙에 배치'로 친다.")]
         [SerializeField, Min(0.2f)] private float _corpseRadius = 0.8f;
 
-        [Tooltip("바닥 마법진 반경(m).")]
-        [SerializeField, Min(0.5f)] private float _circleRadius = 1.2f;
-
-        [Tooltip("촛대 5개가 서는 원 반경(m) — 마법진 오망성 꼭짓점 바로 바깥.")]
+        [Tooltip("촛대 5개가 서는 원 반경(m) — 마법진 오망성 꼭짓점이 여기 닿도록 마법진 크기가 이 값에서 정해진다.")]
         [SerializeField, Min(0.3f)] private float _candleRingRadius = 1.45f;
 
         [Tooltip("의식 방 후보의 최소 가로·세로(m). 작은 욕실·창고·현관은 마법진과 촛대가 들어가지 않는다.")]
@@ -53,7 +50,8 @@ namespace GhostHunter.Gameplay.Revival
         [SerializeField, Min(0)] private int _devCandleStock = 10;
 
         public float CorpseRadius => _corpseRadius;
-        public float CircleRadius => _circleRadius;
+        /// <summary>바닥 마법진 반경(m) — 오망성 꼭짓점이 촛대 위에 오도록 촛대 원에서 구한다.</summary>
+        public float CircleRadius => _candleRingRadius / RevivalCircleTexture.StarRadius;
         public float CandleRingRadius => _candleRingRadius;
         public float MinRoomSize => _minRoomSize;
         public float InteractDistance => _interactDistance;

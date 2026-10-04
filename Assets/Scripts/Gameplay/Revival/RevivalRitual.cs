@@ -795,9 +795,10 @@ namespace GhostHunter.Gameplay.Revival
             if (_visualRoot != null)
                 Destroy(_visualRoot);
 
+            // 표시물은 방 바닥 마감(RoomFloor) 윗면에 얹는다 — 충돌체 바닥보다 4cm 높아서 거기 그리면 마감 밑에 묻힌다.
             _visualRoot = new GameObject("RevivalCircleVisual");
             _visualRoot.transform.SetParent(transform, false);
-            _visualRoot.transform.SetPositionAndRotation(_center.Value, Quaternion.identity);
+            _visualRoot.transform.SetPositionAndRotation(_center.Value + Vector3.up * FloorFinishHeight(), Quaternion.identity);
 
             // 마법진 — 바닥에 눕힌 스프라이트. 스프라이트 기본 재질은 빛을 받지 않아 어두운 방에서도 은은히 빛난다.
             // 스프라이트 1 단위 = 텍스처 반 폭이므로 반경만큼 키우면 지름이 맞는다.
@@ -826,7 +827,7 @@ namespace GhostHunter.Gameplay.Revival
             {
                 var stand = new GameObject($"Candlestick_{i}");
                 stand.transform.SetParent(_visualRoot.transform, false);
-                stand.transform.position = SlotPosition(i);
+                stand.transform.position = SlotPosition(i) + Vector3.up * (_visualRoot.transform.position.y - _center.Value.y);
                 BoxCollider hit = stand.AddComponent<BoxCollider>();
                 hit.size = new Vector3(0.32f, CandleTop + 0.3f, 0.32f);
                 hit.center = new Vector3(0f, (CandleTop + 0.3f) * 0.5f, 0f);
@@ -859,6 +860,16 @@ namespace GhostHunter.Gameplay.Revival
             }
 
             RefreshVisuals();
+        }
+
+        /// <summary>충돌체 바닥(<see cref="Center"/>) 위로 솟은 방 바닥 마감 메시의 높이(m). 마감이 없으면 0.</summary>
+        private float FloorFinishHeight()
+        {
+            if (_roomIndex.Value < 0 || _roomIndex.Value >= _rooms.Count)
+                return 0f;
+            Transform finish = _rooms[_roomIndex.Value].Root.Find("RoomFloor");
+            Renderer renderer = finish != null ? finish.GetComponent<Renderer>() : null;
+            return renderer != null ? Mathf.Clamp(renderer.bounds.max.y - _center.Value.y, 0f, 0.2f) : 0f;
         }
 
         private void RefreshVisuals()
