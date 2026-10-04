@@ -119,6 +119,18 @@ namespace GhostHunter.Tests.PlayMode
             Assert.That(_chat.Participants.Count, Is.Zero);
         }
         [UnityTest]
+        public IEnumerator InGameLobby_PlayerEmitterDoesNotStopLobbyVoiceMicrophone()
+        {
+            // 인게임 로비에서는 LobbyVoiceService 가 같은 마이크를 켠다. 스폰된 내 플레이어 송신기가 매 프레임 꺼 버리면
+            // Unity Microphone 이 껐다 켜지기를 반복해 아무 소리도 안 간다(2026-10-04 버그).
+            _sceneFlow.Current = SceneId.InGameLobby;
+            _capture.SetRecording(true);
+            for (int i = 0; i < 3; i++)
+                yield return null;
+            Assert.IsTrue(_capture.IsRecording, "로비 음성이 켠 녹음을 플레이어 송신기가 꺼서는 안 된다.");
+        }
+
+        [UnityTest]
         public IEnumerator Result_JoinsDeadAndAliveVoice_ThenLobbySilencesIt()
         {
             typeof(VoiceChatService).GetField("_master", BindingFlags.Instance | BindingFlags.NonPublic)

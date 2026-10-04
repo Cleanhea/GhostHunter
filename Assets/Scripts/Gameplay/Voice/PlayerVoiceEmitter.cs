@@ -31,6 +31,8 @@ namespace GhostHunter.Gameplay.Voice
         private IVoiceChatService _chat;
         private IVoiceCaptureService _capture;
         private IVoiceCaptureService _activeCapture;
+        // 이 송신기가 SetRecording(true) 로 마이크를 켰는가 — 스테이지 밖에서 남의 녹음을 끄지 않으려고 기억한다.
+        private bool _ownsRecording;
         // Opus 디코더는 상태를 가진다. 이 화자 전용으로 코덱마다 하나씩 둔다.
         private IVoiceDecoder _decoder;
         private IVoiceDecoder _testDecoder;
@@ -89,12 +91,16 @@ namespace GhostHunter.Gameplay.Voice
         }
         private void Update()
         {
-            if (!IsSpawned || !IsOwner || _chat == null || _input == null) return;
+            if (!IsSpawned || !IsOwner || _chat == null) return;
+            // 스테이지 밖(인게임 로비·정산)은 LobbyVoiceService 가 같은 마이크로 전원 채널을 송신한다. 여기서 매 프레임
+            // 녹음을 끄면 Unity Microphone 이 프레임마다 껐다 켜져 소리가 하나도 모이지 않는다(2026-10-04 인게임 로비 마이크 불통).
+            // 그래서 이 송신기가 켠 녹음만 놓는다.
             if (Services.TryGet(out ISceneFlow sceneFlow) && !sceneFlow.Current.IsStage())
             {
-                StopCapture();
+                ReleaseCapture();
                 return;
             }
+            if (_input == null) return;
             if (!_chat.IsActive) { StopCapture(); return; }
             if (_input.VoiceMutePressedThisFrame) _chat.IsMuted = !_chat.IsMuted;
             if (!ReferenceEquals(_activeCapture, _chat.Capture) || _lastMode != _chat.Mode || _wasMuted != _chat.IsMuted)
@@ -110,6 +116,7 @@ namespace GhostHunter.Gameplay.Voice
 #endif
             if (_chat.IsMuted || !_activeCapture.IsAvailable) { StopCapture(); return; }
             _activeCapture.SetRecording(true);
+            _ownsRecording = true;
             double now = Time.unscaledTimeAsDouble;
             if (now < _nextSend) return;
             _nextSend = now + 1d / _settings.SendHz;
@@ -309,8 +316,22 @@ namespace GhostHunter.Gameplay.Voice
             if (_receiver != null) _receiver.Flush();
             if (IsOwner) { _pending.Clear(); _speech.Reset(); _chat.IsTransmitting = false; }
         }
+        /// <summary>이 송신기가 켠 녹음이면 끈다. 다른 송신기(로비 음성)가 쓰는 마이크는 건드리지 않는다.</summary>
+        private void ReleaseCapture()
+        {
+            if (_ownsRecording)
+            {
+                StopCapture();
+                return;
+            }
+
+            _pending.Clear();
+            _speech.Reset();
+        }
+
         private void StopCapture()
         {
+            _ownsRecording = false;
             _activeCapture?.SetRecording(false);
             _pending.Clear();
             _speech.Reset();
