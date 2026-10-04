@@ -10,7 +10,7 @@
 | `PlayerHeadlamp` | `Assets/Scripts/Gameplay/Player/PlayerHeadlamp.cs` | Player 프리팹. 입력·배터리 진행(소유자), 전원·배터리 복제, 조명 표시(전 피어), 어둠 노출 판정(서버) |
 | `HeadlampBattery` | `Assets/Scripts/Gameplay/Player/HeadlampBattery.cs` | 전원·배터리·깜빡임 규칙 순수 클래스 — EditMode `HeadlampBatteryTests` |
 | `HeadlampSettings` | `Assets/Settings/Gameplay/HeadlampSettings_Default.asset` | 배터리·깜빡임·조명·효과음 튜닝값 |
-| `HeadlampChargeHud` | `Assets/Scripts/UI/HeadlampChargeHud.cs` | Player 프리팹. 로컬 소유자만 캔버스를 만든다. `MoleSkillUiSettings`로 두더지 스킬 UI와 같은 크기·색 |
+| `HeadlampChargeHud` | `Assets/Scripts/UI/HeadlampChargeHud.cs` | Player 프리팹. 로컬 소유자만 캔버스를 만들고 헤드라이트가 켜져 있는 동안 배터리 게이지를 띄운다. `MoleSkillUiSettings`로 두더지 스킬 UI와 같은 크기·색. 원 안은 목업 `ICON_HeadLight.png` 배치(위 `nn%`, 아래 아이콘), 보일 때는 초록·`ICON_HeadLight_on`(`ICON_HeadLight_off`·흰색은 배선만 유지) — 검증 `ProjectWiringTests.Player_프리팹의_헤드라이트_충전_HUD_에_on_off_아이콘이_배선되어_있다` |
 | 입력 | `Player/Headlamp` (F) | `PlayerInputReader.HeadlampPressedThisFrame` |
 
 ## 2. 권위와 복제
@@ -19,7 +19,7 @@
 | --- | --- | --- |
 | 전원 | Owner | `NetworkVariable<bool>` Owner 쓰기·Everyone 읽기, 바뀌는 즉시 |
 | 배터리 | Owner | `NetworkVariable<float>` Owner 쓰기, 0.25초 간격 |
-| 충전 중 여부 | Owner 로컬 | 복제 안 함 — 충전 UI만 읽는다 |
+| 충전 중 여부 | Owner 로컬 | 복제 안 함 |
 | 저전력 깜빡임 | 각 피어 로컬 | 복제된 전원·배터리로 각자 재생 |
 | 어둠 노출 | Server | `SanityNetworkState.ServerSetDarknessExposed` |
 

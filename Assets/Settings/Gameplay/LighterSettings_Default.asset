@@ -16,8 +16,8 @@ MonoBehaviour:
   _drainPerSecond: 0.8
   _rechargePerSecond: 5
   _localOffset: {x: 0.22, y: -0.2, z: 0.42}
-  _range: 4.5
-  _intensity: 1.6
+  _range: 3.5
+  _intensity: 0.9
   _color: {r: 1, g: 0.62, b: 0.28, a: 1}
   _flickerAmount: 0.18
   _flickerSpeed: 9

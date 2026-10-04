@@ -382,6 +382,28 @@ namespace GhostHunter.Tests.EditMode
         }
 
         [Test]
+        public void Player_프리팹의_헤드라이트_충전_HUD_에_on_off_아이콘이_배선되어_있다()
+        {
+            var player = AssetDatabase.LoadAssetAtPath<GameObject>(PlayerPrefabPath);
+            Assert.IsNotNull(player, $"{PlayerPrefabPath} 를 찾지 못했습니다.");
+
+            GhostHunter.UI.HeadlampChargeHud hud =
+                GetProjectComponentOrIgnore<GhostHunter.UI.HeadlampChargeHud>(player, PlayerPrefabPath);
+            var serialized = new SerializedObject(hud);
+            foreach ((string property, string path) in new[]
+                     {
+                         ("_onIcon", "Assets/Sprite/Skill_icon/ICON_HeadLight_on.png"),
+                         ("_offIcon", "Assets/Sprite/Skill_icon/ICON_HeadLight_off.png"),
+                     })
+            {
+                var expected = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+                Assert.IsNotNull(expected, $"{path} 가 Sprite 로 임포트되지 않았습니다.");
+                Assert.AreEqual(expected, serialized.FindProperty(property).objectReferenceValue,
+                    $"헤드라이트 충전 HUD 의 {property} 가 {path} 로 배선되지 않았습니다.");
+            }
+        }
+
+        [Test]
         public void Player_프리팹에_라이터와_연료_HUD_가_배선되고_퀵슬롯에_라이터가_있다()
         {
             var player = AssetDatabase.LoadAssetAtPath<GameObject>(PlayerPrefabPath);

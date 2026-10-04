@@ -1018,7 +1018,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: GhostHunter.UI::GhostHunter.UI.HeadlampChargeHud
   _uiSettings: {fileID: 11400000, guid: 421b0124466245845a465bfec15eafa0, type: 2}
   _headlamp: {fileID: 7318264590127734651}
-  _icon: {fileID: 0}
+  _onIcon: {fileID: 21300000, guid: d875f8a69b434aeb9225074e007bf1a5, type: 3}
+  _offIcon: {fileID: 21300000, guid: 00c904f114ff4d4cb0f75d87bac7f9aa, type: 3}
 --- !u!114 &4821937564012837465
 MonoBehaviour:
   m_ObjectHideFlags: 0

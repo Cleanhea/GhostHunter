@@ -24,7 +24,7 @@ MonoBehaviour:
   _range: 14
   _spotAngle: 62
   _innerSpotAngle: 28
-  _intensity: 6
+  _intensity: 10
   _color: {r: 1, g: 0.95, b: 0.86, a: 1}
   _shadows: 2
   _shadowStrength: 0.9
