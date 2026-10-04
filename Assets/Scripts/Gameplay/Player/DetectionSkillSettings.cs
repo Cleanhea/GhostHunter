@@ -36,8 +36,9 @@ namespace GhostHunter.Gameplay.Player
         [SerializeField] private Color _stainColor = new Color32(252, 132, 184, 255);
 
         [Header("렌더링")]
-        [Tooltip("[TBD: MS-19] 현재 FullBodyEmission을 선택했다. 벽 투시는 없다 — ZTest LEqual 로 시야에 보이는 표면만 표시한다.")]
-        [SerializeField] private DetectionHighlightMode _highlightMode = DetectionHighlightMode.FullBodyEmission;
+        [Tooltip("MS-19 확정(2026-10-04): FluorescentOverlay — 원래 모습·메시 모양 유지 + 형광 테두리·은은한 발광. " +
+            "벽 투시는 없다 — ZTest LEqual 로 시야에 보이는 표면만 표시한다.")]
+        [SerializeField] private DetectionHighlightMode _highlightMode = DetectionHighlightMode.FluorescentOverlay;
 
         [Tooltip("시전·표시 중 사망하면 탐지를 즉시 취소한다(MS-20, 관전 기획서 SP-2로 확정 2026-09-12).")]
         [SerializeField] private bool _cancelOnDeath = true;

@@ -17,5 +17,5 @@ MonoBehaviour:
   _cooldownSeconds: 10
   _movingFurnitureColor: {r: 0.9764706, g: 0.972549, b: 0.44313726, a: 1}
   _stainColor: {r: 0.9882353, g: 0.5176471, b: 0.72156864, a: 1}
-  _highlightMode: 0
+  _highlightMode: 3
   _cancelOnDeath: 1

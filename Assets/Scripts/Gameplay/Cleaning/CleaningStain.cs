@@ -158,6 +158,8 @@ namespace GhostHunter.Gameplay.Cleaning
         {
             if (_visual == null || _properties == null)
                 return;
+            // 탐지 형광(DetectionTargetMarker)도 같은 렌더러 블록에 값을 둔다 — 읽어서 덮어써야 서로 지우지 않는다.
+            _visual.GetPropertyBlock(_properties);
             _properties.SetFloat(WipeId, amount);
             _visual.SetPropertyBlock(_properties);
         }
