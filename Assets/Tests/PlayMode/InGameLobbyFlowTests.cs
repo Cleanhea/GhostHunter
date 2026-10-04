@@ -143,10 +143,16 @@ namespace GhostHunter.Tests.PlayMode
             int balanceBeforeSettlement = shop.Balance;
             sceneFlow.RecordStageSettlement(new StageSettlementRecord(0, 0, 0, 1, 0, 0, false));
             Assert.AreEqual(balanceBeforeSettlement + StageShopRules.StageReward, shop.Balance, "한 판 보상 $50");
+            Vector3 settlementPosition = stagePlayer.transform.position;
             sceneFlow.Load(SceneId.Result);
             yield return WaitUntil(() => sceneFlow.Current == SceneId.Result && !sceneFlow.IsLoading,
                 "정산 화면으로 가지 못했다");
             Assert.IsTrue(connection.IsRunning, "정산 화면에서도 세션은 유지된다");
+            Assert.That(Vector3.Distance(settlementPosition, stagePlayer.transform.position), Is.LessThan(0.01f),
+                "정산 로딩 중에도 플레이어가 이동·낙하하지 않는다");
+            Assert.AreEqual(stagePlayer.NetworkObjectId, LocalPlayer().NetworkObjectId,
+                "정산 음성에 쓰는 플레이어는 유지한다");
+            yield return AssertResultPlayersStayStill();
 
             Assert.IsTrue(stageFlow.ReturnToInGameLobby(), "정산 뒤 — 인게임 로비로 돌아간다");
             yield return WaitForPlayerIn(sceneFlow, stageFlow, SceneId.InGameLobby);
@@ -155,6 +161,12 @@ namespace GhostHunter.Tests.PlayMode
             Assert.AreEqual("InGameLobby", returnedPlayer.gameObject.scene.name);
             Assert.IsTrue(connection.IsRunning, "인게임 로비로 돌아와도 세션은 유지된다");
             Assert.IsFalse(SceneManager.GetSceneByName("Result").isLoaded, "정산 씬은 내려간다");
+            Vector3 airborne = returnedPlayer.transform.position + Vector3.up;
+            returnedPlayer.GetComponent<GhostHunter.Gameplay.Player.PlayerMotor>()
+                .Teleport(airborne, returnedPlayer.transform.rotation);
+            yield return new WaitForSeconds(0.5f);
+            Assert.Less(returnedPlayer.transform.position.y, airborne.y - 0.1f,
+                "인게임 로비 복귀 후 새 플레이어의 중력은 다시 동작해야 한다");
 
             // 두 번째 스테이지 — 인게임 로비 ⇄ 스테이지가 반복된다. 이번에는 ESC '스테이지 나가기' 경로로 돌아온다.
             Assert.IsTrue(stageFlow.StartStage(), "다음 스테이지 출발");
@@ -262,6 +274,7 @@ namespace GhostHunter.Tests.PlayMode
             Assert.AreEqual(1, sceneFlow.SettlementHistory.Count);
             Assert.AreEqual(teamWiped, sceneFlow.SettlementHistory[0].TeamWiped);
             Assert.IsTrue(connection.IsRunning, "정산 화면에서도 세션이 유지돼야 한다");
+            yield return AssertResultPlayersStayStill();
             yield return ClickResultReturn();
             yield return WaitForPlayerIn(sceneFlow, stageFlow, SceneId.InGameLobby);
             Assert.IsTrue(stageFlow.StartStage());
@@ -269,6 +282,44 @@ namespace GhostHunter.Tests.PlayMode
             AssertStage1Contents(LocalPlayer());
             Assert.IsTrue(connection.IsRunning);
             Assert.IsEmpty(_exceptions, "예외:\n" + string.Join("\n---\n", _exceptions));
+        }
+
+        private static IEnumerator AssertResultPlayersStayStill()
+        {
+            var players = new List<NetworkObject>();
+            var positions = new List<Vector3>();
+            foreach (NetworkClient client in NetworkManager.Singleton.ConnectedClientsList)
+            {
+                Assert.IsNotNull(client.PlayerObject, "정산 중에도 플레이어를 보존한다");
+                players.Add(client.PlayerObject);
+                positions.Add(client.PlayerObject.transform.position);
+            }
+
+            // 바닥 없는 Result 에서 중력이 계속 돌면 몇 프레임 안에 위치가 변한다.
+            float elapsed = 0f;
+            while (elapsed < 0.5f)
+            {
+                yield return null;
+                elapsed += Time.deltaTime;
+                for (int i = 0; i < players.Count; i++)
+                {
+                    Assert.IsTrue(players[i].IsSpawned);
+                    Assert.That(Vector3.Distance(positions[i], players[i].transform.position), Is.LessThan(0.01f),
+                        $"정산 중 플레이어가 이동·낙하했다 — {positions[i]} → {players[i].transform.position}");
+                }
+            }
+
+            Scene result = SceneManager.GetSceneByName("Result");
+            Camera resultCamera = null;
+            foreach (GameObject root in result.GetRootGameObjects())
+            {
+                if (root.TryGetComponent(out Camera camera))
+                    resultCamera = camera;
+            }
+            Assert.IsNotNull(resultCamera);
+            Assert.IsTrue(resultCamera.enabled);
+            Assert.AreEqual(CameraClearFlags.SolidColor, resultCamera.clearFlags);
+            Assert.AreEqual(0, resultCamera.cullingMask, "정산 배경에 유지된 플레이어를 그리지 않는다");
         }
 
         private static IEnumerator EndStageThroughTerminal()

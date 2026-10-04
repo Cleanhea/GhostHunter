@@ -1,5 +1,7 @@
 using Unity.Netcode;
 using Unity.Netcode.Components;
+using GhostHunter.Core;
+using GhostHunter.Core.Scenes;
 using GhostHunter.Gameplay.Recovery;
 using UnityEngine;
 
@@ -39,6 +41,7 @@ namespace GhostHunter.Gameplay.Player
         private readonly Collider[] _standOverlapResults = new Collider[StandOverlapCapacity];
 
         private CharacterController _controller;
+        private ISceneFlow _sceneFlow;
         private float _verticalVelocity;
         private Vector3 _standingBodyPosition;
         private Vector3 _standingBodyScale;
@@ -132,6 +135,7 @@ namespace GhostHunter.Gameplay.Player
         private void Awake()
         {
             _controller = GetComponent<CharacterController>();
+            Services.TryGet(out _sceneFlow);
 
             if (_visualBody != null)
             {
@@ -164,6 +168,14 @@ namespace GhostHunter.Gameplay.Player
         {
             if (!IsSpawned || _settings == null || !_controller.enabled)
                 return;
+
+            // 정산 음성을 위해 플레이어가 남아 있어도 이전 씬의 바닥은 사라진다.
+            // 로딩·정산 중에는 이동과 중력을 멈추고 낙하 속도를 누적하지 않는다.
+            if (_sceneFlow != null && (_sceneFlow.IsLoading || _sceneFlow.Current == SceneId.Result))
+            {
+                _verticalVelocity = 0f;
+                return;
+            }
 
             float deltaTime = Time.deltaTime;
             if (IsOwner)

@@ -34,6 +34,17 @@
 떨림이 생긴다. 그래서 `PlayerMotor`만 `Update` + `Time.deltaTime`으로 돌고,
 가구 `Rigidbody` 물리는 그대로 `FixedUpdate`에 남는다.
 
+### 로딩·정산 중 이동 정지 (2026-10-05, SF-FIX-3)
+
+`PlayerMotor`는 `Awake`에서 `ISceneFlow`를 캐싱한다. 씬 전환 중(`IsLoading`) 또는 `Result`에서는
+이동·자세 갱신을 건너뛰고 수직 속도를 0으로 초기화한다. 스테이지 → 정산은 전원 음성을 위해 플레이어를 유지하지만
+스테이지 바닥은 내려가므로 입력만 잠그면 중력에 의해 낙하한다. 이 조건은 굴착의 `MovementLocked`와 독립적으로 검사한다.
+전환이 거부·실패해 원래 씬에 남으면 `IsLoading` 해제 후 이동이 재개된다. 정산 → 인게임 로비에서는 기존
+`StageSessionFlow`가 플레이어를 재스폰하며, 새 플레이어는 평소처럼 이동한다.
+
+`Result.unity`의 `ResultCamera`는 단색 배경만 그린다(`Culling Mask = Nothing`). 정산 음성에 쓰는 플레이어가
+월드에 남아 있어도 화면에 캐릭터를 그리지 않으며 정산 UI는 기존 `SceneFlowController.OnGUI`에서 표시한다.
+
 ## 입력 매핑
 
 `Assets/InputSystem_Actions.inputactions`의 기본 액션을 재사용한다.
