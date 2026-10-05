@@ -230,6 +230,7 @@ namespace GhostHunter.Gameplay.Interaction
                     Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
                 return false;
 
+            Debug.Log($"[CorpseDbg] 좌클릭 조준 대상 {hit.collider.name} (거리 {hit.distance:F2}m, 시체 {PlayerVisuals.TryGetCorpseOwner(hit.collider, out _)})", this);
             if (!PlayerVisuals.TryGetCorpseOwner(hit.collider, out PlayerVisuals corpse))
                 return false;
 
@@ -250,7 +251,10 @@ namespace GhostHunter.Gameplay.Interaction
                 if (_corpseCarryRequested)
                     RequestCorpseReleaseRpc(corpseId);
                 else if (Time.unscaledTime - _corpsePressAt < _corpseHoldThreshold)
+                {
+                    Debug.Log($"[CorpseDbg] 밀기 요청 전송 (누른 시간 {Time.unscaledTime - _corpsePressAt:F2}s)", this);
                     RequestCorpsePushRpc(corpseId, _corpsePressOrigin, _corpsePressDirection);
+                }
 
                 ClearCorpseInteraction();
                 return;
@@ -307,7 +311,7 @@ namespace GhostHunter.Gameplay.Interaction
                 && PlayerVisuals.TryGetCorpseOwner(hit.collider, out PlayerVisuals owner)
                 && owner == corpse)
             {
-                corpse.ServerTryPush(hit.point, direction.normalized);
+                Debug.Log($"[CorpseDbg] 서버 밀기 결과 {corpse.ServerTryPush(hit.point, direction.normalized)}", this);
             }
         }
 

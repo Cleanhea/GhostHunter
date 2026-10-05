@@ -125,6 +125,40 @@ namespace GhostHunter.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator 호스트는_원격_플레이어_시체를_밀_수_있다()
+        {
+            GameObject ground = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            _objects.Add(ground);
+            ground.transform.position = new Vector3(0f, -0.5f, 0f);
+            ground.transform.localScale = new Vector3(40f, 1f, 40f);
+
+            SanityNetworkState player = SpawnPlayer(999, out PlayerVisuals visuals);
+            SpawnPlayer(998, out _);
+            yield return null;
+
+            Assert.IsTrue(player.ServerMarkDead());
+            yield return null;
+            GameObject corpse = GameObject.Find("Corpse_999");
+            Assert.IsNotNull(corpse);
+
+            // 떠올랐다 떨어지는 연출(kinematic)이 끝나고 바닥에 가라앉을 때까지.
+            float deadline = Time.realtimeSinceStartup + 6f;
+            Rigidbody body = corpse.GetComponent<Rigidbody>();
+            while ((body.isKinematic || body.linearVelocity.sqrMagnitude > 0.01f)
+                   && Time.realtimeSinceStartup < deadline)
+                yield return new WaitForFixedUpdate();
+            Assert.IsFalse(body.isKinematic, "연출이 끝나면 물리 시체가 되어야 한다");
+
+            Vector3 before = corpse.transform.position;
+            Assert.IsTrue(visuals.ServerTryPush(before + Vector3.back * 0.3f, Vector3.forward));
+            for (int i = 0; i < 25; i++)
+                yield return new WaitForFixedUpdate();
+
+            Assert.Greater((corpse.transform.position - before).magnitude, 0.2f,
+                $"밀었는데 시체가 움직이지 않았다 (before {before}, after {corpse.transform.position})");
+        }
+
+        [UnityTest]
         public IEnumerator 마지막_생존자_사망은_전멸을_한번만_확정하고_부활을_막는다()
         {
             SanityNetworkState first = SpawnPlayer(999, out _);
