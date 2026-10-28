@@ -16,11 +16,12 @@ namespace GhostHunter.Gameplay.Player
     /// <item><see cref="SetDeathInputLocked"/> — 사망 상태(관전 기획서 SP-1~SP-2, 사용자 확정
     /// 2026-09-12). 생존 조작(이동·시점·상호작용·스킬)을 전부 막고 대신 관전 입력(자유비행·모드
     /// 전환·대상 전환)을 채운다. <b>굴착·휠 잠금보다 우선한다</b> — 사망과 같은 프레임에 굴착 취소가
-    /// 자기 잠금(<see cref="SetSkillInputLocked"/>)을 먼저 풀어도 생존 조작이 되살아나지 않게
+    /// 자기 잠금(<see cref="SetSkillInputMode"/>)을 먼저 풀어도 생존 조작이 되살아나지 않게
     /// 막는 안전장치다.</item>
-    /// <item><see cref="SetSkillInputLocked"/> — 굴착 중(두더지 스킬 기획서 §5.5.1, 사용자 확정
-    /// 2026-09-05). <b>시야 회전(Look)과 스킬 키(Burrow)·헤드라이트(F)만 남기고</b> 나머지를 전부 막는다 —
-    /// 땅속에서 점프·던지기·문 여닫기·자세 전환이 되면 안 된다.</item>
+    /// <item><see cref="SetSkillInputMode"/> — 굴착 중(두더지 스킬 기획서 §5.5.1). 시전 중
+    /// (<see cref="SkillInputMode.Frozen"/>)은 <b>스킬 키(Burrow)·헤드라이트(F)만 남기고</b> 시야·이동까지
+    /// 막고, 매몰 중(<see cref="SkillInputMode.UndergroundMove"/>)은 시야 회전과 이동을 더 살린다.
+    /// 어느 쪽이든 땅속에서 점프·달리기·던지기·문 여닫기·자세 전환이 되면 안 된다.</item>
     /// <item><see cref="SetWheelInputLocked"/> — 퀵슬롯 휠이 열린 동안(사용자 확정 2026-09-12).
     /// <b>시야 회전(Look)만 0으로</b> 만들고 Attack·Interact·Burrow·Detect·Prone·Jump를 막는다.
     /// Move·Crouch·Sprint는 살려 둔다(QS-5) — 휠을 연 채 이동할 수 있다. 휠 키(QuickSlot) 자신은
@@ -61,7 +62,7 @@ namespace GhostHunter.Gameplay.Player
         private bool _jumpQueued;
         private bool _inputLocked;
         private bool _deathLocked;
-        private bool _skillLocked;
+        private SkillInputMode _skillMode;
         private bool _wheelLocked;
 
         public Vector2 Move { get; private set; }
@@ -91,8 +92,8 @@ namespace GhostHunter.Gameplay.Player
         /// <summary>사망해 생존 조작이 잠기고 관전 입력으로 바뀌었는가 → docs/project/spectator-system.md</summary>
         public bool IsDeathInputLocked => _deathLocked;
 
-        /// <summary>굴착 중이라 시점·스킬 키를 뺀 조작이 잠겼는가 → docs/project/mole-skill-system.md §5.5.1</summary>
-        public bool IsSkillInputLocked => _skillLocked;
+        /// <summary>굴착 중이라 조작이 제한됐는가(시전·매몰 모두) → docs/project/mole-skill-system.md §5.5.1</summary>
+        public bool IsSkillInputLocked => _skillMode != SkillInputMode.None;
 
         /// <summary>퀵슬롯 휠이 열려 있어 시점을 뺀 조작이 잠겼는가 → docs/architecture/quick-slot.md</summary>
         public bool IsWheelInputLocked => _wheelLocked;
@@ -243,28 +244,34 @@ namespace GhostHunter.Gameplay.Player
             HeadlampPressedThisFrame = false;
             _inputLocked = false;
             _deathLocked = false;
-            _skillLocked = false;
+            _skillMode = SkillInputMode.None;
             _wheelLocked = false;
             ClearSpectatorInputs();
         }
 
         /// <summary>
-        /// 굴착 중 조작 제한(§5.5.1). 잠긴 동안 <b>시야 회전과 굴착 키만</b> 살아 있고
-        /// 이동·점프·던지기·상호작용·자세 전환은 전부 막힌다. 자세는 마지막 값으로 얼린다.
+        /// 굴착 중 조작 제한(§5.5.1). 두 모드 모두 점프·달리기·던지기·상호작용·자세 전환은 막고
+        /// 굴착 키·헤드라이트만 살린다. 시전(<see cref="SkillInputMode.Frozen"/>) 중에는 시야 회전과
+        /// 이동도 막고, 매몰(<see cref="SkillInputMode.UndergroundMove"/>) 중에는 시야 회전과 이동을
+        /// 허용한다. 자세는 마지막 값으로 얼린다.
         ///
         /// 일시정지 메뉴 잠금과 독립이며, 둘이 겹치면 메뉴 쪽이 이긴다.
+        /// 시야를 막는 모드로 들어갈 때 <see cref="Look"/> 을 즉시 비운다 — <see cref="PlayerLook"/> 이
+        /// 이 컴포넌트보다 먼저 돌아서 직전 프레임 값을 한 번 더 적용하기 때문이다.
         /// </summary>
-        public void SetSkillInputLocked(bool locked)
+        public void SetSkillInputMode(SkillInputMode mode)
         {
-            if (_skillLocked == locked)
+            if (_skillMode == mode)
                 return;
 
-            _skillLocked = locked;
+            _skillMode = mode;
 
-            if (!locked)
+            if (mode == SkillInputMode.None)
                 return;
 
             ClearBlockedInputs();
+            if (mode == SkillInputMode.Frozen)
+                Look = Vector2.zero;
         }
 
         /// <summary>
@@ -273,7 +280,7 @@ namespace GhostHunter.Gameplay.Player
         /// <see cref="SpectatorMove"/> 등 관전 입력이 채워진다.
         ///
         /// 굴착·휠 잠금보다 우선한다(<see cref="Update"/> 참고) — 사망과 같은 프레임에 굴착
-        /// 취소가 <see cref="SetSkillInputLocked"/>(false)를 먼저 불러도 이 잠금이 살아있는 한
+        /// 취소가 <see cref="SetSkillInputMode"/>(None)을 먼저 불러도 이 잠금이 살아있는 한
         /// 생존 조작이 되살아나지 않는다. 일시정지 메뉴 잠금보다는 아래다.
         /// </summary>
         public void SetDeathInputLocked(bool locked)
@@ -437,12 +444,16 @@ namespace GhostHunter.Gameplay.Player
                 return;
             }
 
-            if (_skillLocked)
+            if (_skillMode != SkillInputMode.None)
             {
-                // 굴착 중(§5.5.1) — 시야 회전과 굴착 키만 살린다. 굴착 키를 살려야 스스로 나온다.
+                // 굴착 중(§5.5.1) — 굴착 키를 살려야 스스로 나온다. 시전(Frozen) 중에는 시야·이동도
+                // 막고, 매몰(UndergroundMove) 중에는 시야 회전과 이동만 더 살린다.
                 // 헤드라이트도 살린다 — 땅굴 안에서 켜면 들킨다는 규칙(§5.2.1 ②)이 있어야 할 선택이다.
                 ClearBlockedInputs();
-                Look = _lookAction.ReadValue<Vector2>();
+                bool underground = _skillMode == SkillInputMode.UndergroundMove;
+                Look = underground ? _lookAction.ReadValue<Vector2>() : Vector2.zero;
+                if (underground)
+                    Move = FilterMove(_moveAction.ReadValue<Vector2>());
                 BurrowPressedThisFrame = _burrowAction.WasPressedThisFrame();
                 HeadlampPressedThisFrame = _headlampAction.WasPressedThisFrame();
                 DetectPressedThisFrame = false;

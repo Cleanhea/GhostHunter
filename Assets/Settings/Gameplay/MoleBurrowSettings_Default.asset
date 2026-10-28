@@ -12,9 +12,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1187dbbac33b16e4db73b341c3193a2f, type: 3}
   m_Name: MoleBurrowSettings_Default
   m_EditorClassIdentifier: GhostHunter.Gameplay::GhostHunter.Gameplay.Player.MoleBurrowSettings
-  _enterCastSeconds: 0.3
+  _enterCastSeconds: 0.5
   _maxBurrowDuration: 5
   _cooldownSeconds: 10
+  _burrowedMoveSpeedMultiplier: 2
   _burrowedCameraHeight: 0.15
   _popHeight: 4
   _gravity: -20

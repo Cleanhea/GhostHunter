@@ -23,7 +23,7 @@ namespace GhostHunter.Gameplay.Player
     /// <list type="bullet">
     /// <item>입력: T(<c>Player/Burrow</c>) — Interact(E)와 분리된다(사용자 확정 2026-09-05, MS-16 해소).</item>
     /// <item>굴착 가능 위치: 제한 없음(§5.5 MS-7 해소 — 어디서든 가능).</item>
-    /// <item>땅속 이동: 불가(제자리 고정, MS-8 해소).</item>
+    /// <item>땅속 이동: 시전(Entering) 중에는 불가, 매몰(Buried) 중에는 가능하며 속도 2배(2026-10-28 변경, MS-8 재결정).</item>
     /// <item>카메라: 시전 시작과 동시에 로컬 높이를 <see cref="MoleBurrowSettings.BurrowedCameraHeight"/>
     /// (바닥보다 살짝 위)로 낮추고, 같은 구간 동안 <see cref="MoleBurrowCameraEffect"/> 가 비네트를
     /// 올린다(2026-08-31 추가, MS-8 화면 연출 부분 해소 — 여전히 임의값).</item>
@@ -35,10 +35,12 @@ namespace GhostHunter.Gameplay.Player
     /// <item>추격·포착 중 진입: 진입 자체는 허용.</item>
     /// </list>
     ///
-    /// <para><b>조작 제한(§5.5.1, 2026-09-05 구현).</b> 시전을 시작하는 순간
-    /// <see cref="PlayerInputReader.SetSkillInputLocked"/> 로 <b>시야 회전과 굴착 키를 뺀 모든
-    /// 입력</b>을 막는다. <see cref="PlayerMotor.MovementLocked"/> 도 함께 세워 둔다 — 입력이
-    /// 0이어도 모터 쪽에서 한 번 더 막아야 잔여 속도나 다른 경로의 이동이 새지 않는다.</para>
+    /// <para><b>조작 제한(§5.5.1).</b> 시전을 시작하는 순간 <see cref="ApplyControl"/> 이
+    /// <see cref="PlayerInputReader.SetSkillInputMode"/> 를 <see cref="SkillInputMode.Frozen"/> 으로 걸어
+    /// <b>굴착 키·헤드라이트를 뺀 모든 입력(시야·이동 포함)</b>을 막는다.
+    /// <see cref="PlayerMotor.MovementLocked"/> 도 함께 세워 둔다 — 입력이 0이어도 모터 쪽에서 한 번 더
+    /// 막아야 잔여 속도나 다른 경로의 이동이 새지 않는다. 시전이 끝나 매몰되면
+    /// <see cref="SkillInputMode.UndergroundMove"/> 로 바뀌어 시야 회전과 이동만 풀린다.</para>
     ///
     /// <para><b>은신이 깨지는 경우(§5.2.1, 2026-09-05 구현).</b> 땅속은 원래 완전 은신이지만
     /// <b>귀신에게 이미 감지된 상태에서 매몰되면 땅속에서도 계속 감지·포획된다.</b> 판정은
@@ -134,10 +136,8 @@ namespace GhostHunter.Gameplay.Player
             _timer = Mathf.Max(0f, timer);
             _cooldownRemaining = Mathf.Max(0f, cooldown);
             _isBurrowed.Value = _state == State.Buried;
-            bool active = _state != State.Idle;
-            _motor.MovementLocked = active;
-            _motor.CameraHeightOverride = active ? _settings.BurrowedCameraHeight : null;
-            _input.SetSkillInputLocked(active);
+            _motor.CameraHeightOverride = _state != State.Idle ? _settings.BurrowedCameraHeight : null;
+            ApplyControl(_state);
             PublishStageState();
         }
 
@@ -178,12 +178,8 @@ namespace GhostHunter.Gameplay.Player
             if (!IsOwner)
                 return;
 
-            if (_motor != null)
-                _motor.MovementLocked = false;
-
-            // 굴착 중 디스폰되면 잠금이 남는다 — 입력 리더가 먼저 정리됐을 수 있으니 null 검사.
-            if (_input != null)
-                _input.SetSkillInputLocked(false);
+            // 굴착 중 디스폰되면 잠금이 남는다 — 입력 리더가 먼저 정리됐을 수 있으니 ApplyControl 이 null 을 검사한다.
+            ApplyControl(State.Idle);
 
             _localPlayer?.Unregister(this);
             _localPlayer = null;
@@ -248,10 +244,10 @@ namespace GhostHunter.Gameplay.Player
         {
             _state = State.Entering;
             _timer = _settings.EnterCastSeconds;
-            _motor.MovementLocked = true;
-            // §5.5.1 — 시야 회전과 굴착 키만 남기고 나머지 조작을 막는다. 시전 시작부터 건다:
-            // 0.3초 동안 던지거나 문을 열 수 있으면 "땅을 파는 중"이 아니다.
-            _input.SetSkillInputLocked(true);
+            // §5.5.1 — 시전 시작부터 시야·이동까지 막는다: 0.3초 동안 움직이거나 던지거나
+            // 문을 열 수 있으면 "땅을 파는 중"이 아니다.
+            ApplyControl(State.Entering);
+
             // 시전 시작과 동시에 낮아지기 시작한다 — 매몰 완료를 기다리지 않는다(연출 요청).
             _motor.CameraHeightOverride = _settings.BurrowedCameraHeight;
         }
@@ -260,7 +256,38 @@ namespace GhostHunter.Gameplay.Player
         {
             _state = State.Buried;
             _timer = _settings.MaxBurrowDuration;
+            // 시전이 끝나면 시야 회전과 이동이 풀린다. 점프·달리기·던지기·상호작용은 계속 막힌다.
+            ApplyControl(State.Buried);
             _isBurrowed.Value = true;
+        }
+
+        /// <summary>
+        /// 단계별 조작 제한을 한곳에서 건다 — 이동 잠금과 입력 모드가 따로 놀지 않게 한다.
+        /// 시전(Entering)은 이동·시야까지 잠그고, 매몰(Buried)은 이동·시야만 허용하면서 이동 속도를
+        /// <see cref="MoleBurrowSettings.BurrowedMoveSpeedMultiplier"/> 배로 올리며, 그 외(Idle)는 전부 푼다. 모든 종료·복구 경로가 이 함수를 거친다.
+        /// </summary>
+        private void ApplyControl(State state)
+        {
+            if (_motor != null)
+            {
+                _motor.MovementLocked = state == State.Entering;
+
+                // 매몰 중에만 가속한다 — 그 밖의 모든 단계·종료·복구 경로에서 걷어 낸다.
+                if (state == State.Buried && _settings != null)
+                    _motor.SetSpeedModifier(SpeedModifierSource.Burrow, _settings.BurrowedMoveSpeedMultiplier);
+                else
+                    _motor.ClearSpeedModifier(SpeedModifierSource.Burrow);
+            }
+
+            if (_input != null)
+            {
+                _input.SetSkillInputMode(state switch
+                {
+                    State.Entering => SkillInputMode.Frozen,
+                    State.Buried => SkillInputMode.UndergroundMove,
+                    _ => SkillInputMode.None,
+                });
+            }
         }
 
         /// <summary>
@@ -270,9 +297,8 @@ namespace GhostHunter.Gameplay.Player
         private void Pop(bool applyLaunch)
         {
             _isBurrowed.Value = false;
-            _motor.MovementLocked = false;
             _motor.CameraHeightOverride = null;
-            _input.SetSkillInputLocked(false);
+            ApplyControl(State.Idle);
 
             if (applyLaunch)
                 _motor.ApplyVerticalLaunch(_settings.ComputePopLaunchSpeed());
@@ -284,9 +310,8 @@ namespace GhostHunter.Gameplay.Player
         /// <summary>시전(Entering) 중 사망 — 아직 숨지 못했으니 튀어오름 없이 그냥 취소한다.</summary>
         private void Cancel()
         {
-            _motor.MovementLocked = false;
             _motor.CameraHeightOverride = null;
-            _input.SetSkillInputLocked(false);
+            ApplyControl(State.Idle);
             _state = State.Idle;
         }
 

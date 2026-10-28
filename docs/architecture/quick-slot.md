@@ -29,7 +29,7 @@
 | 잠금 | 메서드 | 살아 있는 입력 |
 | --- | --- | --- |
 | 일시정지 메뉴 | `SetGameplayInputLocked` | 없음(시점 포함 전부 0) |
-| 굴착(§5.5.1) | `SetSkillInputLocked` | `Look`·`Burrow` |
+| 굴착(§5.5.1) | `SetSkillInputMode` | 시전 중 `Burrow`·`Headlamp`, 매몰 중 `Look`·`Move` 추가 |
 | **퀵슬롯 휠(신규)** | `SetWheelInputLocked` | `Look`을 뺀 전부 — **`Move`·`Crouch`·`Sprint`·`QuickSlot` 자신은 살아 있다**(QS-5) |
 
 휠 잠금이 막는 것은 `Attack`·`Interact`·`Burrow`·`Detect`·`Prone`·`Jump`뿐이다. `QuickSlot`

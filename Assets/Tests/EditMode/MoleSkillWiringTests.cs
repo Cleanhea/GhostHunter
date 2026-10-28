@@ -35,35 +35,71 @@ namespace GhostHunter.Tests.EditMode
             return source.IndexOf(needle, StringComparison.Ordinal);
         }
 
-        [Test]
-        public void 굴착이_시전_시작에_조작을_잠그고_종료에_푼다()
+        private static int CountOf(string source, string needle)
         {
-            string source = ReadSource(BurrowControllerPath);
-
-            Assert.Greater(IndexOf(source, "SetSkillInputLocked(true)"), -1,
-                "굴착 시전 시작에서 조작을 잠그지 않습니다 → mole-skill-system.md §5.5.1");
-
-            // 종료 경로는 셋이다: 정상 종료(Pop) · 시전 취소(Cancel) · 디스폰.
-            // 하나라도 빠지면 굴착이 끝난 뒤에도 조작이 잠긴 채로 남는다.
-            int unlockCount = 0;
+            int count = 0;
             int at = 0;
-            while ((at = source.IndexOf("SetSkillInputLocked(false)", at, StringComparison.Ordinal)) >= 0)
+            while ((at = source.IndexOf(needle, at, StringComparison.Ordinal)) >= 0)
             {
-                unlockCount++;
+                count++;
                 at += 1;
             }
 
-            Assert.AreEqual(3, unlockCount,
-                "잠금 해제는 Pop(정상 종료) · Cancel(시전 취소) · OnNetworkDespawn 세 곳에 있어야 합니다. " +
-                "하나라도 빠지면 조작이 잠긴 채로 남습니다.");
+            return count;
         }
 
         [Test]
-        public void 굴착_잠금은_시야와_굴착키만_살려_둔다()
+        public void 굴착이_상태_전환마다_조작_제한을_한곳에서_건다()
+        {
+            string source = ReadSource(BurrowControllerPath);
+
+            // 시전(Frozen) · 매몰(UndergroundMove) · 해제(None) 세 매핑이 모두 있어야 한다.
+            Assert.Greater(IndexOf(source, "SkillInputMode.Frozen"), -1,
+                "시전 중 시야·이동 잠금(Frozen)이 없습니다 → mole-skill-system.md §5.5.1");
+            Assert.Greater(IndexOf(source, "SkillInputMode.UndergroundMove"), -1,
+                "매몰 중 시야·이동 허용(UndergroundMove)이 없습니다 → mole-skill-system.md §5.5.1");
+            Assert.Greater(IndexOf(source, "SkillInputMode.None"), -1,
+                "굴착 해제(None)가 없습니다 — 조작이 잠긴 채로 남습니다.");
+
+            // 컨트롤러가 입력 모드·이동 잠금을 직접 만지면 경로마다 따로 놀게 된다.
+            Assert.AreEqual(1, CountOf(source, "SetSkillInputMode("),
+                "SetSkillInputMode 는 ApplyControl 안에서만 불러야 합니다.");
+            Assert.AreEqual(1, CountOf(source, "MovementLocked ="),
+                "MovementLocked 는 ApplyControl 안에서만 바꿔야 합니다.");
+
+            // 호출 지점은 여섯이다: 시전 시작 · 매몰 완료 · 정상 종료(Pop) · 시전 취소(Cancel) ·
+            // 디스폰(State 를 직접 넘김) + 스테이지 복구(복원한 _state 를 넘김).
+            // 하나라도 빠지면 굴착이 끝난 뒤에도 조작이 잠긴 채로 남는다.
+            Assert.AreEqual(5, CountOf(source, "ApplyControl(State."),
+                "ApplyControl 은 StartEntering · EnterBuried · Pop · Cancel · OnNetworkDespawn 다섯 곳에서 " +
+                "State 를 직접 넘겨 불러야 합니다. 하나라도 빠지면 조작이 잠긴 채로 남습니다.");
+            Assert.AreEqual(1, CountOf(source, "ApplyControl(_state)"),
+                "스테이지 복구(RestoreStageStateRpc)가 복원한 상태로 조작 제한을 맞추지 않습니다.");
+        }
+
+        [Test]
+        public void 굴착_가속은_매몰_중에만_걸리고_그_밖에는_ApplyControl이_걷어_낸다()
+        {
+            string source = ReadSource(BurrowControllerPath);
+
+            // 거는 곳과 걷는 곳이 ApplyControl 하나라서, 종료·취소·디스폰·복구 어느 경로로 나가도
+            // 가속이 남지 않는다.
+            Assert.AreEqual(1, CountOf(source, "SetSpeedModifier(SpeedModifierSource.Burrow"),
+                "굴착 가속은 ApplyControl 안에서 한 번만 걸어야 합니다.");
+            Assert.AreEqual(1, CountOf(source, "ClearSpeedModifier(SpeedModifierSource.Burrow"),
+                "굴착 가속을 걷는 곳은 ApplyControl 하나여야 합니다.");
+            Assert.Greater(IndexOf(source, "state == State.Buried"), -1,
+                "가속은 매몰(Buried) 중에만 걸려야 합니다.");
+            Assert.Greater(IndexOf(source, "BurrowedMoveSpeedMultiplier"), -1,
+                "배율은 MoleBurrowSettings 에서 읽어야 합니다(튜닝 수치는 설정 에셋에).");
+        }
+
+        [Test]
+        public void 굴착_잠금은_시전_중_시야이동을_막고_매몰_중에만_연다()
         {
             string source = ReadSource(InputReaderPath);
 
-            int skillBranch = IndexOf(source, "if (_skillLocked)");
+            int skillBranch = IndexOf(source, "if (_skillMode != SkillInputMode.None)");
             Assert.Greater(skillBranch, -1, "PlayerInputReader 에 굴착 잠금 분기가 없습니다.");
 
             string branch = source.Substring(skillBranch);
@@ -71,14 +107,43 @@ namespace GhostHunter.Tests.EditMode
             Assert.Greater(branchEnd, -1, "굴착 잠금 분기가 닫히지 않았습니다.");
             branch = branch.Substring(0, branchEnd);
 
-            Assert.Greater(IndexOf(branch, "_lookAction.ReadValue"), -1,
-                "굴착 중에도 시야 회전은 살아 있어야 합니다 → mole-skill-system.md §5.5.1");
             Assert.Greater(IndexOf(branch, "_burrowAction.WasPressedThisFrame"), -1,
                 "굴착 중에도 스킬 키는 살아 있어야 합니다 — 안 그러면 스스로 나올 수 없습니다.");
-            Assert.AreEqual(-1, IndexOf(branch, "_moveAction"),
-                "굴착 중 이동 입력을 읽으면 안 됩니다.");
-            Assert.AreEqual(-1, IndexOf(branch, "_jumpAction"),
-                "굴착 중 점프 입력을 읽으면 안 됩니다.");
+
+            // 시야·이동은 매몰(UndergroundMove)일 때만 읽는다 — 시전(Frozen) 중에는 0이다.
+            Assert.Greater(IndexOf(branch, "SkillInputMode.UndergroundMove"), -1,
+                "시야·이동 허용은 UndergroundMove 에서만 열려야 합니다.");
+            Assert.Greater(IndexOf(branch, "_lookAction.ReadValue"), -1,
+                "매몰 중에는 시야 회전이 살아 있어야 합니다 → mole-skill-system.md §5.5.1");
+            Assert.Greater(IndexOf(branch, "_moveAction.ReadValue"), -1,
+                "매몰 중에는 이동 입력이 살아 있어야 합니다 → mole-skill-system.md §5.5.1");
+            Assert.Greater(IndexOf(branch, "Vector2.zero"), -1,
+                "시전 중에는 시야 입력을 0으로 만들어야 합니다.");
+
+            // 매몰 중에도 막혀야 하는 입력은 읽지 않는다.
+            Assert.AreEqual(-1, IndexOf(branch, "_jumpAction"), "굴착 중 점프 입력을 읽으면 안 됩니다.");
+            Assert.AreEqual(-1, IndexOf(branch, "_sprintAction"), "굴착 중 달리기 입력을 읽으면 안 됩니다.");
+            Assert.AreEqual(-1, IndexOf(branch, "_proneAction"), "굴착 중 엎드리기 입력을 읽으면 안 됩니다.");
+            Assert.AreEqual(-1, IndexOf(branch, "_attackAction"), "굴착 중 던지기 입력을 읽으면 안 됩니다.");
+            Assert.AreEqual(-1, IndexOf(branch, "_interactAction"), "굴착 중 상호작용 입력을 읽으면 안 됩니다.");
+        }
+
+        [Test]
+        public void 시전_모드로_들어갈_때_시야_입력을_즉시_비운다()
+        {
+            // PlayerLook 이 PlayerInputReader 보다 먼저 돌아서, 비우지 않으면 시전 직후 한 프레임
+            // 직전 마우스 입력이 적용된다(SetDeathInputLocked 가 같은 이유로 Look 을 비운다).
+            string source = ReadSource(InputReaderPath);
+
+            int setter = IndexOf(source, "public void SetSkillInputMode(");
+            Assert.Greater(setter, -1, "SetSkillInputMode 가 없습니다.");
+
+            string body = source.Substring(setter);
+            body = body.Substring(0, IndexOf(body, "\n        }"));
+
+            Assert.Greater(IndexOf(body, "SkillInputMode.Frozen"), -1);
+            Assert.Greater(IndexOf(body, "Look = Vector2.zero"), -1,
+                "Frozen 진입 시 Look 을 즉시 비우지 않으면 시전 직후 한 프레임 시점이 샙니다.");
         }
 
         [Test]
@@ -87,7 +152,7 @@ namespace GhostHunter.Tests.EditMode
             string source = ReadSource(InputReaderPath);
 
             int pause = IndexOf(source, "if (_inputLocked)");
-            int skill = IndexOf(source, "if (_skillLocked)");
+            int skill = IndexOf(source, "if (_skillMode != SkillInputMode.None)");
 
             Assert.Greater(pause, -1, "일시정지 잠금 분기가 없습니다.");
             Assert.Greater(skill, -1, "굴착 잠금 분기가 없습니다.");

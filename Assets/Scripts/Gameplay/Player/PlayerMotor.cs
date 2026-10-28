@@ -39,6 +39,7 @@ namespace GhostHunter.Gameplay.Player
             NetworkVariableWritePermission.Owner);
 
         private readonly Collider[] _standOverlapResults = new Collider[StandOverlapCapacity];
+        private readonly MoveSpeedModifierStack _speedModifiers = new();
 
         private CharacterController _controller;
         private ISceneFlow _sceneFlow;
@@ -61,6 +62,17 @@ namespace GhostHunter.Gameplay.Player
         /// 중력도 쌓이지 않는다.
         /// </summary>
         public bool MovementLocked { get; set; }
+
+        /// <summary>
+        /// 출처별 이동 속도 배율을 건다. 자세·달리기로 정해진 속도에 곱해지며, 같은 출처를 다시 걸면
+        /// 덮어쓴다. 굴착 스킬이 매몰 중 가속에 쓴다.
+        /// </summary>
+        public void SetSpeedModifier(SpeedModifierSource source, float multiplier)
+            => _speedModifiers.Set(source, multiplier);
+
+        /// <summary>출처의 이동 속도 배율을 걷어 낸다(1로 되돌린다).</summary>
+        public void ClearSpeedModifier(SpeedModifierSource source)
+            => _speedModifiers.Clear(source);
 
         /// <summary>굴착 상태 프리팹(RemoteBody)을 소유자별로 재사용하기 위한 참조.</summary>
         public Transform VisualBody => _visualBody;
@@ -255,10 +267,10 @@ namespace GhostHunter.Gameplay.Player
             _controller.Move(velocity * deltaTime);
         }
 
-        /// <summary>엎드리기 > 웅크리기 > 달리기 > 걷기 순으로 이동 속도를 정한다.</summary>
+        /// <summary>엎드리기 > 웅크리기 > 달리기 > 걷기 순으로 이동 속도를 정하고, 출처별 배율을 곱한다.</summary>
         private float ResolveMoveSpeed()
         {
-            return PlayerPosture.MoveSpeed(Stance, _input.SprintHeld, _settings);
+            return PlayerPosture.MoveSpeed(Stance, _input.SprintHeld, _settings) * _speedModifiers.Multiplier;
         }
 
         private void ApplyPosture(float deltaTime, bool immediate)

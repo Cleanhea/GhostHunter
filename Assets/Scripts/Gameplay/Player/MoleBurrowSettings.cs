@@ -13,14 +13,18 @@ namespace GhostHunter.Gameplay.Player
     public sealed class MoleBurrowSettings : ScriptableObject
     {
         [Header("지속 시간")]
-        [Tooltip("입력 후 실제로 땅속에 숨기까지의 시전 시간(초). 기획 미결정(MS-10) — 임의값.")]
-        [SerializeField, Min(0f)] private float _enterCastSeconds = 0.3f;
+        [Tooltip("입력 후 실제로 땅속에 숨기까지의 시전 시간(초). (기획 임시값 0.5초)")]
+        [SerializeField, Min(0f)] private float _enterCastSeconds = 0.5f;
 
         [Tooltip("땅속에 머무를 수 있는 최대 시간(초). §5.3 — 5초.")]
         [SerializeField, Min(0.1f)] private float _maxBurrowDuration = 5f;
 
         [Tooltip("종료 후 재사용 대기 시간(초). 사용자 확정값 10초.")]
         [SerializeField, Min(0f)] private float _cooldownSeconds = 10f;
+
+        [Header("땅속 이동")]
+        [Tooltip("매몰(Buried) 중 이동 속도 배율. 진입 시 자세의 속도에 곱한다. 사용자 확정 2배.")]
+        [SerializeField, Min(0.1f)] private float _burrowedMoveSpeedMultiplier = 2f;
 
         [Header("연출")]
         [Tooltip("굴착 중 카메라의 목표 로컬 높이(m) — 바닥(0)보다 살짝 위. 임의값.")]
@@ -34,6 +38,7 @@ namespace GhostHunter.Gameplay.Player
         [SerializeField] private float _gravity = -20f;
 
         public float EnterCastSeconds => _enterCastSeconds;
+        public float BurrowedMoveSpeedMultiplier => _burrowedMoveSpeedMultiplier;
         public float BurrowedCameraHeight => _burrowedCameraHeight;
         public float MaxBurrowDuration => _maxBurrowDuration;
         public float CooldownSeconds => _cooldownSeconds;

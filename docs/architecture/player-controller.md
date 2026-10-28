@@ -71,11 +71,12 @@
 >
 > **입력 잠금은 세 가지고 서로 독립이다.**
 > `SetGameplayInputLocked` 는 일시정지 메뉴용으로 **시점까지 전부** 0으로 만들고,
-> `SetSkillInputLocked` 는 굴착용으로 **`Look` 과 `Burrow` 만 남기며**(2026-09-05 구현),
+> `SetSkillInputMode` 는 굴착용으로 시전 중(`Frozen`)에는 **`Burrow`·`Headlamp` 만 남기고**
+> 매몰 중(`UndergroundMove`)에는 **`Look`·`Move` 를 더 남기며**(2026-10-28 변경, 이전엔 `Look`·`Burrow` 만),
 > `SetWheelInputLocked` 는 퀵슬롯 휠용으로 **`Look` 만 0으로 만들고 `Move`·`Crouch`·`Sprint`·
 > `QuickSlot` 은 남긴다**(2026-09-12 구현, QS-5). 겹치면 **메뉴 > 굴착 > 휠** 순으로 더 강한 쪽이
 > 이긴다. 어느 잠금이든 `CrouchHeld` 는 마지막 값으로 얼려, 잠기는 것만으로 자세가 바뀌지 않게
-> 한다. 굴착은 시전 시작에 걸고 **정상 종료·시전 취소·디스폰 세 경로 모두**에서 푼다 →
+> 한다. 굴착은 시전 시작에 걸고 **정상 종료·시전 취소·디스폰·복구가 모두 `MoleBurrowController.ApplyControl` 을 거쳐** 이동 잠금과 함께 푼다 →
 > [mole-skill-system.md §5.5.1](../project/mole-skill-system.md). 휠은 열리는 조건이 깨지는
 > 즉시 스스로 닫으며 푼다 → [quick-slot.md](quick-slot.md).
 >

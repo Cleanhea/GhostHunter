@@ -119,15 +119,15 @@ namespace GhostHunter.Tests.EditMode
         public void 사망_잠금_분기는_굴착_잠금_분기보다_Update에서_먼저_나온다()
         {
             // 실행 순서가 아니라 소스상 등장 순서를 본다 — if(_deathLocked) 분기가 먼저 return 해야
-            // 굴착 취소가 같은 프레임에 SetSkillInputLocked(false)를 불러도 생존 조작이
+            // 굴착 취소가 같은 프레임에 SetSkillInputMode(None)을 불러도 생존 조작이
             // 되살아나지 않는다(관전 기획서 §3 항목 6의 잠금 해제 순서 경합 방지).
             string source = File.ReadAllText(InputReaderPath);
 
             int deathBranchIndex = source.IndexOf("if (_deathLocked)");
-            int skillBranchIndex = source.IndexOf("if (_skillLocked)");
+            int skillBranchIndex = source.IndexOf("if (_skillMode != SkillInputMode.None)");
 
             Assert.Greater(deathBranchIndex, -1, "if (_deathLocked) 분기가 없습니다.");
-            Assert.Greater(skillBranchIndex, -1, "if (_skillLocked) 분기가 없습니다.");
+            Assert.Greater(skillBranchIndex, -1, "if (_skillMode != SkillInputMode.None) 분기가 없습니다.");
             Assert.Less(deathBranchIndex, skillBranchIndex, "사망 잠금 분기가 굴착 잠금 분기보다 먼저 검사돼야 합니다.");
         }
 

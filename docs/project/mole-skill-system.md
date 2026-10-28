@@ -11,11 +11,13 @@
 | 문서명 | 두더지 스킬 시스템 기획서 |
 | 작성자 | 최유민 |
 | 원문 버전 | **1.0** (2026-08-31) |
-| 저장소 반영 버전 | **1.2** (원문 1.0 + 탐지 스킬 스캐폴드·공통 UI·시전 파란빛 오버레이 구현 + 확정 규칙 반영) |
-| 저장소 반영일 | 2026-09-05 |
+| 저장소 반영 버전 | **1.4** (1.3 + 매몰 중 이동 속도 2배) |
+| 저장소 반영일 | 2026-10-28 |
 
 | 버전 | 작성일 | 수정 사항 |
 | --- | --- | --- |
+| **1.4** | **2026-10-28** | **매몰 중 이동 속도를 2배로 올렸다** (사용자 지시). 매몰(Buried) 동안만 진입 자세의 이동 속도에 `MoleBurrowSettings.BurrowedMoveSpeedMultiplier`(기본 2)를 곱한다. `PlayerMotor` 에 출처별 배율 슬롯(`SetSpeedModifier`/`ClearSpeedModifier`, 순수 클래스 `MoveSpeedModifierStack`)을 추가했고, 굴착은 `ApplyControl` 에서 걸고 걷는다 — 종료·취소·사망·디스폰·복구 어느 경로로 나가도 배율이 남지 않는다. 달리기는 막혀 있어 속도는 자세 속도의 2배가 상한이다. 시전 중에는 이동이 잠겨 있어 배율이 의미 없다 → §5.5.1 · §5.5.2 · §8 |
+| **1.3** | **2026-10-28** | **굴착 조작 제한을 시전/매몰 두 단계로 나눴다** (사용자 지시). 시전(Entering) 0.3초 동안은 이동·시야까지 잠그고(`SkillInputMode.Frozen`), 시전이 끝나 매몰(Buried)되면 **이동과 시야 회전만 허용**한다(`SkillInputMode.UndergroundMove`). 점프·달리기·엎드리기·던지기·상호작용·탐지는 계속 막고 굴착 키(T)·헤드라이트(F)는 살아 있다. 0.8 의 "굴착 중 조작 전부 잠금"과 0.2 의 "땅속 이동 불가"(MS-8)를 **번복**한다. `PlayerInputReader.SetSkillInputLocked(bool)` → `SetSkillInputMode(SkillInputMode)`, 이동 잠금과 입력 모드는 `MoleBurrowController.ApplyControl` 한곳에서 건다. Frozen 진입 시 `Look` 을 즉시 비운다(`PlayerLook` 이 입력 리더보다 먼저 돌아 한 프레임 샌다). 땅속에서 움직이는 동안의 귀신 판정(`BurrowExposureTracker`)은 바꾸지 않았다 → §5.5.1 · §5.5.2 · §8 |
 | **1.2** | **2026-09-05** | 탐지 시전 중 화면 파란빛을 **로컬 런타임 오버레이**로 구현했다. `MoleSkillHud`가 `DetectionSkillSettings.CastScreenColor` / `CastScreenOpacity`를 읽어 시전 구간 중간에 가장 밝고, 5초 표시 카운트가 시작되기 직전에 사라지는 펄스를 그린다. 시전 상태와 활성 상태를 분리하므로 **연출 중 카운트다운은 진행되지 않는다**. 현재 기본값 `#40a0ff`, 최대 불투명도 0.35는 [TBD: MS-14] 임시값이다. 플레이어 모델에 손·주머니·레이저 장비/애니메이션 에셋이 없어 레이저 포인터를 꺼내 드는 동작은 아직 연결하지 못했다. 탐지 시전 연출은 **부분 구현**으로 남기고, 기존 1.1의 벽 가림·float 오차 수정 결과를 유지한다 |
 | **1.1** | **2026-09-05** | **탐지의 벽 투시를 철회했다** (사용자 확정 번복). 1.0 은 "맵 내 전부"를 근거로 `ZTest Always` 를 써서 벽 뒤 대상까지 보여 줬는데, **시전자 시야에 실제로 보이는 표면에만** 표시하도록 바꿨다 — `DetectionHighlight.shader` 의 `ZTest LEqual` + `Offset -1,-1`(같은 지오메트리라 z-fighting 방지). "맵 전체"는 **사거리·시야각 제한이 없다**는 뜻으로만 남고, 가림(occlusion)은 적용된다. MS-4 의 투시 항목이 이 방향으로 닫혔다 → §4.5. **같은 작업에서 1.0 이 실행하지 못했던 EditMode 를 복제 batchmode 로 돌려 버그 1건을 잡았다** — `DetectionSkillStateMachine` 이 쿨타임 10초를 9.9 + 0.1 로 나눠 태우면 float 오차 3.8e-7 초가 남아 **한 프레임 더 잠겨** `Tick_10초_쿨타임이_끝나면_다시_시전할_수_있다` 가 red 였다. `TimeEpsilon`(1e-4) 을 두어 시간 비교를 0 대신 허용치와 하도록 고쳤다. 결과 **165/172 passed · 1 failed · 6 skipped** — 실패 1건(`Ghost_소리탐지는_걷기6m와_달리기12m를_구분한다`)과 skip 6건은 복제 환경의 에셋 임포트 문제로, 이 변경과 무관하다 |
 | **1.0** | **2026-09-05** | **탐지 스킬·공통 스킬 UI 구현.** `Player/Detect`(Q), 생존·사용 중·쿨타임 순서 판정, 시전 연출 대기(임시 0.5초) → 5초 표시 → 종료 후 10초 쿨타임의 로컬 상태 머신을 추가했다. `DetectionTargetMarker`가 활성화된 마커만 맵 전체에서 색상별로 표시한다(시전자 로컬 전용). *당시엔 `ZTest Always`로 벽 너머까지 보여 줬으나 1.1 에서 철회했다.* `MoleSkillHud`가 탐지·굴착의 읽기 전용 상태를 우측 상단 원형 게이지로 표시하고, 아이콘 4장의 Single 재임포트·씬/프리팹 배선은 `MoleSkillSetup` 멱등 메뉴로 수행한다. 작업 시스템의 대상 판정은 MS-5를 그대로 유지한다. 복제 batchmode 검증은 Unity Licensing/오프라인 Git 패키지 의존성으로 완료하지 못했으며, 수동 Play 검증도 남아 있다. |
@@ -515,27 +517,35 @@ ADR을 대체하지는 않는다** — 위 코드 패턴을 새 소유자 권위
 
 #### 5.5.1 조작 제한 [확정 · 구현됨 (2026-09-05)]
 
-**시야 회전과 스킬 키(T) 재입력을 제외한 모든 조작을 잠근다.**
+**시전(0.3초) 중에는 굴착 키(T) 재입력·헤드라이트(F)만 남기고 모두 잠그고, 매몰된 뒤에는 시야 회전과 이동만 더 허용한다.** [사용자 확정 2026-10-28 — 이전의 "전부 잠금"(2026-09-05)을 번복]
 
-| 입력 | 굴착 중 | 현재 구현 |
+| 입력 | 시전 중 (`Frozen`) | 매몰 중 (`UndergroundMove`) |
 | --- | --- | --- |
-| `Look` (시야 회전) | **허용** | 허용 |
-| `Burrow` (T, 재입력 = 즉시 종료) | **허용** | 허용 — 막으면 스스로 나올 수 없다 |
-| `Move` | 차단 | 차단 (입력 0 + `PlayerMotor.MovementLocked`) |
-| `Jump` | 차단 | 차단 — 대기 중이던 점프도 버린다 |
+| `Look` (시야 회전) | 차단 — 진입 시 즉시 0 | **허용** |
+| `Move` | 차단 (입력 0 + `PlayerMotor.MovementLocked`) | **허용** (`MovementLocked` 해제) |
+| `Burrow` (T, 재입력 = 즉시 종료) | 허용 | 허용 — 막으면 스스로 나올 수 없다 |
+| `Headlamp` (F) | 허용 | 허용 — §5.2.1 ② |
+| `Jump` | 차단 — 대기 중이던 점프도 버린다 | 차단 |
 | `Attack` (가구 잡기·던지기) | 차단 | 차단 |
 | `Interact` (문 여닫기) | 차단 | 차단 |
 | `Prone` (엎드리기 토글) | 차단 | 차단 |
-| `Crouch` | 차단 | **마지막 값으로 얼린다** — 잠기는 것만으로 자세가 바뀌면 안 된다 |
+| `Crouch` | **마지막 값으로 얼린다** | **마지막 값으로 얼린다** — 잠기는 것만으로 자세가 바뀌면 안 된다. 땅속 이동 속도는 그 자세의 속도의 2배다(§5.5.2) |
 | `Sprint` | 차단 | 차단 |
-| `Pause` (ESC) | **허용** | 허용 — 일시정지 메뉴는 별개 계층이다 → [pause-menu-system.md](pause-menu-system.md) |
+| `Pause` (ESC) | 허용 | 허용 — 일시정지 메뉴는 별개 계층이다 → [pause-menu-system.md](pause-menu-system.md) |
 
-**구현** — `PlayerInputReader.SetSkillInputLocked(bool)` 신설. 일시정지 메뉴의
-`SetGameplayInputLocked`(**전부** 0으로)와 **독립된 두 번째 잠금**이며, 이쪽은 `Look`·`Burrow`만
-남긴다. 둘이 겹치면 **메뉴 쪽이 이긴다**(더 강한 잠금이라 시점까지 잠근다).
-`MoleBurrowController`가 시전 시작에 걸고 정상 종료·시전 취소·디스폰 **세 경로 모두에서** 푼다.
+**구현** — `PlayerInputReader.SetSkillInputMode(SkillInputMode)`(`None`/`Frozen`/`UndergroundMove`). 일시정지 메뉴의
+`SetGameplayInputLocked`(**전부** 0으로)와 **독립된 두 번째 잠금**이다. 둘이 겹치면 **메뉴 쪽이 이긴다**
+(더 강한 잠금이라 시점까지 잠근다). `IsSkillInputLocked` 는 두 모드 모두 true 라서 청소·가구 분해/조립·퀵슬롯
+휠은 땅속에서도 계속 막힌다.
 
-`PlayerMotor.MovementLocked`도 그대로 함께 세운다 — 입력이 0이어도 모터에서 한 번 더 막아야
+`MoleBurrowController.ApplyControl(State)` 가 **이동 잠금과 입력 모드를 한곳에서** 건다: 시전 시작 → `Frozen` +
+`MovementLocked`, 매몰 완료 → `UndergroundMove`, 정상 종료·시전 취소·디스폰 → `None`, 스테이지 복구 → 복원한 상태에 맞춘 모드.
+종료·복구 경로가 어디든 이동·시야가 같이 풀리거나 같이 걸린다.
+
+`Frozen` 으로 들어갈 때 `Look` 을 즉시 비운다 — `PlayerLook` 이 입력 리더보다 먼저 돌아서(`DefaultExecutionOrder`),
+비우지 않으면 시전 직후 한 프레임 직전 마우스 입력이 적용된다.
+
+`PlayerMotor.MovementLocked`는 시전 중에만 세운다 — 입력이 0이어도 모터에서 한 번 더 막아야
 잔여 속도나 다른 경로의 이동이 새지 않는다.
 
 > **가구를 든 채 굴착하면?** 잠금은 `Attack` **입력**만 막을 뿐 이미 들고 있는 가구를 놓지는
@@ -547,7 +557,7 @@ ADR을 대체하지는 않는다** — 위 코드 패턴을 새 소유자 권위
 
 | 항목 | 상태 |
 | --- | --- |
-| 땅속 이동 | **불가** [확정] — `PlayerMotor.MovementLocked` 로 입력 기반 이동을 완전히 건너뛴다 |
+| 땅속 이동 | 시전 중 **불가**, 매몰 중 **가능하며 속도 2배** [사용자 확정 2026-10-28 — 이전의 "이동 불가"(MS-8) 번복] — 시전 중에는 `PlayerMotor.MovementLocked` 로 입력 기반 이동을 완전히 건너뛰고, 매몰되면 푼다. 속도는 진입 시 자세의 속도에 `MoleBurrowSettings.BurrowedMoveSpeedMultiplier`(2)를 곱한 값이다. 매몰이 끝나면(종료·취소·사망·디스폰·복구) 배율을 걷어 낸다 |
 | 카메라 높이 | **바닥보다 살짝 위(0.15m)로 낮아짐** [사용자 확정 — 2026-08-31 추가] — 시전 시작과 동시에 웅크리기와 같은 전환 속도로 낮아지고, 종료 시 같은 방식으로 되돌아온다. `PlayerMotor.CameraHeightOverride` → `MoleBurrowSettings.BurrowedCameraHeight` |
 | 화면 비네트 | **켜짐** [사용자 확정 — 2026-08-31 추가] — 굴착 동작 중(시전~매몰) Global Volume 가중치를 올려 화면 가장자리를 어둡게 한다. 정신력 노이즈와 별도 프로필 → `MoleBurrowCameraEffect`, `PP_MoleBurrowVignette.asset` |
 | 굴착 가능 위치 | **제한 없음** [사용자 확정 — MS-7 해소] — 실내 바닥 어디서나 가능하다 |
@@ -653,7 +663,7 @@ ADR을 대체하지는 않는다** — 위 코드 패턴을 새 소유자 권위
 | 귀신 | 땅속 은신 중 탐지·공격 불가 | **확정 + 구현됨** → [ghost-system.md §9.5](ghost-system.md), `GhostPrototypeController.TryDetectPlayer` |
 | 귀신 | 포착·추격 중 굴착 진입 처리 | **구현됨 (2026-09-05)** — 이미 감지된 상태에서 매몰하면 땅속에서도 탐지·포획된다. `BurrowExposureTracker` + `GhostPrototypeController.EvaluateBurrowExposure` → §5.2.1 |
 | 손전등(헤드라이트) | 땅굴 안에서 켜면 감지된다 | **구현됨 (2026-09-28)** → §5.2.1 ②, [headlamp-system.md](headlamp-system.md) |
-| 입력 | 굴착 중 조작 전부 잠그기 | **구현됨 (2026-09-05)** — `PlayerInputReader.SetSkillInputLocked`. 일시정지 잠금과 독립이고 겹치면 메뉴가 이긴다. 헤드라이트(F)는 잠그지 않는다(2026-09-28) → §5.5.1 |
+| 입력 | 굴착 중 조작 제한 | **구현됨 (2026-10-28 변경)** — `PlayerInputReader.SetSkillInputMode`. 시전 중 `Frozen`(시야·이동 포함 잠금), 매몰 중 `UndergroundMove`(시야·이동만 허용). 일시정지 잠금과 독립이고 겹치면 메뉴가 이긴다. 헤드라이트(F)는 잠그지 않는다(2026-09-28) → §5.5.1 |
 | UI | 시전·쿨타임 원형 게이지, 아이콘 4종 | **코드 구현됨** — `MoleSkillHud`가 탐지·굴착 상태를 공통 표시. 아이콘 Single 재임포트·씬 배선은 `MoleSkillSetup` 메뉴에서 수행하며 수동 검증 대기 |
 | 던지기 | 가구를 홀드·운반하는 중 스킬을 쓸 수 있는가 | **미해결** → MS-12, [ghost-system.md §13 G-11](ghost-system.md)과 연동. 조작 잠금은 `Attack` **입력**만 막고 들고 있던 가구를 놓지는 않는다 — 일시정지 메뉴가 하는 `ForceRelease()` 를 굴착에도 걸지는 **일부러 정하지 않았다**(§5.5.1) |
 | 정신력 | 땅속을 **어둠 노출**로 볼 것인가 (본다면 정신력이 감소한다) | [TBD] → MS-11, [sanity-system.md §4.3](sanity-system.md). 이번 구현은 정신력 시스템을 전혀 건드리지 않았다 |
@@ -676,8 +686,9 @@ ADR을 대체하지는 않는다** — 위 코드 패턴을 새 소유자 권위
 | 입력 액션 (탐지) | **구현됨** — `Player/Detect` / Q, `DetectPressedThisFrame` |
 | 굴착 상태 머신 (시전→매몰→종료→쿨타임) | **구현됨** — `MoleBurrowController` |
 | 튀어오름 | **구현됨** — `PlayerMotor.ApplyVerticalLaunch()`, 점프 공식 재사용 |
-| 이동 잠금 | **구현됨** — `PlayerMotor.MovementLocked` |
-| **굴착 중 조작 전부 잠금** | **구현됨 (2026-09-05)** — `PlayerInputReader.SetSkillInputLocked`, `Look`·`Burrow`만 허용. 시전 시작에 걸고 정상 종료·취소·디스폰 세 경로에서 푼다 → §5.5.1 |
+| 이동 잠금 | **구현됨** — `PlayerMotor.MovementLocked`. 시전 중에만 건다(2026-10-28) |
+| 땅속 이동 속도 2배 | **구현됨 (2026-10-28)** — `MoleBurrowSettings.BurrowedMoveSpeedMultiplier`(2) → `ApplyControl` 이 매몰 중에만 `PlayerMotor.SetSpeedModifier(Burrow)` 를 건다. 수동 Play 검증 대기 → §5.5.2 |
+| **굴착 중 조작 제한** | **구현됨 (2026-10-28 변경)** — `PlayerInputReader.SetSkillInputMode`. 시전 중 `Frozen`(`Burrow`·`Headlamp` 만 허용), 매몰 중 `UndergroundMove`(`Look`·`Move` 추가 허용). 모든 단계 전환·종료·복구가 `MoleBurrowController.ApplyControl` 을 거친다 → §5.5.1. 2026-09-05 의 "전부 잠금"은 번복됨 |
 | **감지 상태에서 시전 시 은신 무효** | **구현됨 (2026-09-05)** — `BurrowExposureTracker`(순수) + `GhostPrototypeController.EvaluateBurrowExposure`. **탐지·포획 양쪽**에 적용 → §5.2.1 |
 | 탐지 사용 가능 판정 | **구현됨** — `DetectionSkillStateMachine.TryStart`가 생존 → 미사용 → 쿨타임 0을 순서대로 검사하고 실패 입력을 버린다 |
 | 귀신 은신 예외 | **구현됨** — `SanityNetworkState.IsBurrowed` → `GhostPrototypeController.TryDetectPlayer` |
@@ -730,7 +741,7 @@ MS-15(사망 외 제한 상태) · MS-19~MS-21(이번 구현에서 새로 드러
 | MS-5 | **개별 가구의 작업 대상 여부와 얼룩 판정** — 맵 v0.4의 Type·Count 관리 방식은 정의됐으나 개별 대상·반출 완료·진행도와 탐지 마커 연동은 미정 | §4.6 · [map-generation.md MG-22](../architecture/map-generation.md), 탐지 스킬·귀신 §6.2 청소 진행도 연결 대기 |
 | ~~MS-6~~ | ~~탐지 결과가 본인 전용인가 팀 공유인가~~ | ✅ 해결 — **시전자 카메라 전용**(원문 1.0). 복제 불필요, 순수 로컬 연출 |
 | ~~MS-7~~ | ~~굴착 가능 위치 조건~~ | ✅ 해결 — 제한 없음(사용자 확정) + 구현됨 |
-| ~~MS-8~~ | ~~땅속에서 이동 가능 여부·속도, 카메라·시야 처리~~ | ✅ 해결 — 이동 불가 + 카메라를 바닥 근처로 낮추고 화면 비네트(사용자 확정, 2026-08-31) + 구현됨 |
+| ~~MS-8~~ | ~~땅속에서 이동 가능 여부·속도, 카메라·시야 처리~~ | ✅ 해결 — 카메라를 바닥 근처로 낮추고 화면 비네트(사용자 확정, 2026-08-31) + 구현됨. **이동은 2026-10-28 번복:** 시전 중 불가·매몰 중 가능하며 속도 2배(진입 자세 속도 기준) |
 | ~~MS-9~~ | ~~튀어오름의 실제 높이·속도, 착지 낙하 피해·경직, 도약 방향~~ | ✅ 해결 — 4m(사용자 확정) + 물리 역산 속도, 낙하 피해 없음, 수직 고정. 전부 구현됨. "2층" 기준 자체는 맵에 없어 재검증 대기 |
 | MS-10 | 굴착 **진입·종료 시전 시간**과 그동안의 무적/취약, **어택·추격 중 진입 가능 여부** | 시전 0.3초(임의값)로 구현. **시전 중 무적은 부여하지 않음** — 사용자에게 확인된 값이 아니라 재검토 필요. 추격 중 진입은 ✅ 허용으로 확정·구현됨 |
 | MS-11 | 땅속을 **어둠 노출로 볼 것인가** (정신력 감소 적용 여부) | [sanity-system.md §4.3](sanity-system.md) 연동 — 미착수 |
@@ -764,7 +775,7 @@ MS-15(사망 외 제한 상태) · MS-19~MS-21(이번 구현에서 새로 드러
 `Assets/Scripts/Gameplay/Player/IMoleSkillDebug.cs`(개발 HUD 창구) ·
 `Assets/Scripts/DebugTools/ConnectionHud.cs`(`두더지 스킬` 섹션) ·
 `Assets/Scripts/DebugTools/TuningHud.cs`(`DrawInline` — 수치 줄 인라인) ·
-`Assets/Scripts/Gameplay/Player/PlayerInputReader.cs`(`SetSkillInputLocked` — §5.5.1) ·
+`Assets/Scripts/Gameplay/Player/PlayerInputReader.cs`(`SetSkillInputMode` · `SkillInputMode.cs` — §5.5.1) ·
 `Assets/Scripts/Gameplay/Ghost/BurrowExposureTracker.cs`(§5.2.1 순수 판정) ·
 `GhostPrototypeController`(`EvaluateBurrowExposure`·`IsBurrowExposed` — 탐지·포획)
 
