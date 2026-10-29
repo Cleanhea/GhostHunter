@@ -40,6 +40,7 @@ namespace GhostHunter.Gameplay.FurnitureDriver
         private NetworkTransform _networkTransform;
         private Rigidbody _body;
         private FurnitureGrabTarget _grabTarget;
+        private FurnitureBundle _bundle;
         private Renderer[] _renderers;
         private Collider[] _colliders;
         private bool[] _rendererEnabled;
@@ -50,7 +51,24 @@ namespace GhostHunter.Gameplay.FurnitureDriver
         public bool IsBroken => _physics != null && _physics.IsBroken;
         public int Durability => _physics != null ? _physics.Durability : FurnitureNetworkPhysics.FullDurability;
 
-        private void Awake() => _physics = GetComponent<FurnitureNetworkPhysics>();
+        /// <summary>분해되어 짐더미 형태인가(§4.1). 짐더미는 다시 분해할 수 없다.</summary>
+        public bool IsBundled => _bundle != null && _bundle.IsBundled;
+
+        /// <summary>짐더미 형태를 가진 큰 가구인가 — 분해 대상이 될 수 있는 조건.</summary>
+        public bool CanBundle => _bundle != null && _bundle.IsReady;
+
+        private void Awake()
+        {
+            _physics = GetComponent<FurnitureNetworkPhysics>();
+            _bundle = GetComponent<FurnitureBundle>();
+        }
+
+        /// <summary>
+        /// 서버 전용 — 큰 가구를 짐더미로 바꾼다(§4.1). 짐더미는 이 오브젝트가 모양만 바꾼 것이라
+        /// 무게·명칭(<see cref="PoolKey"/>)·내구도가 그대로다.
+        /// </summary>
+        public bool ServerConvertToBundle(float dropHeight) =>
+            IsServer && IsSpawned && IsActive && _bundle != null && _bundle.ServerConvert(dropHeight);
 
         public override void OnNetworkSpawn()
         {
@@ -115,6 +133,7 @@ namespace GhostHunter.Gameplay.FurnitureDriver
                 LinearVelocity = _body != null ? _body.linearVelocity : Vector3.zero,
                 AngularVelocity = _body != null ? _body.angularVelocity : Vector3.zero,
                 Durability = Durability,
+                Bundled = IsBundled,
             };
         }
 
@@ -127,6 +146,7 @@ namespace GhostHunter.Gameplay.FurnitureDriver
             _networkTransform.Teleport(state.Position, state.Rotation, transform.localScale);
             RoomPreset.TeleportBody(_body, state.Position, state.Rotation);
             _active.Value = state.Active;
+            _bundle?.ServerSetBundled(state.Bundled);
             _physics.ServerRestoreStageDurability(state.Durability);
             ApplyPresentation(state.Active);
             if (state.Active && !_body.isKinematic)
@@ -148,6 +168,8 @@ namespace GhostHunter.Gameplay.FurnitureDriver
             _networkTransform.Teleport(dropPosition, rotation, transform.localScale);
             // 보간 바디는 트랜스폼만 옮기면 다음 물리 스텝에 이전 자세(풀 보관 위치)로 되돌아간다.
             RoomPreset.TeleportBody(_body, dropPosition, rotation);
+            // 다시 꺼내는 큰 가구는 온전한 모양이다 — 짐더미 상태로 숨겨졌더라도 되돌린다.
+            _bundle?.ServerSetBundled(false);
             _active.Value = true;
             ApplyPresentation(true);
             // 대기 중에는 kinematic이므로 활성화 후 속도를 초기화한다.

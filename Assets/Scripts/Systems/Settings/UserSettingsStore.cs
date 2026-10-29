@@ -12,6 +12,8 @@ namespace GhostHunter.Systems.Settings
     public sealed class UserSettingsStore : IUserSettings
     {
         public const string MasterVolumeKey = "Audio.MasterVolume";
+        public const string SfxVolumeKey = "Audio.SfxVolume";
+        public const string AmbientVolumeKey = "Audio.AmbientVolume";
         // 음성 세 키는 VoiceChatService 가 직접 저장하던 시절 이름 그대로다 — 기존 사용자 값이 이어진다.
         public const string VoiceVolumeKey = "Voice.Volume";
         public const string VoiceModeKey = "Voice.Mode";
@@ -29,6 +31,8 @@ namespace GhostHunter.Systems.Settings
         private readonly bool _applyToEngine;
 
         private float _masterVolume;
+        private float _sfxVolume;
+        private float _ambientVolume;
         private float _voiceVolume;
         private VoiceMode _voiceMode;
         private bool _micMuted;
@@ -48,6 +52,8 @@ namespace GhostHunter.Systems.Settings
             _applyToEngine = applyToEngine;
 
             _masterVolume = Mathf.Clamp01(_storage.GetFloat(MasterVolumeKey, 1f));
+            _sfxVolume = Mathf.Clamp01(_storage.GetFloat(SfxVolumeKey, 1f));
+            _ambientVolume = Mathf.Clamp01(_storage.GetFloat(AmbientVolumeKey, 1f));
             _voiceVolume = Mathf.Clamp01(_storage.GetFloat(VoiceVolumeKey, 1f));
             _voiceMode = ToVoiceMode(_storage.GetInt(VoiceModeKey, (int)VoiceMode.OpenMic));
             _micMuted = _storage.GetInt(MicMutedKey, 0) != 0;
@@ -81,6 +87,36 @@ namespace GhostHunter.Systems.Settings
                 _masterVolume = next;
                 _storage.SetFloat(MasterVolumeKey, next);
                 ApplyAudio();
+                Changed?.Invoke();
+            }
+        }
+
+        public float SfxVolume
+        {
+            get => _sfxVolume;
+            set
+            {
+                float next = Mathf.Clamp01(value);
+                if (Mathf.Approximately(next, _sfxVolume))
+                    return;
+
+                _sfxVolume = next;
+                _storage.SetFloat(SfxVolumeKey, next);
+                Changed?.Invoke();
+            }
+        }
+
+        public float AmbientVolume
+        {
+            get => _ambientVolume;
+            set
+            {
+                float next = Mathf.Clamp01(value);
+                if (Mathf.Approximately(next, _ambientVolume))
+                    return;
+
+                _ambientVolume = next;
+                _storage.SetFloat(AmbientVolumeKey, next);
                 Changed?.Invoke();
             }
         }
@@ -254,6 +290,8 @@ namespace GhostHunter.Systems.Settings
             {
                 case UserSettingsGroup.Audio:
                     MasterVolume = 1f;
+                    SfxVolume = 1f;
+                    AmbientVolume = 1f;
                     VoiceVolume = 1f;
                     break;
                 case UserSettingsGroup.Microphone:

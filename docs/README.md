@@ -25,7 +25,7 @@ docs/
 │   ├── pause-menu-system.md        일시정지 메뉴·호스트 연결 끊김 규칙 — 구현됨, 수동 검증 대기
 │   ├── quick-slot-system.md        퀵슬롯 규칙·대걸레/맨손 장착
 │   ├── cleaning-system.md          대걸레·랜덤 얼룩·HUD 초기화, 상세 룰·진행도 미정
-│   ├── furniture-multidriver-system.md  가구 분해·조립 아이템 — MD-1·2·5·9·10·11·12 확정, FM-IMPL-1~3 구현
+│   ├── furniture-multidriver-system.md  가구 분해·조립 아이템 — 1.3(2026-10-29) 분해 = 큰 가구 → 짐더미 1개, 조립은 MD-14 재정의 대기
 │   ├── furniture-durability-system.md   가구 내구도 — 수직 상대 속도·초기값·복구 승인, 코드 구현·Unity 검증 대기
 │   ├── death-system.md           죽음 판정·연출·시체·사망 상태·치료비·전멸 — 기획 0.1
 │   ├── revival-system.md         부활 의식 — 소환진·촛불 5개·타이밍 점화·폐급 두더지
@@ -47,9 +47,9 @@ docs/
 │   ├── map-generation-history.md   맵 생성 과거 기록(삭제된 생성기·A안 배율·v0.3 비교) — 현재 규칙 아님
 │   ├── pause-menu.md                일시정지 메뉴·연결 끊김 배선·권위·검증 — 구현됨, 수동 검증 대기
 │   ├── quick-slot.md                퀵슬롯 휠 구현 — 입력 잠금·선택 계산·장착 전달
-│   ├── headlamp.md                  헤드라이트 권위·복제·어둠/땅굴/은신 판정·조명 배치
+│   ├── headlamp.md                  헤드라이트 권위·복제·땅굴/은신 판정·조명 배치
 │   ├── cleaning-system.md           서버 얼룩 상태·청소 검증·씬 풀·설치/검증
-│   ├── furniture-multidriver.md     분해·조립 서버 판정·씬 풀 재배치·행동 시간 HUD·설치/검증 — 손목 애니메이션·실루엣 렌더링 미구현
+│   ├── furniture-multidriver.md     분해(짐더미 형태 전환 `FurnitureBundle`·코드 생성 메시)·조립 서버 판정·씬 풀 재배치·행동 시간 HUD — 손목 애니메이션·실루엣 렌더링 미구현
 │   ├── death-system.md              사망 연출·시체 물리·전멸 결과 데이터 흐름
 │   └── decisions/                  ADR (기술 결정 기록)
 ├── conventions/                    어떻게 쓰는가
@@ -76,7 +76,7 @@ docs/
 | [project/headlamp-system.md](project/headlamp-system.md) | 헤드라이트는 언제 켜지고 배터리는 어떻게 줄고 차는가 | 헤드라이트 규칙·수치·UI·효과음 변경 |
 | [project/pause-menu-system.md](project/pause-menu-system.md) | 매치를 어떻게 떠나고, 끊기면 무엇을 보는가 | 일시정지 메뉴·나가기·끊김 규칙 변경 |
 | [project/quick-slot-system.md](project/quick-slot-system.md) | 퀵슬롯 휠은 언제 열리고 무엇을 담는가 | 퀵슬롯 규칙·슬롯 구성 변경 |
-| [project/furniture-multidriver-system.md](project/furniture-multidriver-system.md) | 큰 가구를 어떻게 분해해서 옮기고 다시 조립하는가 | 분해·조립 규칙, 아이템 내구도, 부품 구성 확정 |
+| [project/furniture-multidriver-system.md](project/furniture-multidriver-system.md) | 큰 가구를 어떻게 분해해서 옮기고 다시 조립하는가 | 분해(짐더미)·조립 규칙, 아이템 내구도 |
 | [project/furniture-durability-system.md](project/furniture-durability-system.md) | 가구 내구도는 언제 얼마나 깎이고 0이 되면 어떻게 되는가 | 충돌 파손 규칙·수치·0 도달 결과(FD-1~12) 확정 |
 | [project/death-system.md](project/death-system.md) | 언제 사망하고 시체·사망 상태·치료비·전멸을 어떻게 처리하는가 | 사망·시체·전멸·치료비 규칙 변경 |
 | [project/revival-system.md](project/revival-system.md) | 시체를 소환진에 놓고 촛불 5개를 점화해 어떻게 부활하고 폐급이 되는가 | 부활 의식·촛불·폐급 규칙 변경 |
@@ -97,7 +97,7 @@ docs/
 | [architecture/map-generation.md](architecture/map-generation.md) | 집·층·방·스폰 포인트·작업 대상 가구의 종류와 개수는 어떻게 정하는가 — [HousePlanB·C 도면 비교](architecture/map-generation.md#house-plan-bc) | 맵 생성 규칙 변경, 기획서 개정·도면 추가 |
 | [architecture/pause-menu.md](architecture/pause-menu.md) | 메뉴·끊김 처리는 어떤 서비스를 거치고 무엇을 검증하는가 | 세션 종료 경로·메뉴 배선 변경 |
 | [architecture/quick-slot.md](architecture/quick-slot.md) | 퀵슬롯 휠의 입력 잠금·선택 계산·UI는 어떻게 구성되는가 | 퀵슬롯 배선·잠금 규칙 변경 |
-| [architecture/headlamp.md](architecture/headlamp.md) | 헤드라이트 상태는 누가 정하고 정신력·귀신 판정에 어떻게 들어가는가 | 헤드라이트 코드·배선·판정 변경 |
+| [architecture/headlamp.md](architecture/headlamp.md) | 헤드라이트 상태는 누가 정하고 귀신 판정에 어떻게 들어가는가 | 헤드라이트 코드·배선·판정 변경 |
 | [architecture/decisions/](architecture/decisions/README.md) | 왜 이렇게 골랐는가 | 되돌리기 비싼 선택 발생 시 |
 | [conventions/code-style.md](conventions/code-style.md) | C# 코드를 어떻게 쓰는가 | 규약 합의 변경 |
 | [conventions/unity-assets.md](conventions/unity-assets.md) | 에셋 이름·구조·설정은 | 에셋 파이프라인 변경 |

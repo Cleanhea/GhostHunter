@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5d09101046b9410295a696358a496660, type: 3}
+  m_Name: GameAudioSettings
+  m_EditorClassIdentifier: GhostHunter.Data::GhostHunter.Data.Audio.GameAudioSettings
+  _library: {fileID: 11400000, guid: b58a97c531a04182a859909961aa5758, type: 2}
+  _voiceCount: 32
+  _listenerRefreshSeconds: 0.5
+  _sfxVolume: 1
+  _ambientVolume: 1
+  _sfxGroup: {fileID: 1889435512915614160, guid: 8706371e2bcc47c4a91e68bd78327bd3, type: 2}
+  _ambientGroup: {fileID: 0}
+  _occlusionEnabled: 1
+  _wallVolumeFactor: 0.5
+  _wallCutoffFactor: 0.4
+  _maximumWalls: 3
+  _occlusionVolumeFloor: 0.1
+  _openCutoff: 22000
+  _blockedCutoff: 900
+  _occlusionHz: 5
+  _occlusionSmoothTime: 0.15
+  _occlusionRayEndInset: 0.15

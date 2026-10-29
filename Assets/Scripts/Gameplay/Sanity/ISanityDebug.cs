@@ -11,7 +11,6 @@ namespace GhostHunter.Gameplay.Sanity
         int SanityMinimum { get; }
         int SanityMaximum { get; }
 
-        void ToggleLocalDarkness();
         void ApplyLocalGhostEvent();
         void WitnessNewCorpse();
         void WitnessSameCorpse();

@@ -28,6 +28,9 @@ namespace GhostHunter.Gameplay.Interaction
 
         /// <summary>지금 조준 중인 문. HUD 프롬프트가 읽는다.</summary>
         public DoorInteractable CurrentDoor { get; private set; }
+
+        /// <summary>지금 조준 중인 드릴카 배터리 팩. E 홀드 충전(<c>PlayerBatteryCharger</c>)과 프롬프트가 읽는다.</summary>
+        public BatteryPack CurrentBatteryPack { get; private set; }
         private StageExitInteractable _currentStageExit;
         private StageLobbyTerminal _currentLobbyTerminal;
         private RevivalCandleSlot _currentCandleSlot;
@@ -62,6 +65,7 @@ namespace GhostHunter.Gameplay.Interaction
             _localPlayer = null;
 
             CurrentDoor = null;
+            CurrentBatteryPack = null;
         }
 
         private void Update()
@@ -109,6 +113,7 @@ namespace GhostHunter.Gameplay.Interaction
                 _currentStageExit = null;
                 _currentLobbyTerminal = null;
                 _currentCandleSlot = null;
+                CurrentBatteryPack = null;
                 return;
             }
 
@@ -116,6 +121,7 @@ namespace GhostHunter.Gameplay.Interaction
             _currentStageExit = hit.collider.GetComponentInParent<StageExitInteractable>();
             _currentLobbyTerminal = hit.collider.GetComponentInParent<StageLobbyTerminal>();
             _currentCandleSlot = hit.collider.GetComponent<RevivalCandleSlot>();
+            CurrentBatteryPack = hit.collider.GetComponentInParent<BatteryPack>();
         }
 
         private void OpenStageExitConfirmation()

@@ -23,7 +23,6 @@ namespace GhostHunter.Tests.EditMode
                         SteamId = 76561198012345678UL,
                         Alive = false,
                         Sanity = 27,
-                        DarknessSeconds = 0.75f,
                         WitnessedCorpses = new[] { 0xC000000000000123UL },
                         CorpseWitnessId = 0xC000000000000456UL,
                         BurrowPhase = 2,

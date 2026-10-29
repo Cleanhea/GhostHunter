@@ -4,22 +4,19 @@ using UnityEngine;
 
 namespace GhostHunter.Gameplay.Sanity
 {
-    /// <summary>개인 정신력의 감소 누적, 회복, 시체 중복 방지를 계산한다.</summary>
+    /// <summary>개인 정신력의 감소, 회복, 시체 중복 방지를 계산한다.</summary>
     internal sealed class SanityState
     {
         internal readonly struct Snapshot
         {
             internal readonly int Value;
             internal readonly bool IsAlive;
-            internal readonly float DarknessExposureSeconds;
             internal readonly ulong[] WitnessedCorpses;
 
-            internal Snapshot(int value, bool isAlive, float darknessExposureSeconds,
-                ulong[] witnessedCorpses)
+            internal Snapshot(int value, bool isAlive, ulong[] witnessedCorpses)
             {
                 Value = value;
                 IsAlive = isAlive;
-                DarknessExposureSeconds = darknessExposureSeconds;
                 WitnessedCorpses = witnessedCorpses;
             }
         }
@@ -29,7 +26,6 @@ namespace GhostHunter.Gameplay.Sanity
 
         public int Value { get; private set; }
         public bool IsAlive { get; private set; }
-        public float DarknessExposureSeconds { get; private set; }
         public SanityDebuffFlags Debuffs =>
             SanityMath.ResolveDebuffs(Value, IsAlive, _settings);
 
@@ -46,7 +42,6 @@ namespace GhostHunter.Gameplay.Sanity
         {
             Value = _settings.StartingSanity;
             IsAlive = true;
-            DarknessExposureSeconds = 0f;
             _witnessedCorpses.Clear();
         }
 
@@ -55,33 +50,17 @@ namespace GhostHunter.Gameplay.Sanity
             ulong[] corpses = new ulong[_witnessedCorpses.Count];
             _witnessedCorpses.CopyTo(corpses);
             Array.Sort(corpses);
-            return new Snapshot(Value, IsAlive, DarknessExposureSeconds, corpses);
+            return new Snapshot(Value, IsAlive, corpses);
         }
 
         internal void RestoreSnapshot(Snapshot snapshot)
         {
             Value = Mathf.Clamp(snapshot.Value, _settings.MinimumSanity, _settings.MaximumSanity);
             IsAlive = snapshot.IsAlive;
-            DarknessExposureSeconds = Mathf.Max(0f, snapshot.DarknessExposureSeconds);
             _witnessedCorpses.Clear();
             if (snapshot.WitnessedCorpses != null)
                 foreach (ulong corpse in snapshot.WitnessedCorpses)
                     _witnessedCorpses.Add(corpse);
-        }
-
-        public bool TickDarkness(float deltaTime, bool isExposed)
-        {
-            if (!IsAlive || !isExposed || deltaTime <= 0f)
-                return false;
-
-            DarknessExposureSeconds += deltaTime;
-            int intervals = Mathf.FloorToInt(
-                DarknessExposureSeconds / _settings.DarknessInterval);
-            if (intervals <= 0)
-                return false;
-
-            DarknessExposureSeconds -= intervals * _settings.DarknessInterval;
-            return SetValue(Value - intervals * _settings.DarknessDecrease);
         }
 
         public bool ApplyGhostEvent()
@@ -138,10 +117,6 @@ namespace GhostHunter.Gameplay.Sanity
                 return false;
 
             IsAlive = true;
-
-            // 죽어 있는 동안 TickDarkness 가 멈춰 있었으므로 누적분이 남아 있다.
-            // 그대로 두면 부활 직후 남은 조각이 즉시 1틱을 깎는다.
-            DarknessExposureSeconds = 0f;
             return true;
         }
 

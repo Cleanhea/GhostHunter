@@ -25,11 +25,6 @@ namespace GhostHunter.Gameplay.Sanity
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Server);
 
-        private readonly NetworkVariable<bool> _isDarknessExposed = new(
-            false,
-            NetworkVariableReadPermission.Everyone,
-            NetworkVariableWritePermission.Server);
-
         private SanityState _serverState;
         private float _protectedUntil;
         private ISanityTeamService _teamService;
@@ -62,9 +57,6 @@ namespace GhostHunter.Gameplay.Sanity
         public bool IsBurrowed => _burrowController != null && _burrowController.IsBurrowed
             && (_headlamp == null || !_headlamp.IsOn)
             && (_lighter == null || !_lighter.IsLit);
-        public bool IsDarknessExposed => _isDarknessExposed.Value;
-        public float DarknessExposureSeconds =>
-            _serverState != null ? _serverState.DarknessExposureSeconds : 0f;
         public SanityDebuffFlags CurrentDebuffs => SanityMath.ResolveDebuffs(
             _sanity.Value,
             _isAlive.Value,
@@ -107,7 +99,6 @@ namespace GhostHunter.Gameplay.Sanity
             if (IsServer)
             {
                 _serverState = new SanityState(_settings);
-                _isDarknessExposed.Value = false;
                 PublishServerState();
             }
 
@@ -134,16 +125,6 @@ namespace GhostHunter.Gameplay.Sanity
             _serverState = null;
         }
 
-        private void Update()
-        {
-            if (!IsSpawned || !IsServer || _serverState == null
-                || StageRecoveryGate.Restoring)
-                return;
-
-            if (_serverState.TickDarkness(Time.deltaTime, _isDarknessExposed.Value))
-                _sanity.Value = _serverState.Value;
-        }
-
         /// <summary>스테이지 시작 시 개인 정신력과 목격 기록을 초기화한다.</summary>
         public bool ServerResetForStage()
         {
@@ -151,37 +132,23 @@ namespace GhostHunter.Gameplay.Sanity
                 return false;
 
             _serverState.ResetForStage();
-            _isDarknessExposed.Value = false;
             PublishServerState();
             return true;
         }
 
-        /// <summary>
-        /// 헤드라이트·드릴 카 판정이 계산한 최종 어둠 노출 여부를 서버에 적용한다. 게임플레이 호출부는
-        /// <see cref="PlayerHeadlamp"/> 하나다 — 판정이 바뀔 때마다 덮어쓰므로 F1 HUD 의 어둠 토글은 다음 판정까지만 간다.
-        /// </summary>
-        public bool ServerSetDarknessExposed(bool isExposed)
-        {
-            if (!CanMutateOnServer() || !_serverState.IsAlive)
-                return false;
-
-            _isDarknessExposed.Value = isExposed;
-            return true;
-        }
-
-        /// <summary>이 플레이어가 귀신 이벤트를 목격했을 때 정신력 10을 감소시킨다.</summary>
+        /// <summary>이 플레이어가 귀신 이벤트를 목격했을 때 설정값(`GhostEventDecrease`, 현재 5)만큼 감소시킨다.</summary>
         public bool ServerApplyGhostEventWitnessed()
         {
             return ApplyServerMutation(_serverState != null && _serverState.ApplyGhostEvent());
         }
 
-        /// <summary>활동 중 귀신 본체를 마주친 플레이어의 정신력을 5 감소시킨다.</summary>
+        /// <summary>활동 중 귀신 본체를 마주친 플레이어의 정신력을 설정값(`GhostBodyWitnessDecrease`, 현재 5)만큼 감소시킨다.</summary>
         public bool ServerApplyGhostBodyWitnessed()
         {
             return ApplyServerMutation(_serverState != null && _serverState.WitnessGhostBody());
         }
 
-        /// <summary>시체를 처음 목격했을 때만 정신력 20을 감소시킨다.</summary>
+        /// <summary>시체를 처음 목격했을 때만 설정값(`CorpseWitnessDecrease`, 현재 10)만큼 감소시킨다.</summary>
         public bool ServerApplyCorpseWitnessed(ulong corpseNetworkObjectId)
         {
             return ApplyServerMutation(
@@ -192,6 +159,18 @@ namespace GhostHunter.Gameplay.Sanity
         public bool ServerRestoreSanity(int amount)
         {
             return ApplyServerMutation(_serverState != null && _serverState.Restore(amount));
+        }
+
+        /// <summary>
+        /// 귀중품·돈을 발견한 플레이어의 정신력을 금액($)에 맞춰 회복한다. 증가량은
+        /// <see cref="SanitySystemSettings"/> 의 표를 따르고, 표에 없는 금액은 증가하지 않는다.
+        /// 호출부(귀중품 획득 시스템)는 아직 없다 — 서버가 획득을 확정한 뒤 획득자의 상태에 호출한다.
+        /// </summary>
+        public bool ServerApplyValuableFound(int dollars)
+        {
+            return CanMutateOnServer()
+                && _settings.TryGetValuableRestore(dollars, out int restore)
+                && ServerRestoreSanity(restore);
         }
 
         /// <summary>디버그 HUD 슬라이더 전용: 개인 정신력을 지정 값으로 즉시 맞추고 복제한다.</summary>
@@ -220,7 +199,6 @@ namespace GhostHunter.Gameplay.Sanity
             if (!CanMutateOnServer() || IsServerProtected || !_serverState.MarkDead())
                 return false;
 
-            _isDarknessExposed.Value = false;
             PublishServerState();
             _teamService?.ServerEvaluateTeamWipe();
             return true;
@@ -229,7 +207,6 @@ namespace GhostHunter.Gameplay.Sanity
         /// <summary>
         /// 사망한 플레이어를 다시 생존으로 되돌려 팀 평균과 디버프 대상에 넣는다.
         /// 정신력 값은 죽을 때 그대로다 — 100으로 되돌리려면 <see cref="ServerResetForStage"/>.
-        /// 어둠 노출은 꺼진 채로 시작하며, 다음 판정이 다시 켜 준다.
         /// </summary>
         public bool ServerRevive()
         {
@@ -238,7 +215,6 @@ namespace GhostHunter.Gameplay.Sanity
                 || !_serverState.Revive())
                 return false;
 
-            _isDarknessExposed.Value = false;
             PublishServerState();
             return true;
         }
@@ -249,8 +225,7 @@ namespace GhostHunter.Gameplay.Sanity
             if (!CanMutateOnServer())
                 return;
             _serverState.RestoreSnapshot(new SanityState.Snapshot(snapshot.Sanity,
-                snapshot.Alive, snapshot.DarknessSeconds, snapshot.WitnessedCorpses));
-            _isDarknessExposed.Value = snapshot.DarknessExposed && snapshot.Alive;
+                snapshot.Alive, snapshot.WitnessedCorpses));
             PublishServerState();
         }
 
@@ -261,7 +236,6 @@ namespace GhostHunter.Gameplay.Sanity
                 SanityState.Snapshot state = _serverState.CaptureSnapshot();
                 snapshot.Sanity = state.Value;
                 snapshot.Alive = state.IsAlive;
-                snapshot.DarknessSeconds = state.DarknessExposureSeconds;
                 snapshot.WitnessedCorpses = state.WitnessedCorpses;
             }
             else
@@ -269,7 +243,6 @@ namespace GhostHunter.Gameplay.Sanity
                 snapshot.Sanity = _sanity.Value;
                 snapshot.Alive = _isAlive.Value;
             }
-            snapshot.DarknessExposed = _isDarknessExposed.Value;
         }
 
         /// <summary>Result 씬을 열기 전에 모든 피어에 전멸 집계를 보낸다.</summary>

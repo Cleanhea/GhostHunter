@@ -13,8 +13,7 @@ MonoBehaviour:
   m_Name: HeadlampSettings_Default
   m_EditorClassIdentifier: GhostHunter.Gameplay::GhostHunter.Gameplay.Player.HeadlampSettings
   _maxBattery: 100
-  _drainPerSecond: 0.6
-  _rechargePerSecond: 5
+  _drainPerSecond: 0.3
   _lowBatteryThreshold: 15
   _lowBatteryBlinkInterval: 5
   _lowBatteryBlinkCount: 3

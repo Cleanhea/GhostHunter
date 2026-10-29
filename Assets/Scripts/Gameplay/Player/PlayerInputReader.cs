@@ -74,6 +74,9 @@ namespace GhostHunter.Gameplay.Player
         public bool AttackPressedThisFrame { get; private set; }
         public bool AttackReleasedThisFrame { get; private set; }
         public bool InteractPressedThisFrame { get; private set; }
+
+        /// <summary>E를 누르고 있는 동안 참. 배터리 팩 충전처럼 홀드로 쓰는 상호작용이 읽는다 — 잠금 중에는 거짓이다.</summary>
+        public bool InteractHeld { get; private set; }
         public bool CrouchHeld { get; private set; }
 
         /// <summary>달리기 입력(기본 Left Shift). 유지하는 동안 참.</summary>
@@ -239,6 +242,7 @@ namespace GhostHunter.Gameplay.Player
             QuickSlotReleasedThisFrame = false;
             UseDriverPressedThisFrame = false;
             UseDriverHeld = false;
+            InteractHeld = false;
             FurnitureRotateScroll = 0f;
             FurnitureRotateModePressedThisFrame = false;
             HeadlampPressedThisFrame = false;
@@ -330,6 +334,7 @@ namespace GhostHunter.Gameplay.Player
             AttackPressedThisFrame = false;
             AttackReleasedThisFrame = false;
             InteractPressedThisFrame = false;
+            InteractHeld = false;
             PronePressedThisFrame = false;
             SprintHeld = false;
             BurrowPressedThisFrame = false;
@@ -354,6 +359,7 @@ namespace GhostHunter.Gameplay.Player
             AttackPressedThisFrame = false;
             AttackReleasedThisFrame = false;
             InteractPressedThisFrame = false;
+            InteractHeld = false;
             PronePressedThisFrame = false;
             BurrowPressedThisFrame = false;
             DetectPressedThisFrame = false;
@@ -489,6 +495,7 @@ namespace GhostHunter.Gameplay.Player
             // Interact 액션에는 Hold Interaction 이 붙어 있지만, WasPressedThisFrame 은
             // Interaction 의 phase 가 아니라 컨트롤이 눌린 순간을 보므로 탭이 씹히지 않는다.
             InteractPressedThisFrame = _interactAction.WasPressedThisFrame();
+            InteractHeld = _interactAction.IsPressed();
             BurrowPressedThisFrame = _burrowAction.WasPressedThisFrame();
             DetectPressedThisFrame = _detectAction.WasPressedThisFrame();
             PronePressedThisFrame = _proneAction.WasPressedThisFrame();

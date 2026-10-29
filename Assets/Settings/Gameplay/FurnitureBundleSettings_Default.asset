@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6f9b0aa065234e6da651f341cc5aeed5, type: 3}
+  m_Name: FurnitureBundleSettings_Default
+  m_EditorClassIdentifier: GhostHunter.Gameplay::GhostHunter.Gameplay.FurnitureDriver.FurnitureBundleSettings
+  _sizeScale: 0.4
+  _minimumDimension: 0.3
+  _cornerRadiusRatio: 0.6
+  _pinchDepthRatio: 0.06
+  _strapWidthRatio: 0.12
+  _strapThicknessRatio: 0.04
+  _bodyMaterial: {fileID: 2100000, guid: 2f5946fe99544eb0a7cf4ac2f3e72789, type: 2}
+  _strapMaterial: {fileID: 2100000, guid: 72012785598a42228f8c11b3e7ecfca5, type: 2}
+  _outlineMaterial: {fileID: 2100000, guid: 954762cd56af7ef419ea83d9f78d3b48, type: 2}

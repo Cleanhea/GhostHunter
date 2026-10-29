@@ -57,6 +57,20 @@ namespace GhostHunter.Gameplay.Player
             return HeadlampToggleResult.TurnedOn;
         }
 
+        /// <summary>
+        /// 배터리 팩에서 받은 만큼 충전한다(기획서 headlamp-system.md §8). 최대치를 넘지 않는다.
+        /// </summary>
+        /// <returns>실제로 더해진 양.</returns>
+        public float AddCharge(float amount)
+        {
+            if (amount <= 0f)
+                return 0f;
+
+            float before = Charge;
+            Charge = Mathf.Min(_max, Charge + amount);
+            return Charge - before;
+        }
+
         /// <summary>사망·은신 진입처럼 규칙이 강제로 끌 때. 효과음은 내지 않는다.</summary>
         public void ForceOff() => IsOn = false;
 

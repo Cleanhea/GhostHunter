@@ -14,13 +14,9 @@ namespace GhostHunter.Gameplay.Player
     ///
     /// <para><b>권위.</b> 전원·배터리는 소유자가 진행하고 <see cref="NetworkVariable{T}"/>(Owner 쓰기 + Everyone 읽기)로
     /// 복제한다 — <see cref="MoleBurrowController.IsBurrowed"/>·<see cref="PlayerMotor.IsCrouching"/> 과 같은 패턴이다.
-    /// 물리가 아니라 조명 상태라 ADR-0010 대상이 아니다. 서버는 복제된 전원 값을 믿고 두 가지를 판정한다.</para>
-    /// <list type="bullet">
-    /// <item>정신력 어둠 노출(정신력 기획서 §4.3) — 스테이지 씬에서 생존 중이고, 헤드라이트가 꺼져 있고, 드릴카 밖이면
-    /// <see cref="SanityNetworkState.ServerSetDarknessExposed"/> 를 켠다.</item>
-    /// <item>땅굴 안 헤드라이트(두더지 스킬 기획서 §5.2.1 ②) — <see cref="SanityNetworkState.IsBurrowed"/> 가 켜진
-    /// 헤드라이트를 보면 은신이 아닌 것으로 친다.</item>
-    /// </list>
+    /// 물리가 아니라 조명 상태라 ADR-0010 대상이 아니다. 서버는 복제된 전원 값을 믿고 땅굴 안 헤드라이트를 판정한다
+    /// (두더지 스킬 기획서 §5.2.1 ②) — <see cref="SanityNetworkState.IsBurrowed"/> 가 켜진 헤드라이트를 보면
+    /// 은신이 아닌 것으로 친다. 어둠 노출로 정신력을 깎는 규칙은 2026-10-29 삭제됐다(정신력 기획서 v0.4).</para>
     ///
     /// <para><b>조명.</b> 스폰할 때 스포트 라이트를 하나 만들어 모든 피어에서 그린다 — 다른 사람의 헤드라이트도 보인다.
     /// 위치는 복제된 눈높이(<see cref="PlayerMotor.CameraLocalHeight"/>), 방향은 몸 yaw + 복제된 피치
@@ -59,7 +55,6 @@ namespace GhostHunter.Gameplay.Player
             NetworkVariableWritePermission.Owner);
 
         private HeadlampBattery _state;
-        private PlayerLighter _lighter;
         private Light _light;
         private Texture2D _cookie;
         private MeshRenderer _beamRenderer;
@@ -70,6 +65,7 @@ namespace GhostHunter.Gameplay.Player
         private AudioSource _audio;
         private ISceneFlow _sceneFlow;
         private float _nextBatteryPublishAt;
+        private float _lastChargeAt = float.NegativeInfinity;
         private float _lowBatterySince = -1f;
 
         /// <summary>전원이 켜져 있는가. 깜빡임으로 잠깐 어두운 순간도 켜진 것이다.</summary>
@@ -80,8 +76,14 @@ namespace GhostHunter.Gameplay.Player
 
         public float MaxBattery => _settings != null ? _settings.MaxBattery : 100f;
 
-        /// <summary>드릴카 안에서 충전 중인가. 소유자에서만 의미가 있다 — 충전 UI 가 읽는다.</summary>
-        public bool IsCharging { get; private set; }
+        /// <summary>
+        /// 배터리 팩에서 방금 충전을 받았는가(기획서 §8). 소유자에서만 의미가 있다 — 충전 UI 가 읽는다.
+        /// 팩이 돌려준 양이 들어오는 동안만 참이라 홀드를 풀거나 가득 차거나 팩이 비면 곧 거짓이 된다.
+        /// </summary>
+        public bool IsCharging => IsOwner && Time.unscaledTime - _lastChargeAt < ChargeIndicatorSeconds;
+
+        /// <summary>마지막 충전 수신 뒤 충전 중으로 치는 시간(초) — 청구 간격(0.1초) 사이에서 UI 가 깜빡이지 않도록.</summary>
+        private const float ChargeIndicatorSeconds = 0.35f;
 
         public void CaptureStageState(ref StageRecoverySnapshot.PlayerState snapshot)
         {
@@ -118,8 +120,6 @@ namespace GhostHunter.Gameplay.Player
             if (_motor == null || _look == null)
                 Debug.LogError($"{nameof(PlayerHeadlamp)}: PlayerMotor·PlayerLook 이 배선되지 않았습니다.", this);
 
-            // 어둠 판정에서 라이터도 빛으로 친다 — SanityNetworkState 가 헤드라이트를 찾는 방식과 같다.
-            _lighter = GetComponent<PlayerLighter>();
             BuildLight();
         }
 
@@ -130,10 +130,11 @@ namespace GhostHunter.Gameplay.Player
             if (!IsOwner || _settings == null)
                 return;
 
+            // 충전은 배터리 팩이 한다(ReceiveCharge) — 드릴카 안에 서 있다고 저절로 차지 않는다.
             _state = new HeadlampBattery(
                 _settings.MaxBattery,
                 _settings.DrainPerSecond,
-                _settings.RechargePerSecond);
+                0f);
             Publish(force: true);
         }
 
@@ -141,7 +142,7 @@ namespace GhostHunter.Gameplay.Player
         {
             _state = null;
             _sceneFlow = null;
-            IsCharging = false;
+            _lastChargeAt = float.NegativeInfinity;
             _lowBatterySince = -1f;
             if (_light != null)
                 _light.enabled = false;
@@ -154,9 +155,6 @@ namespace GhostHunter.Gameplay.Player
 
             if (IsOwner && _state != null)
                 OwnerTick(Time.deltaTime);
-
-            if (IsServer)
-                ServerUpdateDarkness();
         }
 
         private void LateUpdate()
@@ -209,11 +207,23 @@ namespace GhostHunter.Gameplay.Player
             if (_input != null && _input.HeadlampPressedThisFrame)
                 PlayToggleSound(_state.Toggle(alive && !hidden));
 
-            IsCharging = alive && DrillCarSafeZone.Contains(transform.position);
-
             // 배터리가 바닥나 자동으로 꺼질 때는 효과음이 정해져 있지 않다 — 조용히 끈다.
-            _state.Tick(deltaTime, IsCharging, IsStageScene());
+            _state.Tick(deltaTime, false, IsStageScene());
             Publish(force: false);
+        }
+
+        /// <summary>
+        /// 배터리 팩이 서버 확인을 거쳐 돌려준 충전량을 배터리에 더한다(소유자 전용 — 기획서 §8). 가득 찬 만큼은 버려지고,
+        /// 전원이 꺼져 있어도 충전된다. 충전 표시(<see cref="IsCharging"/>)를 갱신한다.
+        /// </summary>
+        public void ReceiveCharge(float amount)
+        {
+            if (!IsOwner || _state == null || amount <= 0f)
+                return;
+
+            _state.AddCharge(amount);
+            _lastChargeAt = Time.unscaledTime;
+            Publish(force: true);
         }
 
         private void Publish(bool force)
@@ -227,24 +237,6 @@ namespace GhostHunter.Gameplay.Player
             _nextBatteryPublishAt = Time.unscaledTime + BatteryPublishInterval;
             if (!Mathf.Approximately(_battery.Value, _state.Charge))
                 _battery.Value = _state.Charge;
-        }
-
-        /// <summary>
-        /// 정신력 기획서 §4.3 — 어둠 = 자기 헤드라이트와 라이터가 모두 꺼진 상태(라이터는 사용자 확정 2026-09-29,
-        /// lighter-system.md). 드릴카 안은 어둠이 아니다. 인게임 로비처럼 스테이지가 아닌 씬에서는 판정하지 않는다.
-        /// 결과가 바뀔 때만 서버 API 를 부른다.
-        /// </summary>
-        private void ServerUpdateDarkness()
-        {
-            if (_sanity == null || !_sanity.IsSpawned || !_sanity.HasSanity)
-                return;
-
-            bool exposed = IsStageScene()
-                && !IsOn
-                && (_lighter == null || !_lighter.IsLit)
-                && !DrillCarSafeZone.Contains(transform.position);
-            if (exposed != _sanity.IsDarknessExposed)
-                _sanity.ServerSetDarknessExposed(exposed);
         }
 
         /// <summary>일반 은신처 상자 안이거나, 엎드려 침대 밑 공간에 들어가 있다 — 귀신 판정과 같은 기하다.</summary>

@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using GhostHunter.Gameplay.FurnitureDriver;
 using GhostHunter.Gameplay.Ghost;
+using GhostHunter.Gameplay.Interaction;
 using GhostHunter.Gameplay.Map;
 using NUnit.Framework;
 using UnityEditor.SceneManagement;
@@ -117,6 +118,8 @@ namespace GhostHunter.Tests.EditMode
             List<string> blockers = Physics.OverlapBox(center, half, Quaternion.identity,
                     Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore)
                 .Where(c => ignoreRoot == null || !c.transform.IsChildOf(ignoreRoot))
+                // 배터리 팩(2026-10-29)은 일부러 드릴카 실내 벽 앞에 놓은 오브젝트다.
+                .Where(c => c.GetComponentInParent<BatteryPack>() == null)
                 .Select(c => c.name)
                 .ToList();
             Assert.IsEmpty(blockers, $"{label} 안에 장애물이 있습니다: {string.Join(", ", blockers)}");

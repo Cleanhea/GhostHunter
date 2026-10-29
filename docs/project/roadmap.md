@@ -53,12 +53,13 @@ B안(`PlanBFurnitureSpawnSetup` — 가구 풀·후보·서버 생성기·앞마
 | 가구 내구도·충돌 파손 | 기획 0.4(2026-09-16). 내구도 0에서 가구를 파괴하지 않는다(FD-10 재확정) — 파괴는 `FurnitureDefinition.DestroyAtZeroDurability` 스위치로 보존(기본 꺼짐). 조립 완성품은 0을 포함한 부품 내구도 평균. Unity 실행·Host/Client 검증 대기 |
 | 플레이어 스킬(탐지·굴착) | 초안. 미결정 15건(MS-1~15) |
 | 2인 가구 운반 | 2026-10-04 — 조준점 중간 순간 추종을 **두 손잡이 운반**(각자 잡은 점을 들고, 두 사람 위치로 방향이 돈다)·속도 서보로 교체, 운반 중 마찰 낮추기·문틀 끼임 보조·두 홀더/열린 문짝 충돌 끄기. EditMode·PlayMode(문틀 물리 시뮬레이션 5개) 통과, 실제 2인 접속 체감 미검증 → [throw-system.md §3](../architecture/throw-system.md) |
-| 헤드라이트(손전등 0.1 → 기본 장착 헤드라이트) | 코드·Player 프리팹 배선(2026-09-28). F키 토글·배터리 0.6/s·드릴카 충전 5/s·15 이하 깜빡임·배터리 UI(켜져 있을 때 표시, `ICON_HeadLight_on/off` 아이콘 2026-10-04)·정신력 어둠 노출·땅굴/은신 규칙 연결. 효과음 에셋 없음, 화면 밝기·그림자·Host/Client 미검증, 임시 선택 HL-1 → [headlamp-system.md](headlamp-system.md) |
+| 헤드라이트(손전등 0.1 → 기본 장착 헤드라이트) | **2026-10-29 드릴카 자동 충전 폐지 → 배터리 팩(E 홀드, 초당 10→30%p, 공유 잔량 200%)로 충전([headlamp-system.md §8](headlamp-system.md)). 자동 테스트 통과, 실제 화면·Host/Client 미검증. 미결정 BP-1~4·HL-4.** 코드·Player 프리팹 배선(2026-09-28). F키 토글·배터리 0.3/s(2026-10-29 원문 복원)·드릴카 충전 5/s·15 이하 깜빡임·배터리 UI(드릴카 충전 중에만 표시 2026-10-29, `ICON_HeadLight_on/off` 아이콘 2026-10-04)·땅굴/은신 규칙 연결(정신력 어둠 노출은 2026-10-29 삭제). 효과음 에셋 없음, 화면 밝기·그림자·Host/Client 미검증, 임시 선택 HL-1 → [headlamp-system.md](headlamp-system.md) |
 | 일시정지 메뉴·나가기·연결 끊김 | 구현됨. 수동 검증·선행 검증 D-1 대기 |
-| 설정 창 | 2026-10-03 — Title·ESC 메뉴 공용 창(오디오·마이크·조작·화면). 전체/음성/플레이어별 음량, 마이크 켜기·송신 방식·입력 레벨 막대·Steam 음성 설정, 감도·상하 반전, 화면 모드·해상도·수직 동기화·프레임 제한. EditMode 408건 중 406 통과(기존 MoleSkillWiringTests 2건), 외형·실기 미검증. 효과음 분리 음량·밝기는 다음 후보. **같은 날 2차:** 마이크 캡처를 Unity Microphone + Opus(Concentus)로 교체(ADR-0022) — 입력 장치·게인·노이즈 게이트(기본 켬)·내 목소리 듣기를 게임 안에서. EditMode 416건 중 414 통과(같은 기존 2건)·PlayMode 94/94. 실제 마이크·Steam 2PC 미검증, **맥 빌드 전 마이크 권한 문구 필요** → [settings-menu.md](../architecture/settings-menu.md) |
+| 설정 창 | 2026-10-03 — Title·ESC 메뉴 공용 창(오디오·마이크·조작·화면). 전체/음성/플레이어별 음량, 마이크 켜기·송신 방식·입력 레벨 막대·Steam 음성 설정, 감도·상하 반전, 화면 모드·해상도·수직 동기화·프레임 제한. EditMode 408건 중 406 통과(기존 MoleSkillWiringTests 2건), 외형·실기 미검증. 효과음·환경음 음량 슬라이더는 2026-10-29 추가(오디오 탭), 밝기는 다음 후보. **같은 날 2차:** 마이크 캡처를 Unity Microphone + Opus(Concentus)로 교체(ADR-0022) — 입력 장치·게인·노이즈 게이트(기본 켬)·내 목소리 듣기를 게임 안에서. EditMode 416건 중 414 통과(같은 기존 2건)·PlayMode 94/94. 실제 마이크·Steam 2PC 미검증, **맥 빌드 전 마이크 권한 문구 필요** → [settings-menu.md](../architecture/settings-menu.md) |
 | 퀵슬롯(라디얼 휠) | 대걸레·맨손 장착 연결. 일반 인벤토리는 별도 작업, Local Host 입력 검증 완료 |
-| 가구 분해·조립(멀티 드라이버) | FM-IMPL-1~3 구현·씬 설치. 기획서 1.1(2026-09-13): 우클릭을 끝까지 누르고 있어야 완료, 중앙 원형 게이지 HUD 구현. 분해 부품이 풀 보관 위치로 되돌아가던 버그 수정. EditMode 235개·PlayMode 32개 통과, 실제 Game Local Host에서 유지 완료·뗌 취소·부품 착지 확인. 조립 영역 트리거가 지면에서 1.5m 떠 있어 조립이 시작될 수 없던 문제를 2026-09-17 수정(코드만) — Game 씬에서 `GhostHunter > 가구용 멀티 드라이버 조립 영역 재배치`를 실행해야 반영된다. 기획서 1.2(2026-09-27, 코드만): 영역 안 아무 재료나 조준해 조립, 못 하면 "재료가 부족합니다" 등 이유 문구, 완성 가구는 재료로 안 셈. 조립 영역을 게임 화면에 상태 색으로 표시(`FurnitureAssemblyZoneView`) — Game 씬에서 `가구용 멀티 드라이버 행동 UI 설치` 실행 필요. 손목 애니메이션·실루엣 렌더링·원격 Host/Client·조립 검증 남음. MD-3·4·6·13 TBD 유지 |
+| 가구 분해·조립(멀티 드라이버) | **2026-10-29 기획서 1.3 — 분해 = 큰 가구 → 포장된 짐더미 1개(무게·명칭·내구도 유지·크기만 축소, 조립 없이 드릴카 적재). 조립은 짐더미 기준 재정의 대기(MD-14), 크기 비율 잠정(MD-15), FM-IMPL-5.** FM-IMPL-1~3 구현·씬 설치. 기획서 1.1(2026-09-13): 우클릭을 끝까지 누르고 있어야 완료, 중앙 원형 게이지 HUD 구현. 분해 부품이 풀 보관 위치로 되돌아가던 버그 수정. EditMode 235개·PlayMode 32개 통과, 실제 Game Local Host에서 유지 완료·뗌 취소·부품 착지 확인. 조립 영역 트리거가 지면에서 1.5m 떠 있어 조립이 시작될 수 없던 문제를 2026-09-17 수정(코드만) — Game 씬에서 `GhostHunter > 가구용 멀티 드라이버 조립 영역 재배치`를 실행해야 반영된다. 기획서 1.2(2026-09-27, 코드만): 영역 안 아무 재료나 조준해 조립, 못 하면 "재료가 부족합니다" 등 이유 문구, 완성 가구는 재료로 안 셈. 조립 영역을 게임 화면에 상태 색으로 표시(`FurnitureAssemblyZoneView`) — Game 씬에서 `가구용 멀티 드라이버 행동 UI 설치` 실행 필요. 손목 애니메이션·실루엣 렌더링·원격 Host/Client·조립 검증 남음. MD-3·4·6·13 TBD 유지 |
 | 마이크·근접 음성 채팅 | **2026-10-03 캡처를 Steam Voice → Unity Microphone + Opus 로 교체(ADR-0022, VC-1·VC-19 변경)** — 설정 창 마이크 탭. 기획 0.5. 코드·배선 구현 완료, 자동 검증 통과(2026-09-17 재검증: EditMode 302/302 · PlayMode 57/57). **2026-10-04 사용자 최종 요청: XZ 원형 최대 25m만 유지, 원래 역거리 감쇠 복원(Dmin 1.5m·Dfade 7m·k 0.9), 서버 중계 27m**·벽 가림(레이 3개+로우패스, 원래 배율 0.32)·\|ΔY\| 2.6m 층 차단. Steam Voice 캡처(VC-1) · 기본 오픈 마이크(VC-3) — 2026-09-27 VAD 송신 게이트 제거(소리를 거르지 않고 전부 송신, VAD는 "말하는 중" 표시 전용)·끊김 원인이던 스트리밍 클립 재생을 `OnAudioFilterRead`로 교체 · 가구 제외 마스크(VC-6) 확정, 정책 VC-8·10·13·16 승인, UI 1차(VC-11) 구현. 남은 것은 실기 수동 검증(마이크·Steam 2PC·4인 대역폭·macOS)과 플레이테스트로 정할 수치(VC-4·7·21) |
+| 3D 사운드(효과음·환경음) | 2026-10-29 — `IAudioService`(AudioSource 풀·거리 컬링·벽 가림·큐별 쿨다운/동시 수·버스 음량, `BootstrapInstaller` 등록), 큐·라이브러리·설정은 SO(`Assets/Settings/Audio/`), 서버 충돌 → `NetworkSoundEmitter` RPC → 각 접속자 로컬 재생(`FurnitureImpactSound`), 환경음 `AmbientSoundSource`. 가구 프리팹 64개에 연결·설정 창 효과음/환경음 슬라이더 연결(2026-10-29). 오디오 에셋 없음, Host/Client 실기 미검증 → [audio-system.md](../architecture/audio-system.md) |
 | 맵·방 프리셋·스폰·작업 대상 가구 | 기획서 v0.4 반영. Type·Count·B/C 비교·작업량 검증, 기존 도면·MAP-15 기록 포함. 미결정은 map-generation.md §12(MG-1~23). Stage1 집은 벽·천장·지붕을 마감하고 천장등 36개를 Hub 에서 조절(MAP-20, 2026-09-28). Stage1 하늘·조명은 밤 + 암흑(천장등 기본 꺼짐·환경광 형체만 보이는 수준·검은 안개 0.025·하늘 반사 0.25(사용자 튜닝값), map-generation §10.1.6 "암흑") — EditMode 33/33 통과, 육안 확인 대기 |
 
 ---
@@ -160,7 +161,8 @@ B안(`PlanBFurnitureSpawnSetup` — 가구 풀·후보·서버 생성기·앞마
 | M8-GS-1c | [귀신 공통 시스템 원문 0.2](ghost-system.md)를 구현에 반영한다: 활동 시작, 0~30 어택 100%, 일반/고위험 지속시간, 자연 진정으로의 아이템 강제 종료, 10초 수색, 0.2초·1m 타깃 선정과 최단 경로 이동, 활동 중 본체 목격 정신력 감소, 경고·어택 조명. | G-9 고위험 종료·G-17 목격 기준·G-18 탐지 강화 수치, Unity PlayMode 검증 | **부분 구현 — 코드·에셋·실제 청소 진행도·자동 스폰 연결. 중간 .NET 빌드 통과, 최신 빌드는 병행 `GrabController.cs` 오류로 실패. 런타임 검증 대기(2026-09-27)** → [ghost-prototype.md](../architecture/ghost-prototype.md) |
 | M8-GS-1d | 귀신 AI 실험 요소 적용과 개별/전체 런타임 토글 | 정식 채택·수치는 플레이 확인 후 결정 | **구현·자동 검증 통과 (2026-09-30)** — EditMode 65/65·PlayMode 16/16, 실제 체감 미검증 → [ghost-ai-experiments.md](ghost-ai-experiments.md) |
 | M8-GS-2 | 9종 초자연현상 중 무엇을 `귀신 이벤트 목격`으로 처리할지 정의하고, 서버 가시 판정에서 `ServerApplyGhostEventWitnessed()`를 호출한다. 단순 근접은 현재 감소 조건이 아니다. | [G-6](ghost-system.md) | ✅ **완료 (2026-08-31)** — 사용자 확정: 종류 불문 목격 시 전부 적용, 감소량 10→**15**. `GhostPrototypeController.ServerCheckPhenomenonWitnessed`(거리 12m·각도 70°·가림)가 현상 발생마다 판정해 `ServerApplyGhostEventWitnessed()` 호출 → [ghost-prototype.md §4](../architecture/ghost-prototype.md) |
-| M8-GS-3 | 헤드라이트·드릴 카 안전 구역·시체 목격·정신력 아이템·사망·스테이지 생명주기를 정신력 서버 API에 연결한다. | 관련 시스템 구현 | **부분 — 헤드라이트·드릴카 어둠 노출 연결(2026-09-28, 코드·프리팹, EditMode 신규 테스트 통과, 실기 미검증)** → [headlamp.md](../architecture/headlamp.md). 시체·아이템·스테이지 생명주기 대기 |
+| M8-GS-3 | 시체 목격·정신력 아이템·귀중품 발견·사망·스테이지 생명주기를 정신력 서버 API에 연결한다. | 관련 시스템 구현 | **부분 — 헤드라이트·드릴카 어둠 노출 연결(2026-09-28)은 2026-10-29 어둠 감소 삭제로 제거.** 귀중품·돈 발견 증가 API `ServerApplyValuableFound`·금액표는 구현(호출부 = 귀중품 획득 시스템, 추후). 시체·아이템·스테이지 생명주기 대기 |
+| M8-GS-11 | **정신력 원문 0.4 반영 (2026-10-29, 사용자 확정):** 귀신 이벤트 15→5, 시체 20→10, 어둠 감소 삭제(판정 체인·스냅샷 필드·F1 버튼 제거), 귀중품 증가표·API, 모니터는 월드 P1~P4 유지. | 귀중품 획득 시스템(추후) | ✅ **코드·문서 반영.** 후속 확정(2026-10-29): 금액 체계는 표 4종뿐, 증가는 개인에게만, 이벤트·본체 목격 합산(−10)은 의도, 헤드라이트는 시야 확보용, 모니터 레퍼런스 이미지 저장. 컴파일 통과, 정신력 EditMode 통과. Unity 에디터·Host 실기 미확인 → [sanity-system.md](sanity-system.md) §4·§6.2 |
 | M8-GS-4a | 정신력 20 이하 카메라 테두리 노이즈를 URP Volume 연출로 연결한다. | — | ✅ 완료 (2026-08-24) — **2026-08-31 재검증**: `AssetDatabase.AddObjectToAsset` 누락으로 비네트·필름그레인·색수차가 실제로는 저장되지 않고 있었다(2026-08-24 당시엔 인스펙터에서만 보이다 사라지는 버그). 굴착 스킬 연출 작업 중 발견해 수정 완료 → [mole-skill-system.md §8](mole-skill-system.md) |
 | M8-GS-4b | 10 이하 속삭임, 5 이하 숨소리·심장 소리를 실제 SFX 재생으로 연결한다. | 오디오 에셋 | 대기 |
 | M8-GS-5 | 정신력 0에서 새 시체 목격 시 값이 변하지 않았는데도 감소 성공으로 보고하는 `SanityState.WitnessCorpse()` 반환값과 F1 메시지를 수정하고 회귀 테스트를 추가한다. | — | 대기 |
@@ -280,6 +282,9 @@ B안(`PlanBFurnitureSpawnSetup` — 가구 풀·후보·서버 생성기·앞마
 > 입력으로 침대 분해 완료. 원격·조립·연출은 남아 있다.
 > **2026-09-13 기획서 1.1:** 우클릭을 끝까지 누르고 있어야 완료·중앙 원형 게이지 HUD 구현. 실제 씬
 > 검증 중 발견한 "분해 부품이 풀 보관 위치로 되돌아가 낙하" 버그 수정. EditMode 235개·PlayMode 32개 통과.
+> **2026-10-29 기획서 1.3(사용자 요청):** 분해 결과가 작은 가구 여러 개 → **포장된 짐더미 1개**(무게·명칭·내구도 유지, 크기만 축소,
+> 조립 없이 드릴카 적재)로 바뀌었다. 코드로 만든 짐더미 메시·`FurnitureBundle` 구현(FM-IMPL-5). **조립은 부품이 없어져 입력이 닿지 않으며
+> 짐더미 기준 재정의를 기다린다(MD-14).**
 
 | # | TODO | 선행 조건 | 상태 |
 | --- | --- | --- | --- |
@@ -287,6 +292,7 @@ B안(`PlanBFurnitureSpawnSetup` — 가구 풀·후보·서버 생성기·앞마
 | FM-IMPL-1 | 분해 가능 가구·부품 SO, 드라이버 장착 경로, 우클릭 액션 신설 | FM-DECIDE | **완료 (2026-09-12)** — `FurnitureDriverCatalog`·`FurnitureDisassemblyRecipe`·`FurnitureDriverSettings`, 퀵슬롯 1번 슬롯, `Player/UseDriver` 입력 액션 |
 | FM-IMPL-2 | 분해 요청·행동 시간·중단·서버 실행(가구 제거·부품 배치·내구도 상속) | FM-IMPL-1 | **완료 (2026-09-12)** — `PlayerFurnitureDriverController.RequestDisassembleRpc`, `FurnitureDriverPoolItem` 씬 풀 재배치(ADR-0009 준수) |
 | FM-IMPL-3 | 조립 영역 점유 관리, 조립 성립 순수 판정, 실루엣 상태 복제, 서버 조립 실행 | FM-IMPL-2 | **완료 (2026-09-12)** — `FurnitureAssemblyZone` + `FurnitureAssemblyRules`(EditMode 19개 테스트). 실루엣 **시각화는 FM-IMPL-4로 이월** |
+| FM-IMPL-5 | **가구 분해 = 짐더미 1개(기획서 1.3)** — `FurnitureBundle`(큰 가구 오브젝트의 짐더미 형태 전환)·`FurnitureBundleMesh`(크기로부터 코드 생성하는 메시)·`FurnitureBundleSettings`, 8개 큰 가구 프리팹 배선, 복구 스냅샷 `Bundled` | FM-IMPL-2 | **구현·자동 테스트 완료 (2026-10-29)** — [구현 §2.8](../architecture/furniture-multidriver.md). 게임 화면 외형·Host/Client 실기 미확인. 조립 재정의 **MD-14 대기**, 짐더미 크기 비율 **MD-15 잠정** |
 | FM-IMPL-4 | 행동 시간 UI(1.1: 중앙 원형 게이지), 실패 흔들림·문구, 손목 애니메이션, 3색 실루엣 렌더링 | FM-IMPL-3 | **진행중 (2026-09-13)** — 기획서 1.1 수정(우클릭 유지·중앙 원형 게이지)과 함께 `FurnitureDriverActionHud`·`UseDriverHeld` 취소 구현, Game `PrototypeUI` 설치·저장. 손목 애니메이션·3색 실루엣 렌더링 미착수 |
 | FM-TEST | PlayMode 서버 거절·홀더 정리 자동 테스트 | FM-IMPL-2~3 | **진행중 (2026-09-13)** — `FurnitureDisassemblyFlowTests` 17개(1.1 우클릭 뗌 취소·원형 게이지 진행/실패 표시 3개 추가). 전체 PlayMode 32/32 통과. 부품 위치 버그는 PlayMode로 재현하지 못해 실제 씬으로 확인. 사망·원격·조립 검증 남음 |
 | FM-검증 | Host/Client 수동 분해·조립, Steam 2PC 복제 확인 | FM-IMPL-1~4 | **진행중 (2026-09-13)** — 실제 Game Local Host 가상 입력: 침대 분해·내구도 100→95, 1.1 우클릭 유지 완료·뗌 취소·"분해 실패" 게이지, 부품 위치 수정 후 부품이 침대 앞 1.2m 이내에 착지. 사람 수동 플레이·원격·Steam 2PC 미수행 → [검증 상세](../architecture/furniture-multidriver.md#5-검증-상태) |
@@ -498,7 +504,7 @@ B안(`PlanBFurnitureSpawnSetup` — 가구 풀·후보·서버 생성기·앞마
 | 빌드 자동화 스크립트 (`Scripts/Editor/BuildPipeline`) | 반복 빌드 비용 절감 | 낮음 |
 | CI (batchmode 테스트) | MIG-7 이후 | 낮음 |
 | Steam 업적·통계 연동 | 출시 요건 검토 후 | 미정 |
-| 오디오 시스템 | 설계 TBD | 미정 |
+| ~~오디오 시스템~~ | — | ✅ 3D 효과음·환경음 기반 구현(2026-10-29, [audio-system.md](../architecture/audio-system.md)). 남은 것: 오디오 에셋·큐 제작(에셋 제공 대기), GDD §9 |
 
 ---
 

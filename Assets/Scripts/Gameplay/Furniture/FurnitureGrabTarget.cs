@@ -274,7 +274,11 @@ namespace GhostHunter.Gameplay.Furniture
                 return;
             }
 
-            Vector3 combinedDirection = CalculateLaunchDirection(releaseDirection);
+            // 2인 잡기에서 먼저 놓은 순간 곧바로 나가는 발사는 남은 사람의 조준 방향만 따른다 —
+            // 놓은 사람의 방향은 섞지 않는다. 남은 사람이 없거나 조준이 없으면 놓은 방향으로 대신한다.
+            Vector3 combinedDirection = countBeforeRelease > 1
+                ? CalculateRemainingHolderDirection(releaseDirection)
+                : CalculateLaunchDirection(releaseDirection);
             int launchHolderCount = countBeforeRelease;
             float launchCharge = _charge.Value;
 
@@ -345,6 +349,19 @@ namespace GhostHunter.Gameplay.Furniture
             foreach (Vector3 direction in _releasedDirections)
                 sum += direction;
 
+            foreach (ulong holder in _holders)
+            {
+                if (_aims.TryGetValue(holder, out HolderAim aim))
+                    sum += aim.Direction;
+            }
+
+            return sum.sqrMagnitude > 0.01f ? sum.normalized : fallback.normalized;
+        }
+
+        /// <summary>남아 있는 홀더들 조준 방향의 합. 남은 홀더 조준이 없으면 <paramref name="fallback"/>.</summary>
+        private Vector3 CalculateRemainingHolderDirection(Vector3 fallback)
+        {
+            Vector3 sum = Vector3.zero;
             foreach (ulong holder in _holders)
             {
                 if (_aims.TryGetValue(holder, out HolderAim aim))

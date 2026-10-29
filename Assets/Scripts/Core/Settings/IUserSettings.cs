@@ -13,6 +13,12 @@ namespace GhostHunter.Core.Settings
         /// <summary>게임 전체 음량 0~1. 목소리를 포함한 모든 소리에 곱해진다.</summary>
         float MasterVolume { get; set; }
 
+        /// <summary>효과음 음량 0~1. 효과음 버스에만 곱해진다.</summary>
+        float SfxVolume { get; set; }
+
+        /// <summary>환경음 음량 0~1. 환경음 버스에만 곱해진다.</summary>
+        float AmbientVolume { get; set; }
+
         /// <summary>다른 플레이어 목소리 음량 0~1.</summary>
         float VoiceVolume { get; set; }
 

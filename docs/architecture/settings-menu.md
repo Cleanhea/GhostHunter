@@ -11,6 +11,8 @@
 | 탭 | 항목 | 저장 | 적용 |
 | --- | --- | --- | --- |
 | 오디오 | 전체 음량 0~100% | `Audio.MasterVolume` | `AudioListener.volume` — 목소리 포함 모든 소리 |
+| 오디오 | 효과음 음량 0~100% | `Audio.SfxVolume` | `IAudioService` 효과음 버스 — 설정 에셋의 버스 음량(기본 배율)에 곱한다 → [audio-system.md §7](audio-system.md) |
+| 오디오 | 환경음 음량 0~100% | `Audio.AmbientVolume` | `IAudioService` 환경음 버스 — 위와 같다 |
 | 오디오 | 음성 채팅 음량 0~100% | `Voice.Volume` | `IVoiceChatService.MasterVolume` → `VoiceReceiver` |
 | 오디오 | 플레이어별 음량·음소거 | **저장 안 함**(이번 게임만) | `IVoiceParticipant.Volume`. 스테이지·인게임 로비에서만 목록이 생긴다 |
 | 마이크 | 마이크 켜짐/꺼짐 | `Voice.Muted` | 게임 중 `M` 과 같은 값 |
@@ -29,7 +31,7 @@
 - 값은 **바꾸는 즉시 적용**되고 창을 닫을 때 `PlayerPrefs.Save()` 한다. "이 탭 기본값으로"는 보고 있는 탭만 되돌린다
   (화면 탭은 수직 동기화·프레임 제한만).
 - 음성 세 키(`Voice.*`)는 예전 `VoiceChatService` 가 쓰던 이름 그대로라 기존 사용자 값이 이어진다.
-- **넣지 않은 것:** 효과음/배경음 분리 음량(소리가 `VoiceMixer` 의 SFX 그룹으로 라우팅되어 있지 않다), 밝기(감마),
+- **넣지 않은 것:** 밝기(감마),
   시야각, 키 재설정, 언어. 다음 후보다.
 
 ## 2. 구성

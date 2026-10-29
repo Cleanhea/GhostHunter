@@ -146,16 +146,44 @@ namespace GhostHunter.Tests.PlayMode
         }
 
         /// <summary>
-        /// 두 명이 들고 있다가 한 명이 손을 떼면, 남은 한 명의 "던질 준비"로 돌아가야 한다.
-        /// (LaunchOnFirstRelease 가 꺼져 있을 때의 기본 정책)
+        /// 두 명이 들고 있다가 한 명이 손을 떼면 그 순간 가구가 남은 사람의 조준 방향으로 날아간다.
+        /// 놓은 사람의 조준(여기서는 반대쪽)은 방향에 섞이지 않는다.
         /// </summary>
         [UnityTest]
-        public IEnumerator ServerRelease_두_명_중_첫_해제는_ThrowReady_로_돌아간다()
+        public IEnumerator ServerRelease_두_명_중_첫_해제는_남은_사람의_조준_방향으로_발사한다()
         {
             FurnitureGrabTarget furniture = SpawnFurniture();
             yield return null;
 
-            Assume.That(Settings.LaunchOnFirstRelease, Is.False);
+            Assume.That(Settings.LaunchOnFirstRelease, Is.True);
+
+            Vector3 releasedAim = Vector3.back;
+            Vector3 remainingAim = Vector3.right;
+            furniture.ServerTryAddHolder(HostClientId, AimOrigin, releasedAim);
+            furniture.ServerTryAddHolder(PartnerClientId, AimOrigin + Vector3.right, remainingAim);
+            BodyOf(furniture).linearVelocity = Vector3.zero;
+            furniture.ServerRelease(HostClientId, releasedAim, false);
+
+            Assert.AreEqual(FurnitureState.Launched, furniture.State);
+            Assert.AreEqual(0, furniture.HolderCount, "남은 사람도 함께 놓인다");
+
+            yield return new WaitForFixedUpdate();
+
+            Vector3 velocity = BodyOf(furniture).linearVelocity;
+            Assert.Greater(velocity.x, 1f, "남은 사람이 보는 쪽(+x)으로 날아간다");
+            Assert.Greater(velocity.x, Mathf.Abs(velocity.z), "놓은 사람 쪽(-z) 성분이 섞이지 않는다");
+        }
+
+        /// <summary>
+        /// <c>launchOnFirstRelease</c> 를 끈 정책 — 한 명이 손을 떼면 남은 한 명의 "던질 준비"로 돌아간다.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator ServerRelease_첫_해제_발사를_끄면_ThrowReady_로_돌아간다()
+        {
+            FurnitureGrabTarget furniture = SpawnFurniture();
+            yield return null;
+
+            SetPrivateField(Settings, "_launchOnFirstRelease", false);
 
             furniture.ServerTryAddHolder(HostClientId, AimOrigin, AimDirection);
             furniture.ServerTryAddHolder(PartnerClientId, AimOrigin + Vector3.right, AimDirection);
@@ -177,6 +205,7 @@ namespace GhostHunter.Tests.PlayMode
             yield return null;
 
             Assume.That(Settings.JointPutDownWindow, Is.GreaterThan(0f));
+            SetPrivateField(Settings, "_launchOnFirstRelease", false);
             furniture.ServerTryAddHolder(HostClientId, AimOrigin, AimDirection);
             furniture.ServerTryAddHolder(PartnerClientId, AimOrigin + Vector3.right, AimDirection);
             BodyOf(furniture).linearVelocity = Vector3.zero;
@@ -201,6 +230,7 @@ namespace GhostHunter.Tests.PlayMode
             FurnitureGrabTarget furniture = SpawnFurniture();
             yield return null;
 
+            SetPrivateField(Settings, "_launchOnFirstRelease", false);
             SetPrivateField(Settings, "_jointPutDownWindow", 0f);
             furniture.ServerTryAddHolder(HostClientId, AimOrigin, AimDirection);
             furniture.ServerTryAddHolder(PartnerClientId, AimOrigin + Vector3.right, AimDirection);

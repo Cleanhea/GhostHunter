@@ -7,7 +7,7 @@ namespace GhostHunter.Tests.EditMode
     public sealed class HeadlampBatteryTests
     {
         private const float Max = 100f;
-        private const float Drain = 0.6f;
+        private const float Drain = 0.3f;
         private const float Recharge = 5f;
 
         private static HeadlampBattery Create() => new(Max, Drain, Recharge);
@@ -33,14 +33,14 @@ namespace GhostHunter.Tests.EditMode
         }
 
         [Test]
-        public void 켜진_동안_초당_0점6씩_준다()
+        public void 켜진_동안_초당_0점3씩_준다()
         {
             HeadlampBattery battery = Create();
             battery.Toggle(true);
 
             battery.Tick(10f, charging: false, drains: true);
 
-            Assert.AreEqual(Max - 6f, battery.Charge, 0.0001f);
+            Assert.AreEqual(Max - 3f, battery.Charge, 0.0001f);
         }
 
         [Test]

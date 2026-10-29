@@ -16,10 +16,7 @@ namespace GhostHunter.Gameplay.Player
         [SerializeField, Min(1f)] private float _maxBattery = 100f;
 
         [Tooltip("켜져 있는 동안 초당 감소량. 스테이지 씬에서만 줄어든다.")]
-        [SerializeField, Min(0f)] private float _drainPerSecond = 0.6f;
-
-        [Tooltip("드릴카 안에 있는 동안 초당 충전량. 충전 중에는 켜져 있어도 줄지 않는다.")]
-        [SerializeField, Min(0f)] private float _rechargePerSecond = 5f;
+        [SerializeField, Min(0f)] private float _drainPerSecond = 0.3f;
 
         [Tooltip("이 값 이하이면 저전력 깜빡임을 시작한다.")]
         [SerializeField, Min(0f)] private float _lowBatteryThreshold = 15f;
@@ -102,7 +99,6 @@ namespace GhostHunter.Gameplay.Player
 
         public float MaxBattery => _maxBattery;
         public float DrainPerSecond => _drainPerSecond;
-        public float RechargePerSecond => _rechargePerSecond;
         public float LowBatteryThreshold => _lowBatteryThreshold;
         public float LowBatteryBlinkInterval => _lowBatteryBlinkInterval;
         public int LowBatteryBlinkCount => _lowBatteryBlinkCount;

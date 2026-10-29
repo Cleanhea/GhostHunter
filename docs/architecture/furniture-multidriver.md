@@ -6,6 +6,10 @@
 기획: [가구용 멀티 드라이버](../project/furniture-multidriver-system.md). 구현 지시:
 [furniture-multidriver-implementation-prompt.md](../workflow/furniture-multidriver-implementation-prompt.md).
 
+> **2026-10-29 기획서 1.3 — 분해는 큰 가구를 짐더미 1개로 바꾼다(§2.3·§2.8, FM-IMPL-5).** 아래 §2.3의 "부품을 풀에서 꺼내
+> 활성화" 서술과 §2.4의 조립은 1.2까지의 방식이다. **분해가 부품을 만들지 않으므로 조립은 입력이 닿지 않는다** — 코드·부품 풀·조립
+> 영역은 남아 있고 짐더미 기준 재정의(MD-14)를 기다린다.
+>
 > FM-IMPL-1(데이터·장착)·FM-IMPL-2(분해)·FM-IMPL-3(조립 판정·실행)까지 구현했다.
 > **FM-IMPL-4 중 행동 시간 UI(중앙 원형 게이지·중단 흔들림·실패 문구)와 우클릭 유지 조작은
 > 2026-09-13 기획서 1.1 수정과 함께 구현했다(§2.6).** 손목 애니메이션과 3색 실루엣 시각화는
@@ -25,7 +29,11 @@
 | `Gameplay/FurnitureDriver/FurnitureDisassemblyRecipe.cs` | 큰 가구 1종의 부품 구성(부품 ID·개수) |
 | `Gameplay/FurnitureDriver/FurniturePartRequirement.cs` | 레시피 안 부품 하나(ID·개수) |
 | `Gameplay/FurnitureDriver/FurnitureDriverCatalog.cs` | 레시피 8종 묶음 SO(2026-09-28 싱글 침대 2종 추가). 서버·조립 판정이 공유 |
-| `Gameplay/FurnitureDriver/FurnitureDriverPoolItem.cs` | 씬 배치 오브젝트의 활성/비활성 및 공통 `FurnitureNetworkPhysics` 내구도 상속. 파손 풀 재사용 차단(2026-09-15, Unity 실행 검증 대기) |
+| `Gameplay/FurnitureDriver/FurnitureDriverPoolItem.cs` | 씬 배치 오브젝트의 활성/비활성 및 공통 `FurnitureNetworkPhysics` 내구도 상속. 파손 풀 재사용 차단(2026-09-15, Unity 실행 검증 대기). **2026-10-29:** `IsBundled`·`CanBundle`·`ServerConvertToBundle`, 복구 스냅샷의 `Bundled` |
+| `Gameplay/FurnitureDriver/FurnitureBundle.cs` | **짐더미 형태(2026-10-29, §2.8)** — 큰 가구 오브젝트가 모양을 바꾼다. 복제 `NetworkVariable<bool>`, 짐더미 자식 생성, 형태 전환, 서버 변환 |
+| `Gameplay/FurnitureDriver/FurnitureBundleMesh.cs` | 짐더미 메시를 크기로부터 코드로 만드는 순수 함수(둥근 포대 + 끈 3줄·홈). 서브메시 0 천·1 끈 |
+| `Gameplay/FurnitureDriver/FurnitureBundleSettings.cs` | 짐더미 크기 비율·최소 변·모양 비율·재질 SO(`FurnitureBundleSettings_Default`) |
+| `Gameplay/Furniture/FurnitureOutline.cs` | `AddOutlineRenderer` — 코드로 만든 짐더미의 윤곽선 셸을 목록에 더한다 |
 | `Gameplay/FurnitureDriver/FurnitureAssemblyZone.cs` | 조립 영역 점유 추적·순수 판정 호출·실루엣 상태 복제·조립 실행 |
 | `Gameplay/FurnitureDriver/FurnitureAssemblyRules.cs` | 조립 성립 판정 순수 함수(부품 ID별 개수 → Empty/Partial/Ready/Invalid) |
 | `Gameplay/FurnitureDriver/FurnitureDurability.cs` | 아이템 내구도 감소, 가구 내구도 상속·평균 순수 함수 |
@@ -63,13 +71,19 @@
 - 대상 유효성 — 분해 대상이 비활성화됐거나, 조립 대상 영역이 더 이상 Ready가 아니게 됨
   (§4.2.1의 이탈·잡힘·다른 가구 진입은 조립 영역 실루엣 상태 변화로 자연히 반영된다).
 
-### 2.3 분해 — `RequestDisassembleRpc`
+### 2.3 분해 — `RequestDisassembleRpc` (1.3: 짐더미로 변환)
 
-서버가 발신자·장착(`ServerHasDriver`)·생존·운반·굴착 상태·거리·대상 활성 여부·레시피 존재를
-재검증한 뒤: 부품 풀에서 요구 개수만큼 비활성 `FurnitureDriverPoolItem`을 찾아 원본 위치
-`+ DropHeight`(기본 1m)에서 활성화(중력 켜짐, 자연히 떨어진다) → 원본 큰 가구를 비활성화 →
-아이템 내구도를 감소시킨다. 부품 풀이 모자라면 지금까지 활성화한 부품을 되돌리고 실패한다
-(로그만 남기고 조용히 실패 — 사용자 대상 실패 UI는 FM-IMPL-4 몫).
+서버가 발신자·장착(`ServerHasDriver`)·생존·운반·굴착 상태·거리·대상 활성 여부를 재검증한 뒤: 카탈로그에 레시피가 있는 큰 가구이고
+아직 짐더미가 아니면 `FurnitureDriverPoolItem.ServerConvertToBundle(DropHeight)` → `FurnitureBundle.ServerConvert`로
+**같은 오브젝트를 짐더미 형태로 바꾸고** 아이템 내구도를 감소시킨다(§2.8). 이미 짐더미이거나 짐더미 형태가 없는 가구(`CanBundle` 거짓)는 조용히 거절한다.
+`ServerConvert`는 잡고 있던 홀더·차징·투척 상태를 `FurnitureGrabTarget.ServerResetForPool`로 초기화한 뒤 형태를 바꾸고, 큰 가구가 있던 자리
+**위 `DropHeight`(기본 1m)** 로 옮겨 떨어뜨린다(`NetworkTransform.Teleport` + `RoomPreset.TeleportBody`, 속도 초기화, 배치 보호 1초).
+
+> **1.2까지의 방식(폐기):** 부품 풀에서 요구 개수만큼 비활성 `FurnitureDriverPoolItem`을 찾아 원본 위치 + `DropHeight`에서 활성화하고
+> 원본을 비활성화했다. 부품 풀이 모자라면 활성화한 부품을 되돌리고 경고 로그를 남기며 실패했다. 부품 풀 프리팹·씬 풀은 조립 재정의(MD-14)가 끝날 때까지 삭제하지 않았다.
+
+아래 두 문단은 `FurnitureDriverPoolItem.ServerActivate`(부품·조립 완성품 활성화, 지금은 조립만 호출)에 관한 기록이다.
+`ServerActivate`는 이제 `FurnitureBundle.ServerSetBundled(false)`도 불러 짐더미 상태로 숨겨졌던 큰 가구를 온전한 모양으로 꺼낸다.
 
 원본 비활성화 시 `FurnitureGrabTarget.ServerResetForPool`이 기존 홀더에게 해제를 알리고
 홀더 목록·차징·투척 상태를 Idle로 초기화한다. 재조립으로 같은 원본이 다시 활성화돼도 이전
@@ -197,8 +211,43 @@ Stage1·Tutorial 조립 구역은 드릴카 오른쪽(+X) 차체 옆 램프 쪽�
 표시 생성·바닥 자름(바닥 +0.02m)·윗면 높이·빈 영역 색 → 조립 가능 초록·설정으로 끄기. 같은 테스트에 카메라를 붙여
 빈 영역·일부·조립 가능 세 상태를 실제로 렌더해 윤곽선·채움·색 변화를 눈으로 확인했다. 실제 Game 씬 표시는 메뉴 실행 후 확인 대기.
 
+### 2.8 짐더미 — `FurnitureBundle` (기획서 §4.1·§6.5, 1.3)
+
+**왜 새 오브젝트가 아닌가.** 기획은 "큰 가구가 삭제되고 짐더미 1개가 생성된다"이고 짐더미는 원본의 무게·명칭·내구도를 그대로 가진다.
+별도 짐더미 오브젝트를 풀에서 꺼내면 이 세 값을 일일이 옮겨야 하고 큰 가구 하나당 하나씩 씬에 미리 둬야 한다(Stage1 큰 가구 42개).
+그래서 **큰 가구 오브젝트 자체가 모양만 바꾸는** 방식을 택했다 — 새 NetworkObject 스폰이 없어 ADR-0009를 그대로 지키고,
+무게(`Rigidbody.mass`)·명칭(`PoolKey`)·내구도(`FurnitureNetworkPhysics`)·`FurnitureDefinition`·`RandomFurnitureItem` 같은 식별이 **저절로 보존된다.**
+플레이어 눈에는 큰 가구가 사라지고 그 자리에 짐더미가 나타난다. 나중에 조립이 짐더미를 큰 가구로 되돌릴 때도 같은 전환을 거꾸로 하면 된다.
+
+| 항목 | 규칙 |
+| --- | --- |
+| 복제 | `NetworkVariable<bool> _bundled`(서버 쓰기·모두 읽기). 변경 시 모든 접속자가 형태를 적용한다. 늦게 접속해도 스폰 시점 값으로 맞춘다 |
+| 짐더미 자식 | `Awake`에서 코드로 만든다 — `FurnitureBundle`은 `DefaultExecutionOrder(-100)`이라 같은 오브젝트의 `FurnitureNetworkPhysics`·`FurnitureGrabTarget`·`FurnitureHoverMotor`가 콜라이더·렌더러 목록을 캐시하기 **전에** 끝난다. 자식 = `FurnitureBundle`(MeshFilter·MeshRenderer 2슬롯·BoxCollider, 처음엔 꺼짐) + 그 밑 `FurnitureBundle_Outline`(조준 윤곽선 셸, `FurnitureOutline.AddOutlineRenderer`로 목록에 등록) |
+| 형태 전환 | 큰 가구의 **직계 자식을 모두 끄고** 짐더미 자식을 켠다(파츠·윤곽선·표지가 함께 꺼진다). 원래 꺼져 있던 자식은 되돌릴 때도 꺼 둔다. 꺼진 자식의 콜라이더는 PhysX 복합 콜라이더에서 빠지고, `FurnitureClearanceProbe`·`TryGetTopCenter`는 `activeInHierarchy`를 이미 확인한다 |
+| 크기 | 원본 렌더러 메시의 가구 로컬 경계 × `SizeScale`(0.4), 각 변 최소 `MinimumDimension`(0.3m). **짐더미 바닥 = 큰 가구 바닥, 가로·세로 중심 = 큰 가구 중심.** 모든 접속자가 같은 프리팹에서 같은 값을 계산하므로 복제하지 않는다. 트랜스폼 스케일은 1을 유지한다(하드 룰) |
+| 메시 | `FurnitureBundleMesh.Build(size, shape)` — 에셋 파일 없이 접속자마다 **처음 짐더미가 될 때 한 번** 만든다(가구 오브젝트 하나당 메시 하나, `OnDestroy`에서 해제) |
+| 무게·내구도·명칭 | 건드리지 않는다. 짐더미 충돌의 내구도 감소는 원본 가구의 `FurnitureDefinition`(무게 등급)을 그대로 쓴다 |
+| 중복 분해 | 이미 짐더미(`IsBundled`)면 조준 대상에서 제외하고, 진행 중 행동도 `IsTargetStillValid`가 취소한다. 서버도 거절한다 |
+| 복구 | `StageRecoverySnapshot.PoolFurnitureState.Bundled` — 호스트 이전 복구에서 짐더미 상태를 되살린다(`ServerSetBundled`). 필드가 없던 옛 스냅샷은 false로 읽힌다 |
+| 회수 | `ServerActivate`(큰 가구를 풀에서 다시 꺼냄)가 `ServerSetBundled(false)`를 불러 온전한 모양으로 돌려놓는다. 부활 의식 방 비우기가 짐더미를 `ServerDeactivate`해도 같다 |
+
+**메시 모양 — `FurnitureBundleMesh`.** 가장 긴 변을 정규 x, 가장 짧은 변을 y, 나머지를 z로 옮겨 만든 뒤 원래 축으로 되돌린다
+(세로로 선 옷장은 세로로 선 짐더미).
+
+- **천:** 모서리가 크게 둥근 상자(반지름 = 가장 짧은 반변 × 0.6). 상자 겉면 격자점마다 `안쪽 평평한 상자로 clamp → 방향 → +반지름`으로 둥근 표면에 사영한다.
+  눈금은 모서리 호는 각도가 고르게(45°를 4등분, `r·tanθ`), 평평한 구간은 6cm 간격으로 나누고 끈 자리 눈금을 끼운다. 이음매는 격자 좌표로 용접한다.
+- **끈:** 긴 변을 삼등분하는 자리 2줄(긴 변에 수직인 면) + 짧은 변 가운데 1줄(짧은 변에 수직인 면). 천과 **같은 표면 함수**를 지나가므로 홈에 정확히 앉고,
+  가로 3줄(가장자리·가운데·가장자리)이라 홈의 굴곡을 따라 휜다. 끈 자리는 천을 코사인 곡선으로 안쪽 눌러 홈을 판다(깊이 = 짧은 변 × 0.06, 끈 폭 = 짧은 변 × 0.12, 끈 폭 × 1.5가 홈 반폭, 끈 두께 = 짧은 변 × 0.04 — 끈 가장자리 자리의 천 높이를 넘으면 잘라 경계 밖으로 솟지 않게 한다).
+- **서브메시:** 0 = 천(`M_FurnitureBundle_Fabric`), 1 = 끈(`M_FurnitureBundle_Strap`). 법선은 `RecalculateNormals`(홈 음영 반영).
+- **감는 방향:** 삼각형마다 꼭짓점 법선 평균과 비교해 바깥을 향하게 맞춘다 — 축 치환의 홀짝을 따로 계산하지 않는다.
+
 ## 3. 에셋과 설치
 
+- **짐더미(2026-10-29, 사용자 요청 — 메시를 직접 생성):** 분해 가능한 큰 가구 프리팹 8종(위 6종 + 싱글 침대 2종)에 `FurnitureBundle` 컴포넌트를
+  텍스트로 추가하고 `_settings`를 `Assets/Settings/Gameplay/FurnitureBundleSettings_Default.asset`에 연결했다(루트 `m_Component`에 항목 1개 + `MonoBehaviour` 블록 1개 —
+  프리팹 `GlobalObjectIdHash`는 그대로). 씬 인스턴스는 프리팹을 따르므로 씬 파일은 건드리지 않았다(`_poolKey`가 씬에 덮어쓰이지 않음을 확인).
+  재질 `Assets/Materials/M_FurnitureBundle_Fabric.mat`(회갈색 천)·`M_FurnitureBundle_Strap.mat`(어두운 끈)은 `Map_Furniture_Fabric.mat`을 복제해 색만 바꿨다.
+  윤곽선은 기존 `Furniture_Outline.mat`을 쓴다. **부품 프리팹·부품 풀은 삭제하지 않았다**(조립 재정의 MD-14 전까지 남김 — 분해는 더 이상 쓰지 않는다).
 - 큰 가구 프리팹 6종(`Assets/Prefabs/Furniture/{DoubleBed_1.6x2.0, Wardrobe_1.2x0.6,
   Wardrobe_1.5x0.6, DiningTable_1.55x0.85, Shelving_2.6x0.55, Shelving_1.65x0.45}.prefab`)에
   `FurnitureDriverPoolItem`을 **제자리 편집**(`LoadPrefabContents` → 추가 → 같은 경로에
@@ -236,6 +285,13 @@ Stage1·Tutorial 조립 구역은 드릴카 오른쪽(+X) 차체 옆 램프 쪽�
 
 ## 4. 알려진 제약
 
+- **(2026-10-29, 1.3) 조립은 입력이 닿지 않는다.** 분해가 부품을 만들지 않으므로 조립 영역에 올릴 재료가 없다. 짐더미를 큰 가구로 되돌리는 규칙은 **MD-14 TBD**다.
+  그때까지 분해한 가구는 되돌릴 수 없다(전환은 되돌릴 수 있게 짜 두었다 — §2.8 회수).
+- **짐더미 외형은 게임 화면에서 확인하지 않았다.** 메시는 EditMode로 크기·경계·감는 방향·부피를 검증했고 렌더 결과를 이미지로 확인했지만([기획서 §6.5](../project/furniture-multidriver-system.md)),
+  실제 가구 위에서의 모습·조명·윤곽선 셸 모양과 Host/Client 복제는 실기 미확인이다. 크기 비율(0.4배·최소 0.3m)은 **임시값**이다(MD-15).
+- **드릴카 적재(반출) 판정은 짐더미를 세지 않을 수 있다.** 짐더미는 일반 가구처럼 잡고 옮길 수 있지만, 반출 완료 판정(`FurnitureDeliveryTracker`)은
+  `RandomFurnitureItem` 목표 가구만 센다. 분해한 침대·옷장의 반출 집계는 MD-3(MG-22) 대기.
+
 - **조립은 아직 한 번도 끝까지 돌아간 적이 없다.** §2.4의 뜬 트리거 때문에 그동안 불가능했고,
   수정은 코드에만 있다 — 씬에 반영(재배치 메뉴)한 뒤 실기로 확인해야 "된다"고 말할 수 있다.
   Ready 상태는 2026-09-27부터 **영역 표시 색**(초록)으로 볼 수 있다(§2.7 — 행동 UI 설치 메뉴 실행 후). 큰 가구 실루엣은 여전히 없다.
@@ -253,6 +309,13 @@ Stage1·Tutorial 조립 구역은 드릴카 오른쪽(+X) 차체 옆 램프 쪽�
   대상 피드백은 FM-IMPL-4 몫이다.
 
 ## 5. 검증 상태
+
+**2026-10-29 (기획서 1.3, 짐더미):** 검증용 복제 프로젝트에서 컴파일 오류 0건. EditMode **541건 중 539 통과**(실패 2건은 기존 `MoleSkillWiringTests` 소스 검사 —
+이번 변경과 무관). 전체 PlayMode **116/116 통과**. 새 `FurnitureBundleMeshTests`(크기·경계, 서브메시·인덱스, NaN·법선, 닫힌 껍질 부피 부호, 끈이 경계를 넘지 않음, 크기 계산, 결정성; 4가지 크기)가 모두 통과.
+PlayMode `FurnitureDisassemblyFlowTests` **31/31 통과** — 분해가 무게·명칭·내구도를 유지한 짐더미 하나로 바꾸고 부품을 만들지 않음, 파츠가 자식에 있는 가구의 형태 전환
+(파츠 끄고 짐더미 켬·크기 0.8m·바닥 정렬), 짐더미 형태가 없는 가구는 분해 거절, 이미 짐더미면 행동 취소, 잡고 있던 홀더 해제·재활성화 시 온전한 모양 복귀.
+1.2까지의 "부품 풀 부족이면 되돌림" 테스트는 부품이 없어져 위 두 테스트로 바꿨다. 조립 테스트는 영향 없음.
+**실제 Game/Stage1 씬 Host·Client 실기와 Steam 2PC는 미수행.**
 
 2026-09-13 발견한 장착 연결 누락·홀더 정리 결함을 수정한 뒤 재검증했다.
 **실제 Game 씬 Local Host에서 퀵슬롯 선택 → 조준 → 우클릭 → 침대 분해 완료를 확인했다.**
@@ -298,7 +361,10 @@ Host·Client 수동 검증(Steam 2PC 포함), MD-7·MD-8 사용자 확정, 식�
 [roadmap.md §1.6](../project/roadmap.md) · [ADR-0009](decisions/ADR-0009-scene-placed-level-objects.md) ·
 [ADR-0010](decisions/ADR-0010-server-authoritative-furniture-physics.md)
 
-최종 갱신: 2026-09-28 (설치·재배치 메뉴와 설치 수치 회귀 테스트 3건 삭제 — ADR-0020. 이전: 2026-09-27 조립 영역 표시 `FurnitureAssemblyZoneView`·Scene 뷰 기즈모 추가 — §2.7, 행동 UI 설치 메뉴로 설치. 같은 날: 기획서 1.2 — 영역 안 아무 재료나 조준해 조립, 조립 불가 이유 문구("재료가 부족합니다" 등),
+최종 갱신: 2026-10-29 (기획서 1.3 — 분해 = 짐더미 1개: `FurnitureBundle`·`FurnitureBundleMesh`·`FurnitureBundleSettings` 추가, §2.3 재작성, §2.8 신설, 큰 가구 프리팹 8종 배선.
+EditMode 541건 중 539 통과(기존 실패 2건), PlayMode 116/116(`FurnitureDisassemblyFlowTests` 31). 조립 재정의 MD-14 대기.)
+
+이전 갱신: 2026-09-28 (설치·재배치 메뉴와 설치 수치 회귀 테스트 3건 삭제 — ADR-0020. 이전: 2026-09-27 조립 영역 표시 `FurnitureAssemblyZoneView`·Scene 뷰 기즈모 추가 — §2.7, 행동 UI 설치 메뉴로 설치. 같은 날: 기획서 1.2 — 영역 안 아무 재료나 조준해 조립, 조립 불가 이유 문구("재료가 부족합니다" 등),
 서버 거리 검사를 조준 재료 기준으로, 완성 가구를 재료에서 제외. 검증용 복제 프로젝트 PlayMode `FurnitureDisassemblyFlowTests`
 28/28(새 6건), EditMode 새 1건 통과. **실제 Game 씬에서의 조립 실기 확인은 여전히 남아 있다.**)
 

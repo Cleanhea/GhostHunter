@@ -32,10 +32,10 @@ namespace GhostHunter.Gameplay.Lighting
         [SerializeField] private LightShadows _sunShadows = LightShadows.Soft;
 
         [Header("환경광")]
-        [Tooltip("씬에 저장된 환경광(Trilight) 색에 곱한다. 실내 어둠의 바닥값이다.")]
+        [Tooltip("씬에 저장된 환경광(Trilight) 색에 곱한다. 실내 어둠의 바닥값이다. 씬 저장값이 0.006 수준이라 눈에 띄게 올리려면 수십 배가 필요하다.")]
         [SerializeField, Range(0f, AmbientScaleMax)] private float _ambientScale = 1f;
 
-        public const float AmbientScaleMax = 6f;
+        public const float AmbientScaleMax = 60f;
 
         [Header("어둠")]
         [Tooltip("검은 안개. 거리에 따라 시야가 먹혀 들어간다 — 헤드라이트 불빛도 멀리선 사라진다.")]

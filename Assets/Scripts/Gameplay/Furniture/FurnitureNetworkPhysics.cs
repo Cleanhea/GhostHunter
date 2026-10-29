@@ -24,6 +24,12 @@ namespace GhostHunter.Gameplay.Furniture
         /// <summary>서버의 실제 가구 충돌 위치·법선 속력. 귀신은 spawn/despawn 수명 동안만 구독한다.</summary>
         public static event Action<Vector3, float> ServerImpactReported;
 
+        /// <summary>
+        /// 이 가구의 서버 충돌 — 위치, 법선 속력, 부딪힌 상대 가구(가구가 아니면 null).
+        /// <see cref="ServerImpactReported"/>와 같은 조건에서 발생하며, 가구별 연출이 자기 가구 것만 듣는다.
+        /// </summary>
+        public event Action<Vector3, float, FurnitureNetworkPhysics> ServerImpacted;
+
         [SerializeField] private FurnitureDefinition _definition;
 
         private readonly NetworkVariable<int> _durability = new(FullDurability,
@@ -142,12 +148,16 @@ namespace GhostHunter.Gameplay.Furniture
                 speed = Mathf.Max(speed, FurnitureCollisionDamage.NormalSpeed(
                     collision.relativeVelocity, collision.GetContact(i).normal));
 
-            if (IsAvailable && !StageRecoveryGate.Restoring && Time.timeAsDouble >= _protectedUntil
-                && collision.contactCount > 0)
-                ServerImpactReported?.Invoke(collision.GetContact(0).point, speed);
-
             FurnitureNetworkPhysics other = collision.rigidbody != null
                 ? collision.rigidbody.GetComponent<FurnitureNetworkPhysics>() : null;
+            if (IsAvailable && !StageRecoveryGate.Restoring && Time.timeAsDouble >= _protectedUntil
+                && collision.contactCount > 0)
+            {
+                Vector3 point = collision.GetContact(0).point;
+                ServerImpactReported?.Invoke(point, speed);
+                ServerImpacted?.Invoke(point, speed, other);
+            }
+
             // 한쪽이 이 콜백에서 파손되어도 상대에게 같은 충돌 속도를 전달한다.
             // 상대 콜백의 중복은 각 가구의 판정 창에서 제거한다.
             ServerApplyCollisionSpeed(speed);

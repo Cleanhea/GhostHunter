@@ -123,22 +123,47 @@ namespace GhostHunter.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator 분해_성공은_원본을_숨기고_내구도를_상속한_부품으로_바꾼다()
+        public IEnumerator 분해_성공은_큰_가구를_무게와_내구도를_유지한_짐더미_하나로_바꾼다()
         {
             CreateScenario();
             _large.ServerActivate(_large.transform.position, Quaternion.identity, 60);
+            Rigidbody body = _large.GetComponent<Rigidbody>();
+            body.mass = 25f;
+            string name = _large.PoolKey;
             RequestDisassemble();
-            Assert.IsFalse(_large.IsActive);
+            Assert.IsTrue(_large.IsBundled, "큰 가구가 짐더미 형태가 아닙니다.");
+            Assert.IsTrue(_large.IsActive, "짐더미는 같은 오브젝트가 계속 쓰는 활성 가구입니다.");
             Assert.AreEqual(95, _driver.ItemDurability);
+            Assert.AreEqual(60, _large.Durability, "내구도를 그대로 유지해야 합니다.");
+            Assert.AreEqual(25f, body.mass, "무게를 그대로 유지해야 합니다.");
+            Assert.AreEqual(name, _large.PoolKey, "명칭을 그대로 유지해야 합니다.");
+            Assert.AreEqual(2f, _large.transform.position.y, 0.001f, "§6.2 — 지면 위 1m에서 떨어져야 합니다.");
+            Assert.IsFalse(body.isKinematic);
+            Assert.IsTrue(body.useGravity);
             foreach (FurnitureDriverPoolItem part in _parts)
-            {
-                Assert.IsTrue(part.IsActive);
-                Assert.AreEqual(60, part.Durability);
-                Assert.IsTrue(part.GetComponent<Collider>().enabled);
-                Assert.IsFalse(part.GetComponent<Rigidbody>().isKinematic);
-                Assert.IsTrue(part.GetComponent<Rigidbody>().useGravity);
-                Assert.AreEqual(2f, part.transform.position.y, 0.001f);
-            }
+                Assert.IsFalse(part.IsActive, "분해는 더 이상 작은 가구 부품을 만들지 않습니다.");
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator 짐더미는_큰_가구_파츠를_끄고_줄어든_메시와_충돌체만_켠다()
+        {
+            CreateScenario();
+            FurnitureDriverPoolItem formed = SpawnFormedLarge(out GameObject form);
+            Transform bundleRoot = formed.transform.Find("FurnitureBundle");
+            Assert.IsNotNull(bundleRoot, "짐더미 자식이 만들어져야 합니다.");
+            Assert.IsFalse(bundleRoot.gameObject.activeSelf);
+            Assert.IsTrue(form.activeSelf);
+
+            formed.GetComponent<FurnitureBundle>().ServerConvert(0f);
+            Assert.IsFalse(form.activeSelf, "큰 가구 파츠는 꺼져야 합니다.");
+            Assert.IsTrue(bundleRoot.gameObject.activeSelf);
+            var box = bundleRoot.GetComponent<BoxCollider>();
+            Assert.AreEqual(0.8f, box.size.x, 0.001f, "2m 큰 가구의 0.4배.");
+            Assert.AreEqual(0.8f, box.size.y, 0.001f);
+            Assert.IsNotNull(bundleRoot.GetComponent<MeshFilter>().sharedMesh, "짐더미 메시가 만들어져야 합니다.");
+            Assert.AreEqual(0.4f, bundleRoot.position.y - formed.transform.position.y, 0.001f,
+                "짐더미 바닥이 큰 가구 바닥과 같아야 합니다.");
             yield return null;
         }
 
@@ -173,12 +198,25 @@ namespace GhostHunter.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator 부품_부족이면_이미_활성화한_부품도_되돌린다()
+        public IEnumerator 짐더미_형태가_없는_가구는_분해되지_않는다()
         {
-            CreateScenario(secondPartCount: 1);
-            LogAssert.Expect(LogType.Warning, "[PlayerFurnitureDriverController] 부품 풀 부족: TestPartB");
+            CreateScenario(bundleLarge: false);
+            Assert.IsFalse(_large.CanBundle);
             RequestDisassemble();
             AssertUnchanged();
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator 이미_짐더미인_가구에_걸린_분해_행동은_취소된다()
+        {
+            CreateScenario();
+            RequestDisassemble();
+            Assert.IsTrue(_large.IsBundled);
+            BeginDisassemble();
+            InvokePrivate(_driver, "TickAction");
+            Assert.AreEqual(FurnitureDriverActionKind.None, _driver.CurrentAction,
+                "짐더미가 된 대상에 걸린 행동은 취소돼야 합니다.");
             yield return null;
         }
 
@@ -193,11 +231,11 @@ namespace GhostHunter.Tests.PlayMode
             while (_driver.CurrentAction != FurnitureDriverActionKind.None && Time.time - started < 5f)
             {
                 if (Time.time - started < 2.5f)
-                    Assert.IsTrue(_large.IsActive, "3초 행동 완료 전에 분해됐습니다.");
+                    Assert.IsFalse(_large.IsBundled, "3초 행동 완료 전에 분해됐습니다.");
                 yield return null;
                 InvokePrivate(_driver, "TickAction");
             }
-            Assert.IsFalse(_large.IsActive, "행동 완료 후에도 원본이 활성 상태입니다.");
+            Assert.IsTrue(_large.IsBundled, "행동 완료 후에도 큰 가구 모양입니다.");
             Assert.AreEqual(95, _driver.ItemDurability);
         }
 
@@ -279,18 +317,19 @@ namespace GhostHunter.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator 잡힌_가구가_분해되면_숨겨진_원본에_홀더가_남지_않는다()
+        public IEnumerator 잡힌_가구가_분해되면_잡고_있던_홀더가_놓는다()
         {
             CreateScenario();
             FurnitureGrabTarget target = _large.GetComponent<FurnitureGrabTarget>();
             Assert.IsTrue(target.ServerTryAddHolder(HostClientId, AimOrigin, AimDirection));
             RequestDisassemble();
-            Assert.IsFalse(_large.IsActive);
+            Assert.IsTrue(_large.IsBundled);
             Assert.AreEqual(0, target.HolderCount);
             Assert.AreEqual(FurnitureState.Idle, target.State);
             Assert.AreEqual(0f, target.Charge);
+            Assert.IsTrue(target.CanGrab(HostClientId), "짐더미도 일반 가구처럼 다시 잡을 수 있어야 합니다.");
             _large.ServerActivate(new Vector3(0f, 1f, 2f), Quaternion.identity, 60);
-            Assert.IsTrue(target.CanGrab(HostClientId), "재활성화한 가구를 다시 잡을 수 있어야 합니다.");
+            Assert.IsFalse(_large.IsBundled, "큰 가구를 다시 꺼내면 온전한 모양이어야 합니다.");
             yield return null;
         }
 
@@ -304,7 +343,7 @@ namespace GhostHunter.Tests.PlayMode
             Assert.IsTrue(_driver.ServerHasDriver);
             Assert.AreEqual(0, _cleaning.EquippedSlot);
             RequestDisassemble();
-            Assert.IsFalse(_large.IsActive);
+            Assert.IsTrue(_large.IsBundled);
             yield return null;
         }
 
@@ -584,7 +623,7 @@ namespace GhostHunter.Tests.PlayMode
             InvokePrivate(zone, "OnTriggerEnter", part.GetComponent<Collider>());
         }
 
-        private void CreateScenario(int secondPartCount = 2, bool equipDriver = true)
+        private void CreateScenario(int secondPartCount = 2, bool equipDriver = true, bool bundleLarge = true)
         {
             var floor = Track(GameObject.CreatePrimitive(PrimitiveType.Cube));
             floor.name = "TestDriverFloor";
@@ -636,13 +675,50 @@ namespace GhostHunter.Tests.PlayMode
                 Assert.IsTrue(_driver.ServerHasDriver);
             }
 
-            _large = SpawnPoolItem("TestLarge", true);
+            _large = SpawnPoolItem("TestLarge", true, bundleLarge);
             _parts.Add(SpawnPoolItem("TestPartA", false));
             for (int i = 0; i < secondPartCount; i++)
                 _parts.Add(SpawnPoolItem("TestPartB", false));
         }
 
-        private FurnitureDriverPoolItem SpawnPoolItem(string key, bool startActive)
+        /// <summary>
+        /// 실제 큰 가구 프리팹처럼 파츠가 자식에 있고 루트에는 렌더러·콜라이더가 없는 가구 —
+        /// 짐더미 전환이 자식을 끄고 켜는지 본다. 파츠는 2m 상자라 짐더미는 0.8m 상자다.
+        /// </summary>
+        private FurnitureDriverPoolItem SpawnFormedLarge(out GameObject form)
+        {
+            var instance = Track(new GameObject("TestFormedLarge"));
+            instance.SetActive(false);
+            instance.transform.position = new Vector3(0f, 0f, 6f);
+            instance.AddComponent<Rigidbody>().isKinematic = true;
+            var networkObject = instance.AddComponent<NetworkObject>();
+            AssignHash(networkObject);
+            instance.AddComponent<NetworkTransform>();
+
+            form = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            form.name = "Form";
+            form.transform.SetParent(instance.transform, false);
+            form.transform.localPosition = Vector3.up;
+            form.transform.localScale = new Vector3(2f, 2f, 2f);
+
+            var poolItem = instance.AddComponent<FurnitureDriverPoolItem>();
+            poolItem.Configure("TestFormedLarge");
+            SetPrivateField(poolItem, "_startActive", true);
+            var grabTarget = instance.AddComponent<FurnitureGrabTarget>();
+            SetPrivateField(grabTarget, "_settings", Settings);
+            AddBundle(instance);
+            instance.SetActive(true);
+            networkObject.Spawn();
+            return poolItem;
+        }
+
+        private void AddBundle(GameObject instance)
+        {
+            var bundle = instance.AddComponent<FurnitureBundle>();
+            SetPrivateField(bundle, "_settings", Track(ScriptableObject.CreateInstance<FurnitureBundleSettings>()));
+        }
+
+        private FurnitureDriverPoolItem SpawnPoolItem(string key, bool startActive, bool bundleable = false)
         {
             var instance = Track(GameObject.CreatePrimitive(PrimitiveType.Cube));
             instance.name = key;
@@ -657,6 +733,8 @@ namespace GhostHunter.Tests.PlayMode
             SetPrivateField(poolItem, "_startActive", startActive);
             var grabTarget = instance.AddComponent<FurnitureGrabTarget>();
             SetPrivateField(grabTarget, "_settings", Settings);
+            if (bundleable)
+                AddBundle(instance);
             instance.SetActive(true);
             networkObject.Spawn();
             return poolItem;
@@ -707,6 +785,7 @@ namespace GhostHunter.Tests.PlayMode
         private void AssertUnchanged()
         {
             Assert.IsTrue(_large.IsActive);
+            Assert.IsFalse(_large.IsBundled);
             Assert.AreEqual(100, _driver.ItemDurability);
             foreach (FurnitureDriverPoolItem part in _parts)
                 Assert.IsFalse(part.IsActive);

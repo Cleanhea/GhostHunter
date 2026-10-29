@@ -152,21 +152,14 @@ namespace GhostHunter.DebugTools
                 yield break;
             }
 
+            // 2인 중 첫 해제(launchOnFirstRelease 기본값) — 남은 사람의 조준 방향으로 바로 발사된다.
             cooperative.ServerRelease(network.LocalClientId, direction, false);
-            if (cooperative.State != FurnitureState.ThrowReady
-                || cooperative.HolderCount != 1
-                || !cooperative.GetComponent<Rigidbody>().useGravity)
-            {
-                Fail("2인 중 첫 해제에서 1인 투척 준비로 돌아가지 않았습니다.");
-                yield break;
-            }
-
-            cooperative.ServerRelease(simulatedPartnerId, direction, false);
             yield return new WaitForFixedUpdate();
             if (cooperative.State != FurnitureState.Launched
+                || cooperative.HolderCount != 0
                 || cooperative.GetComponent<Rigidbody>().linearVelocity.sqrMagnitude <= 0.01f)
             {
-                Fail("남은 1인의 마지막 해제에서 발사가 일어나지 않았습니다.");
+                Fail("2인 중 첫 해제에서 남은 사람의 방향으로 발사가 일어나지 않았습니다.");
             }
         }
 

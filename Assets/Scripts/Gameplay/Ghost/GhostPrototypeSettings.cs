@@ -49,6 +49,8 @@ namespace GhostHunter.Gameplay.Ghost
         [SerializeField] private float _highRiskVisionDistance = 15f;
         [Tooltip("고위험 어택의 시야 각도. 확정 수치 대기 중이므로 현재는 일반 시야와 같다(G-18).")]
         [SerializeField, Range(1f, 180f)] private float _highRiskVisionAngle = 120f;
+        [Tooltip("어택 중 지면에 그리는 빨간 부채꼴의 반지름. 시야 방향 표시 전용이라 감지 거리와 무관하다. 각도는 실제 시야각을 따른다.")]
+        [SerializeField] private float _visionConeDisplayDistance = 3f;
 
         [Tooltip("시야각·가림을 무시하는 근거리 감지. 기획서에는 없는 P1 보조값이라 0으로 꺼도 된다.")]
         [SerializeField] private float _nearDetectRadius = 3f;
@@ -231,6 +233,7 @@ namespace GhostHunter.Gameplay.Ghost
         public float VisionAngle => _visionAngle;
         public float HighRiskVisionDistance => _highRiskVisionDistance;
         public float HighRiskVisionAngle => _highRiskVisionAngle;
+        public float VisionConeDisplayDistance => _visionConeDisplayDistance;
         public float NearDetectRadius => _nearDetectRadius;
         public float GhostEyeHeight => _ghostEyeHeight;
         public float TargetCenterHeight => _targetCenterHeight;
@@ -349,6 +352,7 @@ namespace GhostHunter.Gameplay.Ghost
             _visionDistance = Mathf.Max(0.1f, _visionDistance);
             _highRiskVisionDistance = Mathf.Max(_visionDistance, _highRiskVisionDistance);
             _highRiskVisionAngle = Mathf.Max(_visionAngle, _highRiskVisionAngle);
+            _visionConeDisplayDistance = Mathf.Max(0.1f, _visionConeDisplayDistance);
             _nearDetectRadius = Mathf.Max(0f, _nearDetectRadius);
             _ghostEyeHeight = Mathf.Max(0f, _ghostEyeHeight);
             _targetCenterHeight = Mathf.Max(0f, _targetCenterHeight);

@@ -128,7 +128,7 @@
 | 계속 도는 것 | 근거 |
 | --- | --- |
 | 귀신 상태 전이·탐지·추격·어택·잡힘 | [ghost-system.md §4·§8](ghost-system.md) |
-| 정신력 감소(어둠 노출·목격) | [sanity-system.md](sanity-system.md) |
+| 정신력 감소(귀신·시체 목격) | [sanity-system.md](sanity-system.md) |
 | 가구 물리와 다른 플레이어의 던지기 | [../architecture/throw-system.md](../architecture/throw-system.md) |
 | 굴착 스킬 유지·종료 타이머 | [mole-skill-system.md §5](mole-skill-system.md) |
 | 네트워크 송수신 | — |

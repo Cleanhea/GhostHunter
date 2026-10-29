@@ -169,6 +169,7 @@ MonoBehaviour:
   _connection: {fileID: 3352543703398193555}
   _voiceCapture: {fileID: 603993671}
   _lobbyVoiceSettings: {fileID: 0}
+  _audioSettings: {fileID: 11400000, guid: e12f38abbb2145fab128489fac49eee7, type: 2}
 --- !u!114 &603993671
 MonoBehaviour:
   m_ObjectHideFlags: 0

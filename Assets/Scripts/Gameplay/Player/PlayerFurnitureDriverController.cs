@@ -244,9 +244,11 @@ namespace GhostHunter.Gameplay.Player
                 && _targeter.CurrentTarget.TryGetComponent(out FurnitureDriverPoolItem poolItem)
                 && poolItem.IsActive)
             {
+                // 이미 짐더미인 가구는 다시 분해하지 않는다(§4.1).
                 if (_catalog.FindByLargeFurnitureId(poolItem.PoolKey) != null)
                 {
-                    BeginAction(FurnitureDriverActionKind.Disassemble, poolItem.NetworkObjectId);
+                    if (poolItem.CanBundle && !poolItem.IsBundled)
+                        BeginAction(FurnitureDriverActionKind.Disassemble, poolItem.NetworkObjectId);
                     return;
                 }
 
@@ -357,7 +359,8 @@ namespace GhostHunter.Gameplay.Player
         {
             if (_actionKind == FurnitureDriverActionKind.Disassemble)
             {
-                return TryResolve(_targetObjectId, out FurnitureDriverPoolItem item) && item.IsActive;
+                return TryResolve(_targetObjectId, out FurnitureDriverPoolItem item)
+                    && item.IsActive && !item.IsBundled;
             }
 
             if (_actionKind == FurnitureDriverActionKind.Assemble)
@@ -397,35 +400,13 @@ namespace GhostHunter.Gameplay.Player
                 return;
             }
 
-            FurnitureDisassemblyRecipe recipe = _catalog.FindByLargeFurnitureId(large.PoolKey);
-            if (recipe == null)
-                return;
-
-            int inheritedDurability = FurnitureDurability.InheritOnDisassemble(large.Durability);
-            var activated = new List<FurnitureDriverPoolItem>();
-            foreach (FurniturePartRequirement requirement in recipe.Parts)
+            // 분해 = 큰 가구가 포장된 짐더미 1개로 바뀐다(§4.1). 무게·명칭·내구도는 그대로, 크기만 줄어든다.
+            if (_catalog.FindByLargeFurnitureId(large.PoolKey) == null || large.IsBundled
+                || !large.ServerConvertToBundle(_settings.DropHeight))
             {
-                for (int i = 0; i < requirement.Count; i++)
-                {
-                    if (!FurnitureDriverPoolItem.TryFindInactive(requirement.PartId, out FurnitureDriverPoolItem part))
-                    {
-                        // 부품 풀이 모자란다 — 지금까지 활성화한 부품을 되돌리고 실패한다.
-                        foreach (FurnitureDriverPoolItem rollback in activated)
-                            rollback.ServerDeactivate();
-                        Debug.LogWarning(
-                            $"[PlayerFurnitureDriverController] 부품 풀 부족: {requirement.PartId}", this);
-                        return;
-                    }
-
-                    Vector3 offset = Quaternion.Euler(0f, 360f / Mathf.Max(1, requirement.Count) * i, 0f)
-                        * Vector3.forward * 0.25f;
-                    Vector3 dropPosition = large.transform.position + Vector3.up * _settings.DropHeight + offset;
-                    part.ServerActivate(dropPosition, large.transform.rotation, inheritedDurability);
-                    activated.Add(part);
-                }
+                return;
             }
 
-            large.ServerDeactivate();
             ServerConsumeDurability();
         }
 

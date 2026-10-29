@@ -127,7 +127,7 @@ if (!IsServer) {
 
 - **값의 소유자:** 모든 가구에 있던 `FurnitureNetworkPhysics`가 서버 쓰기 `NetworkVariable<int>`
   하나로 0~100 내구도를 복제한다. 0은 파괴를 켠 경우에만 파손 상태다. `FurnitureDriverPoolItem.Durability`는 이 값을
-  읽으며 분해·조립 시 `ServerSetDurability`로 상속한다. 별도 NetworkBehaviour나 어셈블리는 추가하지 않는다.
+  읽으며 조립 시 `ServerSetDurability`로 상속한다. 분해는 같은 오브젝트가 짐더미 모양으로 바뀌는 것이라(`FurnitureBundle`, 2026-10-29) 값을 옮기지 않는다. 별도 NetworkBehaviour나 어셈블리는 추가하지 않는다.
 - **설정:** 기존 `FurnitureDefinition_Light/Heavy` SO에 최소 속도 6, 초과 속도당 피해 1,
   등급 계수 1, 피해 상한 50, 판정 창 0.2초, 배치 보호 1초, Held 중 피해 적용을 추가했다.
   기존 에셋에 없는 필드는 C# 초기값으로 로드된다. Inspector에서 등급별로 조정한다.

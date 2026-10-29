@@ -583,7 +583,13 @@ namespace GhostHunter.Tests.PlayMode
         {
             Scene stage = stagePlayer.gameObject.scene;
             Assert.IsNotNull(FindRoot(stage, "House_Prototype_PlanB"), "B안 집");
-            Assert.IsNotNull(FindRoot(stage, "SanityWorldMonitor"), "정신력 UI(월드 모니터)");
+            // 정신력 월드 모니터는 드릴카 프리팹의 실내 오른쪽 벽에 들어 있다(씬 루트가 아니다).
+            SanityHudUI monitor = Object.FindFirstObjectByType<SanityHudUI>();
+            Assert.IsNotNull(monitor, "정신력 UI(월드 모니터)");
+            Assert.AreEqual(stage, monitor.gameObject.scene);
+            Assert.IsNotNull(monitor.transform.parent, "정신력 UI 는 드릴카 프리팹의 자식이다");
+            Assert.IsNotNull(monitor.transform.parent.GetComponentInChildren<DrillCarSafeZone>(),
+                "정신력 UI 와 안전 구역이 같은 드릴카에 들어 있다");
             Assert.IsTrue(Services.TryGet(out ISanityTeamService _), "Stage1 이 정신력 팀 서비스를 등록한다");
             Assert.IsTrue(stagePlayer.TryGetComponent(out SanityNetworkState sanity) && sanity.HasSanity,
                 "스테이지 플레이어는 정신력을 가진 채 스폰된다");

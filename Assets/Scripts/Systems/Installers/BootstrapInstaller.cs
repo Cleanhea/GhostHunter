@@ -1,9 +1,12 @@
+using GhostHunter.Core.Audio;
 using GhostHunter.Core.Voice;
 using GhostHunter.Core.Networking;
 using GhostHunter.Core.Scenes;
 using GhostHunter.Core.Settings;
 using GhostHunter.Core.Steam;
+using GhostHunter.Data.Audio;
 using GhostHunter.Networking;
+using GhostHunter.Systems.Audio;
 using GhostHunter.Systems.Steam;
 using GhostHunter.Systems.SceneFlow;
 using GhostHunter.Systems.Settings;
@@ -27,6 +30,7 @@ namespace GhostHunter.Systems.Installers
         [SerializeField] private ConnectionManager _connection;
         [SerializeField] private MicrophoneVoiceCapture _voiceCapture;
         [SerializeField] private VoiceChatSettings _lobbyVoiceSettings;
+        [SerializeField] private GameAudioSettings _audioSettings;
 
         protected override void InstallBindings()
         {
@@ -59,6 +63,15 @@ namespace GhostHunter.Systems.Installers
                 if (recovery == null)
                     recovery = gameObject.AddComponent<StageRecoveryCoordinator>();
                 recovery.Initialize(_steamLobby, _connection, _sceneFlow);
+            }
+            if (_audioSettings != null)
+            {
+                // 효과음·환경음용 3D 사운드. 오디오 소스 풀은 앱 수명 동안 산다.
+                AudioService audio = GetComponent<AudioService>();
+                if (audio == null)
+                    audio = gameObject.AddComponent<AudioService>();
+                audio.Initialize(_audioSettings, userSettings);
+                Bind<IAudioService>(audio);
             }
             if (_voiceCapture != null)
             {

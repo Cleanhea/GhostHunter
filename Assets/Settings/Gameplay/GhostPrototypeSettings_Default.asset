@@ -30,6 +30,7 @@ MonoBehaviour:
   _visionAngle: 120
   _highRiskVisionDistance: 15
   _highRiskVisionAngle: 120
+  _visionConeDisplayDistance: 3
   _nearDetectRadius: 3
   _ghostEyeHeight: 1.6
   _targetCenterHeight: 1

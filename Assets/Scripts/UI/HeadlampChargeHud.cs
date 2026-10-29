@@ -6,12 +6,12 @@ using UnityEngine.UI;
 namespace GhostHunter.UI
 {
     /// <summary>
-    /// 헤드라이트가 켜져 있는 동안 배터리를 화면 우측 상단에 "nn%" 원형 게이지로 띄운다(기획서 §3, 2026-10-04 사용자 결정 —
-    /// 이전에는 드릴카 안에서 충전되는 동안만 보였다). 끄면 사라진다.
+    /// 드릴카 안에서 헤드라이트 배터리가 충전되는 동안 배터리를 화면 우측 상단에 "nn%" 원형 게이지로 띄운다(기획서 §3,
+    /// 2026-10-29 사용자 결정 — 2026-10-04 의 "켜져 있는 동안" 표시를 원문대로 되돌렸다). 가득 차거나 드릴카를 나가면 사라진다.
     /// 크기·색은 두더지 스킬 UI 와 같다 — 같은 <see cref="MoleSkillUiSettings"/> 를 읽고, 탐지·굴착 두 칸 바로 아래
     /// 세 번째 칸에 선다. Player 프리팹에 붙어 있으며 <b>로컬 소유 플레이어에서만</b> 캔버스를 만든다.
     /// 원 안 배치는 <c>Sprite/Skill_icon/ICON_HeadLight.png</c> 목업을 따른다 — 위에 퍼센트, 아래에 손전등 아이콘.
-    /// 탐지·굴착처럼 헤드라이트가 켜져 있으면 초록(on 아이콘), 꺼져 있으면 흰색(off 아이콘)이다.
+    /// 탐지·굴착처럼 헤드라이트가 켜져 있으면 초록(on 아이콘), 꺼져 있으면 흰색(off 아이콘)이다 — 충전 중에는 둘 다 보인다.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class HeadlampChargeHud : MonoBehaviour
@@ -72,13 +72,14 @@ namespace GhostHunter.UI
             if (_canvas == null)
                 return;
 
-            bool visible = local && _headlamp.IsOn;
+            float ratio = Mathf.Clamp01(_headlamp.Battery / Mathf.Max(1f, _headlamp.MaxBattery));
+            // 드릴카 안에서 실제로 차오르는 동안만 — 가득 차면 사라진다(LighterFuelHud 와 같다).
+            bool visible = local && _headlamp.IsCharging && ratio < 1f;
             if (_root.activeSelf != visible)
                 _root.SetActive(visible);
             if (!visible)
                 return;
 
-            float ratio = Mathf.Clamp01(_headlamp.Battery / Mathf.Max(1f, _headlamp.MaxBattery));
             _ring.fillAmount = ratio;
             ApplyOnState(_headlamp.IsOn);
 

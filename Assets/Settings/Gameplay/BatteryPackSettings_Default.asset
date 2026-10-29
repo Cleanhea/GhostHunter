@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 214c5d48275d415581c67bf37d5aa4d9, type: 3}
+  m_Name: BatteryPackSettings_Default
+  m_EditorClassIdentifier: GhostHunter.Gameplay::GhostHunter.Gameplay.Player.BatteryPackSettings
+  _capacity: 200
+  _baseRatePerSecond: 10
+  _rateStep: 5
+  _stepSeconds: 1
+  _maxRatePerSecond: 30
+  _useDistance: 2.5
+  _requestInterval: 0.1
+  _serverRateTolerance: 1.5
+  _displayColor: {r: 1, g: 0.78, b: 0.1, a: 1}
+  _emptyDisplayColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}

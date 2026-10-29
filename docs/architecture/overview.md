@@ -240,7 +240,7 @@ Player 프리팹 (NetworkObject, 플레이어당 1개 스폰)
 ├─ DetectionSkillController 탐지 상태 머신. 로컬 소유자만 실행, NetworkVariable/RPC 없음
 ├─ DetectionTargetMarker    작업 시스템이 활성화한 대상 마커(이동 가구/얼룩 enum)
 ├─ MoleBurrowController     굴착 상태·이동 잠금·매몰 상태
-└─ SanityNetworkState       서버 권위 개인 정신력·생존·어둠 노출 복제
+└─ SanityNetworkState       서버 권위 개인 정신력·생존 복제
 
 스테이지 씬 서비스 (ProtoTypeGame·Stage1·Tutorial)
 ├─ GameInstaller            Player·Sanity 스테이지 서비스 등록. Ghost·Cleaning 은 있으면 등록(Tutorial·Stage1 에 배선)
@@ -340,7 +340,7 @@ UI (씬별, 로컬 전용)
 | `Result` 씬 내용 | TBD — 승패 조건 확정 후 |
 | 클라이언트 씬 동기화 모드(`Single`/`Additive`) | **미검증** — [networking.md §3.5](networking.md), [pause-menu.md §5.5](pause-menu.md) |
 | 세이브/영속 데이터 방식 | TBD |
-| 오디오 시스템 | TBD |
+| 오디오 시스템 | 효과음·환경음 3D 사운드 기반은 구현됨(2026-10-29) → [audio-system.md](audio-system.md). 상황별 소리 내용(GDD §9)은 TBD |
 
 ---
 

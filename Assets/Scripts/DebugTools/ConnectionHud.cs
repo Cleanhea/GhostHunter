@@ -438,16 +438,14 @@ namespace GhostHunter.DebugTools
             DrawSanitySliders();
 
             GUILayout.BeginHorizontal();
-            if (GUILayout.Button("어둠 ON/OFF"))
-                _sanityDebug.ToggleLocalDarkness();
-            if (GUILayout.Button("귀신 이벤트 -10"))
+            if (GUILayout.Button("귀신 이벤트 -5"))
                 _sanityDebug.ApplyLocalGhostEvent();
             if (GUILayout.Button("아이템 +10"))
                 _sanityDebug.RestoreLocalSanity();
             GUILayout.EndHorizontal();
 
             GUILayout.BeginHorizontal();
-            if (GUILayout.Button("새 시체 -20"))
+            if (GUILayout.Button("새 시체 -10"))
                 _sanityDebug.WitnessNewCorpse();
             if (GUILayout.Button("같은 시체 재목격"))
                 _sanityDebug.WitnessSameCorpse();

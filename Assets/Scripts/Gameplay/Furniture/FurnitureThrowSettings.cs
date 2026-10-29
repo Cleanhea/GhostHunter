@@ -101,7 +101,9 @@ namespace GhostHunter.Gameplay.Furniture
         [Header("상태")]
         [SerializeField, Min(0f)] private float _relaunchLockDuration = 2f;
         [SerializeField, Min(0f)] private float _settledSpeed = 0.5f;
-        [SerializeField] private bool _launchOnFirstRelease;
+        [Tooltip("2인 잡기에서 한 명이 놓는 순간 바로 발사한다(남은 사람의 조준 방향). 끄면 남은 사람의 1인 투척 준비로 돌아가고 " +
+            "'같이 내려놓기' 대기가 쓰인다.")]
+        [SerializeField] private bool _launchOnFirstRelease = true;
 
         [Tooltip("2인 잡기에서 한 명이 먼저 놓은 뒤 이 시간(초) 안에 남은 한 명도 놓으면 '같이 내려놓았다'고 보고 " +
             "발사하지 않는다. 이 시간이 지나 놓으면 평소처럼 1인 투척이다. 0이면 끈다.")]

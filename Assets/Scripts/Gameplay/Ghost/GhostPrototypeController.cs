@@ -2347,8 +2347,9 @@ namespace GhostHunter.Gameplay.Ghost
             if (_generatedConeMesh != null)
                 Destroy(_generatedConeMesh);
 
+            // 반지름은 표시 전용 값이라 감지 거리와 다르다. 폭은 실제 시야각을 그대로 보여 준다.
             _generatedConeMesh = GhostVision.BuildConeMesh(
-                _highRisk.Value ? _settings.HighRiskVisionDistance : _settings.VisionDistance,
+                _settings.VisionConeDisplayDistance,
                 _highRisk.Value ? _settings.HighRiskVisionAngle : _settings.VisionAngle);
             _visionConeFilter.sharedMesh = _generatedConeMesh;
         }
@@ -2429,8 +2430,8 @@ namespace GhostHunter.Gameplay.Ghost
 
         private void ApplyPhaseVisual(GhostPhase phase)
         {
-            // §3.3: 평소엔 본체를 숨긴다. 경고·어택에만 노출. 디버그 토글은 그 위에 얹힌다.
-            bool visible = phase is GhostPhase.Active or GhostPhase.Warning or GhostPhase.Attack
+            // 평소(배회·경고 포함)엔 본체를 숨기고 어택에만 노출한다(2026-10-29 사용자 요청). 디버그 토글은 그 위에 얹힌다.
+            bool visible = phase == GhostPhase.Attack
                 || _debugForceVisible.Value
                 || (_localViewer != null && !_localViewer.HasSanity);
 

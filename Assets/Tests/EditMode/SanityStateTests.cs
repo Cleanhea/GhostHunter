@@ -33,43 +33,11 @@ namespace GhostHunter.Tests.EditMode
         }
 
         [Test]
-        public void 어둠에_10초_노출되면_정신력이_1_감소한다()
-        {
-            _state.TickDarkness(10f, true);
-
-            Assert.AreEqual(99, _state.Value);
-            Assert.AreEqual(0f, _state.DarknessExposureSeconds, 0.001f);
-        }
-
-        [Test]
-        public void 어둠_누적은_노출이_아닐_때_초기화되지_않고_정지한다()
-        {
-            _state.TickDarkness(5f, true);
-            _state.TickDarkness(30f, false);
-
-            Assert.AreEqual(5f, _state.DarknessExposureSeconds, 0.001f);
-            Assert.AreEqual(100, _state.Value);
-
-            _state.TickDarkness(5f, true);
-
-            Assert.AreEqual(99, _state.Value);
-        }
-
-        [Test]
-        public void 긴_어둠_노출은_10초_구간을_모두_적용하고_나머지를_보존한다()
-        {
-            _state.TickDarkness(25f, true);
-
-            Assert.AreEqual(98, _state.Value);
-            Assert.AreEqual(5f, _state.DarknessExposureSeconds, 0.001f);
-        }
-
-        [Test]
-        public void 귀신_이벤트_목격은_정신력을_15_감소시킨다()
+        public void 귀신_이벤트_목격은_정신력을_5_감소시킨다()
         {
             Assert.IsTrue(_state.ApplyGhostEvent());
 
-            Assert.AreEqual(85, _state.Value);
+            Assert.AreEqual(95, _state.Value);
         }
 
         [Test]
@@ -80,27 +48,25 @@ namespace GhostHunter.Tests.EditMode
         }
 
         [Test]
-        public void 같은_시체를_다시_목격해도_한_번만_20_감소한다()
+        public void 같은_시체를_다시_목격해도_한_번만_10_감소한다()
         {
             Assert.IsTrue(_state.WitnessCorpse(17));
             Assert.IsFalse(_state.WitnessCorpse(17));
 
-            Assert.AreEqual(80, _state.Value);
+            Assert.AreEqual(90, _state.Value);
         }
 
         [Test]
-        public void 이전_정신력_상태는_사망과_어둠_누적과_시체_목격을_보존한다()
+        public void 이전_정신력_상태는_사망과_시체_목격을_보존한다()
         {
-            _state.TickDarkness(4f, true);
             _state.WitnessCorpse(17);
             _state.MarkDead();
             SanityState.Snapshot snapshot = _state.CaptureSnapshot();
 
             var restored = new SanityState(_settings);
             restored.RestoreSnapshot(snapshot);
-            Assert.AreEqual(80, restored.Value);
+            Assert.AreEqual(90, restored.Value);
             Assert.IsFalse(restored.IsAlive);
-            Assert.AreEqual(4f, restored.DarknessExposureSeconds, 0.001f);
             restored.Revive();
             Assert.IsFalse(restored.WitnessCorpse(17));
         }
@@ -150,14 +116,12 @@ namespace GhostHunter.Tests.EditMode
             Assert.IsFalse(_state.ApplyGhostEvent());
             Assert.IsFalse(_state.Restore(10));
             Assert.IsFalse(_state.WitnessCorpse(1));
-            Assert.IsFalse(_state.TickDarkness(10f, true));
         }
 
         [Test]
         public void 디버프는_20_10_5_이하에서_누적된다()
         {
-            // 어둠 노출(−1/10초)로 정확한 경계값을 만든다. 귀신 이벤트(−15)는 임계값 간격(10·5)보다
-            // 커서 20↔10 밴드를 건너뛸 수 있어 경계 검증에 못 쓴다(§6.3 정신력 감소량과는 별개 검증).
+            // 감소 이벤트 크기에 기대지 않고 경계값을 정확히 맞춘다.
             ReduceSanityTo(_settings.CameraNoiseThreshold);
             Assert.AreEqual(SanityDebuffFlags.CameraNoise, _state.Debuffs);
 
@@ -176,8 +140,7 @@ namespace GhostHunter.Tests.EditMode
 
         private void ReduceSanityTo(int target)
         {
-            while (_state.Value > target)
-                _state.TickDarkness(_settings.DarknessInterval, true);
+            Assert.IsTrue(_state.SetTo(target));
         }
 
         [Test]
@@ -187,7 +150,7 @@ namespace GhostHunter.Tests.EditMode
             _state.ResetForStage();
 
             Assert.IsTrue(_state.WitnessCorpse(44));
-            Assert.AreEqual(80, _state.Value);
+            Assert.AreEqual(90, _state.Value);
         }
 
         [Test]
@@ -227,21 +190,6 @@ namespace GhostHunter.Tests.EditMode
         }
 
         [Test]
-        public void 부활_직후에는_어둠_누적이_남아_있지_않다()
-        {
-            // 감소 직전까지 누적시킨 뒤 죽는다. 부활하자마자 그 조각이 1틱을 깎으면 안 된다.
-            _state.TickDarkness(_settings.DarknessInterval * 0.9f, true);
-            Assert.IsTrue(_state.MarkDead());
-            Assert.IsTrue(_state.Revive());
-
-            int afterRevive = _state.Value;
-            Assert.IsFalse(
-                _state.TickDarkness(_settings.DarknessInterval * 0.2f, true),
-                "부활 직후 남은 어둠 누적으로 정신력이 깎였습니다.");
-            Assert.AreEqual(afterRevive, _state.Value);
-        }
-
-        [Test]
         public void 사망_중에는_정신력이_변하지_않는다()
         {
             ReduceSanityTo(60);
@@ -250,9 +198,32 @@ namespace GhostHunter.Tests.EditMode
 
             Assert.IsFalse(_state.ApplyGhostEvent());
             Assert.IsFalse(_state.Restore(20));
-            Assert.IsFalse(_state.TickDarkness(_settings.DarknessInterval * 3f, true));
 
             Assert.AreEqual(atDeath, _state.Value);
+        }
+
+        [TestCase(2, 3)]
+        [TestCase(3, 5)]
+        [TestCase(5, 10)]
+        [TestCase(10, 15)]
+        public void 귀중품_금액은_표대로_정신력_증가량이_된다(int dollars, int expected)
+        {
+            Assert.IsTrue(_settings.TryGetValuableRestore(dollars, out int restore));
+            Assert.AreEqual(expected, restore);
+
+            _state.SetTo(40);
+            Assert.IsTrue(_state.Restore(restore));
+            Assert.AreEqual(40 + expected, _state.Value);
+        }
+
+        [TestCase(0)]
+        [TestCase(1)]
+        [TestCase(4)]
+        [TestCase(-3)]
+        public void 표에_없는_귀중품_금액은_정신력을_올리지_않는다(int dollars)
+        {
+            Assert.IsFalse(_settings.TryGetValuableRestore(dollars, out int restore));
+            Assert.AreEqual(0, restore);
         }
 
         [TestCase(199, 2, 100)]

@@ -45,5 +45,5 @@ MonoBehaviour:
   _torqueScale: 2
   _relaunchLockDuration: 2
   _settledSpeed: 0.5
-  _launchOnFirstRelease: 0
+  _launchOnFirstRelease: 1
   _jointPutDownWindow: 2.5

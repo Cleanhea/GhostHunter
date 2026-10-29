@@ -3,6 +3,10 @@
 > **2026-09-28:** 이 문서의 `GhostHunter > …` 설치·생성·검증 메뉴와 `Editor/…Setup.cs` 도구는 [ADR-0020](decisions/ADR-0020-remove-one-off-editor-setup-tools.md)으로 삭제됐다.
 > 도구 실행 절차·결과는 구현 당시 기록이다. 지금은 저장된 씬·프리팹이 원본이고 직접 고친다.
 
+> **2026-10-29 변경 (원문 0.4, 사용자 확정):** 귀신 이벤트 15→**5**, 시체 20→**10**, **어둠 노출 감소 삭제**
+> (`TickDarkness`·`_isDarknessExposed`·`ServerSetDarknessExposed`·스냅샷 어둠 필드·`PlayerHeadlamp` 어둠 판정·F1 `어둠 ON/OFF` 제거),
+> 귀중품·돈 발견 증가 API `ServerApplyValuableFound(int dollars)` + 금액표 추가. 아래 본문의 어둠 서술과 §8 검증 기록은
+> **이 변경 이전의 구현 당시 기록**이며, 어둠·15·20 수치가 나오면 이 문단이 우선한다.
 > 상태: **코어 P1 + World Space 정신력 모니터 구현 및 Local Host 검증 완료 (2026-08-24).
 > 귀신 프로토타입의 모의 정신력을 제거하고 팀 평균 표시로 통합 (2026-08-24).
 > 집 서쪽 테스트베드와 카메라 노이즈 연출 추가 (2026-08-24) — **단, Volume 오버라이드 미저장
@@ -14,15 +18,13 @@
 
 ```text
 외부 서버 판정
-  ├─ 최종 어둠 노출 여부
   ├─ 귀신 이벤트 목격
   ├─ 시체 NetworkObjectId 목격
-  ├─ 정신력 아이템 회복량
+  ├─ 정신력 아이템 회복량 / 귀중품·돈 발견 금액
   └─ 플레이어 사망
           ↓
 Player/SanityNetworkState (Server 권위)
   ├─ 개인 정신력 0~100
-  ├─ 어둠 노출 누적
   ├─ 동일 시체 중복 방지
   └─ NetworkVariable 복제
           ↓ Register / Unregister
@@ -43,16 +45,18 @@ Game/SanitySystem/SanityTeamService
 포함:
 
 - 스테이지 시작 개인 정신력 100%
-- 서버 권위 개인 정신력·생존·최종 어둠 노출 상태 복제
-- 어둠 누적 10초마다 1 감소, 비노출 중 누적 시간 일시 정지
-- 귀신 이벤트 목격 15 감소
-- 시체 최초 목격 20 감소와 `NetworkObjectId`별 중복 방지
+- 서버 권위 개인 정신력·생존 상태 복제
+- ~~어둠 누적 10초마다 1 감소~~ — **삭제 (2026-10-29)**
+- 귀신 이벤트 목격 5 감소 (2026-10-29: 15 → 5)
+- 활동 중 귀신 본체 목격 5 감소 (계속 보면 5초마다 5, 서버 `ServerTickBodyWitness`)
+- 시체 최초 목격 10 감소와 `NetworkObjectId`별 중복 방지 (2026-10-29: 20 → 10)
 - 양수 아이템 회복 API와 0~100 Clamp
+- 귀중품·돈 발견 시 금액($)별 회복 API `ServerApplyValuableFound` — 표는 `SanitySystemSettings._valuableRewards`
+  ($2 +3 / $3 +5 / $5 +10 / $10 +15, 표에 없는 금액은 무시 — 이 4종이 전체 금액 체계, 획득자 개인에게만 적용). **호출부(귀중품 획득 시스템)는 아직 없다**
 - 생존·접속 중인 플레이어 팀 평균과 일반 반올림 정수
 - 20·10·5 이하 누적 디버프 상태와 숨·심장 1회 트리거 이벤트
 - 사망 시 개인 수치 비활성화, 팀 평균 제외, `-%` 디버그 표시
-- **부활** — 생존 상태만 되돌리고 정신력 값·시체 목격 기록은 유지한다. 어둠 누적은 0으로 비운다
-  (죽어 있는 동안 멈춰 있던 조각이 부활 직후 1틱을 깎는 것을 막는다).
+- **부활** — 생존 상태만 되돌리고 정신력 값·시체 목격 기록은 유지한다.
   개인 부활과 팀 전원 부활 두 가지를 개발 HUD(Tab)에 노출한다
 - 귀신 프로토타입 F1 HUD의 팀 평균 정신력 표시 — 정신력 값의 출처를 이 시스템 하나로 통일
 - 개인 정신력 20 이하에서 켜지는 카메라 테두리 연출(비네트+필름 그레인+색수차)
@@ -71,8 +75,8 @@ Game/SanitySystem/SanityTeamService
   현재 `ServerRevive()` 는 **개발 HUD 전용**이며 게임플레이 호출부가 없다. 규칙은 미정이다
   ([../project/sanity-system.md](../project/sanity-system.md), [../project/gdd.md §2](../project/gdd.md) D-4)
 
-- ~~헤드라이트 입력과 드릴 카 안전 구역 판정~~ — 2026-09-28 `PlayerHeadlamp`가 서버에서 판정해
-  `ServerSetDarknessExposed`를 부른다(스테이지 씬 && 생존 && 꺼짐 && 드릴카 밖) → [headlamp.md](headlamp.md)
+- ~~헤드라이트 입력과 드릴 카 안전 구역 판정~~ — 2026-09-28 연결했으나 **2026-10-29 어둠 감소 삭제로 연결 제거.**
+  헤드라이트는 이제 정신력과 무관하다 → [headlamp.md](headlamp.md)
 - 실제 귀신 이벤트·시체·아이템·사망 시스템에서의 API 호출
 - 속삭임, 숨·심장 SFX 재생 컴포넌트와 오디오 에셋 (카메라 노이즈는 구현했다)
 - 정식 시체·귀신 이벤트·아이템 시스템 (테스트베드는 그 자리를 임시로 채운 것이다)
@@ -85,8 +89,6 @@ Game/SanitySystem/SanityTeamService
 | --- | --- | --- |
 | 개인 정신력 | Server | `NetworkVariable<int>` / Everyone Read |
 | 생존 여부 | Server | `NetworkVariable<bool>` / Everyone Read |
-| 최종 어둠 노출 여부 | Server | `NetworkVariable<bool>` / Everyone Read |
-| 어둠 누적 초 | Server 로컬 상태 | 복제하지 않음 |
 | 목격한 시체 ID 집합 | Server 로컬 상태 | 복제하지 않음 |
 | World Space 개인·팀 모니터 | 각 Client | `CopyPlayerStates` + `TryGetTeamAverage`를 0.1초 간격으로 읽어 P1~P4와 팀 평균 정수 퍼센트 갱신 |
 | 귀신 F1 HUD의 팀 평균 표시 | 각 Client | `TryGetTeamAverage`를 그대로 읽는다. 귀신 `NetworkVariable`에는 정신력이 없다 |
@@ -105,10 +107,10 @@ Game/SanitySystem/SanityTeamService
 | API | 호출 시점 |
 | --- | --- |
 | `ServerResetForStage()` | 스테이지 시작 |
-| `ServerSetDarknessExposed(bool)` | 자신의 헤드라이트 OFF이며 드릴 카 밖인지 계산한 최종 결과 변경 시 — 호출부 `PlayerHeadlamp`(F1 어둠 토글은 다음 판정까지만 유지) |
 | `ServerApplyGhostEventWitnessed()` | 서버가 귀신 이벤트 목격을 확정했을 때 |
 | `ServerApplyCorpseWitnessed(ulong)` | 서버가 시체 최초 가시 판정을 확정했을 때 |
 | `ServerRestoreSanity(int)` | 정신력 아이템 사용을 서버가 승인했을 때 |
+| `ServerApplyValuableFound(int dollars)` | 서버가 귀중품·돈 획득을 확정했을 때(획득자의 상태에). 금액표에 없으면 `false` — **호출부 없음, 추후 연결** |
 | `ServerMarkDead()` | 사망 판정 확정 시 |
 | `ServerRevive()` | 부활 판정 확정 시 — **현재 호출부는 개발 HUD(Tab)뿐이다** |
 
@@ -151,6 +153,9 @@ Player 프리팹과 Game 씬을 다시 구워도 정신력 컴포넌트와 모�
 
 **Stage1 모니터 위치(2026-09-29):** 드릴카 실내 앞벽(칸막이 위) 가운데, 폭 1.3m(배율 0.00135417) — [stage-system.md §2.1](../project/stage-system.md). 씬 저장값이 원본이다.
 
+**모니터 확정 (2026-10-29):** 원문 0.4의 "드릴 카 내부 목록형 모니터"는 별도로 만들지 않고 이 월드 P1~P4 슬롯 모니터가 그 역할이다.
+미접속 슬롯은 행을 지우지 않고 흑백 `-%`로 둔다 → [../project/sanity-system.md §6.2](../project/sanity-system.md).
+
 **ProtoTypeGame 모니터 위치(2026-09-28):** B안 집(`House_Prototype_PlanB`) 현관 바로 위, 2층 남쪽 외벽 바깥면에서
 3cm 앞, 높이 4.25m. 회전은 0이라 앞마당·드릴카 쪽에서 바로 읽힌다. 설치 도구가 현관 X와 외벽 면을
 씬에서 찾아 계산하고, B안 집이 없는 씬에서는 예전 자리 `(0, 4.25, 10.25)`를 쓴다.
@@ -183,9 +188,9 @@ Player 프리팹과 Game 씬을 다시 구워도 정신력 컴포넌트와 모�
 
 | 칸 | 위치 | 소품 | 기대 결과 |
 | --- | --- | --- | --- |
-| 북 (`z` 2.2~5) | `(-18.5, 3.6)` | `Corpse_A` (id 1) | 최초 목격 −20, 다시 봐도 무변화 |
-| 중 (`z` -0.8~2.2) | `(-18.5, 0.7)` | `Corpse_B` (id 2) | 다른 시체라 또 −20 |
-| 남 (`z` -5~-0.8) | `(-18, -3)` | `GhostEvent` | 발생 5초 / 휴지 5초, 발생 1회당 −15 |
+| 북 (`z` 2.2~5) | `(-18.5, 3.6)` | `Corpse_A` (id 1) | 최초 목격 −10, 다시 봐도 무변화 |
+| 중 (`z` -0.8~2.2) | `(-18.5, 0.7)` | `Corpse_B` (id 2) | 다른 시체라 또 −10 |
+| 남 (`z` -5~-0.8) | `(-18, -3)` | `GhostEvent` | 발생 5초 / 휴지 5초, 발생 1회당 −5 |
 
 - 세 칸은 벽으로 막는다. 옆 칸 소품이 시야에 같이 들어오면 무엇이 깎았는지 구분할 수 없다.
 - 목격 판정은 서버가 한다 — 거리 12m, 수평 시야각 70°, 물리 가림. **단순 근접은 조건이 아니다.**
@@ -204,6 +209,12 @@ Player 프리팹과 Game 씬을 다시 구워도 정신력 컴포넌트와 모�
 
 ## 8. 검증 기록
 
+**2026-10-29 (원문 0.4 반영):** 검증용 복제 프로젝트 EditMode 512건 중 502 통과. 컴파일 오류 0건, `SanityStateTests`(귀신 5·시체 10·
+귀중품 금액표·표 밖 금액 무시·어둠 테스트 삭제)·`StageRecoverySnapshotTests` 통과. 실패 10건은 이 변경과 무관하다 —
+`AudioServiceTests` 7건·`SoundVoiceAllocatorTests` 1건(브랜치의 미커밋 오디오 작업)과 `MoleSkillWiringTests` 2건
+(`GhostPrototypeController`·`PlayerInputReader` 소스 문자열 검사, 두 파일은 이번에 수정하지 않았다).
+Unity 에디터·Local Host 실기 확인은 하지 않았다. 아래 기록은 이 변경 **이전** 수치다.
+
 2026-08-23 코어 검증 및 2026-08-24 World Space 모니터 교체 검증,
 Unity 6000.3.20f1 Editor + Local Host:
 
@@ -211,7 +222,7 @@ Unity 6000.3.20f1 Editor + Local Host:
 - EditMode **60/60 통과** — 정신력 계산 13건과 Player 배선 검사 포함
 - PlayMode **12/12 통과** — 기존 네트워크 던지기 회귀 없음
 - Local Host 1명: 개인 100%, 팀 평균 100% 시작 확인
-- 어둠 10초 노출 후 99%, OFF 중 누적 일시 정지 확인
+- ~~어둠 10초 노출 후 99%, OFF 중 누적 일시 정지 확인~~ (2026-10-29 어둠 감소 삭제로 해당 없음)
 - 귀신 이벤트 10 감소, 새 시체 20 감소, 같은 시체 재목격 무감소 확인
 - 디버그 아이템 10 회복과 100 Clamp 확인
 - 19% 노이즈, 9% 노이즈+속삭임, 0% 전체 누적 상태 확인
@@ -263,6 +274,6 @@ PlayMode **12/12** 통과. Local Host 1명에서 귀신 HUD의 `팀 정신력`�
 관련: [정신력 시스템 기획서](../project/sanity-system.md) · [networking.md](networking.md) ·
 [ghost-prototype.md](ghost-prototype.md) · [testing.md](../workflow/testing.md)
 
-최종 갱신: 2026-09-04 (부활 API `ServerRevive()` 와 개발 HUD 부활 버튼 2종 추가 — 정신력 값은 유지하고
+최종 갱신: 2026-10-29 (원문 0.4 반영 — 귀신 5·시체 10·어둠 삭제·귀중품 증가 API). 이전: 2026-09-04 (부활 API `ServerRevive()` 와 개발 HUD 부활 버튼 2종 추가 — 정신력 값은 유지하고
 생존 상태만 되돌린다. **게임 규칙으로서의 부활은 여전히 미정이며 게임플레이 호출부가 없다.**
 이전: 귀신 이벤트 목격 감소량 10 → 15 확정, G-6 해결 반영)

@@ -311,28 +311,13 @@ namespace GhostHunter.Gameplay.Sanity
             return true;
         }
 
-        public void ToggleLocalDarkness()
-        {
-            if (!TryGetControllableLocalState(out SanityNetworkState state))
-                return;
-
-            bool next = !state.IsDarknessExposed;
-            if (!state.ServerSetDarknessExposed(next))
-            {
-                _lastStatus = "어둠 노출 변경 실패: 생존 플레이어가 필요합니다.";
-                return;
-            }
-
-            _lastStatus = next ? "어둠 노출을 시작했습니다." : "어둠 노출을 일시 정지했습니다.";
-        }
-
         public void ApplyLocalGhostEvent()
         {
             if (!TryGetControllableLocalState(out SanityNetworkState state))
                 return;
 
             _lastStatus = state.ServerApplyGhostEventWitnessed()
-                ? "귀신 이벤트 목격: 정신력 15 감소."
+                ? "귀신 이벤트 목격: 정신력 감소."
                 : "귀신 이벤트 적용 없음.";
         }
 
@@ -346,7 +331,7 @@ namespace GhostHunter.Gameplay.Sanity
             _lastDebugCorpse = corpseId;
 
             _lastStatus = state.ServerApplyCorpseWitnessed(corpseId)
-                ? "새 시체 목격: 정신력 20 감소."
+                ? "새 시체 목격: 정신력 감소."
                 : "새 시체 목격 적용 없음.";
         }
 
@@ -542,12 +527,6 @@ namespace GhostHunter.Gameplay.Sanity
                     _statusBuilder.Append(state.Sanity);
                     _statusBuilder.Append("% / ");
                     _statusBuilder.Append(DebuffLabel(state.CurrentDebuffs));
-                    if (state.IsDarknessExposed)
-                    {
-                        _statusBuilder.Append(" / 어둠 ");
-                        _statusBuilder.Append(state.DarknessExposureSeconds.ToString("0.0"));
-                        _statusBuilder.Append('s');
-                    }
                 }
                 else
                 {

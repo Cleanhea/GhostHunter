@@ -8,10 +8,10 @@ namespace GhostHunter.Gameplay.Sanity
     /// <summary>테스트베드 소품이 어떤 정신력 감소 조건을 흉내 내는지 정한다.</summary>
     public enum SanityWitnessKind : byte
     {
-        /// <summary>동료 시체. 최초 목격만 20 감소하고 같은 시체는 다시 줄지 않는다.</summary>
+        /// <summary>동료 시체. 최초 목격만 감소하고 같은 시체는 다시 줄지 않는다.</summary>
         Corpse,
 
-        /// <summary>귀신 이벤트. 한 번의 발생당 플레이어마다 한 번 10 감소한다.</summary>
+        /// <summary>귀신 이벤트. 한 번의 발생당 플레이어마다 한 번 감소한다.</summary>
         GhostEvent,
     }
 

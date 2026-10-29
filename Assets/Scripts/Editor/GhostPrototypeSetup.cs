@@ -223,7 +223,7 @@ namespace GhostHunter.EditorTools
                 coneObject.transform.localPosition = new Vector3(0f, 0.05f, 0f);
                 MeshFilter coneFilter = coneObject.AddComponent<MeshFilter>();
                 coneFilter.sharedMesh = GhostVision.BuildConeMesh(
-                    settings.VisionDistance,
+                    settings.VisionConeDisplayDistance,
                     settings.VisionAngle);
                 MeshRenderer coneRenderer = coneObject.AddComponent<MeshRenderer>();
                 coneRenderer.sharedMaterial = CreateUnlitMaterial(

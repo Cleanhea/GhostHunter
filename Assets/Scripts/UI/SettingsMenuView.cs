@@ -276,11 +276,19 @@ namespace GhostHunter.UI
                 () => _settings?.MasterVolume ?? 1f,
                 value => { if (_settings != null) _settings.MasterVolume = value; },
                 FormatPercent);
+            AddSlider(page, "효과음 음량", 0f, 1f,
+                () => _settings?.SfxVolume ?? 1f,
+                value => { if (_settings != null) _settings.SfxVolume = value; },
+                FormatPercent);
+            AddSlider(page, "환경음 음량", 0f, 1f,
+                () => _settings?.AmbientVolume ?? 1f,
+                value => { if (_settings != null) _settings.AmbientVolume = value; },
+                FormatPercent);
             AddSlider(page, "음성 채팅 음량", 0f, 1f,
                 () => _settings?.VoiceVolume ?? 1f,
                 value => { if (_settings != null) _settings.VoiceVolume = value; },
                 FormatPercent);
-            SettingsUiKit.CreateNote(page, "음성 채팅 음량은 다른 플레이어의 목소리 전체에 곱해집니다. 전체 음량은 목소리를 포함한 모든 소리에 적용됩니다.");
+            SettingsUiKit.CreateNote(page, "효과음·환경음·음성 채팅 음량은 각 소리에만 곱해집니다. 전체 음량은 목소리를 포함한 모든 소리에 적용됩니다.");
 
             SettingsUiKit.CreateSectionHeader(page, "플레이어별 음량");
             _participantList = SettingsUiKit.CreateRect("Participants", page);

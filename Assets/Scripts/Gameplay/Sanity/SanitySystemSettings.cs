@@ -14,11 +14,19 @@ namespace GhostHunter.Gameplay.Sanity
         [SerializeField] private int _startingSanity = 100;
 
         [Header("Decrease")]
-        [SerializeField] private float _darknessInterval = 10f;
-        [SerializeField] private int _darknessDecrease = 1;
-        [SerializeField] private int _ghostEventDecrease = 15;
+        [SerializeField] private int _ghostEventDecrease = 5;
         [SerializeField] private int _ghostBodyWitnessDecrease = 5;
-        [SerializeField] private int _corpseWitnessDecrease = 20;
+        [SerializeField] private int _corpseWitnessDecrease = 10;
+
+        [Header("Increase")]
+        [Tooltip("귀중품·돈을 발견한 금액($)별 정신력 증가량. 표에 없는 금액은 증가하지 않는다.")]
+        [SerializeField] private ValuableReward[] _valuableRewards =
+        {
+            new ValuableReward { Dollars = 2, Restore = 3 },
+            new ValuableReward { Dollars = 3, Restore = 5 },
+            new ValuableReward { Dollars = 5, Restore = 10 },
+            new ValuableReward { Dollars = 10, Restore = 15 },
+        };
 
         [Header("Debuff thresholds")]
         [SerializeField] private int _cameraNoiseThreshold = 20;
@@ -30,8 +38,6 @@ namespace GhostHunter.Gameplay.Sanity
         public int MinimumSanity => _minimumSanity;
         public int MaximumSanity => _maximumSanity;
         public int StartingSanity => _startingSanity;
-        public float DarknessInterval => _darknessInterval;
-        public int DarknessDecrease => _darknessDecrease;
         public int GhostEventDecrease => _ghostEventDecrease;
         public int GhostBodyWitnessDecrease => _ghostBodyWitnessDecrease;
         public int CorpseWitnessDecrease => _corpseWitnessDecrease;
@@ -41,14 +47,31 @@ namespace GhostHunter.Gameplay.Sanity
         public float WhisperMinimumInterval => _whisperMinimumInterval;
         public float WhisperMaximumInterval => _whisperMaximumInterval;
 
+        /// <summary>발견한 금액($)에 대응하는 정신력 증가량. 표에 없는 금액이면 false.</summary>
+        public bool TryGetValuableRestore(int dollars, out int restore)
+        {
+            if (_valuableRewards != null)
+            {
+                for (int i = 0; i < _valuableRewards.Length; i++)
+                {
+                    if (_valuableRewards[i].Dollars != dollars)
+                        continue;
+
+                    restore = _valuableRewards[i].Restore;
+                    return restore > 0;
+                }
+            }
+
+            restore = 0;
+            return false;
+        }
+
         private void OnValidate()
         {
             _minimumSanity = Mathf.Max(0, _minimumSanity);
             _maximumSanity = Mathf.Max(_minimumSanity + 1, _maximumSanity);
             _startingSanity = Mathf.Clamp(_startingSanity, _minimumSanity, _maximumSanity);
 
-            _darknessInterval = Mathf.Max(0.1f, _darknessInterval);
-            _darknessDecrease = Mathf.Max(1, _darknessDecrease);
             _ghostEventDecrease = Mathf.Max(1, _ghostEventDecrease);
             _ghostBodyWitnessDecrease = Mathf.Max(1, _ghostBodyWitnessDecrease);
             _corpseWitnessDecrease = Mathf.Max(1, _corpseWitnessDecrease);
@@ -70,6 +93,13 @@ namespace GhostHunter.Gameplay.Sanity
             _whisperMaximumInterval = Mathf.Max(
                 _whisperMinimumInterval,
                 _whisperMaximumInterval);
+        }
+
+        [System.Serializable]
+        public struct ValuableReward
+        {
+            public int Dollars;
+            public int Restore;
         }
     }
 }

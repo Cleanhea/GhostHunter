@@ -57,13 +57,13 @@
 | [0020](ADR-0020-remove-one-off-editor-setup-tools.md) | 일회성 에디터 설치·생성 도구를 지우고 씬·프리팹 자체를 원본으로 삼는다 | Accepted | 2026-09-28 |
 | [0021](ADR-0021-tutorial-first-stage.md) | 첫 출발은 Tutorial(세션은 InGameLobby에서), 정산 뒤 다음 출발은 Stage1 | Accepted | 2026-10-02 |
 | [0022](ADR-0022-unity-microphone-opus-voice.md) | 음성 캡처를 Unity Microphone + Opus(Concentus)로 바꾼다 | Accepted | 2026-10-03 |
+| [0023](ADR-0023-server-notified-3d-sound.md) | 서버가 소리를 알리고 각 접속자가 3D 로 재생한다(객체별 NetworkSoundEmitter) | Accepted | 2026-10-29 |
 
 ## 5. 작성 대기
 
 확정되면 ADR을 남겨야 할 항목:
 
 - 세이브/설정 데이터 영속화 방식
-- 오디오 시스템 구조
 - 승패 조건·라운드 구조가 정해진 뒤의 세션 수명주기
 - 실제 Steam App ID 발급 후 480 교체
 

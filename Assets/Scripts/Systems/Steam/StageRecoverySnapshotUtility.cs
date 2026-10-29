@@ -97,6 +97,10 @@ namespace GhostHunter.Systems.Steam
                 snapshot.PoolFurniture[i] = pool[i].CaptureStageState(ScenePath(pool[i].transform));
             }
 
+            BatteryPack pack = Object.FindFirstObjectByType<BatteryPack>();
+            if (pack != null && pack.IsSpawned)
+                pack.CaptureStageState(snapshot);
+
             DoorInteractable[] doors = Object.FindObjectsByType<DoorInteractable>(FindObjectsSortMode.None);
             snapshot.Doors = new StageRecoverySnapshot.DoorState[doors.Length];
             for (int i = 0; i < doors.Length; i++)
@@ -135,6 +139,7 @@ namespace GhostHunter.Systems.Steam
                     return false;
             foreach (FurnitureAssemblyZone zone in FurnitureAssemblyZone.All)
                 zone.ServerRefreshCandidates();
+            Object.FindFirstObjectByType<BatteryPack>()?.ServerRestoreStageState(snapshot);
 
             DoorInteractable[] doors = Object.FindObjectsByType<DoorInteractable>(FindObjectsSortMode.None);
             var doorByPath = new Dictionary<string, DoorInteractable>(doors.Length);

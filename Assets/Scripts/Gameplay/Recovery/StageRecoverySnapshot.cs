@@ -19,6 +19,8 @@ namespace GhostHunter.Gameplay.Recovery
         public DoorState[] Doors = Array.Empty<DoorState>();
         public GhostState Ghost;
         public int FurnitureSeed;
+        public bool HasBatteryPack;
+        public float BatteryPackRemaining;
         public bool FurnitureReady;
         public uint StainRevision;
 
@@ -30,8 +32,6 @@ namespace GhostHunter.Gameplay.Recovery
             public Quaternion Rotation;
             public int Sanity;
             public bool Alive;
-            public bool DarknessExposed;
-            public float DarknessSeconds;
             public ulong[] WitnessedCorpses;
             public Vector3 CorpsePosition;
             public Quaternion CorpseRotation;
@@ -74,6 +74,7 @@ namespace GhostHunter.Gameplay.Recovery
             public Vector3 LinearVelocity;
             public Vector3 AngularVelocity;
             public int Durability;
+            public bool Bundled;
         }
 
         [Serializable]

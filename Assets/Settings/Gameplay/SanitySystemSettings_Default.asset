@@ -15,11 +15,18 @@ MonoBehaviour:
   _minimumSanity: 0
   _maximumSanity: 100
   _startingSanity: 100
-  _darknessInterval: 10
-  _darknessDecrease: 1
-  _ghostEventDecrease: 15
+  _ghostEventDecrease: 5
   _ghostBodyWitnessDecrease: 5
-  _corpseWitnessDecrease: 20
+  _corpseWitnessDecrease: 10
+  _valuableRewards:
+  - Dollars: 2
+    Restore: 3
+  - Dollars: 3
+    Restore: 5
+  - Dollars: 5
+    Restore: 10
+  - Dollars: 10
+    Restore: 15
   _cameraNoiseThreshold: 20
   _whisperThreshold: 10
   _breathingHeartbeatThreshold: 5

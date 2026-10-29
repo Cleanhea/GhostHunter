@@ -170,6 +170,39 @@ namespace GhostHunter.Tests.EditMode
         }
 
         [Test]
+        public void 효과음_환경음_음량은_기본_100퍼센트이고_저장되며_잘린다()
+        {
+            var storage = new MemoryStorage();
+            UserSettingsStore first = Create(storage);
+            Assert.AreEqual(1f, first.SfxVolume);
+            Assert.AreEqual(1f, first.AmbientVolume);
+
+            first.SfxVolume = 0.4f;
+            first.AmbientVolume = 7f;
+            UserSettingsStore second = Create(storage);
+
+            Assert.AreEqual(0.4f, second.SfxVolume, 1e-5f);
+            Assert.AreEqual(1f, second.AmbientVolume);
+            second.SfxVolume = -1f;
+            Assert.AreEqual(0f, second.SfxVolume);
+        }
+
+        [Test]
+        public void 오디오_탭_되돌리기는_효과음_환경음_음량도_되돌린다()
+        {
+            UserSettingsStore store = Create(new MemoryStorage());
+            store.SfxVolume = 0.1f;
+            store.AmbientVolume = 0.2f;
+            store.MouseSensitivity = 2f;
+
+            store.ResetToDefaults(UserSettingsGroup.Audio);
+
+            Assert.AreEqual(1f, store.SfxVolume);
+            Assert.AreEqual(1f, store.AmbientVolume);
+            Assert.AreEqual(2f, store.MouseSensitivity, 1e-5f);
+        }
+
+        [Test]
         public void 음성_서비스는_개인_설정의_값을_읽고_쓴다()
         {
             UserSettingsStore store = Create(new MemoryStorage());

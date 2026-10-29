@@ -577,6 +577,7 @@ GameObject:
   - component: {fileID: 4821937564012837465}
   - component: {fileID: 5930182746601928374}
   - component: {fileID: 4739941112550861376}
+  - component: {fileID: 7400000000000000001}
   m_Layer: 8
   m_Name: Player
   m_TagString: Untagged
@@ -1329,3 +1330,16 @@ Animator:
   m_CorrespondingSourceObject: {fileID: 5866666021909216657, guid: 3c482561bf807524b97ae8e4ed822eee, type: 3}
   m_PrefabInstance: {fileID: 4101471178062256266}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &7400000000000000001
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6853845278674404290}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c7c186fe8d0841028f2f04f0a0c29389, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: GhostHunter.Gameplay::GhostHunter.Gameplay.Player.PlayerBatteryCharger
+  ShowTopMostFoldoutHeaderGroup: 1

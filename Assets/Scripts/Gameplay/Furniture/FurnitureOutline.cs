@@ -43,6 +43,19 @@ namespace GhostHunter.Gameplay.Furniture
             _target.StateChanged -= HandleStateChanged;
         }
 
+        /// <summary>
+        /// 코드로 만든 형태(짐더미)의 윤곽선 셸을 목록에 더한다. 이 컴포넌트의 <c>Awake</c>보다 먼저 불러도 된다.
+        /// </summary>
+        public void AddOutlineRenderer(Renderer renderer)
+        {
+            int length = _outlineRenderers != null ? _outlineRenderers.Length : 0;
+            var extended = new Renderer[length + 1];
+            for (int i = 0; i < length; i++)
+                extended[i] = _outlineRenderers[i];
+            extended[length] = renderer;
+            _outlineRenderers = extended;
+        }
+
         public void SetTargeted(bool targeted)
         {
             _isTargeted = targeted;
