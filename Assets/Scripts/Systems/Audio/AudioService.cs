@@ -371,12 +371,16 @@ namespace GhostHunter.Systems.Audio
 
         private PooledVoice CreateVoice(int index)
         {
+            // 꺼 둔 채로 만든다 — AddComponent 는 켜진 오브젝트에서 Awake 를 바로 돌려 playOnAwake(기본 참)로
+            // 클립 없는 재생을 시도하고 "Only custom filters can be played" 경고를 낸다.
             var go = new GameObject($"Voice {index:00}");
+            go.SetActive(false);
             go.transform.SetParent(transform, false);
             AudioSource source = go.AddComponent<AudioSource>();
             source.playOnAwake = false;
             AudioLowPassFilter lowPass = go.AddComponent<AudioLowPassFilter>();
             lowPass.enabled = false;
+            go.SetActive(true);
             return new PooledVoice { Transform = go.transform, Source = source, LowPass = lowPass };
         }
 

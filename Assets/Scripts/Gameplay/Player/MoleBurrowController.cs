@@ -2,6 +2,7 @@ using Unity.Netcode;
 using GhostHunter.Gameplay.Recovery;
 using UnityEngine;
 using GhostHunter.Core;
+using GhostHunter.Core.Audio;
 using GhostHunter.Gameplay.Sanity;
 
 namespace GhostHunter.Gameplay.Player
@@ -78,6 +79,7 @@ namespace GhostHunter.Gameplay.Player
         private PlayerMotor _motor;
         private SanityNetworkState _sanity;
         private ILocalPlayerContext _localPlayer;
+        private IAudioService _audio;
         private State _state;
         private float _timer;
         private float _cooldownRemaining;
@@ -169,6 +171,7 @@ namespace GhostHunter.Gameplay.Player
             _isBurrowed.Value = false;
             _localPlayer = Services.Get<ILocalPlayerContext>();
             _localPlayer.Register(this);
+            Services.TryGet(out _audio);
         }
 
         public override void OnNetworkDespawn()
@@ -183,6 +186,7 @@ namespace GhostHunter.Gameplay.Player
 
             _localPlayer?.Unregister(this);
             _localPlayer = null;
+            _audio = null;
         }
 
         private void Update()
@@ -250,6 +254,7 @@ namespace GhostHunter.Gameplay.Player
 
             // 시전 시작과 동시에 낮아지기 시작한다 — 매몰 완료를 기다리지 않는다(연출 요청).
             _motor.CameraHeightOverride = _settings.BurrowedCameraHeight;
+            PlaySound(_settings.HideCue);
         }
 
         private void EnterBuried()
@@ -301,10 +306,20 @@ namespace GhostHunter.Gameplay.Player
             ApplyControl(State.Idle);
 
             if (applyLaunch)
+            {
                 _motor.ApplyVerticalLaunch(_settings.ComputePopLaunchSpeed());
+                PlaySound(_settings.PopCue);
+            }
 
             _cooldownRemaining = _settings.CooldownSeconds;
             _state = State.Idle;
+        }
+
+        /// <summary>쓰는 사람에게만 들리는 2D 소리. 다른 접속자에게 굴착 소리를 들려줄지는 정하지 않았다.</summary>
+        private void PlaySound(SoundCue cue)
+        {
+            if (_audio != null && cue != null)
+                _audio.Play2D(cue);
         }
 
         /// <summary>시전(Entering) 중 사망 — 아직 숨지 못했으니 튀어오름 없이 그냥 취소한다.</summary>

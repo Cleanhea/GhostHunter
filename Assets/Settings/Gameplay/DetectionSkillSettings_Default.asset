@@ -19,3 +19,4 @@ MonoBehaviour:
   _stainColor: {r: 0.9882353, g: 0.5176471, b: 0.72156864, a: 1}
   _highlightMode: 3
   _cancelOnDeath: 1
+  _castCue: {fileID: 11400000, guid: f5cdcbbe99d54153a3f2bfdfc5b5527f, type: 2}

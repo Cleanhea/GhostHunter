@@ -5,7 +5,7 @@
 - Tutorial의 **202호 한 방**이 작업 구역이다. 맵 이름 원룸, 2~4명, 쉬움.
 - 1m = 원본 도면 100px. Unity에서는 1 unit = 1m이며 모든 작성한 맵·Tutorial 가구 Transform의 localScale은 1이다.
 - 목표 플레이 시간 5~8분, 10분 이내는 설계 목표다. 시간 제한에 따른 강제 종료·탈락은 없다. 실제 다인 플레이 시간과 난이도 평가는 필요하다.
-- 베이직 귀신 1명. 매 판 초자연현상 **3종류**를 선택해 반복하며 직전 종류는 연속 선택하지 않는다.
+- 베이스 귀신 1명(임시 이름, 원문 "베이직 귀신"). 어택 중 '뒤돌아보지마' 기믹이 붙는다(2026-11-01 구현, 실플레이 미검증) → [ghost-base.md](ghost-base.md). 매 판 초자연현상 **3종류**를 선택해 반복하며 직전 종류는 연속 선택하지 않는다.
 - 첫 게임: 일반 Lobby 또는 Local Host → InGameLobby(드릴카 상점) → 출발 → Tutorial. 드릴카 종료나 팀 전멸 → Result → InGameLobby → 다음 출발 Stage1.
 - 정산 없이 ESC로 나가면 Tutorial을 다시 시작한다. Title/일반 Lobby로 돌아가면 첫 스테이지 기록을 초기화한다. 완료 기록을 디스크에 저장하지 않는다.
 - Stage1 밤·안개·StageLightingSettings_Default를 참조한다. 드릴카는 모텔 앞에 배치한다.
@@ -48,6 +48,18 @@ TV/선반을 포함한 가구별 가격표는 미정이다. 현재 정산·상�
 안내 순서와 별개로 청소·반출은 언제든 진행할 수 있다. 퀘스트가 완료되어도 자동 정산하지 않는다.
 기존 종료 버튼과 팀 전멸 처리, 두 작업의 별도 집계 기준을 사용한다. 새로운 합산 진행도나 승패 수치는 정의하지 않는다.
 
+## 귀신 — 베이스 귀신 (2026-11-01)
+
+Tutorial의 귀신은 **베이스 귀신**(임시 이름)이다. 공통 귀신 규칙 전부에 어택 중 **'뒤돌아보지마'** 기믹이 붙는다 —
+플레이어가 바라보면 석고상처럼 정지(최대 5초), 해제 뒤 5초간 정지 면역·이동 ×1.5, 수평 1.5m / 0.8m 구간별 공격 시선 조건.
+규칙·수치·미결정은 [ghost-base.md](ghost-base.md).
+
+- **구현 상태: 구현(2026-11-01), 컴파일·EditMode 통과, 실플레이·다인 미검증.** `GhostPrototypeSettings_Tutorial`에서만 켠다. 바라봄은 귀신이 플레이어 화면에 렌더링될 때(벽·가구에 가리면 아님)이고, 정지·면역·가속의 시각·청각 연출은 아직 없다.
+- 기믹은 어택 중에만 동작한다. Tutorial의 어택 발동은 공통 규칙을 따르며 이번 변경에서 바꾸지 않았다(코드는 청소 40% 필수 전제 + 정신력 구간. 원문 0.3은 청소 40~50% 일회성 강제 어택으로 바뀌어 반영 대기 — G-22).
+- 이 맵은 난이도 "쉬움"이다. 원문 0.3은 쉬움에서 한 명이라도 죽으면 어택이 종료된다고 하지만 코드에 난이도 개념이 없어 아직 적용 전이다(G-23). 튜토리얼 시야는 지금의 절반으로 줄였다(2026-11-01, `_Tutorial` 에셋 감지 거리 15 → 7.5m, 각도 120° 유지 — 수치 확정은 G-24).
+- 원문 학습 목표 중 귀신 관련 3개: 어택 예고를 알아차린다 · 운반 중인 가구를 내려놓고 회피한다 · 굴착이나 은신으로 추격에서 벗어난다.
+  위 "안내와 퀘스트" 카드에는 아직 없다. 원문 표가 "1스테이지" 기준이라 Tutorial 카드에 넣을지 결정이 필요하다 → ghost-base.md BG-10.
+
 ## 방 치수
 
 입구에서 방 안을 바라보는 도면 방향: 왼쪽 TV/탁상·책상·의자, 오른쪽 뒤 침대/탁자, 오른쪽 앞 화장실.
@@ -82,7 +94,7 @@ TV/선반을 포함한 가구별 가격표는 미정이다. 현재 정산·상�
 | Assets/Prefabs/Furniture/Tutorial_*.prefab | 202호 물리 가구/소품 원본. 위치·회전만 씬에서 설정 |
 | Tutorial의 Furniture_Library | 10종 프리팹 복사용 목록. 비활성, 플레이와 작업 집계에서 제외 |
 | Assets/Prefabs/TutorialStain_Red.prefab, TutorialStain_Pink.prefab | 도면 크기에 맞춘 빨강/분홍 얼룩 |
-| Assets/Prefabs/Ghost/Ghost_Tutorial.prefab | 기존 베이직 귀신 모델·AI, Tutorial 설정 사용 |
+| Assets/Prefabs/Ghost/Ghost_Tutorial.prefab | 기존 귀신 모델·AI에 '뒤돌아보지마'를 켠 베이스 귀신, Tutorial 설정 사용 |
 | Assets/Settings/Gameplay/*_Tutorial.asset | 얼룩 7개, 가구/소품 10개, 현상 후보/선정 수 설정 |
 | Assets/Mesh/TutorialMap/Materials/ | FBX 재질 156개를 URP/Lit로 연결 |
 | Assets/Mesh/TutorialMap/Textures/ | PNG 268개를 BaseMap·Normal·MetallicSmoothness·발광/데칼에 연결 |

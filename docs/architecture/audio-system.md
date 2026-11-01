@@ -93,6 +93,24 @@ NetworkObject 가 없는 곳(씬 전역)에서는 보낼 수 없다. **씬에 �
   `NetworkSoundEmitter` + `FurnitureImpactSound`(`_profile` = `ImpactSoundProfile_Default`)를 붙였다(2026-10-29).
   새 가구 프리팹을 만들면 같이 붙인다 — `AudioWiringTests`가 빠진 프리팹을 알려 준다.
 
+### 6.1 라이터·헤드라이트·드라이버·탐지·굴착·점화 소리 연결 (2026-11-01)
+
+파일은 `Assets/Sound/SFX/SFX_lighter_*.mp3`·`SFX_flashlight_*.mp3`·`SFX_driver_*.mp3`·`SFX_skill_detect.mp3`·`SFX_skill_dig_*.mp3`, 큐는 `Assets/Settings/Audio/Cues/` 의 같은 이름 `.asset`(첫 큐 에셋 — 키는 에셋 이름).
+원본이 m4a 였는데 Unity 가 m4a 를 오디오로 임포트하지 못해(`DefaultImporter`) 192kbps mp3 로 변환했다. 새 소리 파일은 mp3/wav/ogg 로 받는다.
+
+| 큐 | 쓰는 곳 | 방식 |
+| --- | --- | --- |
+| `SFX_driver_3s`·`_9s`·`_fail`·`_success` | `PlayerFurnitureDriverController` (`FurnitureDriverSettings._useCueHighDurability`·`_useCueLowDurability`·`_cancelCue`·`_completeCue`) | 사용하는 사람에게만 들리는 `Play2D`. 시작 때 내구도(>15 / ≤15)로 3s/9s 선택, 중단하면 사용 중 소리를 멈추고 fail, 완료하면 success → [furniture-multidriver.md §2.2.1](furniture-multidriver.md) |
+| `SFX_skill_dig_hide`·`_jump` | `MoleBurrowController` (`MoleBurrowSettings._hideCue`·`_popCue`) | 쓰는 사람에게만 `Play2D`. hide = 시전(Entering) 시작, jump = 튀어오름(키 재입력·시간 만료). 사망으로 조용히 끝나는 경우와 시전 중 사망 취소에는 없다 |
+| `SFX_skill_detect` | `DetectionSkillController` (`DetectionSkillSettings._castCue`) | 시전이 실제로 시작될 때(`TryStart` 성공) 쓰는 사람에게만 `Play2D`. 쿨타임·사망으로 거절된 입력에는 없다 |
+| `SFX_flashlight_on`·`_off`·`_broken` | `PlayerHeadlamp` (`HeadlampSettings._onCue`·`_offCue`·`_brokenCue`) | 라이터와 같다 — F키를 누른 사람에게만 들리는 `Play2D`. `_broken` = 배터리 0 인데 켜려 할 때 |
+| `SFX_lighter_on`·`_off`·`_broken` | `PlayerLighter` (`LighterSettings._onCue`·`_offCue`·`_brokenCue`) | 든 사람에게만 들리는 `Play2D`(큐 SpatialBlend 0). 소유자 쪽에서만 호출하므로 RPC 없음 |
+| `SFX_lighter_gamestart` | `RevivalRitual` (`RevivalRitualSettings._igniteStartCue`) | 서버가 점화 시작을 `IgnitionStartedRpc`(신뢰성 없음)로 알리고 각 접속자가 촛대 위치에서 `Play` |
+| `SFX_lighter_gamefinish` | 같은 곳 (`_igniteFinishCue`) | 촛불 상태 `NetworkVariable` 의 `Placed → Lit` 변화를 본 각 접속자가 `Play`(RPC 없음) |
+
+점화 소리는 `NetworkSoundEmitter`를 쓰지 않는다 — `RevivalRitual`이 씬 NetworkObject 의 자식 컴포넌트라 새 컴포넌트를 씬에 넣지 않으려고(§3) 자기 RPC 로 보낸다.
+그래서 이 큐들은 `SoundLibrary`에 넣지 않았다(식별자를 네트워크로 보내지 않는다).
+
 ## 7. 믹서와 음량
 
 - 큐에 믹서 그룹이 없으면 버스 기본 그룹을 쓴다. 현재 효과음·환경음 모두 `VoiceMixer.mixer`의 `SFX` 그룹이다.
@@ -106,8 +124,8 @@ NetworkObject 가 없는 곳(씬 전역)에서는 보낼 수 없다. **씬에 �
 
 - 순수 로직·서비스 거절 조건·라이브러리·충돌 프로파일: EditMode(`SoundCueTests`, `SoundVoiceAllocatorTests`,
   `ImpactSoundProfileTests`, `AudioServiceTests`).
-- 저장된 에셋·Bootstrap 배선·가구 프리팹 연결: `AudioWiringTests`. 설정 창 음량: `UserSettingsStoreTests`, `AudioServiceTests`.
-- **미검증:** 실제 소리(오디오 에셋 없음), 벽 가림 체감, Host/Client 2인에서 RPC 재생(Steam은 PC 2대 필요),
+- 저장된 에셋·Bootstrap 배선·가구 프리팹 연결·라이터/의식 큐 배선: `AudioWiringTests`. 설정 창 음량: `UserSettingsStoreTests`, `AudioServiceTests`.
+- **미검증:** 실제 소리(라이터 5종·헤드라이트 3종·드라이버 4종·탐지 1종·굴착 2종 외 오디오 에셋 없음 — 이 15종도 귀로 확인하지 못했다), 벽 가림 체감, Host/Client 2인에서 RPC 재생(Steam은 PC 2대 필요),
   가구 충돌음 체감, 풀 한도 체감, 설정 창 오디오 탭의 슬라이더 배치(슬라이더 2개가 늘어 레이아웃 육안 확인 필요).
 
 관련: [networking.md §3.2](networking.md) · [furniture-physics.md](furniture-physics.md) · [voice-chat.md](voice-chat.md)

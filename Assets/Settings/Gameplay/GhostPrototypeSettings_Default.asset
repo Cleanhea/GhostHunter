@@ -17,9 +17,9 @@ MonoBehaviour:
   _warningDuration: 5
   _attackMaxDuration: 60
   _highRiskAttackDuration: 90
-  _attackEarlyEndWindow: 20
+  _attackEarlyEndWindow: 60
   _attackEarlyEndTeamSanity: 61
-  _calmingDuration: 30
+  _calmingDuration: 40
   _attackRollInterval: 10
   _attackChance51To60: 0.2
   _attackChance41To50: 0.4

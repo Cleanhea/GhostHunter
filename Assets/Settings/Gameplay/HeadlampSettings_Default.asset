@@ -38,7 +38,7 @@ MonoBehaviour:
   _beamOcclusionMask:
     serializedVersion: 2
     m_Bits: 4294967295
-  _onClip: {fileID: 0}
-  _offClip: {fileID: 0}
-  _brokenClip: {fileID: 0}
+  _onCue: {fileID: 11400000, guid: 75bee59066164abc85f06a2f607073b3, type: 2}
+  _offCue: {fileID: 11400000, guid: 2493c6b03d204d42b126595df58691df, type: 2}
+  _brokenCue: {fileID: 11400000, guid: a5969828649b4c0e97de19414cd212c1, type: 2}
   _sfxVolume: 0.8

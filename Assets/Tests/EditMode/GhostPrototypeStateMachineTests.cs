@@ -89,16 +89,17 @@ namespace GhostHunter.Tests.EditMode
         }
 
         [Test]
-        public void SanitySixtyOneEndsAttackOnlyDuringFirstTwentySeconds()
+        public void SanitySixtyOneEndsAttackOnlyDuringFirstSixtySeconds()
         {
             Tick(10f, 55);
             Tick(5f, 55);
-            Assert.AreEqual(GhostPhase.Calming, Tick(19f, 61));
+            Assert.AreEqual(GhostPhase.Calming, Tick(59f, 61));
 
+            // 고위험 어택(90초)은 60초가 지난 뒤에는 회복해도 조기 종료하지 않는다.
             _machine.ResetForStage();
-            Tick(10f, 55);
-            Tick(5f, 55);
-            Tick(21f, 55);
+            Tick(0f, 30);
+            Tick(5f, 30);
+            Tick(60.5f, 30);
             Assert.AreEqual(GhostPhase.Attack, Tick(1f, 61));
         }
 
@@ -121,13 +122,13 @@ namespace GhostHunter.Tests.EditMode
         }
 
         [Test]
-        public void ForcedEndEntersThirtySecondCalmThenRechecksSanity()
+        public void ForcedEndEntersFortySecondCalmThenRechecksSanity()
         {
             Tick(0f, 30);
             Tick(5f, 30);
             Assert.IsTrue(_machine.ForceSuppression());
             Assert.AreEqual(GhostPhase.Calming, _machine.Phase);
-            Assert.AreEqual(GhostPhase.Calming, Tick(29.9f, 30));
+            Assert.AreEqual(GhostPhase.Calming, Tick(39.9f, 30));
             Assert.AreEqual(GhostPhase.Warning, Tick(0.1f, 30));
         }
 
@@ -137,7 +138,7 @@ namespace GhostHunter.Tests.EditMode
             Tick(10f, 55);
             Tick(5f, 55);
             _machine.ForceSuppression();
-            Assert.AreEqual(GhostPhase.Warning, Tick(30f, 55));
+            Assert.AreEqual(GhostPhase.Warning, Tick(40f, 55));
         }
 
         [Test]

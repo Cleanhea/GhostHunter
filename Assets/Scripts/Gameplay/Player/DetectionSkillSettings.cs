@@ -1,3 +1,4 @@
+using GhostHunter.Core.Audio;
 using UnityEngine;
 
 namespace GhostHunter.Gameplay.Player
@@ -43,6 +44,11 @@ namespace GhostHunter.Gameplay.Player
         [Tooltip("시전·표시 중 사망하면 탐지를 즉시 취소한다(MS-20, 관전 기획서 SP-2로 확정 2026-09-12).")]
         [SerializeField] private bool _cancelOnDeath = true;
 
+        [Header("효과음 — 비어 있으면 재생하지 않는다")]
+        [Tooltip("탐지를 시전할 때(SFX_skill_detect). 쓰는 사람에게만 들린다.")]
+        [SerializeField] private SoundCue _castCue;
+
+        public SoundCue CastCue => _castCue;
         public float CastDurationSeconds => _castDurationSeconds;
         public float DisplayDurationSeconds => _displayDurationSeconds;
         public float CooldownSeconds => _cooldownSeconds;

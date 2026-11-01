@@ -1,4 +1,5 @@
 using GhostHunter.Core;
+using GhostHunter.Core.Audio;
 using GhostHunter.Core.Scenes;
 using GhostHunter.Gameplay.Ghost;
 using GhostHunter.Gameplay.Recovery;
@@ -62,7 +63,7 @@ namespace GhostHunter.Gameplay.Player
         private MaterialPropertyBlock _beamProperties;
         private readonly RaycastHit[] _beamHits = new RaycastHit[8];
         private float _beamLength;
-        private AudioSource _audio;
+        private IAudioService _audio;
         private ISceneFlow _sceneFlow;
         private float _nextBatteryPublishAt;
         private float _lastChargeAt = float.NegativeInfinity;
@@ -126,6 +127,7 @@ namespace GhostHunter.Gameplay.Player
         public override void OnNetworkSpawn()
         {
             Services.TryGet(out _sceneFlow);
+            Services.TryGet(out _audio);
 
             if (!IsOwner || _settings == null)
                 return;
@@ -142,6 +144,7 @@ namespace GhostHunter.Gameplay.Player
         {
             _state = null;
             _sceneFlow = null;
+            _audio = null;
             _lastChargeAt = float.NegativeInfinity;
             _lowBatterySince = -1f;
             if (_light != null)
@@ -251,16 +254,16 @@ namespace GhostHunter.Gameplay.Player
 
         private void PlayToggleSound(HeadlampToggleResult result)
         {
-            AudioClip clip = result switch
+            SoundCue cue = result switch
             {
-                HeadlampToggleResult.TurnedOn => _settings.OnClip,
-                HeadlampToggleResult.TurnedOff => _settings.OffClip,
-                HeadlampToggleResult.Empty => _settings.BrokenClip,
+                HeadlampToggleResult.TurnedOn => _settings.OnCue,
+                HeadlampToggleResult.TurnedOff => _settings.OffCue,
+                HeadlampToggleResult.Empty => _settings.BrokenCue,
                 _ => null,
             };
 
-            if (clip != null && _audio != null)
-                _audio.PlayOneShot(clip, _settings.SfxVolume);
+            if (cue != null && _audio != null)
+                _audio.Play2D(cue, _settings.SfxVolume);
         }
 
         private void FollowHead()
@@ -330,10 +333,7 @@ namespace GhostHunter.Gameplay.Player
             _light.enabled = false;
             BuildBeam(lampObject.transform);
 
-            // 전원 효과음은 누른 사람에게만 들린다(기획서 §4 — F키 입력 시 재생).
-            _audio = lampObject.AddComponent<AudioSource>();
-            _audio.playOnAwake = false;
-            _audio.spatialBlend = 0f;
+            // 전원 효과음(기획서 §4 — F키 입력 시)은 누른 사람에게만 들린다: IAudioService.Play2D.
         }
 
         /// <summary>

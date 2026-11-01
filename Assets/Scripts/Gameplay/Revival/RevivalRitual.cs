@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using GhostHunter.Core;
+using GhostHunter.Core.Audio;
 using GhostHunter.Core.Steam;
 using GhostHunter.Gameplay.Cleaning;
 using GhostHunter.Gameplay.Furniture;
@@ -98,6 +99,7 @@ namespace GhostHunter.Gameplay.Revival
         private GameObject[] _candles;
         private GameObject[] _flames;
         private ILocalPlayerContext _localPlayer;
+        private IAudioService _audio;
         private bool _localIgniting;
         private int _localSlot;
         private float _localStartedAt;
@@ -144,8 +146,10 @@ namespace GhostHunter.Gameplay.Revival
             return room.Doors.Length > 0 && size.x >= minSize && size.z >= minSize;
         }
 
-        public CandleSlotState GetSlot(int index) =>
-            (CandleSlotState)((_slots.Value >> (index * SlotBits)) & ((1 << SlotBits) - 1));
+        public CandleSlotState GetSlot(int index) => Unpack(_slots.Value, index);
+
+        private static CandleSlotState Unpack(int packed, int index) =>
+            (CandleSlotState)((packed >> (index * SlotBits)) & ((1 << SlotBits) - 1));
 
         public Vector3 SlotPosition(int index)
         {
@@ -190,6 +194,7 @@ namespace GhostHunter.Gameplay.Revival
             _center.OnValueChanged += HandleCenterChanged;
             _slots.OnValueChanged += HandleSlotsChanged;
             Services.TryGet(out _localPlayer);
+            Services.TryGet(out _audio);
 
             if (IsServer)
             {
@@ -220,6 +225,7 @@ namespace GhostHunter.Gameplay.Revival
             if (_furniture != null)
                 _furniture.ServerPreparingLayout -= ServerChooseRoom;
             _localIgniting = false;
+            _audio = null;
             if (_visualRoot != null)
                 Destroy(_visualRoot);
             _visualRoot = null;
@@ -417,6 +423,7 @@ namespace GhostHunter.Gameplay.Revival
             float zone = Random.Range(_settings.ZoneMinStart, Mathf.Max(_settings.ZoneMinStart, 1f - _settings.ZoneWidth));
             _ignitions[slot] = new Ignition { Active = true, Client = sender, StartedAt = Time.time, ZoneStart = zone };
             BeginIgnitionRpc(slot, zone, Target(sender));
+            IgnitionStartedRpc(slot);
         }
 
         [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
@@ -722,6 +729,14 @@ namespace GhostHunter.Gameplay.Revival
             _localZoneStart = zoneStart;
         }
 
+        /// <summary>점화가 시작됐다는 소리 알림 — 방에 있는 모두가 촛대 위치에서 듣는다. 유실돼도 다시 보내지 않는다.</summary>
+        [Rpc(SendTo.ClientsAndHost, Delivery = RpcDelivery.Unreliable, InvokePermission = RpcInvokePermission.Server)]
+        private void IgnitionStartedRpc(int slot)
+        {
+            if (_settings != null && IsPlaced && slot >= 0 && slot < RevivalRules.CandleCount)
+                PlayCandleSound(_settings.IgniteStartCue, slot);
+        }
+
         [Rpc(SendTo.SpecifiedInParams, InvokePermission = RpcInvokePermission.Server)]
         private void StopIgnitionRpc(RpcParams rpcParams = default) => _localIgniting = false;
 
@@ -780,7 +795,24 @@ namespace GhostHunter.Gameplay.Revival
                 BuildVisuals();
         }
 
-        private void HandleSlotsChanged(int previous, int current) => RefreshVisuals();
+        private void HandleSlotsChanged(int previous, int current)
+        {
+            RefreshVisuals();
+            if (_settings == null)
+                return;
+
+            // 불이 붙는 순간(놓임 → 켜짐)은 촛불마다 한 번이다. 성공·실패와 상관없이 같은 소리를 낸다.
+            // 초기화(켜짐 → 놓임)·실패 촛불 소등(켜짐 → 꺼짐)에는 소리가 없다.
+            for (int i = 0; i < RevivalRules.CandleCount; i++)
+                if (Unpack(previous, i) == CandleSlotState.Placed && Unpack(current, i) == CandleSlotState.Lit)
+                    PlayCandleSound(_settings.IgniteFinishCue, i);
+        }
+
+        private void PlayCandleSound(SoundCue cue, int slot)
+        {
+            if (cue != null && _audio != null)
+                _audio.Play(cue, SlotPosition(slot) + Vector3.up * (FloorFinishHeight() + CandleTop));
+        }
 
         private const float StandHeight = 0.95f;
         private const float CandleLength = 0.2f;

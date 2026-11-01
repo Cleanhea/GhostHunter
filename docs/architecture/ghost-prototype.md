@@ -1,7 +1,10 @@
 # 귀신 공통 시스템 구현
 
-기획 권위: [귀신 공통 시스템 기획서 0.2](../project/ghost-system.md). 이 문서는
+기획 권위: [귀신 공통 시스템 기획서 0.3](../project/ghost-system.md). 이 문서는
 2026-09-27 코드 구조와 검증 범위를 기록한다. 과거 프로토타입 규칙은 Git 이력에 보존한다.
+
+> **원문 0.3 반영 상태 (2026-11-01).** 자연 진정 40초·조기 종료 60초 이내·Tutorial 시야 7.5m(`_Tutorial` 에셋만)는 반영했다.
+> 청소 40% 필수 전제·사망 시 항상 어택 계속은 원문 0.3과 다르게 남아 있다 → [ghost-system.md §12.3](../project/ghost-system.md) "원문 0.3 반영으로 생긴 차이".
 
 ## 1. 구성과 서버 권위
 
@@ -47,8 +50,8 @@ F1의 청소 수치 조작은 디버그 보정값이며 실제 진행도와 큰 
 | --- | --- |
 | 활동 | 스테이지 시작 상태. 정신력 61~100은 어택하지 않음. 31~60은 기존 10초 주기로 20/40/60% 확률 판정. 0~30은 즉시 100% 경고 시작 |
 | 경고 | 5초. 방 조명 점멸과 2D 심장 박동음. 이후 어택 |
-| 어택 | 일반 60초, 0~30에서 진입한 고위험 90초. 시작 후 20초 이내 팀 평균이 61 이상으로 회복되면 자연 진정. 포획은 서버만 실행 |
-| 자연 진정 | 30초 배회·재어택 금지. 끝나면 현재 정신력으로 다시 판정 |
+| 어택 | 일반 60초, 0~30에서 진입한 고위험 90초. 시작 후 60초 이내 팀 평균이 61 이상으로 회복되면 자연 진정(2026-11-01 원문 0.3, 구 20초). 포획은 서버만 실행 |
+| 자연 진정 | 40초 배회·재어택 금지(2026-11-01 원문 0.3, 구 30초). 끝나면 현재 정신력으로 다시 판정 |
 
 어택 강제 종료 API(`ServerForceSuppression`)는 진행 중인 어택을 즉시 자연 진정으로 보낸다.
 `Idle`·`Suppressed` enum 값은 과거 데이터 호환용으로 남았지만 새 상태 기계에는 진입하지 않는다.
@@ -201,9 +204,30 @@ HUD 밝기를 기준값으로 넘긴다([map-generation.md §10.1.6](map-generat
 
 ## Tutorial 현상 선택과 한 층 제한 (2026-10-02)
 
-Ghost_Tutorial은 기존 베이직 모델/AI와 Tutorial 전용 GhostPrototypeSettings를 사용한다.
+Ghost_Tutorial은 기존 모델/AI와 Tutorial 전용 GhostPrototypeSettings를 사용한다(베이스 귀신 — '뒤돌아보지마' 기믹은 `_Tutorial` 에셋에서만 켠다, 아래 절).
 PhenomenaPoolSize=3으로 매 스테이지 3종을 고르고, PhenomenaCandidateMask로 원룸에서 연출 가능한 흔들기·소품 떨어뜨리기·조명 이상·환영만 후보에 둔다.
 기본 설정의 두 값은 0이므로 다른 스테이지는 기존 전체 후보를 쓴다. 주기·정신력 피해·어택 수치는 바꾸지 않았다.
 선택 종류의 비트 마스크를 GhostState 스냅샷에 저장하여 호스트 이전 후 재선정하지 않는다.
 GhostPrototypeSpawner._restrictRoamHeight를 Tutorial에서만 켜서 202호 아래층/지붕을 배회·탐지 후보에서 제외한다.
 모텔 FBX는 런타임 NavMesh의 읽기 요구에 맞춰 Read/Write를 켰다.
+
+
+## 베이스 귀신 — 뒤돌아보지마 (구현, Tutorial 한정, 2026-11-01)
+
+기획 권위: [ghost-base.md](../project/ghost-base.md). `GhostPrototypeSettings._gazeFreezeEnabled`가 켜진 에셋만 동작한다 —
+`_Tutorial` 에셋만 켜고 `_Default`(Stage1·ProtoTypeGame)는 꺼 둔다. 꺼져 있으면 아래 경로는 전부 기존 동작이다.
+
+| 구성 | 역할 |
+| --- | --- |
+| `GhostGazeFreeze` | 순수 C# 상태 기계(자유 → 정지 → 해제 후 면역·가속). 서버만 돌린다 |
+| 클라이언트 `TickLocalGazeReport` | 어택 중 자기 카메라 절두체 안에 켜진 본체 렌더러가 있고 벽·가구(플레이어 제외 `NonGhostPrototypeRaycastMask`)에 가려지지 않는 표본점(중앙·위·아래)이 있으면 "바라봄". 바뀔 때 즉시, 바라보는 동안 0.25초마다 서버에 보고 |
+| `ReportGazeRpc` | `[Rpc(SendTo.Server, InvokePermission = Everyone)]`. 귀신은 소유자가 없어 Owner 권한을 쓸 수 없다. 서버는 `SenderClientId`로 플레이어별 보고를 저장하고 0.8초 안에 못 받으면 놓은 것으로 친다 |
+| `ServerTickAttack` | 매 틱 `IsAnyoneGazing`으로 상태 기계를 갱신. 정지 중에는 이동·문 열기를 건너뛰고 `TryCatch`와 은신처 처치 검사는 계속 돈다. 이동 속도는 `ChaseSpeed × SpeedMultiplier` |
+| `CanCatchAt` | 포획 3경로(`TryCatch`·`ServerTickWitnessedShelter`·`ServerTickWitnessedBed`)의 공통 거리 판정. 기믹 꺼짐: `CatchRadius`(1.4m). 켜짐: 1.5m 초과 불가 / 0.8m 이하 시선 무관(정지도 해제) / 사이는 정지 중이 아니고 그 플레이어가 안 볼 때만 |
+| 초기화 | 어택을 벗어날 때와 `ServerRestoreStageState`에서 상태 기계·보고를 비운다. 호스트 이전 스냅샷에는 포함하지 않았다(BG-8) |
+
+설정 필드(`Base ghost` 헤더): 정지 최대 5초 · 면역 5초 · 가속 ×1.5 · 가속 5초 · 포획 상한 1.5m · 근접 0.8m.
+붉은 원뿔 시야 표시(§4)는 그대로다 — 이미 감지 거리와 따로 3m로 그리는 방향 표시용이다.
+
+**미구현·미검증:** 정지 시각·청각 연출(BG-3), 호스트 이전 복원, 실제 플레이에서 화면 판정·가림 체감, Steam 다인 보고 지연.
+단위 검증은 EditMode `GhostGazeFreezeTests`(상태 기계 10건)뿐이다.

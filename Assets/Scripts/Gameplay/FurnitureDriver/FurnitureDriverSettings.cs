@@ -1,3 +1,4 @@
+using GhostHunter.Core.Audio;
 using UnityEngine;
 
 namespace GhostHunter.Gameplay.FurnitureDriver
@@ -23,6 +24,25 @@ namespace GhostHunter.Gameplay.FurnitureDriver
         [SerializeField, Min(0.02f)] private float _requestInterval = 0.2f;
         [Tooltip("§6.2·§6.3 — 생성된 가구가 떨어지기 시작하는 지면 위 높이(m).")]
         [SerializeField, Min(0f)] private float _dropHeight = 1f;
+
+        [Header("효과음 — 비어 있으면 재생하지 않는다. 쓰는 사람에게만 들린다")]
+        [Tooltip("내구도가 임계치를 넘을 때의 사용 중 소리(SFX_driver_3s). 행동 시작에 재생해 행동 시간과 같이 끝난다.")]
+        [SerializeField] private SoundCue _useCueHighDurability;
+        [Tooltip("내구도가 임계치 이하일 때의 사용 중 소리(SFX_driver_9s).")]
+        [SerializeField] private SoundCue _useCueLowDurability;
+        [Tooltip("사용이 중단됐을 때(SFX_driver_fail). 사용 중 소리는 멈춘다.")]
+        [SerializeField] private SoundCue _cancelCue;
+        [Tooltip("사용을 끝까지 마쳤을 때(SFX_driver_success).")]
+        [SerializeField] private SoundCue _completeCue;
+
+        public SoundCue CancelCue => _cancelCue;
+        public SoundCue CompleteCue => _completeCue;
+        public SoundCue UseCueHighDurability => _useCueHighDurability;
+        public SoundCue UseCueLowDurability => _useCueLowDurability;
+
+        /// <summary>시작 시점 내구도에 맞는 사용 중 소리. 행동 시간과 같은 기준이다.</summary>
+        public SoundCue UseCueFor(int durabilityAtStart) =>
+            durabilityAtStart > _durabilityThreshold ? _useCueHighDurability : _useCueLowDurability;
 
         public float ActionSecondsHighDurability => _actionSecondsHighDurability;
         public float ActionSecondsLowDurability => _actionSecondsLowDurability;

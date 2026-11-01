@@ -70,7 +70,7 @@ ADR-0010(서버 권위 가구 물리) 예외에 해당하지 않는다. 서버�
 
 ## 4. 조명
 
-- 스폰 시 Player 루트 아래 `Headlamp` 오브젝트(Spot Light + 2D `AudioSource`)를 만든다 — 저장된 프리팹에는 없다.
+- 스폰 시 Player 루트 아래 `Headlamp` 오브젝트(Spot Light)를 만든다 — 전원 소리는 `IAudioService.Play2D`(2026-11-01, 큐 `OnCue`·`OffCue`·`BrokenCue` 는 `HeadlampSettings`) — 저장된 프리팹에는 없다.
 - 위치: `(0, PlayerMotor.CameraLocalHeight, 0) + 피치 × LocalOffset`, 방향: 몸 yaw + `PlayerLook.Pitch`.
   둘 다 원격에서도 복제되는 값이라 다른 플레이어의 불빛이 그 사람의 시선을 따라간다.
 - `LocalOffset` 기본 `(0, 0.12, 0.18)` — 원격 머리 메시가 자기 불빛을 가리지 않도록 앞으로 뺐다.
@@ -130,8 +130,8 @@ ADR-0010(서버 권위 가구 물리) 예외에 해당하지 않는다. 서버�
   연료가 0이면 붙지 않고, 든 채로 드릴카에서 연료가 차면 다시 붙는다.
 - **판정 연결** — `SanityNetworkState.IsBurrowed` 가 `… && !라이터 켜짐`으로 바뀌었다(`PlayerLighter` 를 `GetComponent` 로 찾는다, 없으면 헤드라이트만 본다).
   헤드라이트 어둠 판정은 2026-10-29 삭제됐다.
-- **불빛** — 스폰 시 Player 루트 아래 `Lighter`(몸체·불꽃 도형 + 점광원 `FlameLight`)를 만들고, 소리는 항상 켜져 있는 `LighterAudio` 에 둔다
-  (꺼질 때 `Lighter` 가 비활성화되므로 "집어넣는 소리"를 내려면 분리해야 한다). 위치는 헤드라이트와 같은 방식
+- **불빛** — 스폰 시 Player 루트 아래 `Lighter`(몸체·불꽃 도형 + 점광원 `FlameLight`)를 만들고, 소리는 `IAudioService.Play2D` 로 낸다
+  (2026-11-01 — 예전 `LighterAudio` AudioSource 를 없앴다. 큐 3종 `OnCue`·`OffCue`·`BrokenCue` 는 `LighterSettings` 에 있고 든 사람에게만 들린다. `BrokenCue` = 들고 있는 채 연료가 바닥나 꺼질 때 + 연료 0 으로 꺼냈을 때). 위치는 헤드라이트와 같은 방식
   `(0, 눈높이, 0) + 피치 × LocalOffset(0.22, −0.2, 0.42)`. 밝기는 Perlin 잡음으로 흔든다 — 피어마다 `NetworkObjectId` 씨앗이 달라 박자가 다르다.
   도형은 런타임 생성물이라 충돌체를 지우고 그림자를 끈다.
 - **호스트 이전** — `PlayerState.LighterDrained`(쓴 연료)를 싣는다. 켜짐은 장착에서 다시 나오므로 싣지 않는다.

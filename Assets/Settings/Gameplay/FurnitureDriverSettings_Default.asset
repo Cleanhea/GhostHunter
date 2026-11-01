@@ -20,3 +20,7 @@ MonoBehaviour:
   _useDistance: 3
   _requestInterval: 0.2
   _dropHeight: 1
+  _useCueHighDurability: {fileID: 11400000, guid: 6c787b0114d240fda0358487f436c34a, type: 2}
+  _useCueLowDurability: {fileID: 11400000, guid: 5ccfb888430e4c63b7f4e9aec0556c81, type: 2}
+  _cancelCue: {fileID: 11400000, guid: 9b30e67be68841eaa0f87760a2782279, type: 2}
+  _completeCue: {fileID: 11400000, guid: 334f7a35fe9f48ca95831d3444cd98c4, type: 2}

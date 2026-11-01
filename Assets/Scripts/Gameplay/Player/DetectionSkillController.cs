@@ -1,4 +1,5 @@
 using GhostHunter.Core;
+using GhostHunter.Core.Audio;
 using GhostHunter.Gameplay.Sanity;
 using Unity.Netcode;
 using UnityEngine;
@@ -18,6 +19,7 @@ namespace GhostHunter.Gameplay.Player
         private PlayerInputReader _input;
         private SanityNetworkState _sanity;
         private ILocalPlayerContext _localPlayer;
+        private IAudioService _audio;
         private DetectionSkillStateMachine _stateMachine;
         private bool _ownsHighlightState;
 
@@ -81,6 +83,7 @@ namespace GhostHunter.Gameplay.Player
             }
 
             _localPlayer.Register(this);
+            Services.TryGet(out _audio);
             _ownsHighlightState = true;
         }
 
@@ -97,6 +100,7 @@ namespace GhostHunter.Gameplay.Player
 
             _localPlayer?.Unregister(this);
             _localPlayer = null;
+            _audio = null;
         }
 
         private void OnDisable()
@@ -120,8 +124,11 @@ namespace GhostHunter.Gameplay.Player
                 _settings.CooldownSeconds);
 
             bool playerAlive = _sanity == null || _sanity.HasSanity;
-            if (_input.DetectPressedThisFrame)
-                _stateMachine.TryStart(inputPressed: true, playerAlive: playerAlive);
+            if (_input.DetectPressedThisFrame
+                && _stateMachine.TryStart(inputPressed: true, playerAlive: playerAlive)
+                && _audio != null && _settings.CastCue != null)
+                // 시전이 실제로 시작될 때만 — 쿨타임·사망으로 거절된 키 입력에는 소리가 없다. 쓰는 사람에게만 들린다(2D).
+                _audio.Play2D(_settings.CastCue);
 
             DetectionSkillStateMachine.Transition transition = _stateMachine.Tick(
                 Time.deltaTime,

@@ -25,7 +25,7 @@ MonoBehaviour:
   _shadowStrength: 0.85
   _flameMaterial: {fileID: 2100000, guid: 2c7e34687e0a479498172d693cfba23c, type: 2}
   _bodyMaterial: {fileID: 2100000, guid: eb0f318771172bf4797a321f1d2bdda5, type: 2}
-  _onClip: {fileID: 0}
-  _offClip: {fileID: 0}
-  _emptyClip: {fileID: 0}
+  _onCue: {fileID: 11400000, guid: 0c85e8ce038944caa1b644dad18dfafb, type: 2}
+  _offCue: {fileID: 11400000, guid: ecb7f608c8d745669e8a3759ab2a8032, type: 2}
+  _brokenCue: {fileID: 11400000, guid: a60e1d369492474e94a14c74383357e0, type: 2}
   _sfxVolume: 0.8

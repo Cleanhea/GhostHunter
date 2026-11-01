@@ -44,6 +44,7 @@ namespace GhostHunter.Gameplay.Player
         private CharacterController _controller;
         private ISceneFlow _sceneFlow;
         private float _verticalVelocity;
+        private Vector3 _knockbackVelocity;
         private Vector3 _standingBodyPosition;
         private Vector3 _standingBodyScale;
 
@@ -108,6 +109,28 @@ namespace GhostHunter.Gameplay.Player
                 TeleportRpc(position, rotation);
         }
 
+        /// <summary>
+        /// 서버가 다른 플레이어에게 밀쳐진 속도를 알린다(맨손 밀치기 → throw-system.md §6). 이동은 소유자 권위(ADR-0008)라
+        /// 서버는 의도만 보내고 실제 이동은 소유자가 <see cref="TickMovement"/> 에서 적용한다.
+        /// </summary>
+        public void ServerKnockback(Vector3 velocity)
+        {
+            if (IsServer && IsSpawned)
+                KnockbackRpc(velocity);
+        }
+
+        [Rpc(SendTo.Owner)]
+        private void KnockbackRpc(Vector3 velocity)
+        {
+            if (!IsOwner || MovementLocked || !PlayerShoveRules.IsFinite(velocity))
+                return;
+
+            _knockbackVelocity = new Vector3(velocity.x, 0f, velocity.z);
+            // 위로 받은 속도는 이미 떠 있는 속도를 깎지 않게 큰 쪽만 취한다.
+            if (velocity.y > 0f)
+                _verticalVelocity = Mathf.Max(_verticalVelocity, velocity.y);
+        }
+
         [Rpc(SendTo.Owner)]
         private void TeleportRpc(Vector3 position, Quaternion rotation)
         {
@@ -122,6 +145,7 @@ namespace GhostHunter.Gameplay.Player
                 transform.SetPositionAndRotation(position, rotation);
             _controller.enabled = wasEnabled;
             _verticalVelocity = 0f;
+            _knockbackVelocity = Vector3.zero;
         }
 
         [Rpc(SendTo.Owner)]
@@ -141,6 +165,7 @@ namespace GhostHunter.Gameplay.Player
             _isCrouching.Value = crouching;
             _isProne.Value = prone;
             _verticalVelocity = 0f;
+            _knockbackVelocity = Vector3.zero;
             ApplyPosture(0f, true);
         }
 
@@ -186,6 +211,7 @@ namespace GhostHunter.Gameplay.Player
             if (_sceneFlow != null && (_sceneFlow.IsLoading || _sceneFlow.Current == SceneId.Result))
             {
                 _verticalVelocity = 0f;
+                _knockbackVelocity = Vector3.zero;
                 return;
             }
 
@@ -199,6 +225,10 @@ namespace GhostHunter.Gameplay.Player
                 {
                     UpdatePostureRequest();
                     TickMovement(deltaTime);
+                }
+                else
+                {
+                    _knockbackVelocity = Vector3.zero;
                 }
             }
 
@@ -262,6 +292,14 @@ namespace GhostHunter.Gameplay.Player
             float control = grounded ? 1f : _settings.AirControl;
             float moveSpeed = ResolveMoveSpeed();
             Vector3 velocity = planar * (moveSpeed * control);
+
+            // 밀쳐진 속도는 입력 이동에 더해지고, 땅/공중 감속으로 줄어든다. 걸어서 맞서면 덜 밀리는 정도다.
+            velocity += _knockbackVelocity;
+            _knockbackVelocity = PlayerShoveRules.DecayKnockback(
+                _knockbackVelocity,
+                grounded ? _settings.KnockbackGroundDeceleration : _settings.KnockbackAirDeceleration,
+                deltaTime);
+
             velocity.y = _verticalVelocity;
 
             _controller.Move(velocity * deltaTime);
@@ -370,6 +408,7 @@ namespace GhostHunter.Gameplay.Player
             transform.SetPositionAndRotation(position, rotation);
             _controller.enabled = wasEnabled;
             _verticalVelocity = 0f;
+            _knockbackVelocity = Vector3.zero;
         }
     }
 }

@@ -24,12 +24,12 @@ namespace GhostHunter.Gameplay.Ghost
         [SerializeField] private float _warningDuration = 5f;
         [SerializeField] private float _attackMaxDuration = 60f;
         [SerializeField] private float _highRiskAttackDuration = 90f;
-        [SerializeField] private float _attackEarlyEndWindow = 20f;
+        [SerializeField] private float _attackEarlyEndWindow = 60f;
 
         [Tooltip("어택 시작 후 20초 이내 팀 평균이 이 값 이상이면 조기 종료한다.")]
         [SerializeField] private int _attackEarlyEndTeamSanity = 61;
 
-        [SerializeField] private float _calmingDuration = 30f;
+        [SerializeField] private float _calmingDuration = 40f;
 
         [Header("Attack roll (§7.2 · §7.3)")]
         [SerializeField] private float _attackRollInterval = 10f;
@@ -82,6 +82,22 @@ namespace GhostHunter.Gameplay.Ghost
 
         [Tooltip("추격·수색 중 이 거리 안의 닫힌 방문을 직접 연다 (§9.4).")]
         [SerializeField] private float _doorOpenRange = 2.2f;
+
+        [Header("Base ghost · '뒤돌아보지마' (project/ghost-base.md) — Tutorial 에셋만 켠다")]
+        [Tooltip("켜면 어택 중 플레이어 화면에 귀신이 렌더링될 때 정지한다. 서버가 판정하고 포획 거리도 아래 값을 쓴다.")]
+        [SerializeField] private bool _gazeFreezeEnabled;
+        [Tooltip("정지 최대 시간(초). 이후 시선과 무관하게 강제 이동 재개.")]
+        [SerializeField] private float _gazeFreezeMaxSeconds = 5f;
+        [Tooltip("정지 해제 후 정지 면역 시간(초).")]
+        [SerializeField] private float _gazeImmunitySeconds = 5f;
+        [Tooltip("정지 해제 후 이동 속도 배율.")]
+        [SerializeField] private float _gazeSpeedMultiplier = 1.5f;
+        [Tooltip("정지 해제 후 가속 지속 시간(초).")]
+        [SerializeField] private float _gazeSpeedBoostSeconds = 5f;
+        [Tooltip("기믹이 켜져 있을 때 수평 포획 상한(m). 이 안에서 0.8m 초과는 바라보지 않는 플레이어만 잡는다.")]
+        [SerializeField] private float _gazeCatchFarRadius = 1.5f;
+        [Tooltip("이 거리(m) 이하는 시선과 무관하게 잡으며 정지도 풀린다.")]
+        [SerializeField] private float _gazeCatchNearRadius = 0.8f;
 
         [Header("AI experiments · 전체 / 개별 토글 ([TEMP])")]
         [Tooltip("전체 OFF면 기존 AI. F2 귀신 설정에서 플레이 중 비교. 서버만 판정한다.")]
@@ -249,6 +265,13 @@ namespace GhostHunter.Gameplay.Ghost
         public float RepathInterval => _repathInterval;
         public float ReachDistance => _reachDistance;
         public float CatchRadius => _catchRadius;
+        public bool GazeFreezeEnabled => _gazeFreezeEnabled;
+        public float GazeFreezeMaxSeconds => _gazeFreezeMaxSeconds;
+        public float GazeImmunitySeconds => _gazeImmunitySeconds;
+        public float GazeSpeedMultiplier => _gazeSpeedMultiplier;
+        public float GazeSpeedBoostSeconds => _gazeSpeedBoostSeconds;
+        public float GazeCatchFarRadius => _gazeCatchFarRadius;
+        public float GazeCatchNearRadius => _gazeCatchNearRadius;
         public float CatchCooldown => _catchCooldown;
         public float Gravity => _gravity;
         public float DoorOpenRange => _doorOpenRange;
@@ -373,6 +396,12 @@ namespace GhostHunter.Gameplay.Ghost
             _catchCooldown = Mathf.Max(0f, _catchCooldown);
             _gravity = Mathf.Max(0f, _gravity);
             _doorOpenRange = Mathf.Max(0f, _doorOpenRange);
+            _gazeFreezeMaxSeconds = Mathf.Max(0.1f, _gazeFreezeMaxSeconds);
+            _gazeImmunitySeconds = Mathf.Max(0f, _gazeImmunitySeconds);
+            _gazeSpeedMultiplier = Mathf.Max(0f, _gazeSpeedMultiplier);
+            _gazeSpeedBoostSeconds = Mathf.Max(0f, _gazeSpeedBoostSeconds);
+            _gazeCatchNearRadius = Mathf.Max(0.1f, _gazeCatchNearRadius);
+            _gazeCatchFarRadius = Mathf.Max(_gazeCatchNearRadius, _gazeCatchFarRadius);
             _evidenceMemorySeconds = Mathf.Max(0.1f, _evidenceMemorySeconds);
             _predictionSeconds = Mathf.Max(0f, _predictionSeconds);
             _predictionMaxDistance = Mathf.Max(0f, _predictionMaxDistance);

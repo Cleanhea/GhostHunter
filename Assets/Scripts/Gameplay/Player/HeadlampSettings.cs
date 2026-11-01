@@ -1,3 +1,4 @@
+using GhostHunter.Core.Audio;
 using UnityEngine;
 
 namespace GhostHunter.Gameplay.Player
@@ -87,14 +88,15 @@ namespace GhostHunter.Gameplay.Player
 
         [Header("효과음 (기획서 §4) — 비어 있으면 재생하지 않는다")]
         [Tooltip("SFX_flashlight_on")]
-        [SerializeField] private AudioClip _onClip;
+        [SerializeField] private SoundCue _onCue;
 
         [Tooltip("SFX_flashlight_off")]
-        [SerializeField] private AudioClip _offClip;
+        [SerializeField] private SoundCue _offCue;
 
         [Tooltip("SFX_flashlight_broken — 배터리가 0인데 켜려고 할 때.")]
-        [SerializeField] private AudioClip _brokenClip;
+        [SerializeField] private SoundCue _brokenCue;
 
+        [Tooltip("큐 음량에 곱하는 배율. 누른 사람에게만 들린다.")]
         [SerializeField, Range(0f, 1f)] private float _sfxVolume = 0.8f;
 
         public float MaxBattery => _maxBattery;
@@ -121,9 +123,9 @@ namespace GhostHunter.Gameplay.Player
         public float BeamLength => _beamLength;
         public float BeamIntensity => _beamIntensity;
         public LayerMask BeamOcclusionMask => _beamOcclusionMask;
-        public AudioClip OnClip => _onClip;
-        public AudioClip OffClip => _offClip;
-        public AudioClip BrokenClip => _brokenClip;
+        public SoundCue OnCue => _onCue;
+        public SoundCue OffCue => _offCue;
+        public SoundCue BrokenCue => _brokenCue;
         public float SfxVolume => _sfxVolume;
 
         private void OnValidate()

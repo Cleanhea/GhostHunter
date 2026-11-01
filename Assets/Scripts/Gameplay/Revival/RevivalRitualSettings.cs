@@ -1,3 +1,4 @@
+using GhostHunter.Core.Audio;
 using UnityEngine;
 
 namespace GhostHunter.Gameplay.Revival
@@ -45,6 +46,13 @@ namespace GhostHunter.Gameplay.Revival
         [Tooltip("부활 직후 보호 시간(초) — §8 '3초'.")]
         [SerializeField, Min(0f)] private float _protectionSeconds = 3f;
 
+        [Header("효과음 — 비어 있으면 재생하지 않는다. 촛대 위치에서 3D 로 들린다")]
+        [Tooltip("점화 미니게임이 시작될 때(라이터로 촛불에 불을 붙이려 할 때).")]
+        [SerializeField] private SoundCue _igniteStartCue;
+
+        [Tooltip("미니게임을 마치고 촛불이 켜질 때. 성공·실패와 상관없이 똑같이 난다(결과는 다섯 개가 다 켜진 뒤 공개한다).")]
+        [SerializeField] private SoundCue _igniteFinishCue;
+
         [Header("개발 [TEMP]")]
         [Tooltip("상점 서비스가 없는 경우(부트스트랩 없이 도는 테스트)에만 쓰는 촛불 재고. 로컬 세션도 상점 재고를 쓴다.")]
         [SerializeField, Min(0)] private int _devCandleStock = 10;
@@ -62,6 +70,8 @@ namespace GhostHunter.Gameplay.Revival
         public float FailedCandleOutSeconds => _failedCandleOutSeconds;
         public float ReviveDelaySeconds => Mathf.Max(_reviveDelaySeconds, _failedCandleOutSeconds);
         public float ProtectionSeconds => _protectionSeconds;
+        public SoundCue IgniteStartCue => _igniteStartCue;
+        public SoundCue IgniteFinishCue => _igniteFinishCue;
         public int DevCandleStock => _devCandleStock;
     }
 }

@@ -18,6 +18,13 @@ namespace GhostHunter.Gameplay.Player
         [SerializeField, Min(0f)] private float _jumpHeight = 1.2f;
         [SerializeField] private float _gravity = -20f;
 
+        [Header("넉백 (다른 플레이어에게 밀쳐졌을 때)")]
+        [Tooltip("지면에서 밀려난 수평 속도가 줄어드는 가속도(m/s²). 클수록 금방 멈춘다.")]
+        [SerializeField, Min(0f)] private float _knockbackGroundDeceleration = 18f;
+
+        [Tooltip("공중에서 밀려난 수평 속도가 줄어드는 가속도(m/s²).")]
+        [SerializeField, Min(0f)] private float _knockbackAirDeceleration = 3f;
+
         [Header("웅크리기")]
         [SerializeField, Min(0.2f)] private float _standingHeight = 1.3f;
         [SerializeField, Min(0.2f)] private float _crouchHeight = 0.87f;
@@ -47,6 +54,8 @@ namespace GhostHunter.Gameplay.Player
         public float AirControl => _airControl;
         public float JumpHeight => _jumpHeight;
         public float Gravity => _gravity;
+        public float KnockbackGroundDeceleration => _knockbackGroundDeceleration;
+        public float KnockbackAirDeceleration => _knockbackAirDeceleration;
         public float StandingHeight => _standingHeight;
         public float CrouchHeight => _crouchHeight;
         public float ProneHeight => _proneHeight;

@@ -1,0 +1,34 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0b5660d93b0f4558b58273e20bafa2a2, type: 3}
+  m_Name: SFX_flashlight_off
+  m_EditorClassIdentifier: GhostHunter.Core::GhostHunter.Core.Audio.SoundCue
+  _key: 
+  _clips:
+  - {fileID: 8300000, guid: 26a00f66751979746b3d1c1249b52278, type: 3}
+  _bus: 0
+  _volume: 1
+  _volumeJitter: 0
+  _pitch: 1
+  _pitchJitter: 0
+  _spatialBlend: 0
+  _minDistance: 1.5
+  _maxDistance: 25
+  _rolloff: 0
+  _spread: 0
+  _dopplerLevel: 0
+  _occludable: 1
+  _loop: 0
+  _priority: 64
+  _cooldown: 0
+  _maxSimultaneous: 0
+  _mixerGroup: {fileID: 0}

@@ -1,3 +1,4 @@
+using GhostHunter.Core.Audio;
 using UnityEngine;
 
 namespace GhostHunter.Gameplay.Player
@@ -46,16 +47,17 @@ namespace GhostHunter.Gameplay.Player
         [SerializeField] private Material _flameMaterial;
         [SerializeField] private Material _bodyMaterial;
 
-        [Header("효과음 — 비어 있으면 재생하지 않는다")]
+        [Header("효과음 — 비어 있으면 재생하지 않는다. 든 사람에게만 들린다")]
         [Tooltip("라이터를 꺼내 불이 붙을 때.")]
-        [SerializeField] private AudioClip _onClip;
+        [SerializeField] private SoundCue _onCue;
 
         [Tooltip("라이터를 집어넣어 불이 꺼질 때.")]
-        [SerializeField] private AudioClip _offClip;
+        [SerializeField] private SoundCue _offCue;
 
-        [Tooltip("연료가 0인데 라이터를 꺼냈을 때.")]
-        [SerializeField] private AudioClip _emptyClip;
+        [Tooltip("연료가 바닥나 꺼질 때, 그리고 연료가 0인데 라이터를 꺼냈을 때.")]
+        [SerializeField] private SoundCue _brokenCue;
 
+        [Tooltip("큐 음량에 곱하는 배율.")]
         [SerializeField, Range(0f, 1f)] private float _sfxVolume = 0.8f;
 
         public float MaxFuel => _maxFuel;
@@ -71,9 +73,9 @@ namespace GhostHunter.Gameplay.Player
         public float ShadowStrength => _shadowStrength;
         public Material FlameMaterial => _flameMaterial;
         public Material BodyMaterial => _bodyMaterial;
-        public AudioClip OnClip => _onClip;
-        public AudioClip OffClip => _offClip;
-        public AudioClip EmptyClip => _emptyClip;
+        public SoundCue OnCue => _onCue;
+        public SoundCue OffCue => _offCue;
+        public SoundCue BrokenCue => _brokenCue;
         public float SfxVolume => _sfxVolume;
     }
 }

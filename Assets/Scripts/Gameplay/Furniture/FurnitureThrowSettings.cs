@@ -98,6 +98,22 @@ namespace GhostHunter.Gameplay.Furniture
         [SerializeField, Range(0f, 1f)] private float _heavySoloMultiplier = 0.5f;
         [SerializeField, Min(0f)] private float _torqueScale = 2f;
 
+        [Header("플레이어 밀치기 (맨손) — 조작은 가구 투척과 같다")]
+        [Tooltip("다른 플레이어를 밀칠 수 있는 최대 거리(m, 눈 → 대상 몸 표면).")]
+        [SerializeField, Min(0.1f)] private float _shoveMaxDistance = 2f;
+
+        [Tooltip("살짝 눌렀다 뗐을 때(차지 0) 나가는 밀치기 힘 — 최대 힘에 대한 비율. 차징 시간·곡선은 위 가구 투척 값을 같이 쓴다.")]
+        [SerializeField, Range(0f, 1f)] private float _shoveMinChargeRatio = 0.3f;
+
+        [Tooltip("최대 차지로 밀쳤을 때 대상이 받는 수평 속도(m/s). 감속은 PlayerMoveSettings 의 넉백 감속을 따른다.")]
+        [SerializeField, Min(0f)] private float _shoveMaxSpeed = 9f;
+
+        [Tooltip("최대 차지로 밀쳤을 때 대상이 위로 받는 속도(m/s). 바닥에서 살짝 뜨게 해 마찰 없이 밀리게 한다. 0이면 수평으로만 민다.")]
+        [SerializeField, Min(0f)] private float _shoveUpwardSpeed = 2f;
+
+        [Tooltip("밀치기 뒤 다시 밀칠 수 있을 때까지의 대기(초). 서버가 검사한다.")]
+        [SerializeField, Min(0f)] private float _shoveCooldown = 0.6f;
+
         [Header("상태")]
         [SerializeField, Min(0f)] private float _relaunchLockDuration = 2f;
         [SerializeField, Min(0f)] private float _settledSpeed = 0.5f;
@@ -140,6 +156,10 @@ namespace GhostHunter.Gameplay.Furniture
         internal float LegacyUpwardBias => _upwardBias;
         public float HeavySoloMultiplier => _heavySoloMultiplier;
         public float TorqueScale => _torqueScale;
+        public float ShoveMaxDistance => _shoveMaxDistance;
+        public float ShoveMaxSpeed => _shoveMaxSpeed;
+        public float ShoveUpwardSpeed => _shoveUpwardSpeed;
+        public float ShoveCooldown => _shoveCooldown;
         public float RelaunchLockDuration => _relaunchLockDuration;
         public float SettledSpeed => _settledSpeed;
         public bool LaunchOnFirstRelease => _launchOnFirstRelease;
@@ -150,6 +170,9 @@ namespace GhostHunter.Gameplay.Furniture
         /// 살짝 누르면 <see cref="MinChargeRatio"/>, 끝까지 누르면 1이다.
         /// </summary>
         public float ForceRatio(float charge) => ChargeForceRatio(charge, _minChargeRatio, _chargeCurve);
+
+        /// <summary>플레이어 밀치기의 차지 → 힘 비율. 곡선은 가구 투척과 같고 최소 비율만 따로 쓴다.</summary>
+        public float ShoveForceRatio(float charge) => ChargeForceRatio(charge, _shoveMinChargeRatio, _chargeCurve);
 
         /// <summary><c>min + (1 − min) × charge^curve</c>. 곡선 지수는 1 미만으로 내려가지 않는다.</summary>
         public static float ChargeForceRatio(float charge, float minRatio, float curve)

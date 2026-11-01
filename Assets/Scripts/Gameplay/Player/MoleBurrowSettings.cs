@@ -1,3 +1,4 @@
+using GhostHunter.Core.Audio;
 using UnityEngine;
 
 namespace GhostHunter.Gameplay.Player
@@ -37,6 +38,15 @@ namespace GhostHunter.Gameplay.Player
         [Tooltip("도약 속도를 계산할 때 쓰는 중력(m/s²). PlayerMoveSettings와 별개로 이 스킬 전용으로 둔다.")]
         [SerializeField] private float _gravity = -20f;
 
+        [Header("효과음 — 비어 있으면 재생하지 않는다. 쓰는 사람에게만 들린다")]
+        [Tooltip("굴착을 시전해 땅에 숨기 시작할 때(SFX_skill_dig_hide).")]
+        [SerializeField] private SoundCue _hideCue;
+
+        [Tooltip("굴착이 끝나고 튀어오를 때(SFX_skill_dig_jump). 사망으로 조용히 끝나는 경우에는 재생하지 않는다.")]
+        [SerializeField] private SoundCue _popCue;
+
+        public SoundCue HideCue => _hideCue;
+        public SoundCue PopCue => _popCue;
         public float EnterCastSeconds => _enterCastSeconds;
         public float BurrowedMoveSpeedMultiplier => _burrowedMoveSpeedMultiplier;
         public float BurrowedCameraHeight => _burrowedCameraHeight;

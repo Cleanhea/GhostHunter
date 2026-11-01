@@ -247,6 +247,36 @@ rb.AddTorque(random torque * torqueScale, ForceMode.Impulse)
 
 발사 후 `OnLaunchedClientRpc(dir, magnitude)`로 이펙트/사운드 훅을 남긴다 (프로토타입에서는 비워둠).
 
+### 6. 플레이어 밀치기 (맨손, 2026-11-01)
+
+> 사용자 요청: "플레이어끼리 상호작용 추가 — 플레이어 캐릭터를 맨손으로 밀칠 수 있도록, 조작법은 가구 던지기와 동일."
+> 이전에는 플레이어끼리 물리적 상호작용이 없었다.
+
+**조작.** 좌클릭을 누르고 있으면 차징, 떼면 밀친다 — 가구 투척과 같다. 조준선에서 **가장 가까운 것**이 사거리
+(`shoveMaxDistance` 2m) 안의 살아 있는 다른 플레이어일 때만 밀치기가 되고, 가구·벽이 더 가까우면 기존 가구 잡기로 넘어간다
+(우선순위: 시체 → 플레이어 밀치기 → 가구). 차지 게이지(`ChargeGaugeUI`)는 "플레이어 밀치기 힘 nn%"로 같이 쓴다.
+
+```
+눌렀을 때  GrabController.TryBeginShove → BeginShoveRpc(targetId)          서버가 시작 시각을 적는다
+뗐을 때    ReleaseShoveRpc(targetId, aimDirection)                          차지는 서버가 (뗀 시각 − 시작 시각)/chargeTime 으로 잰다
+서버 검증  보낸 사람·생존 / 시작 기록과 같은 대상 / 쿨다운 / 대상 생존·굴착 중 아님 /
+          수평 거리 ≤ ServerReach(shoveMaxDistance) = 거리×1.2+0.8m, 높이차 ≤ 2.5m
+서버 계산  방향 = 조준 방향의 수평 성분(거의 수직이면 밀친 사람→대상)
+          속도 = 방향 × shoveMaxSpeed × ShoveForceRatio(charge) + 위 shoveUpwardSpeed × 같은 비율
+적용       PlayerMotor.ServerKnockback(속도) → KnockbackRpc(SendTo.Owner) → 대상 소유자가 TickMovement 에서 적용
+```
+
+- **물리 권위.** 플레이어 이동은 소유자 권위(ADR-0008)이므로 서버가 `Rigidbody` 를 밀지 않는다. 서버는 의도(속도)만 정하고
+  대상 소유자가 `CharacterController.Move` 에 더한다 — 새 예외가 아니라 ADR-0008 의 연장이라 ADR 은 만들지 않았다(`TeleportRpc` 와 같은 패턴).
+- **넉백 모양.** 수평 속도는 입력 이동에 **더해지고**(걸어서 맞서면 덜 밀린다) 땅 `knockbackGroundDeceleration`(18 m/s²)·
+  공중 `knockbackAirDeceleration`(3 m/s², `PlayerMoveSettings`)로 줄어든다. 위 속도는 소유자의 수직 속도보다 클 때만 올려서
+  뜬 상태를 깎지 않는다. 굴착 중(`MovementLocked`)이거나 로딩 중이면 무시/폐기한다.
+- **차지.** 차징 시간·곡선은 가구 투척 값(`chargeTime`·`chargeCurve`)을 그대로 쓰고, 살짝 눌렀을 때 비율만 `shoveMinChargeRatio`(0.3)로 따로 둔다.
+  기본값이면 탭은 약 2.7 m/s(≈0.2m 밀림), 끝까지 누르면 9 m/s(감속 18 m/s² 기준 약 2.2m).
+- **차징 취소.** 일시정지 메뉴(`ForceRelease`)·사망·대걸레/드라이버 장착은 밀지 않고 차징만 접는다.
+- **쿨다운.** 서버가 `shoveCooldown`(0.6초)으로 연타를 막는다(밀친 사람 기준).
+- **밀려난 쪽 피드백·밀친 쪽 모션·효과음은 아직 없다**(미결정 아래).
+
 ## 2인 흡착 규칙
 
 > 원문: "혼자 던지기, 2명 흡착 (단, 한명이 흡착을 안하면 던져지게 만들어주세요)"
@@ -318,12 +348,18 @@ rb.AddTorque(random torque * torqueScale, ForceMode.Impulse)
 | `twoHolderForce` | 50 | 2인 최대 발사 속도 변화량 |
 | `heavySoloMultiplier` | 0.5 | heavy를 혼자 던질 때 |
 | `torqueScale` | 2.0 | 회전하며 날아가는 정도 |
+| `shoveMaxDistance` | 2 m | 플레이어 밀치기 사거리 — 눈 → 대상 몸 표면 (2026-11-01, §6) |
+| `shoveMinChargeRatio` | 0.3 | 플레이어 밀치기에서 살짝 눌렀다 뗐을 때의 힘 비율. 차징 시간·곡선은 위 값 공유 |
+| `shoveMaxSpeed` / `shoveUpwardSpeed` | 9 / 2 m/s | 최대 차지로 밀쳤을 때 대상이 받는 수평/위 속도 |
+| `shoveCooldown` | 0.6 s | 밀치기 뒤 다시 밀칠 수 있을 때까지(서버 검사) |
 | `relaunchLockDuration` | 2.0 s | `Launched` 상태 최대 유지 |
 | `launchOnFirstRelease` | true | 2인 중 1인 해제 시 즉시 발사 토글. 끄면 예전처럼 남은 1명의 `ThrowReady` + 같이 내려놓기 (2026-10-29) |
 | `jointPutDownWindow` | 2.5 s | 2인 잡기에서 먼저 놓은 뒤 이 안에 마지막 홀더도 놓으면 발사 없이 내려놓기. 0이면 끔 (2026-09-29) |
 
 발사각 20°~70°는 플레이어 조준의 안전 범위로 고정된 게임 규칙이며 설정 에셋의 튜닝값으로
 노출하지 않는다.
+
+`PlayerMoveSettings` 에 넉백 감속 `knockbackGroundDeceleration`(18 m/s²)·`knockbackAirDeceleration`(3 m/s²)이 추가됐다 (§6).
 
 ## 튜닝 순서 (플레이테스트)
 
@@ -344,11 +380,14 @@ rb.AddTorque(random torque * torqueScale, ForceMode.Impulse)
 > 들고 있는 두 사람과는 부딪히지 않는다(§3.3). 평평한 벽에 대고 미는 경우는 여전히 속도 서보가 벽을 미는 상태로 남는다
 > (가속 제한 덕에 덜컹거리지는 않는다). 실제로 문제가 되면 "일정 시간 목표 도달 실패 시 자동 해제"를 넣는다.
 
+> **미결정:** 플레이어 밀치기(§6)의 연출 — 밀친 쪽 모션, 밀려난 쪽 화면 흔들림·소리, 대상 윤곽선/크로스헤어 색.
+> 밀려난 사람의 입력 제어를 일정 시간 줄일지(지금은 걸어서 맞설 수 있음), 높은 곳에서 밀어 떨어뜨리는 것을 허용할지도 정해지지 않았다.
+
 > **미결정:** 두 손잡이 운반의 손 목표는 조준 방향을 따른다 — 한 사람이 주위를 둘러보면 그쪽 끝이 따라 움직인다.
 > 의도된 조작(시선으로 내 쪽 끝을 움직임)이지만, 운반 중 둘러보기가 불편하다는 반응이 나오면 손 목표를 몸 방향 기준으로
 > 바꾸고 시선은 높낮이에만 쓰는 안을 검토한다.
 
 ---
 
-최종 갱신: 2026-10-29 (2인 중 첫 해제 즉시 발사·남은 사람 조준 방향, `launchOnFirstRelease` 기본 켜짐). 이전: 2026-10-04 (2인 운반을 조준점 중간 순간 추종 → 두 손잡이·속도 서보로 변경, 운반 중 마찰 낮추기·끼임 보조·
+최종 갱신: 2026-11-01 (맨손 플레이어 밀치기 §6). 이전: 2026-10-29 (2인 중 첫 해제 즉시 발사·남은 사람 조준 방향, `launchOnFirstRelease` 기본 켜짐). 이전: 2026-10-04 (2인 운반을 조준점 중간 순간 추종 → 두 손잡이·속도 서보로 변경, 운반 중 마찰 낮추기·끼임 보조·
 두 홀더와 열린 문짝 충돌 끄기 추가, 차지 → 힘 곡선·발사 힘 하한 제거·Hub "가구 투척 힘" 섹션). 이전: 2026-09-13 (스프링 부양 → 조준점 중간 고정 추종, 휠 회전·기울이기, 4 m 이탈 해제)

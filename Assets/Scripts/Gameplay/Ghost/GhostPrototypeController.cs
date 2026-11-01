@@ -38,6 +38,9 @@ namespace GhostHunter.Gameplay.Ghost
         private const float StuckMinProgress = 0.25f;
         private const float ShakePulseInterval = 0.05f;
         private const float ShakeAngularFrequency = Mathf.PI * 2f * 9f; // 초당 9회 좌우 왕복
+        // 바라봄 보고: 바뀔 때 즉시, 바라보는 동안은 이 주기로 다시 보낸다. 서버는 타임아웃 안에 못 받으면 놓은 것으로 친다.
+        private const float GazeReportHeartbeat = 0.25f;
+        private const float GazeReportTimeout = 0.8f;
         private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
 
         private enum Pursuit : byte
@@ -79,6 +82,27 @@ namespace GhostHunter.Gameplay.Ghost
         private readonly Dictionary<ulong, Vector3> _previousPlayerPositions = new();
         private readonly Dictionary<ulong, float> _playerSpeeds = new();
         private readonly Dictionary<ulong, float> _bodyWitnessTimers = new();
+
+        private readonly struct GazeReport
+        {
+            public readonly bool Gazing;
+            public readonly float At;
+
+            public GazeReport(bool gazing, float at)
+            {
+                Gazing = gazing;
+                At = at;
+            }
+        }
+
+        // 베이스 귀신 '뒤돌아보지마'(project/ghost-base.md). 서버: 플레이어별 바라봄 보고와 정지 상태 기계.
+        // 클라이언트: 자기 화면에 귀신이 렌더링되는지 계산해 서버에 알린다.
+        private readonly Dictionary<ulong, GazeReport> _gazeReports = new();
+        private readonly Plane[] _frustumPlanes = new Plane[6];
+        private GhostGazeFreeze _gaze;
+        private Camera _localCamera;
+        private bool _gazeReported;
+        private float _gazeReportRemaining;
 
         private CharacterController _controller;
         private GhostStateMachine _machine;
@@ -291,6 +315,7 @@ namespace GhostHunter.Gameplay.Ghost
             _bedHide.Clear();
             _burrowExposure.Clear();
             _bodyWitnessTimers.Clear();
+            ResetGaze();
             _serverReady = true;
         }
 
@@ -412,6 +437,8 @@ namespace GhostHunter.Gameplay.Ghost
             _debugForceVisible.OnValueChanged += HandleDebugVisibleChanged;
             TryBindLocalViewer();
             ApplyPhaseVisual(_phase.Value);
+            _gazeReported = false;
+            _gazeReportRemaining = 0f;
 
             if (!IsServer)
                 return;
@@ -435,6 +462,11 @@ namespace GhostHunter.Gameplay.Ghost
             _searchMemory = new GhostSearchMemory(_settings.RoamCellSize, _settings.SearchDuration);
             _aiFeatureMask = _settings.AiFeatureMask;
             _trackingMemory.Clear();
+            _gaze = _settings.GazeFreezeEnabled
+                ? new GhostGazeFreeze(_settings.GazeFreezeMaxSeconds, _settings.GazeImmunitySeconds,
+                    _settings.GazeSpeedBoostSeconds, _settings.GazeSpeedMultiplier)
+                : null;
+            _gazeReports.Clear();
             FurnitureNetworkPhysics.ServerImpactReported += HandleServerImpact;
             _serverReady = true;
         }
@@ -456,6 +488,9 @@ namespace GhostHunter.Gameplay.Ghost
                 _localViewer.SanityChanged -= HandleLocalViewerSanityChanged;
             }
             _localViewer = null;
+            _localCamera = null;
+            _gaze = null;
+            _gazeReports.Clear();
             _sanity = null;
             _machine = null;
             _phenomena = null;
@@ -513,10 +548,137 @@ namespace GhostHunter.Gameplay.Ghost
                 ApplyEnvironmentLights(GhostPhase.Attack);
             }
 
+            TickLocalGazeReport();
+
             if (!IsServer || !_serverReady || StageRecoveryGate.Restoring)
                 return;
 
             ServerTick(Time.deltaTime);
+        }
+
+        /// <summary>
+        /// 이 피어의 로컬 플레이어 화면에 귀신 본체가 렌더링되면 서버에 알린다('바라봄' = 화면 안 렌더링,
+        /// ghost-base.md BG-1). 어택 중에만 계산하고, 바뀔 때 즉시·바라보는 동안 주기적으로 보낸다.
+        /// </summary>
+        private void TickLocalGazeReport()
+        {
+            if (!IsSpawned || _settings == null || !_settings.GazeFreezeEnabled)
+                return;
+
+            bool gazing = _phase.Value == GhostPhase.Attack && IsGhostOnLocalScreen();
+            _gazeReportRemaining -= Time.deltaTime;
+            if (gazing == _gazeReported && (!gazing || _gazeReportRemaining > 0f))
+                return;
+
+            _gazeReported = gazing;
+            _gazeReportRemaining = GazeReportHeartbeat;
+            ReportGazeRpc(gazing);
+        }
+
+        [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
+        private void ReportGazeRpc(bool gazing, RpcParams rpcParams = default)
+        {
+            if (!_serverReady)
+                return;
+            _gazeReports[rpcParams.Receive.SenderClientId] = new GazeReport(gazing, Time.time);
+        }
+
+        /// <summary>
+        /// 켜져 있는 본체 렌더러 중 하나라도 로컬 카메라 절두체 안에 있고, 카메라에서 벽·가구에 가려지지
+        /// 않는 표본점(중앙·위·아래)이 있으면 참이다.
+        /// </summary>
+        private bool IsGhostOnLocalScreen()
+        {
+            if (_localViewer == null || !_localViewer.HasSanity || _bodyRenderers == null)
+                return false;
+
+            if (_localCamera == null)
+            {
+                Player.PlayerLook look = _localViewer.GetComponentInChildren<Player.PlayerLook>();
+                _localCamera = look != null ? look.PlayerCamera : null;
+            }
+            if (_localCamera == null || !_localCamera.enabled)
+                return false;
+
+            GeometryUtility.CalculateFrustumPlanes(_localCamera, _frustumPlanes);
+            Vector3 origin = _localCamera.transform.position;
+            int mask = GameLayers.NonGhostPrototypeRaycastMask;
+            if (GameLayers.Player >= 0)
+                mask &= ~(1 << GameLayers.Player);
+
+            for (int i = 0; i < _bodyRenderers.Length; i++)
+            {
+                Renderer bodyRenderer = _bodyRenderers[i];
+                if (bodyRenderer == null || !bodyRenderer.enabled
+                    || !bodyRenderer.gameObject.activeInHierarchy)
+                    continue;
+
+                Bounds bounds = bodyRenderer.bounds;
+                if (!GeometryUtility.TestPlanesAABB(_frustumPlanes, bounds))
+                    continue;
+
+                float half = bounds.extents.y * 0.7f;
+                for (int s = -1; s <= 1; s++)
+                {
+                    Vector3 point = bounds.center + Vector3.up * (half * s);
+                    if (IsPointInFrustum(point)
+                        && !Physics.Linecast(origin, point, mask, QueryTriggerInteraction.Ignore))
+                        return true;
+                }
+            }
+
+            return false;
+        }
+
+        private bool IsPointInFrustum(Vector3 point)
+        {
+            for (int i = 0; i < _frustumPlanes.Length; i++)
+            {
+                if (_frustumPlanes[i].GetDistanceToPoint(point) < 0f)
+                    return false;
+            }
+            return true;
+        }
+
+        private bool IsPlayerGazing(SanityNetworkState player)
+        {
+            return player != null && player.HasSanity
+                && _gazeReports.TryGetValue(player.OwnerClientId, out GazeReport report)
+                && report.Gazing && Time.time - report.At <= GazeReportTimeout;
+        }
+
+        private bool IsAnyoneGazing(int playerCount)
+        {
+            for (int i = 0; i < playerCount; i++)
+            {
+                if (IsPlayerGazing(_players[i]))
+                    return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// 포획 가능한 거리인가. 기믹이 꺼져 있으면 기존 <c>CatchRadius</c>. 켜져 있으면 ghost-base.md §3.4 —
+        /// 상한 밖 불가, 근접 이하는 시선 무관(정지도 푼다), 그 사이는 정지 중이 아니고 그 플레이어가 안 볼 때만.
+        /// </summary>
+        private bool CanCatchAt(SanityNetworkState player, float horizontalDistance)
+        {
+            if (_gaze == null)
+                return horizontalDistance <= _settings.CatchRadius;
+            if (horizontalDistance > _settings.GazeCatchFarRadius)
+                return false;
+            if (horizontalDistance <= _settings.GazeCatchNearRadius)
+            {
+                _gaze.ForceRelease();
+                return true;
+            }
+            return !_gaze.IsFrozen && !IsPlayerGazing(player);
+        }
+
+        private void ResetGaze()
+        {
+            _gaze?.Reset();
+            _gazeReports.Clear();
         }
 
         /// <summary>
@@ -591,6 +753,7 @@ namespace GhostHunter.Gameplay.Ghost
                     ResetPursuit();
                     _bedHide.Clear();
                     _burrowExposure.Clear();
+                    ResetGaze();
                 }
             }
 
@@ -1090,6 +1253,10 @@ namespace GhostHunter.Gameplay.Ghost
         {
             EvaluateBedHide(playerCount, deltaTime);
             EvaluateBurrowExposure(playerCount);
+            _gaze?.Tick(deltaTime, IsAnyoneGazing(playerCount));
+            // 정지 중에는 걷지 않는다(공격 판정 TryCatch 는 계속 돈다 — 근접 시 정지를 풀고 잡는다).
+            bool frozen = _gaze != null && _gaze.IsFrozen;
+            float attackSpeed = _settings.ChaseSpeed * (_gaze != null ? _gaze.SpeedMultiplier : 1f);
             _repathRemaining -= deltaTime;
             _targetSelectionRemaining -= deltaTime;
             if (_pursuit == Pursuit.Chase && _target != null
@@ -1156,7 +1323,7 @@ namespace GhostHunter.Gameplay.Ghost
             switch (_pursuit)
             {
                 case Pursuit.Chase:
-                    if (!MoveToward(ChaseDestination(), _settings.ChaseSpeed, deltaTime, allowPartial: true))
+                    if (!frozen && !MoveToward(ChaseDestination(), attackSpeed, deltaTime, allowPartial: true))
                         _repathRemaining = 0f;
                     TryCatch();
                     break;
@@ -1170,7 +1337,8 @@ namespace GhostHunter.Gameplay.Ghost
                         _lastKnownPosition = _witnessedBurrowPlayer.transform.position;
                     else if (_witnessedBedPlayer != null)
                         _lastKnownPosition = _witnessedBedPlayer.transform.position;
-                    MoveSearch(deltaTime);
+                    if (!frozen)
+                        MoveSearch(deltaTime, attackSpeed);
                     TryCatch();
                     ServerTickWitnessedShelter();
                     ServerTickWitnessedBed();
@@ -1179,14 +1347,16 @@ namespace GhostHunter.Gameplay.Ghost
                         ResetPursuit();
                     break;
                 default:
-                    ServerTickRoam(deltaTime, _settings.ChaseSpeed, attacking: true);
+                    if (!frozen)
+                        ServerTickRoam(deltaTime, attackSpeed, attacking: true);
                     break;
             }
 
             if (_repathRemaining <= 0f)
             {
                 _repathRemaining = _settings.RepathInterval;
-                TryOpenBlockingDoor();
+                if (!frozen)
+                    TryOpenBlockingDoor();
             }
         }
 
@@ -1262,12 +1432,12 @@ namespace GhostHunter.Gameplay.Ghost
         /// §9.3 수색 이동. 목격한 은신·굴착은 그 플레이어에게 곧장 간다. 아니면 마지막 위치로 간 뒤
         /// 그 주변(`SearchWanderRadius`)을 돌아다니며 시야·소리 재탐지 기회를 만든다.
         /// </summary>
-        private void MoveSearch(float deltaTime)
+        private void MoveSearch(float deltaTime, float speed)
         {
             if (_witnessedHidingPlayer != null || _witnessedBurrowPlayer != null
                 || _witnessedBedPlayer != null)
             {
-                MoveToward(_lastKnownPosition, _settings.ChaseSpeed, deltaTime, allowPartial: true);
+                MoveToward(_lastKnownPosition, speed, deltaTime, allowPartial: true);
                 return;
             }
 
@@ -1279,7 +1449,7 @@ namespace GhostHunter.Gameplay.Ghost
             }
             Vector3 destination = _searchWandering ? _searchDestination : _lastKnownPosition;
             bool arrived = HasArrived(destination);
-            if (arrived || !MoveToward(destination, _settings.ChaseSpeed, deltaTime, allowPartial: true))
+            if (arrived || !MoveToward(destination, speed, deltaTime, allowPartial: true))
             {
                 if (_settings.UtilitySearchEnabled && _searchMemory != null)
                 {
@@ -1398,7 +1568,7 @@ namespace GhostHunter.Gameplay.Ghost
             if (_settings.EvidenceTrackingEnabled && Mathf.Abs(offset.y) > ArrivalVerticalTolerance)
                 return;
             offset.y = 0f;
-            if (offset.magnitude <= _settings.CatchRadius)
+            if (CanCatchAt(player, offset.magnitude))
             {
                 player.ServerMarkDead();
                 if (hidingSpot)
@@ -2116,7 +2286,7 @@ namespace GhostHunter.Gameplay.Ghost
             }
             Vector3 delta = player.transform.position - transform.position;
             if (Mathf.Abs(delta.y) <= ArrivalVerticalTolerance
-                && new Vector2(delta.x, delta.z).magnitude <= _settings.CatchRadius)
+                && CanCatchAt(player, new Vector2(delta.x, delta.z).magnitude))
             {
                 player.ServerMarkDead();
                 _witnessedBedPlayer = null;
@@ -2246,7 +2416,7 @@ namespace GhostHunter.Gameplay.Ghost
                         _target.transform)))
                 return;
             delta.y = 0f;
-            if (delta.magnitude > _settings.CatchRadius)
+            if (!CanCatchAt(_target, delta.magnitude))
                 return;
 
             if (_target.ServerMarkDead())

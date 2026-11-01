@@ -1,4 +1,5 @@
 using GhostHunter.Core;
+using GhostHunter.Core.Audio;
 using GhostHunter.Core.Scenes;
 using GhostHunter.Gameplay.Ghost;
 using GhostHunter.Gameplay.Recovery;
@@ -57,7 +58,7 @@ namespace GhostHunter.Gameplay.Player
         private HeadlampBattery _state;
         private Transform _root;
         private Light _light;
-        private AudioSource _audio;
+        private IAudioService _audio;
         private ISceneFlow _sceneFlow;
         private float _nextFuelPublishAt;
         private bool _wasHeld;
@@ -122,6 +123,7 @@ namespace GhostHunter.Gameplay.Player
         public override void OnNetworkSpawn()
         {
             Services.TryGet(out _sceneFlow);
+            Services.TryGet(out _audio);
             _flickerSeed = NetworkObjectId * 7.31f % 100f;
             if (IsServer)
             {
@@ -145,6 +147,7 @@ namespace GhostHunter.Gameplay.Player
         {
             _state = null;
             _sceneFlow = null;
+            _audio = null;
             IsCharging = false;
             _wasHeld = false;
             SetVisible(false);
@@ -191,12 +194,15 @@ namespace GhostHunter.Gameplay.Player
 
             bool lit = _state.IsOn;
             if (held && !_wasHeld && !lit)
-                PlaySound(_settings.EmptyClip);
+                PlaySound(_settings.BrokenCue);
             else if (lit && !wasLit)
-                PlaySound(_settings.OnClip);
+                PlaySound(_settings.OnCue);
             else if (wasLit && !lit && !equipped && alive)
-                // 집어넣을 때만 소리를 낸다 — 사망·은신·연료 소진으로 꺼질 때는 조용하다.
-                PlaySound(_settings.OffClip);
+                // 집어넣을 때만 끄는 소리를 낸다 — 사망·은신으로 꺼질 때는 조용하다.
+                PlaySound(_settings.OffCue);
+            else if (wasLit && !lit && held)
+                // 들고 있는 채로 꺼졌다 = 연료가 바닥났다(다른 이유로 꺼지면 held 가 거짓이다).
+                PlaySound(_settings.BrokenCue);
 
             _wasHeld = held;
             Publish(force: false);
@@ -234,10 +240,10 @@ namespace GhostHunter.Gameplay.Player
 
         private bool IsStageScene() => _sceneFlow != null && _sceneFlow.Current.IsStage();
 
-        private void PlaySound(AudioClip clip)
+        private void PlaySound(SoundCue cue)
         {
-            if (clip != null && _audio != null)
-                _audio.PlayOneShot(clip, _settings.SfxVolume);
+            if (cue != null && _audio != null)
+                _audio.Play2D(cue, _settings.SfxVolume);
         }
 
         private void FollowHand()
@@ -278,14 +284,6 @@ namespace GhostHunter.Gameplay.Player
             _light.color = _settings.Color;
             _light.shadows = _settings.Shadows;
             _light.shadowStrength = _settings.ShadowStrength;
-
-            // 소리는 든 사람에게만 들린다(헤드라이트 전원 효과음과 같다). 불이 꺼지면 _root 가 비활성화되므로
-            // "집어넣는" 소리를 낼 수 있게 소리는 항상 켜져 있는 별도 오브젝트에 둔다.
-            GameObject audioObject = new("LighterAudio");
-            audioObject.transform.SetParent(transform, false);
-            _audio = audioObject.AddComponent<AudioSource>();
-            _audio.playOnAwake = false;
-            _audio.spatialBlend = 0f;
 
             rootObject.SetActive(false);
         }

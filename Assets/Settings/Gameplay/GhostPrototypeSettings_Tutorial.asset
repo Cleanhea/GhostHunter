@@ -17,18 +17,18 @@ MonoBehaviour:
   _warningDuration: 5
   _attackMaxDuration: 60
   _highRiskAttackDuration: 90
-  _attackEarlyEndWindow: 20
+  _attackEarlyEndWindow: 60
   _attackEarlyEndTeamSanity: 61
-  _calmingDuration: 30
+  _calmingDuration: 40
   _attackRollInterval: 10
   _attackChance51To60: 0.2
   _attackChance41To50: 0.4
   _attackChance31To40: 0.6
   _attackChance0To30: 1
   _cleaningActivateProgress: 40
-  _visionDistance: 15
+  _visionDistance: 7.5
   _visionAngle: 120
-  _highRiskVisionDistance: 15
+  _highRiskVisionDistance: 7.5
   _highRiskVisionAngle: 120
   _visionConeDisplayDistance: 3
   _nearDetectRadius: 3
@@ -49,6 +49,13 @@ MonoBehaviour:
   _catchCooldown: 4
   _gravity: 12
   _doorOpenRange: 2.2
+  _gazeFreezeEnabled: 1
+  _gazeFreezeMaxSeconds: 5
+  _gazeImmunitySeconds: 5
+  _gazeSpeedMultiplier: 1.5
+  _gazeSpeedBoostSeconds: 5
+  _gazeCatchFarRadius: 1.5
+  _gazeCatchNearRadius: 0.8
   _aiExperimentsEnabled: 1
   _evidenceTrackingEnabled: 1
   _utilitySearchEnabled: 1

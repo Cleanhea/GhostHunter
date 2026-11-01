@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using GhostHunter.Core;
+using GhostHunter.Core.Audio;
 using GhostHunter.Core.Steam;
 using GhostHunter.Gameplay.FurnitureDriver;
 using GhostHunter.Gameplay.Interaction;
@@ -58,6 +59,8 @@ namespace GhostHunter.Gameplay.Player
         private SanityNetworkState _sanity;
         private MoleBurrowController _burrow;
         private ILocalPlayerContext _localPlayer;
+        private IAudioService _audio;
+        private SoundHandle _useSound;
 
         private readonly NetworkVariable<int> _itemDurability = new(100,
             NetworkVariableReadPermission.Owner, NetworkVariableWritePermission.Server);
@@ -145,6 +148,7 @@ namespace GhostHunter.Gameplay.Player
             {
                 _localPlayer = Services.Get<ILocalPlayerContext>();
                 _localPlayer.Register(this);
+                Services.TryGet(out _audio);
             }
             _equippedSlot = -1;
             _serverSlot = -1;
@@ -184,6 +188,10 @@ namespace GhostHunter.Gameplay.Player
             _gearKey = 0;
             _localPlayer?.Unregister(this);
             _localPlayer = null;
+            // 퇴장은 중단 소리를 내지 않는다 — 사용 중 소리만 끊는다.
+            _audio?.Stop(_useSound);
+            _useSound = SoundHandle.None;
+            _audio = null;
             CancelAction();
             _equippedSlot = -1;
             _serverSlot = -1;
@@ -318,6 +326,11 @@ namespace GhostHunter.Gameplay.Player
             _assemblyPartObjectId = 0;
             _actionDurationTotal = _settings.ActionSecondsFor(_itemDurability.Value);
             _actionTimer = _actionDurationTotal;
+
+            // 사용 중 소리는 행동 시간과 같은 길이라 완료 순간에 함께 끝난다. 쓰는 사람에게만 들린다(2D).
+            SoundCue cue = _settings.UseCueFor(_itemDurability.Value);
+            if (_audio != null && cue != null)
+                _useSound = _audio.Play2D(cue);
         }
 
         private void TickAction()
@@ -348,6 +361,8 @@ namespace GhostHunter.Gameplay.Player
             _actionTimer = 0f;
             _actionDurationTotal = 0f;
             _assemblyPartObjectId = 0;
+            _useSound = SoundHandle.None;
+            PlayResultSound(_settings.CompleteCue);
 
             if (kind == FurnitureDriverActionKind.Disassemble)
                 RequestDisassembleRpc(targetId);
@@ -373,6 +388,12 @@ namespace GhostHunter.Gameplay.Player
             return false;
         }
 
+        private void PlayResultSound(SoundCue cue)
+        {
+            if (_audio != null && cue != null)
+                _audio.Play2D(cue);
+        }
+
         /// <summary>진행 중인 행동을 즉시 취소한다. 행동 중이었다면 HUD 실패 연출용 중단 기록을 남긴다.</summary>
         public void CancelAction()
         {
@@ -381,7 +402,11 @@ namespace GhostHunter.Gameplay.Player
                 _lastCancelledAction = _actionKind;
                 _lastCancelledProgress = ActionProgress;
                 _cancelSerial++;
+                _audio?.Stop(_useSound, 0.05f);
+                PlayResultSound(_settings != null ? _settings.CancelCue : null);
             }
+
+            _useSound = SoundHandle.None;
 
             _actionKind = FurnitureDriverActionKind.None;
             _actionTimer = 0f;

@@ -23,4 +23,6 @@ MonoBehaviour:
   _failedCandleOutSeconds: 1
   _reviveDelaySeconds: 2
   _protectionSeconds: 3
+  _igniteStartCue: {fileID: 11400000, guid: 26117ba8c27d4ae09805b06f3978f391, type: 2}
+  _igniteFinishCue: {fileID: 11400000, guid: 576da9a189ab4ef1ae9db2078afafc94, type: 2}
   _devCandleStock: 10

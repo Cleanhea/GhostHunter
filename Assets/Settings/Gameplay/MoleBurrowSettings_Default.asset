@@ -19,3 +19,5 @@ MonoBehaviour:
   _burrowedCameraHeight: 0.15
   _popHeight: 4
   _gravity: -20
+  _hideCue: {fileID: 11400000, guid: ef4722d28d6d4813b031ad5c2379c714, type: 2}
+  _popCue: {fileID: 11400000, guid: d1e795dbca204a4fbc65d9046689feeb, type: 2}

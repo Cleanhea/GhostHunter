@@ -1,8 +1,12 @@
 using System.Collections.Generic;
 using System.IO;
+using GhostHunter.Core.Audio;
 using GhostHunter.Data.Audio;
 using GhostHunter.Gameplay.Audio;
 using GhostHunter.Gameplay.Furniture;
+using GhostHunter.Gameplay.FurnitureDriver;
+using GhostHunter.Gameplay.Player;
+using GhostHunter.Gameplay.Revival;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
@@ -16,6 +20,12 @@ namespace GhostHunter.Tests.EditMode
         private const string LibraryPath = "Assets/Settings/Audio/SoundLibrary.asset";
         private const string ImpactPath = "Assets/Settings/Audio/ImpactSoundProfile_Default.asset";
         private const string BootstrapScenePath = "Assets/Scenes/Bootstrap.unity";
+        private const string LighterSettingsPath = "Assets/Settings/Gameplay/LighterSettings_Default.asset";
+        private const string HeadlampSettingsPath = "Assets/Settings/Gameplay/HeadlampSettings_Default.asset";
+        private const string DriverSettingsPath = "Assets/Settings/Gameplay/FurnitureDriverSettings_Default.asset";
+        private const string DetectSettingsPath = "Assets/Settings/Gameplay/DetectionSkillSettings_Default.asset";
+        private const string BurrowSettingsPath = "Assets/Settings/Gameplay/MoleBurrowSettings_Default.asset";
+        private const string RevivalSettingsPath = "Assets/Settings/Gameplay/RevivalRitualSettings_Default.asset";
 
         [Test]
         public void 오디오_설정은_라이브러리와_효과음_믹서_그룹에_이어져_있다()
@@ -70,6 +80,51 @@ namespace GhostHunter.Tests.EditMode
             }
 
             Assert.IsEmpty(missing, "NetworkSoundEmitter + FurnitureImpactSound(_profile) 가 빠진 가구 프리팹: " + string.Join(", ", missing));
+        }
+
+        [Test]
+        public void 라이터_헤드라이트_드라이버_스킬_부활_의식_설정의_효과음_큐는_클립을_가진다()
+        {
+            var lighter = AssetDatabase.LoadAssetAtPath<LighterSettings>(LighterSettingsPath);
+            var revival = AssetDatabase.LoadAssetAtPath<RevivalRitualSettings>(RevivalSettingsPath);
+            Assert.NotNull(lighter, LighterSettingsPath);
+            Assert.NotNull(revival, RevivalSettingsPath);
+            var headlamp = AssetDatabase.LoadAssetAtPath<HeadlampSettings>(HeadlampSettingsPath);
+            Assert.NotNull(headlamp, HeadlampSettingsPath);
+            var driver = AssetDatabase.LoadAssetAtPath<FurnitureDriverSettings>(DriverSettingsPath);
+            Assert.NotNull(driver, DriverSettingsPath);
+            var detect = AssetDatabase.LoadAssetAtPath<DetectionSkillSettings>(DetectSettingsPath);
+            Assert.NotNull(detect, DetectSettingsPath);
+            var burrow = AssetDatabase.LoadAssetAtPath<MoleBurrowSettings>(BurrowSettingsPath);
+            Assert.NotNull(burrow, BurrowSettingsPath);
+
+            var cues = new (string Name, SoundCue Cue)[]
+            {
+                ("라이터 OnCue", lighter.OnCue),
+                ("라이터 OffCue", lighter.OffCue),
+                ("라이터 BrokenCue", lighter.BrokenCue),
+                ("헤드라이트 OnCue", headlamp.OnCue),
+                ("헤드라이트 OffCue", headlamp.OffCue),
+                ("헤드라이트 BrokenCue", headlamp.BrokenCue),
+                ("드라이버 사용 중(>임계)", driver.UseCueHighDurability),
+                ("드라이버 사용 중(≤임계)", driver.UseCueLowDurability),
+                ("드라이버 중단", driver.CancelCue),
+                ("드라이버 완료", driver.CompleteCue),
+                ("탐지 CastCue", detect.CastCue),
+                ("굴착 HideCue", burrow.HideCue),
+                ("굴착 PopCue", burrow.PopCue),
+                ("의식 IgniteStartCue", revival.IgniteStartCue),
+                ("의식 IgniteFinishCue", revival.IgniteFinishCue),
+            };
+            foreach ((string name, SoundCue cue) in cues)
+            {
+                Assert.NotNull(cue, $"{name} 이 배선되지 않았다.");
+                Assert.IsTrue(cue.HasClips, $"{name}({cue.name}) 에 클립이 없다.");
+            }
+
+            // 든 사람에게만 들리는 라이터 소리는 2D, 촛대 위치에서 나는 의식 소리는 3D 다.
+            Assert.AreEqual(0f, lighter.OnCue.SpatialBlend);
+            Assert.AreEqual(1f, revival.IgniteFinishCue.SpatialBlend);
         }
     }
 }

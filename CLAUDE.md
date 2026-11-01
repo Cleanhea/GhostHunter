@@ -34,7 +34,7 @@ Facepunch.Steamworks 2.5.2 · UniTask 2.5.11 · PhysX · Force Text 직렬화.
 | 가구 내구도 | `project/furniture-durability-system.md` |
 | 가구 분해·조립 | `architecture/furniture-multidriver.md`, `project/furniture-multidriver-system.md` |
 | 청소 | `project/cleaning-system.md`, `architecture/cleaning-system.md` |
-| 귀신 / 정신력 | `project/ghost-system.md`·`architecture/ghost-prototype.md` / `project/sanity-system.md`·`architecture/sanity-system.md` |
+| 귀신 / 정신력 | `project/ghost-system.md`·`architecture/ghost-prototype.md`(튜토리얼 베이스 귀신: `project/ghost-base.md`) / `project/sanity-system.md`·`architecture/sanity-system.md` |
 | 플레이어 스킬 | `project/mole-skill-system.md` |
 | 헤드라이트(손전등)·배터리·충전 UI | `project/headlamp-system.md`, `architecture/headlamp.md` |
 | 일시정지·나가기·끊김 / 퀵슬롯 | `architecture/pause-menu.md` / `architecture/quick-slot.md` (기획은 `project/` 같은 이름) |

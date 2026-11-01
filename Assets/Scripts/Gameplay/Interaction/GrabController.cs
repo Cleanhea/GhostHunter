@@ -39,9 +39,33 @@ namespace GhostHunter.Gameplay.Interaction
         private Vector3 _corpsePressDirection;
         private bool _corpseCarryRequested;
 
+        // 맨손 플레이어 밀치기 — 누르고 있는 동안 차징, 떼면 밀친다(가구 투척과 같은 조작). throw-system.md §6.
+        private readonly RaycastHit[] _shoveHits = new RaycastHit[8];
+        private ulong _shoveTargetId = NoObjectId;
+        private float _shovePressAt;
+        private ulong _serverShoveTargetId = NoObjectId;
+        private float _serverShoveBeganAt;
+        private float _serverNextShoveAt;
+
         public ulong HeldObjectId => _heldObjectId.Value;
         public bool IsHolding => _heldObjectId.Value != NoObjectId;
         public bool IsTestHoldLatched => _testHoldLatched;
+
+        /// <summary>로컬 소유자가 다른 플레이어를 밀치려고 차징 중인가.</summary>
+        public bool IsChargingShove => _shoveTargetId != NoObjectId;
+
+        /// <summary>지금 놓으면 나갈 밀치기 힘 비율(0~1). 차징 중이 아니면 0. 차지 게이지 UI가 읽는다.</summary>
+        public float ShovePower
+        {
+            get
+            {
+                if (_shoveTargetId == NoObjectId || _settings == null)
+                    return 0f;
+
+                float charge = Mathf.Clamp01((Time.unscaledTime - _shovePressAt) / _settings.ChargeTime);
+                return _settings.ShoveForceRatio(charge);
+            }
+        }
 
         /// <summary>로컬 소유자의 휠 조작 모드. 휠 클릭으로 바뀌고, 잡기가 끝나면 회전으로 돌아간다.</summary>
         public FurnitureRotateMode RotateMode => _rotateMode;
@@ -74,6 +98,8 @@ namespace GhostHunter.Gameplay.Interaction
             _heldObjectId.OnValueChanged -= HandleHeldObjectChanged;
             _testHoldLatched = false;
             CancelCorpseInteraction();
+            CancelShove();
+            _serverShoveTargetId = NoObjectId;
             ServerReleaseCorpseCarry();
 
             if (_sanity != null)
@@ -96,10 +122,14 @@ namespace GhostHunter.Gameplay.Interaction
                 return;
 
             if (IsOwner)
+            {
                 CancelCorpseInteraction();
+                CancelShove();
+            }
             if (!IsServer)
                 return;
 
+            _serverShoveTargetId = NoObjectId;
             ServerReleaseCorpseCarry();
 
             if (IsHolding && TryResolveTarget(_heldObjectId.Value, out FurnitureGrabTarget target))
@@ -115,6 +145,7 @@ namespace GhostHunter.Gameplay.Interaction
                 || (_driver != null && _driver.IsDriverEquipped))
             {
                 CancelCorpseInteraction();
+                CancelShove();
                 return;
             }
 
@@ -124,12 +155,15 @@ namespace GhostHunter.Gameplay.Interaction
 
             if (_input.AttackPressedThisFrame)
             {
-                if (!TryBeginCorpseInteraction())
+                if (!TryBeginCorpseInteraction() && !TryBeginShove())
                     BeginGrab();
             }
 
             if (_corpseInteractionId != NoObjectId)
                 TickCorpseInteraction();
+
+            if (_shoveTargetId != NoObjectId && _input.AttackReleasedThisFrame)
+                ReleaseShove();
 
             if (_input.AttackReleasedThisFrame && !_testHoldLatched
                 && _corpseInteractionId == NoObjectId)
@@ -204,7 +238,8 @@ namespace GhostHunter.Gameplay.Interaction
         private void BeginGrab()
         {
             if (IsHolding || _requestedObjectId != NoObjectId
-                || _corpseInteractionId != NoObjectId || _targeter == null)
+                || _corpseInteractionId != NoObjectId || _shoveTargetId != NoObjectId
+                || _targeter == null)
                 return;
 
             FurnitureGrabTarget target = _targeter.CurrentTarget;
@@ -219,6 +254,125 @@ namespace GhostHunter.Gameplay.Interaction
                 target.NetworkObjectId,
                 _camera.transform.position,
                 _camera.transform.forward);
+        }
+
+        /// <summary>
+        /// 조준선 가장 가까운 것이 사거리 안의 살아 있는 다른 플레이어면 밀치기 차징을 시작한다.
+        /// 가구·벽이 더 가까우면 시작하지 않아 가구 잡기(<see cref="BeginGrab"/>)로 넘어간다.
+        /// </summary>
+        private bool TryBeginShove()
+        {
+            if (IsHolding || _requestedObjectId != NoObjectId || _shoveTargetId != NoObjectId
+                || _corpseInteractionId != NoObjectId || _settings == null
+                || (_sanity != null && !_sanity.HasSanity)
+                || !TryFindShoveTarget(out ulong targetId))
+                return false;
+
+            _shoveTargetId = targetId;
+            _shovePressAt = Time.unscaledTime;
+            BeginShoveRpc(targetId);
+            return true;
+        }
+
+        private bool TryFindShoveTarget(out ulong targetId)
+        {
+            targetId = NoObjectId;
+            Transform eye = _camera.transform;
+            float reach = _settings.ShoveMaxDistance;
+            int count = Physics.RaycastNonAlloc(
+                eye.position, eye.forward, _shoveHits,
+                Mathf.Max(reach, _settings.MaxTargetDistance),
+                Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
+
+            // 내 몸은 건너뛰고 가장 가까운 것을 본다.
+            int nearest = -1;
+            for (int i = 0; i < count; i++)
+            {
+                if (_shoveHits[i].collider.transform.IsChildOf(transform))
+                    continue;
+                if (nearest < 0 || _shoveHits[i].distance < _shoveHits[nearest].distance)
+                    nearest = i;
+            }
+
+            if (nearest < 0 || _shoveHits[nearest].distance > reach)
+                return false;
+
+            NetworkObject owner = _shoveHits[nearest].collider.GetComponentInParent<NetworkObject>();
+            if (owner == null || owner == NetworkObject
+                || !owner.TryGetComponent(out PlayerMotor _)
+                || !owner.TryGetComponent(out SanityNetworkState sanity) || !sanity.HasSanity)
+                return false;
+
+            targetId = owner.NetworkObjectId;
+            return true;
+        }
+
+        private void ReleaseShove()
+        {
+            ulong targetId = _shoveTargetId;
+            _shoveTargetId = NoObjectId;
+            if (targetId != NoObjectId && IsSpawned)
+                ReleaseShoveRpc(targetId, _camera.transform.forward);
+        }
+
+        /// <summary>밀치기 차징을 밀지 않고 접는다. 서버에 남은 시작 기록은 다음 시작 때 덮어쓰이므로 알릴 필요 없다.</summary>
+        private void CancelShove()
+        {
+            _shoveTargetId = NoObjectId;
+        }
+
+        [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
+        private void BeginShoveRpc(ulong targetId, RpcParams rpcParams = default)
+        {
+            if (rpcParams.Receive.SenderClientId != OwnerClientId
+                || (_sanity != null && !_sanity.HasSanity)
+                || _settings == null)
+                return;
+
+            _serverShoveTargetId = targetId;
+            _serverShoveBeganAt = Time.unscaledTime;
+        }
+
+        /// <summary>
+        /// 서버가 밀치기를 검증하고 대상 소유자에게 넉백을 보낸다. 이동은 소유자 권위(ADR-0008)라 서버는 속도만 정해 알리고
+        /// 실제 이동은 대상의 <see cref="PlayerMotor"/> 가 적용한다. 차지는 클라이언트가 보내지 않고 서버가 시작 시각으로 잰다.
+        /// </summary>
+        [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
+        private void ReleaseShoveRpc(ulong targetId, Vector3 aimDirection, RpcParams rpcParams = default)
+        {
+            if (rpcParams.Receive.SenderClientId != OwnerClientId
+                || (_sanity != null && !_sanity.HasSanity)
+                || _settings == null
+                || !IsFinite(aimDirection)
+                || targetId == NoObjectId || targetId != _serverShoveTargetId)
+                return;
+
+            _serverShoveTargetId = NoObjectId;
+            float now = Time.unscaledTime;
+            if (now < _serverNextShoveAt
+                || targetId == NetworkObjectId
+                || NetworkManager == null || NetworkManager.SpawnManager == null
+                || !NetworkManager.SpawnManager.SpawnedObjects.TryGetValue(targetId, out NetworkObject targetObject)
+                || !targetObject.TryGetComponent(out PlayerMotor targetMotor)
+                || !targetObject.TryGetComponent(out SanityNetworkState targetSanity) || !targetSanity.HasSanity
+                || (targetObject.TryGetComponent(out MoleBurrowController burrow) && burrow.IsBurrowed))
+                return;
+
+            Vector3 toTarget = targetMotor.transform.position - transform.position;
+            Vector3 flat = new(toTarget.x, 0f, toTarget.z);
+            if (flat.magnitude > PlayerShoveRules.ServerReach(_settings.ShoveMaxDistance)
+                || Mathf.Abs(toTarget.y) > 2.5f)
+                return;
+
+            Vector3 direction = PlayerShoveRules.ResolveDirection(aimDirection, toTarget);
+            if (direction == Vector3.zero)
+                return;
+
+            float charge = Mathf.Clamp01((now - _serverShoveBeganAt) / _settings.ChargeTime);
+            _serverNextShoveAt = now + _settings.ShoveCooldown;
+            targetMotor.ServerKnockback(PlayerShoveRules.KnockbackVelocity(
+                direction, _settings.ShoveForceRatio(charge),
+                _settings.ShoveMaxSpeed, _settings.ShoveUpwardSpeed));
         }
 
         private bool TryBeginCorpseInteraction()
@@ -399,6 +553,7 @@ namespace GhostHunter.Gameplay.Interaction
         {
             _testHoldLatched = false;
             CancelCorpseInteraction();
+            CancelShove();
             ReleaseGrab();
         }
 

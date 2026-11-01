@@ -19,6 +19,7 @@ docs/
 │   ├── gdd.md                      게임 디자인 문서
 │   ├── sanity-system.md            개인·팀 정신력·증감·디버프·플레이/모니터 UI
 │   ├── ghost-system.md             귀신 공통 상태·정신력 연동·어택·탐지·추격 규칙
+│   ├── ghost-base.md               베이스 귀신(튜토리얼) — '뒤돌아보지마' 기믹·공격 시선 조건·미결정, Tutorial 한정 구현
 │   ├── ghost-ai-experiments.md     귀신 AI 실험 토글·단서 기억·수색·예측·가구 소음·공포 간격·검증
 │   ├── mole-skill-system.md        두더지 스킬(탐지·굴착) 공통 규칙·판정·쿨타임·UI — 저장소 반영 1.2
 │   ├── headlamp-system.md          기본 장착 헤드라이트(원문 "손전등" 0.1) — F키·배터리·드릴카 충전·충전 UI·효과음
@@ -72,6 +73,7 @@ docs/
 | [project/gdd.md](project/gdd.md) | 규칙, 루프, 시스템, 밸런스는 | 게임 디자인 결정 |
 | [project/sanity-system.md](project/sanity-system.md) | 개인·팀 정신력은 어떻게 계산·증감·표현되는가 | 정신력 규칙·UI·피드백 변경 |
 | [project/ghost-system.md](project/ghost-system.md) | 귀신은 어떤 상태를 가지고 언제 어택하는가 | 귀신 공통 규칙·수치·판정 변경 |
+| [project/ghost-base.md](project/ghost-base.md) | 튜토리얼 귀신은 시선에 어떻게 멈추고 언제 공격하는가 | 베이스 귀신 규칙·수치·적용 스테이지 변경 |
 | [project/mole-skill-system.md](project/mole-skill-system.md) | 플레이어는 어떤 스킬을 언제 쓰고 어떻게 끝나는가 | 스킬 규칙·수치·연출 변경 |
 | [project/headlamp-system.md](project/headlamp-system.md) | 헤드라이트는 언제 켜지고 배터리는 어떻게 줄고 차는가 | 헤드라이트 규칙·수치·UI·효과음 변경 |
 | [project/pause-menu-system.md](project/pause-menu-system.md) | 매치를 어떻게 떠나고, 끊기면 무엇을 보는가 | 일시정지 메뉴·나가기·끊김 규칙 변경 |
@@ -123,10 +125,11 @@ docs/
 
 | 문서 | 상태 |
 | --- | --- |
-| project/overview.md | 🟡 본게임 범위 반영 — 정신력 코어 구현, 게임 루프·승패와 귀신 원문 0.2의 잔여 규칙 TBD |
-| project/gdd.md | 🟡 던지기·정신력 방향과 귀신 원문 0.2 요약 반영, 승패·루프·귀신 세부 충돌 TBD |
+| project/overview.md | 🟡 본게임 범위 반영 — 정신력 코어 구현, 게임 루프·승패와 귀신 원문 0.3의 잔여 규칙 TBD |
+| project/gdd.md | 🟡 던지기·정신력 방향과 귀신 원문 0.3 요약 반영, 승패·루프·귀신 세부 충돌 TBD |
 | project/sanity-system.md | 🟡 귀신 본체 목격 −5/5초 서버 연결 / 목격 범위 확정·Unity PlayMode 검증 TBD |
-| project/ghost-system.md | 🟡 손민지 원문 0.2 반영 — 활동·어택·자연 진정, 0~30 강제 어택, 10초 수색, 타깃 선정. 청소 조건·종료 충돌 등 결정 대기, 구현은 과거 규칙 기준 |
+| project/ghost-system.md | 🟡 손민지 원문 **0.3** 반영(2026-11-01, 문서만) — 자연 진정 40초·조기 종료 60초 이내·청소 40~50% 일회성 강제 어택·쉬움 난이도 사망 시 종료·튜토리얼 시야 축소. 자연 진정·조기 종료·Tutorial 시야는 코드 반영, 청소 일회성·난이도 사망 종료는 §12.3에 차이 기록·G-22~26 결정 대기 |
+| project/ghost-base.md | 🟡 **Tutorial 한정 구현(2026-11-01)** — 컴파일·상태 기계 EditMode 통과, 실플레이·다인·정지 연출 미검증. 정지 유발 범위·속도 대상·해제 사유 등 임시 해석 BG-2·5·6·7·8 확인 대기 |
 | project/mole-skill-system.md | 🟢 **굴착: 기획서 1.0 규칙 구현 완료** (2026-09-05) — 키 T · 유지 5초 · 쿨타임 10초 · 조작 전부 잠금 · 감지 상태 매몰 시 은신 무효. 🟡 **탐지·공통 UI 코드 스캐폴드 + 시전 파란빛 오버레이 부분 구현** — Q·활성 판정·5초·10초·색상별 활성 마커·탐지/굴착 동시 게이지. **벽 투시는 없다**(시야에 보이는 표면만, 2026-09-05 확정). `Game` 씬·`Player` 프리팹·아이콘 배선은 정적 확인됐고 수동 Play 검증 대기, 손·레이저 포인터 애니메이션과 작업 시스템의 실제 대상 정의는 MS-14·MS-5. 마지막 완료 복제 batchmode EditMode **165/172**(탐지 신규 전부 통과 — 상태 머신 float 오차 버그 1건을 잡아 수정), 최신 재시도는 Licensing/오프라인 Git 패키지 단계에서 테스트 XML 전에 차단. 실패 1·skip 6은 복제 환경의 에셋 임포트 문제 |
 | project/pause-menu-system.md | 🟢 **규칙 확정 + 구현 완료.** PM-1~15 전부 확정. 설정 화면 **내용**(PM-6)만 설정 시스템 기획서로 이월 / 수동 검증 대기 |
 | project/quick-slot-system.md | 🟡 **대걸레·맨손 장착 연결(2026-09-12).** 일반 인벤토리·정식 아이콘은 별도 작업 |
