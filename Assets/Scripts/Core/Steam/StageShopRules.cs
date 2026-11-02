@@ -74,6 +74,31 @@ namespace GhostHunter.Core.Steam
             isLobbyOwner && IsOpen(currentScene, isLoading) && IsValidItem(item)
             && balance >= PriceOf(item) && !(IsPersonal(item) && AlreadyOwned(item, gear));
 
+        /// <summary>구매가 가능하면 잔액·촛불·장비의 다음 값을 계산한다. 거절하면 입력값을 보존한다.</summary>
+        public static bool TryPurchase(bool isLobbyOwner, SceneId currentScene, bool isLoading,
+            ShopItem item, ref int balance, ref int candles, ref MemberGear gear)
+        {
+            if (!CanPurchase(isLobbyOwner, currentScene, isLoading, balance, item, gear))
+                return false;
+
+            switch (item)
+            {
+                case ShopItem.IronDriver:
+                    gear = new MemberGear(DriverTier.Iron, MaxDriverDurability, gear.HasLighter);
+                    break;
+                case ShopItem.IronLighter:
+                    gear = new MemberGear(gear.Driver, gear.DriverDurability, true);
+                    break;
+                case ShopItem.CandleSet:
+                    candles += CandlesPerSet;
+                    break;
+                default:
+                    return false;
+            }
+            balance -= PriceOf(item);
+            return true;
+        }
+
         /// <summary>손실 내구도 2당 $1, 홀수면 $1 올림. 손실이 없으면 0.</summary>
         public static int RepairCost(int durability)
         {
@@ -90,6 +115,17 @@ namespace GhostHunter.Core.Steam
             int cost = RepairCost(gear.DriverDurability);
             return isLobbyOwner && IsOpen(currentScene, isLoading) && IsRepairable(gear)
                 && cost > 0 && balance >= cost;
+        }
+
+        /// <summary>수리가 가능하면 비용을 빼고 내구도를 채운다. 거절하면 잔액·장비를 보존한다.</summary>
+        public static bool TryRepair(bool isLobbyOwner, SceneId currentScene, bool isLoading,
+            ref int balance, ref MemberGear gear)
+        {
+            if (!CanRepair(isLobbyOwner, currentScene, isLoading, balance, gear))
+                return false;
+            balance -= RepairCost(gear.DriverDurability);
+            gear = gear.WithDurability(MaxDriverDurability);
+            return true;
         }
 
         public static int Clamp(int durability) =>

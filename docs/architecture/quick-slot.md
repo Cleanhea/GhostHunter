@@ -12,7 +12,7 @@
 | 대상 | 파일 |
 | --- | --- |
 | 입력(Tab) 액션 | `Assets/InputSystem_Actions.inputactions` — `Player/QuickSlot` |
-| 입력 노출·세 번째 잠금 | `Gameplay/Player/PlayerInputReader.cs` |
+| 입력 노출·휠 잠금 | `Gameplay/Player/PlayerInputReader.cs` |
 | 표시용 아이템 데이터(더미) | `Gameplay/Player/QuickSlotItemDefinition.cs` |
 | 슬롯 배열(빈 슬롯 허용) | `Gameplay/Player/QuickSlotLoadout.cs` |
 | 각도→인덱스 순수 계산 | `Gameplay/Player/QuickSlotSelection.cs` |
@@ -21,18 +21,21 @@
 | ~~씬 설치 도구~~ | ~~`Editor/QuickSlotSetup.cs`~~ — ADR-0020으로 삭제 |
 | 테스트 | `Tests/EditMode/QuickSlotTests.cs` |
 
-## 2. 입력 — 세 번째 독립 잠금
+## 2. 입력 — 독립 휠 잠금
 
-`PlayerInputReader`는 이제 잠금을 세 개 갖는다. 셋은 서로 독립이고, 겹치면
-**메뉴 &gt; 굴착 &gt; 휠** 순으로 더 강한 쪽이 이긴다.
+메뉴·사망·굴착·휠 잠금은 독립적으로 유지하며, 겹치면
+**메뉴·복구 &gt; 사망·관전 &gt; 굴착 &gt; 휠** 순으로 이긴다.
+`PlayerInputPolicy`가 우선순위와 허용 입력을 정하고 `PlayerInputReader`가 액션을 읽는다(2026-11-02 정리).
 
 | 잠금 | 메서드 | 살아 있는 입력 |
 | --- | --- | --- |
-| 일시정지 메뉴 | `SetGameplayInputLocked` | 없음(시점 포함 전부 0) |
+| 일시정지 메뉴·복구 | `SetGameplayInputLocked` / `StageRecoveryGate.Restoring` | 생존·관전 조작 없음 |
+| 사망 | `SetDeathInputLocked` | 관전 이동·상승/하강·모드/대상 전환 |
 | 굴착(§5.5.1) | `SetSkillInputMode` | 시전 중 `Burrow`·`Headlamp`, 매몰 중 `Look`·`Move` 추가 |
-| **퀵슬롯 휠(신규)** | `SetWheelInputLocked` | `Look`을 뺀 전부 — **`Move`·`Crouch`·`Sprint`·`QuickSlot` 자신은 살아 있다**(QS-5) |
+| 퀵슬롯 휠 | `SetWheelInputLocked` | **`Move`·`Crouch`·`Sprint`·`QuickSlot`·`Headlamp`**(QS-5) |
 
-휠 잠금이 막는 것은 `Attack`·`Interact`·`Burrow`·`Detect`·`Prone`·`Jump`뿐이다. `QuickSlot`
+모든 잠금에서 음성·음소거와 `RawLookDelta`는 계속 읽는다.
+휠 잠금은 `Look`·`Attack`·`Interact`·`Burrow`·`Detect`·`Prone`·`Jump`·드라이버·가구 회전을 막는다. `QuickSlot`
 입력 자신이 막히지 않는 이유는 굴착 잠금 중 `Burrow`가 살아 있는 것과 같다 — 그래야 스스로 닫는다.
 
 `RawLookDelta`라는 새 프로퍼티도 추가했다. `Look`과 달리 **어떤 잠금 중에도 0으로 바뀌지 않는다**
@@ -96,8 +99,9 @@ UI 자체는 로컬 MonoBehaviour이며 RPC를 소유하지 않는다. 플레이
   없음)이면 숨긴다.
 - **우하단 장착 표시** — `_isOpen`과 무관하게 항상 떠 있는 별도 UI. 장착이 바뀔 때만 갱신된다.
 
-`OnDestroy`에서 런타임 `Texture2D`/`Sprite`를 전부 파괴한다(`MoleSkillHud`의
-`DestroyRuntimeObject` 패턴 재사용).
+Canvas와 원·링·흰 픽셀·화살표는 HUD별 `HudUiFactory`가 생성한다(2026-11-02 공통화).
+`OnDestroy`에서 `Dispose`를 호출해 런타임 `Texture2D`·`Sprite`·Canvas를 해제한다.
+로드아웃의 아이콘 에셋은 해제하지 않는다. 선택·장착·열림 조건과 화면 배치는 그대로다.
 
 ## 5. 알려진 범위 밖 (다음 작업으로 미룸)
 

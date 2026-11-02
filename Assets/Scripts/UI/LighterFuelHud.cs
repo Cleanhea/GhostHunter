@@ -20,14 +20,11 @@ namespace GhostHunter.UI
         [SerializeField] private MoleSkillUiSettings _uiSettings;
         [SerializeField] private PlayerLighter _lighter;
 
+        private readonly HudUiFactory _ui = new();
         private Canvas _canvas;
         private GameObject _root;
         private Image _ring;
         private Text _label;
-        private Texture2D _circleTexture;
-        private Texture2D _ringTexture;
-        private Sprite _circleSprite;
-        private Sprite _ringSprite;
         private int _shownPercent = -1;
 
         private void Awake()
@@ -41,14 +38,7 @@ namespace GhostHunter.UI
             }
         }
 
-        private void OnDestroy()
-        {
-            MoleSkillHud.DestroyRuntimeObject(_circleSprite);
-            MoleSkillHud.DestroyRuntimeObject(_ringSprite);
-            MoleSkillHud.DestroyRuntimeObject(_circleTexture);
-            MoleSkillHud.DestroyRuntimeObject(_ringTexture);
-            MoleSkillHud.DestroyRuntimeObject(_canvas != null ? _canvas.gameObject : null);
-        }
+        private void OnDestroy() => _ui.Dispose();
 
         private void LateUpdate()
         {
@@ -79,69 +69,23 @@ namespace GhostHunter.UI
 
         private void BuildCanvas()
         {
-            GameObject canvasObject = new("LighterFuelCanvas");
-            canvasObject.transform.SetParent(transform, false);
-
-            _canvas = canvasObject.AddComponent<Canvas>();
-            _canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            _canvas.overrideSorting = true;
-            _canvas.sortingOrder = CanvasSortingOrder;
-
-            CanvasScaler scaler = canvasObject.AddComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = _uiSettings.ReferenceResolution;
-            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
-            scaler.matchWidthOrHeight = 0.5f;
-
+            _canvas = _ui.CreateCanvas("LighterFuelCanvas", transform, CanvasSortingOrder, _uiSettings.ReferenceResolution);
             int resolution = _uiSettings.TextureResolution;
-            _circleSprite = MoleSkillHud.CreateCircleSprite(
-                resolution, resolution * 0.5f - 1f, out _circleTexture);
-            _ringSprite = MoleSkillHud.CreateRingSprite(
-                resolution,
-                resolution * 0.5f - 1f,
-                resolution * _uiSettings.RingThicknessRatio,
-                out _ringTexture);
-
+            Sprite circle = _ui.CreateCircleSprite(resolution, resolution * 0.5f - 1f, "MoleSkillCircleRuntime");
+            Sprite ring = _ui.CreateRingSprite(resolution, resolution * 0.5f - 1f,
+                resolution * _uiSettings.RingThicknessRatio, "MoleSkillRingRuntime");
             float size = _uiSettings.IndicatorSize;
-            _root = new GameObject("LighterFuelIndicator");
-            _root.transform.SetParent(_canvas.transform, false);
-            RectTransform rootRect = _root.AddComponent<RectTransform>();
-            rootRect.anchorMin = new Vector2(1f, 1f);
-            rootRect.anchorMax = new Vector2(1f, 1f);
-            rootRect.pivot = new Vector2(1f, 1f);
-            rootRect.sizeDelta = new Vector2(size, size);
-            rootRect.anchoredPosition = new Vector2(
-                -_uiSettings.RightMargin,
-                -_uiSettings.TopMargin - SlotIndex * (size + _uiSettings.VerticalSpacing));
-
-            Image background = _root.AddComponent<Image>();
-            background.sprite = _circleSprite;
-            background.color = _uiSettings.BackgroundColor;
-            background.raycastTarget = false;
-
-            GameObject ringObject = new("FuelRing");
-            ringObject.transform.SetParent(_root.transform, false);
-            MoleSkillHud.Stretch(ringObject.AddComponent<RectTransform>());
-            _ring = ringObject.AddComponent<Image>();
-            _ring.sprite = _ringSprite;
-            _ring.type = Image.Type.Filled;
-            _ring.fillMethod = Image.FillMethod.Radial360;
-            _ring.fillOrigin = (int)Image.Origin360.Top;
-            _ring.fillClockwise = true;
+            var gauge = new RadialGaugeView(_canvas.transform, "LighterFuelIndicator", size,
+                circle, ring, "FuelRing", clockwise: true);
+            gauge.PlaceTopRight(new Vector2(-_uiSettings.RightMargin,
+                -_uiSettings.TopMargin - SlotIndex * (size + _uiSettings.VerticalSpacing)));
+            gauge.Background.color = _uiSettings.BackgroundColor;
+            _root = gauge.Root;
+            _ring = gauge.Ring;
             _ring.color = _uiSettings.CastingColor;
-            _ring.raycastTarget = false;
-
-            GameObject labelObject = new("Percent");
-            labelObject.transform.SetParent(_root.transform, false);
-            MoleSkillHud.Stretch(labelObject.AddComponent<RectTransform>());
-            _label = labelObject.AddComponent<Text>();
-            _label.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            _label.fontSize = Mathf.RoundToInt(size * 0.2f);
-            _label.fontStyle = FontStyle.Bold;
-            _label.alignment = TextAnchor.MiddleCenter;
+            _label = gauge.CreateLabel("Percent", Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf"),
+                Mathf.RoundToInt(size * 0.2f));
             _label.color = _uiSettings.CooldownColor;
-            _label.raycastTarget = false;
-
             _root.SetActive(false);
         }
     }

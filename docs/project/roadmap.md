@@ -7,6 +7,47 @@
 
 ## 0. 시스템별 현재 상태
 
+**리팩토링 6단계 — 씬·정산 흐름 정리(2026-11-03, 구현·자동 검증 완료):** `SceneTransitionOperations`로
+로컬/NGO 작업·공통 이벤트 대기/해제·입력 잠금/복원을, `StageSettlementHistory`로 이력·중복 방지·게시 대기열과
+1초 재시도를 분리했다. 기존 전환 순서·서버 권위·디스폰/재스폰·기본 보상·정산/복구 형식은 유지했다.
+EditMode 9건·PlayMode 4건 추가. 컴파일 오류·경고 0, 전체 **597/597**·**171/171** 통과(실패·스킵 0).
+보호 파일 425개 보존. 계획한 0~6단계의 구현·자동 검증을 마쳤다. 누적 런타임 **47,927→40,911줄(7,016줄 감소)**,
+테스트 포함 **61,825→55,711줄(6,114줄 감소)**. 실제 화면/조작감·Steam 다인과 기존 NGO 씬 핸들 오류
+**SF-FIX-1은 남아 있다** → [overview.md §5.2](../architecture/overview.md#52-씬-전환과-정산-이력-2026-11-03), [testing.md](../workflow/testing.md).
+
+**리팩토링 5단계 — 귀신 감지·이동 구조 정리(2026-11-02, 구현·자동 검증 완료):** `GhostPerception`에
+시야·시야선·이동 소리·본체 목격을, `GhostNavigation`에 NavMesh·경로·이동·걸림 감지·해제를 모았다.
+기본/단서 추격의 타깃 선정과 후보/이동 경로 계산을 각각 통합했다. 상태 기계·튜닝 값·RPC 2개·서버 권위·
+직렬화·복구 형식·은신 규칙은 유지했다. PlayMode 21건 추가, 소스 메서드 이름/순서 검사 1건은 같은 틱의
+굴착 노출 경합 실행 검사로 대체했다. 전체 EditMode **588/588**·PlayMode **167/167** 통과(실패·스킵 0),
+C# 오류·경고 0. 보호 파일 425개 보존. 실제 Stage1 이동 체감·연출·Steam 2PC는 미검증.
+6단계 결과는 위 현재 기록을 따른다 → [ghost-prototype.md](../architecture/ghost-prototype.md), [testing.md](../workflow/testing.md).
+
+**리팩토링 4단계 — 입력·행동 정리(2026-11-02, 구현·자동 검증 완료):** `PlayerInputPolicy`로 메뉴·복구 →
+사망·관전 → 굴착 → 휠 우선순위와 허용 입력을 모으고 `PlayerInputReader`의 중복 갱신을 통합했다.
+`GrabController`의 시체 클릭/운반·플레이어 밀치기 로컬 상태를 `CorpseInteraction`·`PlayerShoveInteraction`으로
+분리했다. 기존 가구 처리·RPC 10개·서버 검증·직렬화 필드와 조작은 유지하고 시체 진단 로그는 제거했다.
+입력·시체·밀치기 PlayMode 13건 추가, 소스 분기 모양에 묶인 EditMode 2건은 실제 입력 검사로 대체했다.
+컴파일 오류·경고 0, 전체 EditMode **589/589**·PlayMode **146/146** 통과(실패·스킵 0).
+보호 에셋/설정 425개 해시 보존. 실제 조작감·Steam 2PC 미검증. 5단계 결과는 위 현재 기록을 따른다 →
+[player-controller.md](../architecture/player-controller.md), [throw-system.md](../architecture/throw-system.md), [testing.md](../workflow/testing.md).
+
+**리팩토링 3단계 — 상점 계산 통합(2026-11-02, 구현·자동 검증 완료):** 구매·수리의 잔액·촛불·장비 변경을
+`StageShopRules.TryPurchase`·`TryRepair`로 공통화했다. Steam·Local 경로는 같은 계산을 사용하며 기존 참가자 검사·
+저장·전송·변경 알림과 가격·권한·데이터 형식을 유지한다. 거래 결과·거절 시 상태 보존 EditMode 20건과 실제 Local 거래
+PlayMode 1건 추가. 변경 전 관련 EditMode 10/10·PlayMode 5/5, 변경 후 전체 컴파일·EditMode **591/591**·PlayMode
+**133/133** 통과(실패·스킵 0). Steam 2PC 상점 실기는 미검증. 4단계 진행 결과는 위 현재 기록을 따른다 → [steam.md](../architecture/steam.md), [testing.md](../workflow/testing.md).
+검증 중 드러난 기존 CS0108 경고 3건은 private 자원 해제 함수 이름만 정리해 해소했다(최종 컴파일 오류·경고 0).
+
+**리팩토링 0~2단계(2026-11-02, 구현·자동 검증 완료):** 기준선 컴파일 통과·EditMode 578/580(기존 실패 2)·PlayMode 122/122 확보.
+기존 실패는 실제 입력·굴착 추적/포획 흐름 검사로 대체했다. ADR-0020 기준으로 남아 있던 일회성 Editor 코드 11개(6,679줄)와
+생성기 테스트를 `.meta`와 함께 삭제하고, 가구 물리 검증은 저장된 프리팹·실제 스폰 검사로 이관했다.
+HUD 5개의 Canvas·도형 생성/해제를 `HudUiFactory`, 원형 표시부를 `RadialGaugeView`로 공통화했다.
+자체 스크립트 **47,927 → 40,838줄(7,089줄 감소)**, 테스트 포함 **61,825 → 54,658줄**.
+변경 후 컴파일·EditMode **571/571**·PlayMode **132/132** 통과(실패·스킵 0).
+씬·프리팹·설정 등 보호 파일 425개 해시·기존 HUD 직렬화 필드/GUID 보존. 실제 HUD 육안·Steam 2PC는 미검증.
+상점 3단계·입력/행동 4단계·귀신 5단계·씬/정산 6단계는 위 기록을 따른다. 합의한 정리 범위의 구현·자동 검증은 완료했고 실기는 별도다 → [testing.md](../workflow/testing.md), [overview.md §5.1](../architecture/overview.md#51-hud-생성과-자원-수명-2026-11-02).
+
 **귀신 공통 기획 원문 0.3(2026-11-01, 문서만):** 자연 진정 40초·조기 종료 60초 이내·청소 40~50% 일회성 강제 어택(이전 "필수 전제" 결정과 충돌)·쉬움 난이도 사망 시 어택 종료·튜토리얼 시야 축소를 [ghost-system.md](ghost-system.md)에 반영. 자연 진정 40초·조기 종료 60초 이내·Tutorial 시야 7.5m는 **코드·에셋·EditMode 테스트까지 반영**(EditMode 580건 중 578 통과, 실패 2건은 기존 MoleSkillWiringTests). 청소 40~50% 일회성(G-22)·난이도별 사망 종료(G-23)·비활동/활동(G-25)은 결정 대기 → M8-GS-1e.
 
 **베이스 귀신(2026-11-01):** Tutorial 귀신을 "베이직 귀신"에서 **베이스 귀신**(임시 이름)으로 바꾸고 '뒤돌아보지마' 기믹(어택 중 시선 정지·정지 면역 5초·이동 ×1.5·거리 구간별 공격 시선 조건)을 반영했다. 사용자 결정: 바라봄 = 귀신이 화면에 렌더링될 때, 적용은 Tutorial 한정, 붉은 원뿔 유지. **Tutorial 설정 에셋에서만 구현**, 컴파일·EditMode 통과, 실플레이·다인·연출은 미검증. 남은 임시 해석 BG-2·5·6·7·8 → [ghost-base.md](ghost-base.md), [ghost-prototype.md](../architecture/ghost-prototype.md).

@@ -34,8 +34,7 @@ namespace GhostHunter.Systems.SceneFlow
             {
                 NetworkManager network = NetworkManager.Singleton;
                 return !_transitioning && _sceneFlow != null && !_sceneFlow.IsLoading
-                    && network != null && network.IsListening && network.IsServer
-                    && !network.ShutdownInProgress && network.NetworkConfig.EnableSceneManagement;
+                    && SceneTransitionOperations.UsesNgo(network) && network.IsServer;
             }
         }
 

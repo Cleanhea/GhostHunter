@@ -27,10 +27,9 @@ namespace GhostHunter.UI
         private int _observedCancelSerial;
         private int _observedFeedbackSerial;
 
+        private readonly HudUiFactory _ui = new();
         private Canvas _canvas;
         private Font _font;
-        private Texture2D _ringTexture;
-        private Sprite _ringSprite;
         private RectTransform _gaugeRoot;
         private Image _track;
         private Image _fill;
@@ -101,12 +100,7 @@ namespace GhostHunter.UI
             _gaugeRoot.gameObject.SetActive(false);
         }
 
-        private void OnDestroy()
-        {
-            DestroyRuntimeObject(_ringSprite);
-            DestroyRuntimeObject(_ringTexture);
-            DestroyRuntimeObject(_canvas != null ? _canvas.gameObject : null);
-        }
+        private void OnDestroy() => _ui.Dispose();
 
         private void ShowProgress(FurnitureDriverActionKind kind, float progress)
         {
@@ -188,139 +182,31 @@ namespace GhostHunter.UI
 
         private void BuildCanvas()
         {
-            GameObject canvasObject = new("FurnitureDriverActionCanvas");
-            canvasObject.transform.SetParent(transform, false);
-
-            _canvas = canvasObject.AddComponent<Canvas>();
-            _canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            _canvas.overrideSorting = true;
-            _canvas.sortingOrder = CanvasSortingOrder;
-
-            CanvasScaler scaler = canvasObject.AddComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = _uiSettings.ReferenceResolution;
-            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
-            scaler.matchWidthOrHeight = 0.5f;
-
+            _canvas = _ui.CreateCanvas("FurnitureDriverActionCanvas", transform, CanvasSortingOrder, _uiSettings.ReferenceResolution);
             int resolution = _uiSettings.TextureResolution;
-            _ringSprite = CreateRingSprite(
-                resolution,
-                resolution * 0.5f - 1f,
-                resolution * 0.5f * _uiSettings.RingThicknessRatio,
-                out _ringTexture);
-
-            GameObject rootObject = new("ActionGauge");
-            rootObject.transform.SetParent(canvasObject.transform, false);
-            _gaugeRoot = rootObject.AddComponent<RectTransform>();
-            _gaugeRoot.anchorMin = new Vector2(0.5f, 0.5f);
-            _gaugeRoot.anchorMax = new Vector2(0.5f, 0.5f);
-            _gaugeRoot.pivot = new Vector2(0.5f, 0.5f);
-            _gaugeRoot.sizeDelta = new Vector2(_uiSettings.RingDiameter, _uiSettings.RingDiameter);
-            _gaugeRoot.anchoredPosition = Vector2.zero;
-
-            _track = rootObject.AddComponent<Image>();
-            _track.sprite = _ringSprite;
+            Sprite ring = _ui.CreateRingSprite(resolution, resolution * 0.5f - 1f,
+                resolution * 0.5f * _uiSettings.RingThicknessRatio, "FurnitureDriverRingRuntime");
+            var gauge = new RadialGaugeView(_canvas.transform, "ActionGauge", _uiSettings.RingDiameter,
+                ring, ring, "Fill", clockwise: true);
+            _gaugeRoot = gauge.Rect;
+            _track = gauge.Background;
             _track.color = _uiSettings.TrackColor;
-            _track.raycastTarget = false;
-
-            GameObject fillObject = new("Fill");
-            fillObject.transform.SetParent(rootObject.transform, false);
-            Stretch(fillObject.AddComponent<RectTransform>());
-            _fill = fillObject.AddComponent<Image>();
-            _fill.sprite = _ringSprite;
-            _fill.type = Image.Type.Filled;
-            _fill.fillMethod = Image.FillMethod.Radial360;
-            _fill.fillOrigin = (int)Image.Origin360.Top;
-            _fill.fillClockwise = true;
+            _fill = gauge.Ring;
             _fill.fillAmount = 0f;
-            _fill.raycastTarget = false;
-
-            GameObject labelObject = new("Label");
-            labelObject.transform.SetParent(rootObject.transform, false);
-            RectTransform labelRect = labelObject.AddComponent<RectTransform>();
+            _label = gauge.CreateLabel("Label", _font, _uiSettings.FontSize);
+            RectTransform labelRect = _label.rectTransform;
             labelRect.anchorMin = new Vector2(0.5f, 0f);
             labelRect.anchorMax = new Vector2(0.5f, 0f);
             labelRect.pivot = new Vector2(0.5f, 1f);
             labelRect.anchoredPosition = new Vector2(0f, -_uiSettings.LabelGap);
             labelRect.sizeDelta = new Vector2(240f, _uiSettings.FontSize * 1.6f);
-
-            _label = labelObject.AddComponent<Text>();
-            _label.font = _font;
-            _label.fontSize = _uiSettings.FontSize;
-            _label.fontStyle = FontStyle.Bold;
             _label.alignment = TextAnchor.UpperCenter;
             _label.color = _uiSettings.TextColor;
             _label.horizontalOverflow = HorizontalWrapMode.Overflow;
             _label.verticalOverflow = VerticalWrapMode.Overflow;
-            _label.raycastTarget = false;
-
-            // 밝은 벽·가구 앞에서도 흰 문구가 읽히도록 외곽선을 둔다.
-            Outline outline = labelObject.AddComponent<Outline>();
+            Outline outline = _label.gameObject.AddComponent<Outline>();
             outline.effectColor = new Color(0f, 0f, 0f, 0.75f);
-
-            rootObject.SetActive(false);
-        }
-
-        private static void Stretch(RectTransform rectTransform)
-        {
-            rectTransform.anchorMin = Vector2.zero;
-            rectTransform.anchorMax = Vector2.one;
-            rectTransform.offsetMin = Vector2.zero;
-            rectTransform.offsetMax = Vector2.zero;
-            rectTransform.pivot = new Vector2(0.5f, 0.5f);
-        }
-
-        private static Sprite CreateRingSprite(
-            int resolution,
-            float outerRadius,
-            float thickness,
-            out Texture2D texture)
-        {
-            texture = new Texture2D(resolution, resolution, TextureFormat.RGBA32, false)
-            {
-                name = "FurnitureDriverRingRuntime",
-                filterMode = FilterMode.Bilinear,
-                wrapMode = TextureWrapMode.Clamp,
-            };
-
-            Color32[] pixels = new Color32[resolution * resolution];
-            float center = (resolution - 1) * 0.5f;
-            float outerSquared = outerRadius * outerRadius;
-            float innerRadius = Mathf.Max(0f, outerRadius - thickness);
-            float innerSquared = innerRadius * innerRadius;
-
-            for (int y = 0; y < resolution; y++)
-            {
-                for (int x = 0; x < resolution; x++)
-                {
-                    float dx = x - center;
-                    float dy = y - center;
-                    float distanceSquared = dx * dx + dy * dy;
-                    pixels[y * resolution + x] = distanceSquared <= outerSquared
-                        && distanceSquared >= innerSquared
-                        ? Color.white
-                        : Color.clear;
-                }
-            }
-
-            texture.SetPixels32(pixels);
-            texture.Apply(false, true);
-            return Sprite.Create(
-                texture,
-                new Rect(0f, 0f, resolution, resolution),
-                new Vector2(0.5f, 0.5f),
-                100f);
-        }
-
-        private static void DestroyRuntimeObject(Object target)
-        {
-            if (target == null)
-                return;
-
-            if (Application.isPlaying)
-                Destroy(target);
-            else
-                DestroyImmediate(target);
+            gauge.Root.SetActive(false);
         }
     }
 }

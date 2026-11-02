@@ -31,18 +31,9 @@ namespace GhostHunter.Gameplay.Interaction
         private float _nextAimSendAt;
         private bool _testHoldLatched;
         private FurnitureRotateMode _rotateMode = FurnitureRotateMode.Rotate;
-        private ulong _corpseInteractionId = NoObjectId;
         private ulong _serverHeldCorpseId = NoObjectId;
-        private float _corpsePressAt;
-        private float _corpseHoldThreshold;
-        private Vector3 _corpsePressOrigin;
-        private Vector3 _corpsePressDirection;
-        private bool _corpseCarryRequested;
-
-        // 맨손 플레이어 밀치기 — 누르고 있는 동안 차징, 떼면 밀친다(가구 투척과 같은 조작). throw-system.md §6.
-        private readonly RaycastHit[] _shoveHits = new RaycastHit[8];
-        private ulong _shoveTargetId = NoObjectId;
-        private float _shovePressAt;
+        private CorpseInteraction _corpseInteraction;
+        private PlayerShoveInteraction _shoveInteraction;
         private ulong _serverShoveTargetId = NoObjectId;
         private float _serverShoveBeganAt;
         private float _serverNextShoveAt;
@@ -52,20 +43,10 @@ namespace GhostHunter.Gameplay.Interaction
         public bool IsTestHoldLatched => _testHoldLatched;
 
         /// <summary>로컬 소유자가 다른 플레이어를 밀치려고 차징 중인가.</summary>
-        public bool IsChargingShove => _shoveTargetId != NoObjectId;
+        public bool IsChargingShove => _shoveInteraction != null && _shoveInteraction.IsActive;
 
         /// <summary>지금 놓으면 나갈 밀치기 힘 비율(0~1). 차징 중이 아니면 0. 차지 게이지 UI가 읽는다.</summary>
-        public float ShovePower
-        {
-            get
-            {
-                if (_shoveTargetId == NoObjectId || _settings == null)
-                    return 0f;
-
-                float charge = Mathf.Clamp01((Time.unscaledTime - _shovePressAt) / _settings.ChargeTime);
-                return _settings.ShoveForceRatio(charge);
-            }
-        }
+        public float ShovePower => _shoveInteraction != null ? _shoveInteraction.Power : 0f;
 
         /// <summary>로컬 소유자의 휠 조작 모드. 휠 클릭으로 바뀌고, 잡기가 끝나면 회전으로 돌아간다.</summary>
         public FurnitureRotateMode RotateMode => _rotateMode;
@@ -88,6 +69,13 @@ namespace GhostHunter.Gameplay.Interaction
 
             if (IsOwner)
             {
+                _corpseInteraction = new CorpseInteraction(_camera, _settings,
+                    (id, origin, direction) => RequestCorpsePushRpc(id, origin, direction),
+                    (id, origin, direction) => RequestCorpseCarryRpc(id, origin, direction),
+                    (id, origin, direction) => RequestCorpseAimRpc(id, origin, direction),
+                    id => RequestCorpseReleaseRpc(id));
+                _shoveInteraction = new PlayerShoveInteraction(transform, NetworkObject, _camera, _settings,
+                    id => BeginShoveRpc(id), (id, direction) => ReleaseShoveRpc(id, direction));
                 _localPlayer = Services.Get<ILocalPlayerContext>();
                 _localPlayer.Register(this);
             }
@@ -97,8 +85,10 @@ namespace GhostHunter.Gameplay.Interaction
         {
             _heldObjectId.OnValueChanged -= HandleHeldObjectChanged;
             _testHoldLatched = false;
-            CancelCorpseInteraction();
-            CancelShove();
+            _corpseInteraction?.Cancel(IsSpawned);
+            _shoveInteraction?.Cancel();
+            _corpseInteraction = null;
+            _shoveInteraction = null;
             _serverShoveTargetId = NoObjectId;
             ServerReleaseCorpseCarry();
 
@@ -123,8 +113,8 @@ namespace GhostHunter.Gameplay.Interaction
 
             if (IsOwner)
             {
-                CancelCorpseInteraction();
-                CancelShove();
+                _corpseInteraction?.Cancel(IsSpawned);
+                _shoveInteraction?.Cancel();
             }
             if (!IsServer)
                 return;
@@ -138,14 +128,15 @@ namespace GhostHunter.Gameplay.Interaction
 
         private void Update()
         {
-            if (!IsOwner || _input == null || _camera == null)
+            if (!IsOwner || _input == null || _camera == null
+                || _corpseInteraction == null || _shoveInteraction == null)
                 return;
 
             if ((_cleaning != null && _cleaning.IsMopEquipped)
                 || (_driver != null && _driver.IsDriverEquipped))
             {
-                CancelCorpseInteraction();
-                CancelShove();
+                _corpseInteraction.Cancel(IsSpawned);
+                _shoveInteraction.Cancel();
                 return;
             }
 
@@ -155,18 +146,21 @@ namespace GhostHunter.Gameplay.Interaction
 
             if (_input.AttackPressedThisFrame)
             {
-                if (!TryBeginCorpseInteraction() && !TryBeginShove())
+                bool furnitureBusy = IsHolding || _requestedObjectId != NoObjectId;
+                if (!_corpseInteraction.TryBegin(furnitureBusy)
+                    && !_shoveInteraction.TryBegin(furnitureBusy || _corpseInteraction.IsActive,
+                        _sanity == null || _sanity.HasSanity))
                     BeginGrab();
             }
 
-            if (_corpseInteractionId != NoObjectId)
-                TickCorpseInteraction();
+            if (_corpseInteraction.IsActive)
+                _corpseInteraction.Tick(_input.AttackReleasedThisFrame, _aimSendInterval, ref _nextAimSendAt);
 
-            if (_shoveTargetId != NoObjectId && _input.AttackReleasedThisFrame)
-                ReleaseShove();
+            if (_shoveInteraction.IsActive && _input.AttackReleasedThisFrame)
+                _shoveInteraction.Release(IsSpawned);
 
             if (_input.AttackReleasedThisFrame && !_testHoldLatched
-                && _corpseInteractionId == NoObjectId)
+                && !_corpseInteraction.IsActive)
                 ReleaseGrab();
 
             if (IsHolding && Time.unscaledTime >= _nextAimSendAt)
@@ -238,7 +232,7 @@ namespace GhostHunter.Gameplay.Interaction
         private void BeginGrab()
         {
             if (IsHolding || _requestedObjectId != NoObjectId
-                || _corpseInteractionId != NoObjectId || _shoveTargetId != NoObjectId
+                || (_corpseInteraction != null && _corpseInteraction.IsActive) || IsChargingShove
                 || _targeter == null)
                 return;
 
@@ -254,71 +248,6 @@ namespace GhostHunter.Gameplay.Interaction
                 target.NetworkObjectId,
                 _camera.transform.position,
                 _camera.transform.forward);
-        }
-
-        /// <summary>
-        /// 조준선 가장 가까운 것이 사거리 안의 살아 있는 다른 플레이어면 밀치기 차징을 시작한다.
-        /// 가구·벽이 더 가까우면 시작하지 않아 가구 잡기(<see cref="BeginGrab"/>)로 넘어간다.
-        /// </summary>
-        private bool TryBeginShove()
-        {
-            if (IsHolding || _requestedObjectId != NoObjectId || _shoveTargetId != NoObjectId
-                || _corpseInteractionId != NoObjectId || _settings == null
-                || (_sanity != null && !_sanity.HasSanity)
-                || !TryFindShoveTarget(out ulong targetId))
-                return false;
-
-            _shoveTargetId = targetId;
-            _shovePressAt = Time.unscaledTime;
-            BeginShoveRpc(targetId);
-            return true;
-        }
-
-        private bool TryFindShoveTarget(out ulong targetId)
-        {
-            targetId = NoObjectId;
-            Transform eye = _camera.transform;
-            float reach = _settings.ShoveMaxDistance;
-            int count = Physics.RaycastNonAlloc(
-                eye.position, eye.forward, _shoveHits,
-                Mathf.Max(reach, _settings.MaxTargetDistance),
-                Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
-
-            // 내 몸은 건너뛰고 가장 가까운 것을 본다.
-            int nearest = -1;
-            for (int i = 0; i < count; i++)
-            {
-                if (_shoveHits[i].collider.transform.IsChildOf(transform))
-                    continue;
-                if (nearest < 0 || _shoveHits[i].distance < _shoveHits[nearest].distance)
-                    nearest = i;
-            }
-
-            if (nearest < 0 || _shoveHits[nearest].distance > reach)
-                return false;
-
-            NetworkObject owner = _shoveHits[nearest].collider.GetComponentInParent<NetworkObject>();
-            if (owner == null || owner == NetworkObject
-                || !owner.TryGetComponent(out PlayerMotor _)
-                || !owner.TryGetComponent(out SanityNetworkState sanity) || !sanity.HasSanity)
-                return false;
-
-            targetId = owner.NetworkObjectId;
-            return true;
-        }
-
-        private void ReleaseShove()
-        {
-            ulong targetId = _shoveTargetId;
-            _shoveTargetId = NoObjectId;
-            if (targetId != NoObjectId && IsSpawned)
-                ReleaseShoveRpc(targetId, _camera.transform.forward);
-        }
-
-        /// <summary>밀치기 차징을 밀지 않고 접는다. 서버에 남은 시작 기록은 다음 시작 때 덮어쓰이므로 알릴 필요 없다.</summary>
-        private void CancelShove()
-        {
-            _shoveTargetId = NoObjectId;
         }
 
         [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
@@ -375,74 +304,6 @@ namespace GhostHunter.Gameplay.Interaction
                 _settings.ShoveMaxSpeed, _settings.ShoveUpwardSpeed));
         }
 
-        private bool TryBeginCorpseInteraction()
-        {
-            if (IsHolding || _requestedObjectId != NoObjectId || _settings == null
-                || !Physics.Raycast(
-                    _camera.transform.position, _camera.transform.forward,
-                    out RaycastHit hit, _settings.MaxTargetDistance,
-                    Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
-                return false;
-
-            Debug.Log($"[CorpseDbg] 좌클릭 조준 대상 {hit.collider.name} (거리 {hit.distance:F2}m, 시체 {PlayerVisuals.TryGetCorpseOwner(hit.collider, out _)})", this);
-            if (!PlayerVisuals.TryGetCorpseOwner(hit.collider, out PlayerVisuals corpse))
-                return false;
-
-            _corpseInteractionId = corpse.NetworkObjectId;
-            _corpsePressAt = Time.unscaledTime;
-            _corpseHoldThreshold = corpse.CarryHoldSeconds;
-            _corpsePressOrigin = _camera.transform.position;
-            _corpsePressDirection = _camera.transform.forward;
-            _corpseCarryRequested = false;
-            return true;
-        }
-
-        private void TickCorpseInteraction()
-        {
-            ulong corpseId = _corpseInteractionId;
-            if (_input.AttackReleasedThisFrame)
-            {
-                if (_corpseCarryRequested)
-                    RequestCorpseReleaseRpc(corpseId);
-                else if (Time.unscaledTime - _corpsePressAt < _corpseHoldThreshold)
-                {
-                    Debug.Log($"[CorpseDbg] 밀기 요청 전송 (누른 시간 {Time.unscaledTime - _corpsePressAt:F2}s)", this);
-                    RequestCorpsePushRpc(corpseId, _corpsePressOrigin, _corpsePressDirection);
-                }
-
-                ClearCorpseInteraction();
-                return;
-            }
-
-            if (!_corpseCarryRequested
-                && Time.unscaledTime - _corpsePressAt >= _corpseHoldThreshold)
-            {
-                _corpseCarryRequested = true;
-                RequestCorpseCarryRpc(corpseId,
-                    _camera.transform.position, _camera.transform.forward);
-            }
-
-            if (_corpseCarryRequested && Time.unscaledTime >= _nextAimSendAt)
-            {
-                _nextAimSendAt = Time.unscaledTime + _aimSendInterval;
-                RequestCorpseAimRpc(corpseId,
-                    _camera.transform.position, _camera.transform.forward);
-            }
-        }
-
-        private void CancelCorpseInteraction()
-        {
-            if (_corpseInteractionId != NoObjectId && _corpseCarryRequested && IsSpawned)
-                RequestCorpseReleaseRpc(_corpseInteractionId);
-            ClearCorpseInteraction();
-        }
-
-        private void ClearCorpseInteraction()
-        {
-            _corpseInteractionId = NoObjectId;
-            _corpseCarryRequested = false;
-        }
-
         [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
         private void RequestCorpsePushRpc(
             ulong corpseNetworkId, Vector3 origin, Vector3 direction,
@@ -465,7 +326,7 @@ namespace GhostHunter.Gameplay.Interaction
                 && PlayerVisuals.TryGetCorpseOwner(hit.collider, out PlayerVisuals owner)
                 && owner == corpse)
             {
-                Debug.Log($"[CorpseDbg] 서버 밀기 결과 {corpse.ServerTryPush(hit.point, direction.normalized)}", this);
+                corpse.ServerTryPush(hit.point, direction.normalized);
             }
         }
 
@@ -552,8 +413,8 @@ namespace GhostHunter.Gameplay.Interaction
         public void ForceRelease()
         {
             _testHoldLatched = false;
-            CancelCorpseInteraction();
-            CancelShove();
+            _corpseInteraction?.Cancel(IsSpawned);
+            _shoveInteraction?.Cancel();
             ReleaseGrab();
         }
 

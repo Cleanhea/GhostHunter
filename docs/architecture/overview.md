@@ -8,6 +8,10 @@ Gameplay·테스트에 기존 Unity.Collections 참조를 추가했다 → [voic
 `GameInstaller`가 `ICleaningService`를 등록하며 UI·디버그 HUD는 해당 계약을 사용한다.
 어셈블리 참조 변경은 없다 → [cleaning-system.md](cleaning-system.md).
 
+상점의 구매·수리 가능 여부와 상태 변경 계산은 `Core/Steam/StageShopRules`에 모은다(2026-11-02).
+`Systems/Shop/StageShopService`와 `Systems/Steam/SteamLobbyManager`는 이 계산을 사용하고 각 세션의
+참가자 검사·저장·전송·변경 알림을 담당한다. 기존 서비스 인터페이스와 asmdef 경계는 유지한다 → [steam.md](steam.md).
+
 > 씬 구조(§4), 의존성 획득(§8), 스크립트 레이어(§2), asmdef 10개(§3)는 현재 프로젝트에 반영됐다.
 > 남은 이관 상태는 [../project/roadmap.md §2](../project/roadmap.md)를 본다.
 
@@ -60,6 +64,7 @@ Assets/Scripts/
 │   ├── SceneFlow/     SceneFlowController
 │   ├── Installers/    BootstrapInstaller, GameInstaller, SceneInstaller 파생
 │   ├── Settings/      UserSettingsStore (PlayerPrefs 저장·엔진 적용)
+│   ├── Shop/          StageShopService (Steam 위임·Local 상태/전송, 계산은 Core의 StageShopRules)
 │   ├── Voice/         MicrophoneVoiceCapture · Opus 블록 · 내 목소리 듣기 (ADR-0022)
 │   └── Steam/         SteamLobbyManager. **Steamworks 참조는 여기에만 존재**
 ├── DebugTools/    개발 전용 HUD·스모크 테스트 (릴리스 빌드 대상 아님)
@@ -170,11 +175,12 @@ additive로 얹었다 내린다 → [ADR-0004](decisions/ADR-0004-multi-scene-ad
 - `Bootstrap`은 MUST 언로드하지 않는다. 영속 시스템은 `Bootstrap`에 두면 되고, **`DontDestroyOnLoad`를 쓰지 않는다.**
 - 씬을 올릴 때 MUST `SceneManager.SetActiveScene()`으로 활성 씬을 새 씬으로 지정한다.
   누락하면 라이팅·스카이박스가 `Bootstrap` 기준이 되고 런타임 생성 오브젝트가 `Bootstrap`에 쌓인다.
-- 전환 순서는 MUST **① 새 씬 additive 로드 → ② `SetActiveScene` → ③ 이전 씬 언로드**.
-  순서를 뒤집으면 아무 씬도 없는 프레임이 노출된다.
+- 일반 전환 순서는 **① 새 씬 additive 로드 → ② `SetActiveScene` → ③ 이전 씬 언로드**다.
+  플레이어 서비스를 공유하는 인게임 로비 ⇄ 스테이지 전환은 등록 충돌을 피하려고 이전 씬을 먼저 내린다(ADR-0018).
 - 전환 중 씬이 겹치는 구간에는 `SceneFlowController`가 이전 씬의 `EventSystem`·`AudioListener`를
   먼저 비활성화한다. 로드 시작 실패 시 다시 활성화한다.
-- 씬 전환은 MUST `SceneFlowController`가 수행한다. **다른 코드는 `SceneManager`를 직접 호출하지 않는다.**
+- 씬 전환은 `SceneFlowController`가 조율하고 internal `SceneTransitionOperations`가 실행한다.
+  **외부 호출자는 `SceneManager`를 직접 호출하지 않고 `ISceneFlow`를 경유한다.**
 - 다른 레이어에서 씬 전환이 필요하면 MUST `Services.Get<ISceneFlow>()`(`Core`)로 받아 쓴다.
 - 네트워크 세션 중 씬 전환은 MUST `NetworkManager.SceneManager.LoadScene`을 쓴다.
 - `NetworkManager` GameObject는 NGO 제약상 다른 GameObject의 자식으로 둘 수 없으므로 씬 root에 둔다.
@@ -287,6 +293,45 @@ UI (씬별, 로컬 전용)
 ```
 
 데이터 흐름(잡기 → 던지기)은 [throw-system.md](throw-system.md).
+
+2026-11-02 입력·행동 리팩토링: `PlayerInputReader`는 internal 값 타입 `PlayerInputPolicy`로
+잠금 우선순위·허용 입력을 결정한다. `GrabController`는 입력 우선순위와 가구 처리·기존 서버 RPC를 유지하고,
+시체/플레이어 밀치기 로컬 상태를 일반 C# 클래스 `CorpseInteraction`·`PlayerShoveInteraction`에 맡긴다.
+헬퍼는 컴포넌트로 추가하지 않으며 프리팹 배선·NetworkBehaviour 구성·어셈블리 경계는 그대로다.
+입력 규칙은 [player-controller.md](player-controller.md), 시체는 [death-system.md](death-system.md)를 따른다.
+
+같은 날 귀신 구조 정리에서는 일반 C# 클래스 `GhostPerception`·`GhostNavigation`으로 감지·이동을 분리했다.
+`GhostPrototypeController`는 상태/행동 흐름·타깃 선정·포획·정신력·기존 RPC와 복구를 조율한다.
+상태 기계·설정은 기존 `GhostStateMachine`·`GhostPrototypeSettings`를 사용한다. 새 NetworkBehaviour·
+어셈블리·프리팹 배선은 없으며 [ghost-prototype.md §1](ghost-prototype.md#1-구성과-서버-권위)에 경계를 기록한다.
+
+### 5.1 HUD 생성과 자원 수명 (2026-11-02)
+
+`UI/HudUiFactory`는 HUD별 Canvas와 원·링·흰 픽셀·화살표 스프라이트를 만들고, 생성한
+스프라이트·텍스처·Canvas를 `Dispose`에서 해제한다. 에셋에서 받은 아이콘은 소유하지 않는다.
+`UI/RadialGaugeView`는 원형 배경·진행 링·아이콘·문구를 구성한다.
+
+`MoleSkillHud`·`HeadlampChargeHud`·`LighterFuelHud`·`FurnitureDriverActionHud`·`QuickSlotWheelUi`가
+같은 생성 경로를 사용한다. 각 HUD는 기존 상태 읽기·표시 조건·색·배치·채움 방향을 계속 담당한다.
+스킬 링은 반시계 방향, 충전·연료·드라이버 링은 시계 방향이고, 드라이버 링 두께 계산도 기존 값을 유지한다.
+기존 컴포넌트·직렬화 필드·GUID와 asmdef 경계는 변경하지 않았다.
+
+검증 범위와 결과는 [testing.md](../workflow/testing.md)의 2026-11-02 기록을 본다.
+
+### 5.2 씬 전환과 정산 이력 (2026-11-03)
+
+`SceneFlowController`는 `ISceneFlow`의 단일 진입점으로 권한·전환 순서·현재 씬·이벤트·정산 보상을 조율한다.
+`SceneTransitionOperations`는 로컬/NGO 로드·언로드, 완료/세션 종료 대기, 이벤트 구독 해제와 이전 씬 입력 잠금/복원을 맡는다.
+NGO 로드와 언로드는 한 실행 루프를 사용하되 시작 거절·완료·세션 종료를 구분하고 기존 로컬 폴백을 유지한다.
+`StageSessionFlow`는 Tutorial 진행 기억과 사망자 우선 디스폰·새 씬 재스폰을 계속 맡는다.
+
+`StageSettlementHistory`는 방 이력·판별 중복 방지·현재 판 결과 범위·게시 대기열·1초 재시도 시점을 보관한다.
+로비 권한 검사·서버 보상 지급·게시 호출은 Controller에 남긴다. 게시 성공 전에는 대기열에서 지우지 않으며,
+게시 재시도는 보상을 다시 지급하지 않는다. 두 헬퍼는 일반 C# 클래스이고 새 컴포넌트·프리팹 배선은 없다.
+기존 어셈블리 참조는 유지하고 Systems 내부 이력 검증에 기존 EditMode 어셈블리의 접근만 허용했다.
+
+전환·정산·호스트 복구 계약은 기존 인터페이스/데이터 형식을 유지한다.
+검증 결과와 기존 NGO 씬 핸들 문제(SF-FIX-1)는 [testing.md](../workflow/testing.md)의 6단계 기록을 따른다.
 
 ## 6. 레이어 / 태그
 

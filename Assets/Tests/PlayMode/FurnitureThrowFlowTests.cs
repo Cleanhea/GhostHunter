@@ -25,6 +25,15 @@ namespace GhostHunter.Tests.PlayMode
             return target.GetComponent<Rigidbody>();
         }
 
+        [TestCase(8f)]
+        [TestCase(25f)]
+        public void 스폰한_가구의_질량은_가구_정의에서_주입된다(float mass)
+        {
+            SetPrivateField(Definition, "_mass", mass);
+            FurnitureGrabTarget furniture = SpawnFurniture();
+            Assert.AreEqual(mass, BodyOf(furniture).mass, 0.001f);
+        }
+
         [UnityTest]
         public IEnumerator ServerTryAddHolder_한_명이_잡으면_ThrowReady_가_된다()
         {

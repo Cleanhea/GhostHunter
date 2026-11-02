@@ -120,23 +120,11 @@ namespace GhostHunter.Systems.Shop
             if (personal && !_localGear.ContainsKey(memberKey) && !IsLocalMember(memberKey))
                 return false;
             MemberGear gear = personal ? GetMemberGear(memberKey) : MemberGear.Starting;
-            if (!StageShopRules.CanPurchase(true, scene, loading, _localBalance, item, gear))
+            if (!StageShopRules.TryPurchase(true, scene, loading, item,
+                    ref _localBalance, ref _localCandles, ref gear))
                 return false;
-
-            _localBalance -= StageShopRules.PriceOf(item);
-            switch (item)
-            {
-                case ShopItem.IronDriver:
-                    _localGear[memberKey] = new MemberGear(DriverTier.Iron, StageShopRules.MaxDriverDurability,
-                        gear.HasLighter);
-                    break;
-                case ShopItem.IronLighter:
-                    _localGear[memberKey] = new MemberGear(gear.Driver, gear.DriverDurability, true);
-                    break;
-                case ShopItem.CandleSet:
-                    _localCandles += StageShopRules.CandlesPerSet;
-                    break;
-            }
+            if (personal)
+                _localGear[memberKey] = gear;
             LocalStateChanged();
             return true;
         }
@@ -149,10 +137,9 @@ namespace GhostHunter.Systems.Shop
                 return false;
 
             MemberGear gear = GetMemberGear(memberKey);
-            if (!StageShopRules.CanRepair(true, scene, loading, _localBalance, gear))
+            if (!StageShopRules.TryRepair(true, scene, loading, ref _localBalance, ref gear))
                 return false;
-            _localBalance -= StageShopRules.RepairCost(gear.DriverDurability);
-            _localGear[memberKey] = gear.WithDurability(StageShopRules.MaxDriverDurability);
+            _localGear[memberKey] = gear;
             LocalStateChanged();
             return true;
         }

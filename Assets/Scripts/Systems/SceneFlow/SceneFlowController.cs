@@ -8,7 +8,6 @@ using GhostHunter.Core.Steam;
 using GhostHunter.Data.Scenes;
 using Unity.Netcode;
 using UnityEngine;
-using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 
@@ -28,27 +27,22 @@ namespace GhostHunter.Systems.SceneFlow
 
         private Scene _currentScene;
         private bool _currentLoadedByNgo;
-        private readonly List<StageSettlementRecord> _settlementHistory = new();
-        private readonly Queue<StageSettlementRecord> _pendingSettlementPublications = new();
+        private readonly StageSettlementHistory _settlements = new();
+        private SceneTransitionOperations _operations;
         private ISteamLobbyService _lobby;
-        private bool _settlementRecorded;
-        private int _stageSettlementStartCount;
-        private float _nextSettlementPublishAttempt;
+        private Func<StageSettlementRecord, bool> _publishSettlement;
         private bool _resultReturnPressed;
 
         public SceneId Current { get; private set; } = SceneId.Bootstrap;
         public bool IsLoading { get; private set; }
-        public int StageFailureDeadCount { get; private set; }
-        public IReadOnlyList<StageSettlementRecord> SettlementHistory => _settlementHistory;
+        public int StageFailureDeadCount => _settlements.FailureDeadCount;
+        public IReadOnlyList<StageSettlementRecord> SettlementHistory => _settlements.Records;
         public event Action<SceneId> SceneChanged;
 
         public void RecordStageSettlement(StageSettlementRecord record)
         {
-            if (_settlementRecorded)
+            if (!_settlements.TryRecord(record))
                 return;
-
-            _settlementHistory.Add(record);
-            _settlementRecorded = true;
             NetworkManager settlementNetwork = NetworkManager.Singleton;
             // 한 판이 끝날 때마다(전멸 포함) 공동 잔액 보상 — 서버(Steam 방장·로컬 호스트)만, 판마다 한 번.
             if (settlementNetwork != null && settlementNetwork.IsServer
@@ -57,7 +51,7 @@ namespace GhostHunter.Systems.SceneFlow
             if (_lobby != null && _lobby.IsLobbyOwner
                 && settlementNetwork != null && settlementNetwork.IsServer)
             {
-                _pendingSettlementPublications.Enqueue(record);
+                _settlements.QueuePublication(record);
                 TryPublishPendingSettlements();
             }
             if (record.TeamWiped)
@@ -66,7 +60,12 @@ namespace GhostHunter.Systems.SceneFlow
 
         public void RecordStageFailure(int deadCount)
         {
-            StageFailureDeadCount = Mathf.Max(0, deadCount);
+            _settlements.RecordFailure(deadCount);
+        }
+
+        private void Awake()
+        {
+            _operations = new SceneTransitionOperations(this, destroyCancellationToken);
         }
 
         private void Start()
@@ -74,6 +73,7 @@ namespace GhostHunter.Systems.SceneFlow
             if (Services.TryGet(out ISteamLobbyService lobby))
             {
                 _lobby = lobby;
+                _publishSettlement = lobby.TryPublishStageSettlement;
                 _lobby.LobbyLeft += HandleLobbyLeft;
                 _lobby.LobbyUpdated += HandleLobbyUpdated;
                 SyncSettlementHistoryFromLobby();
@@ -111,24 +111,16 @@ namespace GhostHunter.Systems.SceneFlow
 
         private void HandleLobbyLeft()
         {
-            _settlementHistory.Clear();
-            _pendingSettlementPublications.Clear();
+            _settlements.ClearLobby();
         }
 
         private void TryPublishPendingSettlements()
         {
-            if (_pendingSettlementPublications.Count == 0 || _lobby == null
+            if (!_settlements.HasPendingPublications || _lobby == null
                 || !_lobby.IsInLobby || !_lobby.IsLobbyOwner)
                 return;
-            while (_pendingSettlementPublications.Count > 0)
-            {
-                if (!_lobby.TryPublishStageSettlement(_pendingSettlementPublications.Peek()))
-                {
-                    Debug.LogWarning("정산 이력을 Steam 로비에 게시하지 못해 재시도합니다.", this);
-                    break;
-                }
-                _pendingSettlementPublications.Dequeue();
-            }
+            if (!_settlements.PublishPending(_publishSettlement))
+                Debug.LogWarning("정산 이력을 Steam 로비에 게시하지 못해 재시도합니다.", this);
         }
 
         private void HandleLobbyUpdated()
@@ -148,26 +140,18 @@ namespace GhostHunter.Systems.SceneFlow
             if (_lobby == null || !_lobby.IsInLobby)
                 return;
             int count = _lobby.PublishedSettlementCount;
-            for (int i = _settlementHistory.Count; i < count; i++)
+            for (int i = SettlementHistory.Count; i < count; i++)
             {
                 if (!_lobby.TryGetPublishedSettlement(i, out StageSettlementRecord record))
                     break;
-                _settlementHistory.Add(record);
-                if (Current.IsStage() && i >= _stageSettlementStartCount)
-                    _settlementRecorded = true;
-                if (record.TeamWiped)
-                    RecordStageFailure(record.Dead);
+                _settlements.ImportPublished(record, Current.IsStage());
             }
         }
 
         private void Update()
         {
-            if (_pendingSettlementPublications.Count > 0
-                && Time.unscaledTime >= _nextSettlementPublishAttempt)
-            {
-                _nextSettlementPublishAttempt = Time.unscaledTime + 1f;
+            if (_settlements.ShouldRetry(Time.unscaledTime))
                 TryPublishPendingSettlements();
-            }
             if (Current == SceneId.Result)
             {
                 ReleaseCursorForResult();
@@ -259,9 +243,7 @@ namespace GhostHunter.Systems.SceneFlow
             Current = id;
             if (id.IsStage())
             {
-                StageFailureDeadCount = 0;
-                _settlementRecorded = false;
-                _stageSettlementStartCount = _settlementHistory.Count;
+                _settlements.BeginStage();
             }
             SceneManager.SetActiveScene(scene);
 
@@ -275,37 +257,12 @@ namespace GhostHunter.Systems.SceneFlow
             if (!previousLoadedByNgo && previousScene.IsValid() && previousScene.isLoaded
                 && previousScene != scene)
             {
-                UnloadAdoptedPreviousSceneAsync(previousScene).Forget();
+                _operations.UnloadAdoptedPreviousSceneAsync(previousScene).Forget();
             }
 
             SceneChanged?.Invoke(id);
             if (returnFromStage)
                 EndStageSessionInLobbyAsync(previousId).Forget();
-        }
-
-        private async UniTaskVoid UnloadAdoptedPreviousSceneAsync(Scene scene)
-        {
-            string sceneName = scene.name;
-            AsyncOperation operation = SceneManager.UnloadSceneAsync(scene);
-
-            if (operation == null)
-            {
-                Debug.LogWarning(
-                    $"{nameof(SceneFlowController)}: 이전 씬 {sceneName} 을 내리지 못했다.", this);
-                return;
-            }
-
-            try
-            {
-                await operation.ToUniTask(cancellationToken: destroyCancellationToken);
-            }
-            catch (OperationCanceledException)
-            {
-                return;
-            }
-
-            Debug.Log(
-                $"{nameof(SceneFlowController)}: NGO 씬을 받아들이며 이전 씬 {sceneName} 을 내렸다.", this);
         }
 
         public void Load(SceneId scene)
@@ -345,14 +302,14 @@ namespace GhostHunter.Systems.SceneFlow
             }
 
             // 방의 정산 이력은 스테이지 사이에 머무는 인게임 로비에 보인다(ADR-0018).
-            if (Current == SceneId.InGameLobby && _settlementHistory.Count > 0)
+            if (Current == SceneId.InGameLobby && SettlementHistory.Count > 0)
             {
                 GUILayout.BeginArea(new Rect(16f, 16f, 350f,
-                    40f + _settlementHistory.Count * 24f), GUI.skin.box);
+                    40f + SettlementHistory.Count * 24f), GUI.skin.box);
                 GUILayout.Label("이번 방의 정산 이력");
-                for (int i = 0; i < _settlementHistory.Count; i++)
+                for (int i = 0; i < SettlementHistory.Count; i++)
                 {
-                    StageSettlementRecord history = _settlementHistory[i];
+                    StageSettlementRecord history = SettlementHistory[i];
                     GUILayout.Label($"{i + 1}판: 가구 {history.DeliveredFurniture}/{history.TargetFurniture}, " +
                         $"청소 {history.CleaningPercent}%, 생존 {history.Survivors}명");
                 }
@@ -363,9 +320,9 @@ namespace GhostHunter.Systems.SceneFlow
             if (Current != SceneId.Result)
                 return;
 
-            bool hasCurrentResult = _settlementHistory.Count > _stageSettlementStartCount;
+            bool hasCurrentResult = _settlements.HasCurrentResult;
             StageSettlementRecord record = hasCurrentResult
-                ? _settlementHistory[_settlementHistory.Count - 1] : default;
+                ? SettlementHistory[SettlementHistory.Count - 1] : default;
 
             float width = Mathf.Min(400f, Screen.width - 32f);
             var area = new Rect((Screen.width - width) * 0.5f,
@@ -381,7 +338,7 @@ namespace GhostHunter.Systems.SceneFlow
                 GUILayout.Label($"목표 가구 반출 완료 {record.DeliveredFurniture}/{record.TargetFurniture}", GUI.skin.label);
                 GUILayout.Label($"청소 완료 {record.CleaningPercent}%", GUI.skin.label);
                 GUILayout.Label($"생존 {record.Survivors}명 / 실종 {record.Missing}명 / 사망 {record.Dead}명", GUI.skin.label);
-                GUILayout.Label("금전 보상과 치료비는 단가 확정 후 적용됩니다.", GUI.skin.label);
+                GUILayout.Label("추가 보상과 치료비는 단가 확정 후 적용됩니다.", GUI.skin.label);
             }
             else
                 GUILayout.Label("방장이 인게임 로비로 이동할 수 있습니다.", GUI.skin.label);
@@ -390,22 +347,15 @@ namespace GhostHunter.Systems.SceneFlow
             // 정산 뒤에는 세션을 유지한 채 인게임 로비로 간다(ADR-0018). 세션이 이미 끝났으면 예전처럼 일반 로비로.
             NetworkManager network = NetworkManager.Singleton;
             bool sessionRunning = network != null && network.IsListening;
-            if (sessionRunning && network.IsServer)
-            {
+            bool canReturn = sessionRunning ? network.IsServer
+                : _lobby == null || !_lobby.IsInLobby || _lobby.IsLobbyOwner;
+            if (canReturn)
                 GUILayout.Space(48f);
-            }
-            else if (!sessionRunning && (_lobby == null || !_lobby.IsInLobby || _lobby.IsLobbyOwner))
-            {
-                GUILayout.Space(48f);
-            }
             else
-            {
                 GUILayout.Label("방장이 인게임 로비로 이동하기를 기다리는 중", GUI.skin.label);
-            }
 
             GUILayout.EndArea();
-            if ((sessionRunning && network.IsServer)
-                || (!sessionRunning && (_lobby == null || !_lobby.IsInLobby || _lobby.IsLobbyOwner)))
+            if (canReturn)
             {
                 if (GUI.Button(ResultReturnButtonRect(), sessionRunning ? "인게임 로비로 이동" : "로비로 이동"))
                     ReturnFromResult();
@@ -429,10 +379,7 @@ namespace GhostHunter.Systems.SceneFlow
             // 전환이 NGO 경로로 빠진다. NGO 는 씬 로드는 시작해 놓고 셧다운으로 이벤트를 버리므로
             // OnLoadEventCompleted 가 영원히 오지 않고, 이 전환은 IsLoading 에 박힌 채 끝나지 않는다.
             // → docs/architecture/pause-menu.md §5.3
-            bool useNgo = networkManager != null
-                          && networkManager.IsListening
-                          && !networkManager.ShutdownInProgress
-                          && networkManager.NetworkConfig.EnableSceneManagement;
+            bool useNgo = SceneTransitionOperations.UsesNgo(networkManager);
 
             if (useNgo && !networkManager.IsServer)
             {
@@ -446,7 +393,7 @@ namespace GhostHunter.Systems.SceneFlow
             IsLoading = true;
 
             Scene previousScene = _currentScene;
-            List<Behaviour> suspended = SuspendSceneInput(previousScene);
+            List<Behaviour> suspended = SceneTransitionOperations.SuspendInput(previousScene);
             bool unloadFirst = UnloadsBeforeLoad(Current, target);
 
             try
@@ -458,16 +405,16 @@ namespace GhostHunter.Systems.SceneFlow
                     Scene bootstrap = SceneManager.GetSceneByName(_scenes.GetSceneName(SceneId.Bootstrap));
                     if (bootstrap.IsValid() && bootstrap.isLoaded)
                         SceneManager.SetActiveScene(bootstrap);
-                    await UnloadAsync(networkManager, previousScene);
+                    await _operations.UnloadAsync(networkManager, previousScene);
                 }
 
                 Scene loaded = useNgo
-                    ? await LoadThroughNgoAsync(networkManager, targetName)
-                    : await LoadLocallyAsync(targetName);
+                    ? await _operations.LoadThroughNgoAsync(networkManager, targetName)
+                    : await _operations.LoadLocallyAsync(targetName);
 
                 if (!loaded.IsValid())
                 {
-                    RestoreSceneInput(suspended);
+                    SceneTransitionOperations.RestoreInput(suspended);
                     return;
                 }
 
@@ -482,13 +429,11 @@ namespace GhostHunter.Systems.SceneFlow
 
                 if (target.IsStage())
                 {
-                    StageFailureDeadCount = 0;
-                    _settlementRecorded = false;
-                    _stageSettlementStartCount = _settlementHistory.Count;
+                    _settlements.BeginStage();
                 }
 
                 if (!unloadFirst && previousScene.IsValid() && previousScene.isLoaded)
-                    await UnloadAsync(networkManager, previousScene);
+                    await _operations.UnloadAsync(networkManager, previousScene);
 
                 SceneChanged?.Invoke(target);
                 if (returnFromStage)
@@ -501,7 +446,7 @@ namespace GhostHunter.Systems.SceneFlow
             catch (Exception e)
             {
                 Debug.LogError($"{nameof(SceneFlowController)}: {target} 전환 실패 — {e}", this);
-                RestoreSceneInput(suspended);
+                SceneTransitionOperations.RestoreInput(suspended);
             }
             finally
             {
@@ -552,187 +497,6 @@ namespace GhostHunter.Systems.SceneFlow
             catch (OperationCanceledException)
             {
                 // 종료 중에는 세션을 다시 조작하지 않는다.
-            }
-        }
-
-        private async UniTask<Scene> LoadLocallyAsync(string sceneName)
-        {
-            AsyncOperation operation = SceneManager.LoadSceneAsync(sceneName, LoadSceneMode.Additive);
-
-            if (operation == null)
-            {
-                Debug.LogError(
-                    $"{nameof(SceneFlowController)}: 씬 {sceneName} 로드를 시작하지 못했다. " +
-                    "빌드 씬 목록을 확인할 것.", this);
-                return default;
-            }
-
-            await operation.ToUniTask(cancellationToken: destroyCancellationToken);
-            return SceneManager.GetSceneByName(sceneName);
-        }
-
-        private async UniTask<Scene> LoadThroughNgoAsync(NetworkManager networkManager, string sceneName)
-        {
-            var completion = new UniTaskCompletionSource();
-
-            void OnLoadCompleted(
-                string loadedName, LoadSceneMode mode, List<ulong> completed, List<ulong> timedOut)
-            {
-                if (loadedName != sceneName)
-                    return;
-
-                if (timedOut.Count > 0)
-                    Debug.LogWarning(
-                        $"{nameof(SceneFlowController)}: {sceneName} 로드 완료를 보고하지 않은 클라이언트 — " +
-                        string.Join(", ", timedOut), this);
-                completion.TrySetResult();
-            }
-
-            networkManager.SceneManager.OnLoadEventCompleted += OnLoadCompleted;
-
-            try
-            {
-                SceneEventProgressStatus status =
-                    networkManager.SceneManager.LoadScene(sceneName, LoadSceneMode.Additive);
-
-                if (status != SceneEventProgressStatus.Started)
-                {
-                    Debug.LogError(
-                        $"{nameof(SceneFlowController)}: NGO 씬 로드를 시작하지 못했다 — {status}", this);
-                    return default;
-                }
-
-                if (!await WaitForSceneEventAsync(networkManager, completion.Task))
-                    Debug.LogWarning(
-                        $"{nameof(SceneFlowController)}: {sceneName} 로드를 기다리는 중 세션이 끝났다.", this);
-            }
-            finally
-            {
-                // 전환 중 세션이 내려가면 SceneManager 가 먼저 사라진다.
-                if (networkManager.SceneManager != null)
-                    networkManager.SceneManager.OnLoadEventCompleted -= OnLoadCompleted;
-            }
-
-            // 세션이 끝나 기다림이 풀렸어도 씬이 이미 올라왔으면 받아들인다. 버리면 서비스를 등록한 채 고아로 남는다.
-            Scene loaded = SceneManager.GetSceneByName(sceneName);
-            return loaded.isLoaded ? loaded : default;
-        }
-
-        /// <summary>
-        /// NGO 씬 이벤트 완료를 기다린다. 기다리는 동안 세션이 내려가면 NGO 는 이벤트를 버려 완료가 오지 않는다 —
-        /// 그때도 풀려나야 <see cref="IsLoading"/> 에 박혀 이후 전환(타이틀 복귀 포함)이 전부 거부되지 않는다.
-        /// 정지 콜백 안에서 이어 달리면 셧다운 도중 NGO 를 다시 건드리므로 프레임마다 확인한다.
-        /// </summary>
-        /// <returns>이벤트가 완료됐으면 true, 세션이 먼저 끝났으면 false.</returns>
-        private async UniTask<bool> WaitForSceneEventAsync(NetworkManager networkManager, UniTask completed)
-        {
-            int winner = await UniTask.WhenAny(
-                completed,
-                UniTask.WaitUntil(() => !networkManager.IsListening, cancellationToken: destroyCancellationToken));
-            return winner == 0;
-        }
-
-        /// <summary>
-        /// 세션 중인 서버는 NGO 로 내린다 — <b>누가 올렸든</b>. NGO 는 <c>StartHost</c> 시점에 이미 올라와 있던 씬
-        /// (호스트가 세션 전에 로컬로 올린 첫 인게임 로비)도 추적해 게스트에게 동기화하므로, 그 씬을 로컬로 내리면
-        /// 게스트에게 언로드가 전달되지 않아 화면에 남는다. 세션 밖에서는 로컬로 내린다.
-        /// </summary>
-        private async UniTask UnloadAsync(NetworkManager networkManager, Scene scene)
-        {
-            if (networkManager == null || !networkManager.IsListening || !networkManager.IsServer
-                || networkManager.ShutdownInProgress || !networkManager.NetworkConfig.EnableSceneManagement)
-            {
-                // 세션이 없거나 끝나는 중이면 NGO 가 씬을 추적하지 않는다. 로컬로 내리는 수밖에 없다.
-                AsyncOperation operation = SceneManager.UnloadSceneAsync(scene);
-
-                if (operation != null)
-                    await operation.ToUniTask(cancellationToken: destroyCancellationToken);
-
-                return;
-            }
-
-            string sceneName = scene.name;
-            var completion = new UniTaskCompletionSource();
-
-            void OnUnloadCompleted(
-                string unloadedName, LoadSceneMode mode, List<ulong> completed, List<ulong> timedOut)
-            {
-                if (unloadedName == sceneName)
-                    completion.TrySetResult();
-            }
-
-            networkManager.SceneManager.OnUnloadEventCompleted += OnUnloadCompleted;
-
-            try
-            {
-                SceneEventProgressStatus status = networkManager.SceneManager.UnloadScene(scene);
-
-                if (status != SceneEventProgressStatus.Started)
-                {
-                    Debug.LogWarning(
-                        $"{nameof(SceneFlowController)}: NGO 씬 언로드를 시작하지 못했다 — {status}", this);
-                    return;
-                }
-
-                if (!await WaitForSceneEventAsync(networkManager, completion.Task)
-                    && scene.IsValid() && scene.isLoaded)
-                {
-                    // 세션이 끝나 NGO 가 언로드를 버렸다. 이제 아무도 추적하지 않으니 로컬로 내린다.
-                    AsyncOperation operation = SceneManager.UnloadSceneAsync(scene);
-
-                    if (operation != null)
-                        await operation.ToUniTask(cancellationToken: destroyCancellationToken);
-                }
-            }
-            finally
-            {
-                if (networkManager.SceneManager != null)
-                    networkManager.SceneManager.OnUnloadEventCompleted -= OnUnloadCompleted;
-            }
-        }
-
-        /// <summary>
-        /// 전환 중에는 두 씬이 겹친다. 이전 씬의 EventSystem 과 AudioListener 를 먼저 끈다.
-        /// 둘이 동시에 살아 있으면 입력이 갈리고 콘솔에 AudioListener 중복 경고가 뜬다.
-        /// </summary>
-        private static List<Behaviour> SuspendSceneInput(Scene scene)
-        {
-            var suspended = new List<Behaviour>();
-
-            if (!scene.IsValid() || !scene.isLoaded)
-                return suspended;
-
-            foreach (GameObject root in scene.GetRootGameObjects())
-            {
-                foreach (EventSystem eventSystem in root.GetComponentsInChildren<EventSystem>(true))
-                {
-                    if (!eventSystem.enabled)
-                        continue;
-
-                    eventSystem.enabled = false;
-                    suspended.Add(eventSystem);
-                }
-
-                foreach (AudioListener listener in root.GetComponentsInChildren<AudioListener>(true))
-                {
-                    if (!listener.enabled)
-                        continue;
-
-                    listener.enabled = false;
-                    suspended.Add(listener);
-                }
-            }
-
-            return suspended;
-        }
-
-        /// <summary>전환이 실패했을 때 이전 씬을 원상 복구한다.</summary>
-        private static void RestoreSceneInput(List<Behaviour> suspended)
-        {
-            foreach (Behaviour behaviour in suspended)
-            {
-                if (behaviour != null)
-                    behaviour.enabled = true;
             }
         }
 

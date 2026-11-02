@@ -92,7 +92,7 @@ namespace GhostHunter.Gameplay.Player
         private void OnDestroy()
         {
             ClearHighlight();
-            DestroyObject(_highlightMaterial);
+            DestroyRuntimeObject(_highlightMaterial);
         }
 
         /// <summary>작업 시스템이 이 대상의 활성 여부를 바꾼다.</summary>
@@ -283,7 +283,7 @@ namespace GhostHunter.Gameplay.Player
                 : settings.MovingFurnitureColor;
         }
 
-        private static void DestroyObject(Object target)
+        private static void DestroyRuntimeObject(Object target)
         {
             if (target == null)
                 return;

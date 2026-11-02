@@ -4,6 +4,7 @@ using System.Reflection;
 using GhostHunter.Core;
 using GhostHunter.Core.Scenes;
 using GhostHunter.Data.Scenes;
+using GhostHunter.Gameplay.Furniture;
 using GhostHunter.Gameplay.Ghost;
 using GhostHunter.Gameplay.Player;
 using GhostHunter.Gameplay.Sanity;
@@ -553,6 +554,49 @@ namespace GhostHunter.Tests.EditMode
             Assert.GreaterOrEqual(
                 moveSettings.MoveSpeed * moveSettings.SprintMultiplier,
                 ghostSettings.RunSpeedThreshold);
+        }
+
+        private static IEnumerable<GameObject> SavedFurniturePrefabs()
+        {
+            string[] guids = AssetDatabase.FindAssets("t:Prefab", new[] { "Assets/Prefabs/Furniture" });
+            Assert.Greater(guids.Length, 0, "저장된 가구 프리팹이 없습니다.");
+            foreach (string guid in guids)
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guid);
+                GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+                Assert.IsNotNull(prefab, path);
+                yield return prefab;
+            }
+        }
+
+        [Test]
+        public void 저장된_가구_프리팹이_투척_물리_설정을_지킨다()
+        {
+            foreach (GameObject prefab in SavedFurniturePrefabs())
+            {
+                Rigidbody body = prefab.GetComponent<Rigidbody>();
+                Assert.IsNotNull(body, prefab.name);
+                Assert.AreEqual(CollisionDetectionMode.ContinuousDynamic, body.collisionDetectionMode, prefab.name);
+                Assert.AreEqual(RigidbodyInterpolation.Interpolate, body.interpolation, prefab.name);
+                Assert.IsTrue(body.isKinematic, prefab.name);
+                Assert.IsTrue(body.useGravity, prefab.name);
+                Assert.Greater(body.mass, 0f, prefab.name);
+            }
+        }
+
+        [Test]
+        public void 저장된_가구_프리팹에_유효한_질량_정의가_배선되어_있다()
+        {
+            foreach (GameObject prefab in SavedFurniturePrefabs())
+            {
+                var physics = GetProjectComponentOrIgnore<FurnitureNetworkPhysics>(prefab,
+                    AssetDatabase.GetAssetPath(prefab));
+                Assert.IsNotNull(physics.Definition, prefab.name);
+                // 실제 질량은 Awake에서 정의로 덮어쓴다. 프리팹의 저장값과는 다를 수 있다.
+                // 주입 결과는 FurnitureThrowFlowTests에서 실제 스폰으로 검증한다.
+                Assert.IsTrue(float.IsFinite(physics.Definition.Mass), prefab.name);
+                Assert.Greater(physics.Definition.Mass, 0f, prefab.name);
+            }
         }
 
         /// <summary>

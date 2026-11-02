@@ -83,6 +83,106 @@ namespace GhostHunter.Tests.EditMode
             Assert.IsFalse(StageShopRules.CanRepair(false, SceneId.InGameLobby, false, 99, worn), "방장만");
         }
 
+        [TestCase(ShopItem.IronDriver, 65, 7, DriverTier.Iron, 100, false)]
+        [TestCase(ShopItem.IronLighter, 90, 7, DriverTier.Wood, 73, true)]
+        [TestCase(ShopItem.CandleSet, 75, 12, DriverTier.Wood, 73, false)]
+        public void 구매_결과에_차감과_획득이_한번씩_반영된다(ShopItem item, int expectedBalance,
+            int expectedCandles, DriverTier expectedDriver, int expectedDurability, bool expectedLighter)
+        {
+            int balance = 100;
+            int candles = 7;
+            var gear = new MemberGear(DriverTier.Wood, 73, false);
+
+            Assert.IsTrue(StageShopRules.TryPurchase(true, SceneId.InGameLobby, false, item,
+                ref balance, ref candles, ref gear));
+            Assert.AreEqual(expectedBalance, balance);
+            Assert.AreEqual(expectedCandles, candles);
+            Assert.AreEqual(new MemberGear(expectedDriver, expectedDurability, expectedLighter), gear);
+        }
+
+        [TestCase(false, SceneId.InGameLobby, false, 100, ShopItem.IronDriver)]
+        [TestCase(true, SceneId.Stage1, false, 100, ShopItem.IronDriver)]
+        [TestCase(true, SceneId.InGameLobby, true, 100, ShopItem.IronDriver)]
+        [TestCase(true, SceneId.InGameLobby, false, 34, ShopItem.IronDriver)]
+        [TestCase(true, SceneId.InGameLobby, false, 100, ShopItem.None)]
+        [TestCase(true, SceneId.InGameLobby, false, 100, (ShopItem)999)]
+        public void 구매가_거절되면_잔액과_재고와_장비를_보존한다(bool owner, SceneId scene,
+            bool loading, int startingBalance, ShopItem item)
+        {
+            int balance = startingBalance;
+            int candles = 7;
+            var initial = new MemberGear(DriverTier.Wood, 73, false);
+            MemberGear gear = initial;
+
+            Assert.IsFalse(StageShopRules.TryPurchase(owner, scene, loading, item,
+                ref balance, ref candles, ref gear));
+            Assert.AreEqual(startingBalance, balance);
+            Assert.AreEqual(7, candles);
+            Assert.AreEqual(initial, gear);
+        }
+
+        [TestCase(ShopItem.IronDriver)]
+        [TestCase(ShopItem.IronLighter)]
+        public void 개인_품목_재구매는_상태를_바꾸지_않는다(ShopItem item)
+        {
+            int balance = 100;
+            int candles = 7;
+            var initial = new MemberGear(DriverTier.Iron, 73, true);
+            MemberGear gear = initial;
+
+            Assert.IsFalse(StageShopRules.TryPurchase(true, SceneId.InGameLobby, false, item,
+                ref balance, ref candles, ref gear));
+            Assert.AreEqual(100, balance);
+            Assert.AreEqual(7, candles);
+            Assert.AreEqual(initial, gear);
+        }
+
+        [Test]
+        public void 공동_품목은_개인_장비를_바꾸지_않고_반복_구매한다()
+        {
+            int balance = 50;
+            int candles = 7;
+            var initial = new MemberGear(DriverTier.Iron, 73, true);
+            MemberGear gear = initial;
+
+            for (int i = 0; i < 2; i++)
+                Assert.IsTrue(StageShopRules.TryPurchase(true, SceneId.InGameLobby, false, ShopItem.CandleSet,
+                    ref balance, ref candles, ref gear));
+            Assert.AreEqual(0, balance);
+            Assert.AreEqual(17, candles);
+            Assert.AreEqual(initial, gear);
+        }
+
+        [TestCase(90, 95)]
+        [TestCase(99, 99)]
+        public void 수리는_비용만_차감하고_라이터_보유를_유지한다(int durability, int expectedBalance)
+        {
+            int balance = 100;
+            var gear = new MemberGear(DriverTier.Iron, durability, true);
+
+            Assert.IsTrue(StageShopRules.TryRepair(true, SceneId.InGameLobby, false, ref balance, ref gear));
+            Assert.AreEqual(expectedBalance, balance);
+            Assert.AreEqual(new MemberGear(DriverTier.Iron, 100, true), gear);
+        }
+
+        [TestCase(false, SceneId.InGameLobby, false, 100, DriverTier.Iron, 90)]
+        [TestCase(true, SceneId.Stage1, false, 100, DriverTier.Iron, 90)]
+        [TestCase(true, SceneId.InGameLobby, true, 100, DriverTier.Iron, 90)]
+        [TestCase(true, SceneId.InGameLobby, false, 4, DriverTier.Iron, 90)]
+        [TestCase(true, SceneId.InGameLobby, false, 100, DriverTier.Wood, 90)]
+        [TestCase(true, SceneId.InGameLobby, false, 100, DriverTier.Iron, 100)]
+        public void 수리가_거절되면_잔액과_장비를_보존한다(bool owner, SceneId scene,
+            bool loading, int startingBalance, DriverTier driver, int durability)
+        {
+            int balance = startingBalance;
+            var initial = new MemberGear(driver, durability, true);
+            MemberGear gear = initial;
+
+            Assert.IsFalse(StageShopRules.TryRepair(owner, scene, loading, ref balance, ref gear));
+            Assert.AreEqual(startingBalance, balance);
+            Assert.AreEqual(initial, gear);
+        }
+
         [Test]
         public void 플레이어_장비는_로비_데이터로_왕복한다()
         {

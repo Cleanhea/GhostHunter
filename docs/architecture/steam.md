@@ -50,6 +50,8 @@ Package Manager의 git URL로 설치하면 패키지가 **읽기 전용**이 되
 | 파일 | 역할 |
 |---|---|
 | [`Systems/Steam/SteamLobbyManager.cs`](../../Assets/Scripts/Systems/Steam/SteamLobbyManager.cs) | Steam 수명주기(Init/RunCallbacks/Shutdown) + 로비 생성·참가·초대 + Facepunch 접속 대상 설정 |
+| [`Core/Steam/StageShopRules.cs`](../../Assets/Scripts/Core/Steam/StageShopRules.cs) | 상점 권한·가격·구매/수리 가능 여부와 잔액·장비·촛불 변경 계산 |
+| [`Systems/Shop/StageShopService.cs`](../../Assets/Scripts/Systems/Shop/StageShopService.cs) | Steam 상점 위임과 Local 호스트 상태·NGO 전송 |
 | [`Networking/ConnectionManager.cs`](../../Assets/Scripts/Networking/ConnectionManager.cs) | StartHost/StartClient, 트랜스포트 전환, 접속 상태 |
 | [`DebugTools/ConnectionHud.cs`](../../Assets/Scripts/DebugTools/ConnectionHud.cs) | 개발용 IMGUI 접속 HUD (**Tab** 토글. 밸런스 튜닝 창은 F2) |
 
@@ -58,18 +60,26 @@ Package Manager의 git URL로 설치하면 패키지가 **읽기 전용**이 되
 `SteamLobbyManager`는 Steamworks와 FacepunchTransport를 알고, `ConnectionManager`는 Netcode 기반 타입만 안다.
 로비가 준비되면 이벤트로 알리고, 실제 `StartHost`/`StartClient`는 `ConnectionManager`가 부른다.
 
-### 스테이지와 임시 공동 상점
+### 스테이지와 공동 상점
 
 `gh_game_started`는 대기 `0`, 로딩 `2`, 세션 진행 `1`로 구분한다. 로딩·진행에는
 Steam 로비 참가를 닫고, 기존 초대 링크로 들어와도 참가 콜백에서 거절한다. 2026-09-28부터 세션은 인게임 로비와
 스테이지를 오가는 동안 유지되므로(ADR-0018) **인게임 로비에 있는 동안에도 닫혀 있다** — 참가는 일반 로비에서만 된다.
 세션이 끝나 일반 로비로 돌아가면 다시 연다.
 
-임시 상점은 잔액과 Temp1·2·3 수량을 `gh_shop_state` 한 키에 기록한다. **인게임 로비에서 방장만** 이 키를
-변경한다(`StageShopRules`, 2026-09-28). 예전의 게스트 구매 요청(Steam P2P 채널 8)은 받아서 버린다. 시작 자금 600,
-각 가격 100·200·300은 [스테이지 시스템 기획서](../project/stage-system.md)의 임시값이다.
-음성은 별도의 채널 7로 주고받는다. 실제 Steam 2PC 구매·음성 검증은 대기 중이다.
-음성 수신기를 정리할 때 공유 Steam P2P 세션은 닫지 않는다. 임시 상점 채널 8도 이 세션을 사용한다.
+현재 상점은 `gh_shop_state`에 `잔액,촛불개수`, `gh_gear_<SteamId>`에 플레이어별 `등급,내구도,라이터`를 기록한다.
+**인게임 로비에서 방장만** 구매·수리한다. 시작 자금 $25, 철제 드라이버 $35·라이터 $10·촛대 세트 $25이며
+판 보상은 $50이다(2026-09-29 확정, [스테이지 시스템 기획서 §2.2](../project/stage-system.md#22-상점경제-2026-09-29-사용자-확정)).
+Temp1·2·3과 자금 600은 이전 구현의 값이다.
+
+2026-11-02 리팩토링에서 구매·수리의 상태 변경 계산을 `StageShopRules.TryPurchase`·`TryRepair`로 모았다.
+`StageShopService`의 Local 경로와 `SteamLobbyManager`의 Steam 경로가 같은 계산을 사용한다. 규칙에서 거절하면
+전달한 잔액·촛불·장비 값은 바뀌지 않는다. 참가자 검사는 각 경로에 남기고, Steam은 계산된 장비를 먼저 기록한 뒤
+공동 상태를 기록한다. 저장 실패 반환과 성공 후 `LobbyUpdated`, Local 메시지 형식·`Changed` 알림은 기존 경로를 유지한다.
+
+예전의 게스트 구매 요청(Steam P2P 채널 8)은 받아서 버린다. 음성은 별도 채널 7로 주고받는다.
+음성 수신기를 정리할 때 공유 Steam P2P 세션은 닫지 않는다. 채널 8과 호스트 복구도 이 세션을 사용한다.
+실제 Steam 2PC 구매·음성 검증은 대기 중이다.
 호스트 복구 스냅샷은 Steam P2P 채널 9로 보낸다. NGO의 FacepunchTransport는 별도의 Steam Networking Sockets 연결을 사용한다.
 클라이언트 접속 대상 설정은 `ISteamLobbyService.TrySetConnectionTarget`으로 Steam 레이어에 위임한다.
 

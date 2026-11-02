@@ -21,21 +21,13 @@ namespace GhostHunter.Gameplay.Ghost
     [RequireComponent(typeof(CharacterController))]
     public sealed class GhostPrototypeController : NetworkBehaviour
     {
-        private const float TurnSpeedDegrees = 540f;
         private const int MaxTrackedPlayers = 4;
-        private const float MinRoamGiveUpSeconds = 4f;
         private const int RoamPickAttempts = 20;
         private const int SearchWanderPickAttempts = 6;
         private const float RoamScoreJitterSeconds = 4f;
         private const float LookAroundTurnDegrees = 150f;
         private const float DoorRayHeight = 1f;
         private const float DoorCollisionRefreshInterval = 0.2f;
-        private const float NavSampleRadius = 1f;
-        private const float NavSampleFallbackRadius = 2.5f;
-        // 층고 3m 보다 작게 — 경로 코너·목적지가 바로 위/아래 층이면 '도착'으로 치지 않는다.
-        private const float ArrivalVerticalTolerance = 1.2f;
-        private const float StuckCheckInterval = 1f;
-        private const float StuckMinProgress = 0.25f;
         private const float ShakePulseInterval = 0.05f;
         private const float ShakeAngularFrequency = Mathf.PI * 2f * 9f; // 초당 9회 좌우 왕복
         // 바라봄 보고: 바뀔 때 즉시, 바라보는 동안은 이 주기로 다시 보낸다. 서버는 타임아웃 안에 못 받으면 놓은 것으로 친다.
@@ -79,8 +71,6 @@ namespace GhostHunter.Gameplay.Ghost
             NetworkVariableWritePermission.Server);
 
         private readonly SanityNetworkState[] _players = new SanityNetworkState[MaxTrackedPlayers];
-        private readonly Dictionary<ulong, Vector3> _previousPlayerPositions = new();
-        private readonly Dictionary<ulong, float> _playerSpeeds = new();
         private readonly Dictionary<ulong, float> _bodyWitnessTimers = new();
 
         private readonly struct GazeReport
@@ -104,6 +94,8 @@ namespace GhostHunter.Gameplay.Ghost
         private bool _gazeReported;
         private float _gazeReportRemaining;
 
+        private GhostNavigation _navigation;
+        private GhostPerception _perception;
         private CharacterController _controller;
         private GhostStateMachine _machine;
         private GhostPhenomenaDirector _phenomena;
@@ -165,26 +157,7 @@ namespace GhostHunter.Gameplay.Ghost
         private float _searchRemaining;
         private float _targetSelectionRemaining;
         private float _repathRemaining;
-        private float _pathRebuildRemaining;
         private float _catchCooldownRemaining;
-        private NavMeshPath _navPath;
-        private readonly Vector3[] _pathCorners = new Vector3[64];
-        private readonly Vector3[] _probeCorners = new Vector3[64];
-        private int _pathCornerCount;
-        private int _pathCornerIndex;
-        private Vector3 _pathDestination;
-        private bool _hasPath;
-        private bool _navigationWarningLogged;
-        private float _stuckCheckRemaining;
-        private Vector3 _stuckCheckPosition;
-
-        // 서버가 집 루트로 구운 귀신 전용 NavMesh 와, 배회 목적지를 면적 비례로 뽑기 위한 삼각형 캐시.
-        private NavMeshData _navMeshData;
-        private NavMeshDataInstance _navMeshInstance;
-        private Vector3[] _navVertices;
-        private int[] _navIndices;
-        private float[] _navCumulativeArea;
-        private float _navTotalArea;
 
         private Vector3 _searchDestination;
         private bool _searchWandering;
@@ -207,6 +180,7 @@ namespace GhostHunter.Gameplay.Ghost
         public float SecondsUntilNextRoll => _machine != null ? _machine.SecondsUntilNextRoll : 0f;
         public bool CleaningBoostActive => _machine != null && _machine.CleaningBoostActive;
         public int CleaningProgress => _cleaningProgress;
+        private bool IsHighRiskAttack => _machine != null && _machine.IsHighRiskAttack;
 
         public StageRecoverySnapshot.GhostState CaptureStageState()
         {
@@ -230,7 +204,7 @@ namespace GhostHunter.Gameplay.Ghost
                 SearchRemaining = _searchRemaining,
                 TargetSelectionRemaining = _targetSelectionRemaining,
                 RepathRemaining = _repathRemaining,
-                PathRebuildRemaining = _pathRebuildRemaining,
+                PathRebuildRemaining = _navigation != null ? _navigation.RebuildRemaining : 0f,
                 CatchCooldownRemaining = _catchCooldownRemaining,
             };
             var tracked = new List<StageRecoverySnapshot.GhostTrackedPlayerState>(4);
@@ -302,9 +276,9 @@ namespace GhostHunter.Gameplay.Ghost
             _searchRemaining = snapshot.SearchRemaining;
             _targetSelectionRemaining = snapshot.TargetSelectionRemaining;
             _repathRemaining = snapshot.RepathRemaining;
-            _pathRebuildRemaining = snapshot.PathRebuildRemaining;
+            _navigation.RebuildRemaining = snapshot.PathRebuildRemaining;
             _catchCooldownRemaining = snapshot.CatchCooldownRemaining;
-            _hasPath = false;
+            _navigation.InvalidatePath();
             _trackingMemory.Clear();
             _hasPendingImpact = false;
             _searchWandering = false;
@@ -385,9 +359,14 @@ namespace GhostHunter.Gameplay.Ghost
             ? _pursuit.ToString().ToUpperInvariant()
             : "-";
 
+        private void EnsureRuntimeHelpers()
+        {
+            _navigation ??= new GhostNavigation(_controller, _settings, PathCrossesClosedDoor, this);
+            _perception ??= new GhostPerception(transform, _settings, CanChasePlayer);
+        }
+
         private void Awake()
         {
-            _navPath = new NavMeshPath();
             _controller = GetComponent<CharacterController>();
             _warningAudio = GetComponent<AudioSource>();
             if (_warningAudio == null)
@@ -429,6 +408,7 @@ namespace GhostHunter.Gameplay.Ghost
             if (_settings == null)
                 return;
 
+            EnsureRuntimeHelpers();
             RebuildVisionCone();
             IgnoreLevelActorCollisions();
 
@@ -503,12 +483,11 @@ namespace GhostHunter.Gameplay.Ghost
             _shakeRemaining = 0f;
             _target = null;
             _serverReady = false;
-            _previousPlayerPositions.Clear();
-            _playerSpeeds.Clear();
+            _perception?.Clear();
             _bodyWitnessTimers.Clear();
             _bedHide.Clear();
             _burrowExposure.Clear();
-            RemoveNavMesh();
+            _navigation?.Dispose();
             ApplyEnvironmentLights(GhostPhase.Active);
             if (_warningAudio != null)
                 _warningAudio.Stop();
@@ -529,7 +508,7 @@ namespace GhostHunter.Gameplay.Ghost
         {
             FurnitureNetworkPhysics.ServerImpactReported -= HandleServerImpact;
             // NavMesh 데이터는 씬과 무관하게 전역에 남으므로 despawn 없이 파괴되는 경우도 치운다.
-            RemoveNavMesh();
+            _navigation?.Dispose();
             base.OnDestroy();
         }
 
@@ -699,7 +678,7 @@ namespace GhostHunter.Gameplay.Ghost
                 Mathf.Max(0.5f, size.z * 0.5f));
             _roamGiveUpAt = 0f;
             ClampToHouseBounds();
-            EnsureNavMesh(navigationRoot);
+            _navigation.EnsureNavMesh(navigationRoot, _roamCenter, _roamExtents, _restrictRoamHeight);
         }
 
         public void ServerSetCleaningProgress(int percent)
@@ -733,7 +712,7 @@ namespace GhostHunter.Gameplay.Ghost
             RefreshDoorCollisions(deltaTime);
 
             int playerCount = _sanity.CopyPlayerStates(_players);
-            UpdatePlayerSpeeds(playerCount, deltaTime);
+            _perception.UpdateSpeeds(_players, playerCount, deltaTime);
 
             bool hasLiving = _sanity.TryGetTeamAverage(out _, out int teamSanity, out int living)
                 && living > 0;
@@ -777,7 +756,7 @@ namespace GhostHunter.Gameplay.Ghost
                 return;
             _aiFeatureMask = mask;
             _targetSelectionRemaining = 0f;
-            _pathRebuildRemaining = 0f;
+            _navigation.RebuildRemaining = 0f;
             _searchScanRemaining = 0f;
             _searchWandering = false;
             _hasPendingImpact = false;
@@ -808,7 +787,7 @@ namespace GhostHunter.Gameplay.Ghost
                     mask, QueryTriggerInteraction.Ignore))
                 radius *= _settings.OccludedImpactMultiplier;
             if (Vector3.Distance(ear, position) > radius
-                || !TryMeasurePath(position, out float length) || length > radius)
+                || !_navigation.TryMeasurePath(position, out float length) || length > radius)
                 return;
 
             _hasPendingImpact = true;
@@ -834,7 +813,7 @@ namespace GhostHunter.Gameplay.Ghost
                     if (player != null && player.HasSanity && IsInsideHouseBounds(player.transform.position)
                         && !DrillCarSafeZone.Contains(player.transform.position)
                         && Vector3.Distance(player.transform.position, transform.position)
-                            <= _settings.PhenomenonRadius && CanWitnessGhostBody(player))
+                            <= _settings.PhenomenonRadius && _perception.CanWitnessBody(player))
                     {
                         pressure = true;
                         break;
@@ -868,7 +847,7 @@ namespace GhostHunter.Gameplay.Ghost
                     continue;
 
                 ulong id = player.OwnerClientId;
-                if (phase != GhostPhase.Active || !CanWitnessGhostBody(player))
+                if (phase != GhostPhase.Active || !_perception.CanWitnessBody(player))
                 {
                     _bodyWitnessTimers.Remove(id);
                     continue;
@@ -890,28 +869,6 @@ namespace GhostHunter.Gameplay.Ghost
 
                 _bodyWitnessTimers[id] = remaining;
             }
-        }
-
-        private bool CanWitnessGhostBody(SanityNetworkState player)
-        {
-            if (!player.HasSanity || player.IsBurrowed
-                || HidingSpot.Contains(player.transform.position)
-                || (player.IsProne && BedHideZone.Contains(player.transform.position)))
-            {
-                return false;
-            }
-
-            Vector3 eye = player.transform.position + Vector3.up * _settings.PhenomenonWitnessEyeHeight;
-            Vector3 ghostCenter = transform.position + Vector3.up * _settings.GhostEyeHeight;
-            Vector3 toGhost = ghostCenter - eye;
-            float distance = toGhost.magnitude;
-            return GhostVision.IsInsideCone(
-                    player.transform.forward,
-                    toGhost,
-                    _settings.PhenomenonWitnessAngle,
-                    distance,
-                    _settings.PhenomenonWitnessDistance)
-                && HasLineOfSight(eye, ghostCenter, transform);
         }
 
         /// <summary>F1 디버그 — 주기를 무시하고 현상 하나를 즉시 실행한다.</summary>
@@ -1020,7 +977,7 @@ namespace GhostHunter.Gameplay.Ghost
                     distance,
                     _settings.PhenomenonWitnessDistance);
 
-                if (inCone && HasLineOfSight(eye, origin, transform))
+                if (inCone && GhostPerception.HasLineOfSight(eye, origin, transform))
                     player.ServerApplyGhostEventWitnessed();
             }
         }
@@ -1279,9 +1236,9 @@ namespace GhostHunter.Gameplay.Ghost
                     && _witnessedBedPlayer == null)
                 {
                     hasTarget = _settings.EvidenceTrackingEnabled
-                        ? TrySelectObservedTarget(playerCount, out detected)
+                        ? TrySelectChaseTarget(playerCount, out detected, observedOnly: true)
                         : _pursuit == Pursuit.Roam
-                            ? TryDetectPlayer(playerCount, out detected)
+                            ? _perception.TryDetect(_players, playerCount, IsHighRiskAttack, out detected)
                             : TrySelectChaseTarget(playerCount, out detected);
                 }
 
@@ -1317,13 +1274,13 @@ namespace GhostHunter.Gameplay.Ghost
             {
                 if (!_settings.EvidenceTrackingEnabled)
                     _lastKnownPosition = _target.transform.position;
-                _targetWasVisible = IsVisibleInVisionCone(_target);
+                _targetWasVisible = _perception.CanSee(_target, IsHighRiskAttack);
             }
 
             switch (_pursuit)
             {
                 case Pursuit.Chase:
-                    if (!frozen && !MoveToward(ChaseDestination(), attackSpeed, deltaTime, allowPartial: true))
+                    if (!frozen && !_navigation.MoveToward(ChaseDestination(), attackSpeed, deltaTime, _roamCenter, _roamExtents, allowPartial: true))
                         _repathRemaining = 0f;
                     TryCatch();
                     break;
@@ -1378,40 +1335,6 @@ namespace GhostHunter.Gameplay.Ghost
                 Time.time, _settings.ObservedSpeedLimit);
         }
 
-        private bool TrySelectObservedTarget(int playerCount, out SanityNetworkState selected)
-        {
-            selected = CanChasePlayer(_target) && CanSensePlayer(_target) ? _target : null;
-            bool retainingCurrent = selected != null;
-            float bestDistance = retainingCurrent
-                ? Vector3.Distance(transform.position, selected.transform.position) : float.MaxValue;
-            for (int i = 0; i < playerCount; i++)
-            {
-                SanityNetworkState candidate = _players[i];
-                if (candidate == selected || !CanChasePlayer(candidate) || !CanSensePlayer(candidate))
-                    continue;
-                float distance = Vector3.Distance(transform.position, candidate.transform.position);
-                if (selected == null || (retainingCurrent
-                        ? ShouldSwitchTarget(bestDistance, distance, _settings.TargetSwitchDistance)
-                        : distance < bestDistance))
-                {
-                    selected = candidate;
-                    bestDistance = distance;
-                }
-            }
-            return selected != null;
-        }
-
-        private bool CanSensePlayer(SanityNetworkState player)
-        {
-            Vector3 eye = transform.position + Vector3.up * _settings.GhostEyeHeight;
-            Vector3 center = player.transform.position + Vector3.up * _settings.TargetCenterHeight;
-            float distance = Vector3.Distance(eye, center);
-            return IsAudible(player, distance)
-                || ((_settings.NearDetectRadius > 0f && distance <= _settings.NearDetectRadius)
-                    && HasLineOfSight(eye, center, player.transform))
-                || IsVisibleInVisionCone(player);
-        }
-
         private Vector3 ChaseDestination()
         {
             if (!_settings.PredictiveChaseEnabled || !_trackingMemory.HasObservation)
@@ -1419,10 +1342,10 @@ namespace GhostHunter.Gameplay.Ghost
             Vector3 predicted = _trackingMemory.Predict(Time.time, _settings.EvidenceMemorySeconds,
                 _settings.PredictionSeconds, _settings.PredictionMaxDistance);
             if (!IsInsideHouseBounds(predicted)
-                || !NavMesh.SamplePosition(predicted, out NavMeshHit hit, NavSampleRadius, NavMesh.AllAreas)
-                || Mathf.Abs(hit.position.y - _lastKnownPosition.y) > ArrivalVerticalTolerance
+                || !NavMesh.SamplePosition(predicted, out NavMeshHit hit, GhostNavigation.SampleRadius, NavMesh.AllAreas)
+                || Mathf.Abs(hit.position.y - _lastKnownPosition.y) > GhostNavigation.ArrivalVerticalTolerance
                 || Vector3.Distance(hit.position, _lastKnownPosition) > _settings.PredictionMaxDistance
-                || !TrySampleNavMesh(_lastKnownPosition, out Vector3 origin)
+                || !GhostNavigation.TrySampleNavMesh(_lastKnownPosition, out Vector3 origin)
                 || NavMesh.Raycast(origin, hit.position, out _, NavMesh.AllAreas))
                 return _lastKnownPosition;
             return hit.position;
@@ -1437,7 +1360,7 @@ namespace GhostHunter.Gameplay.Ghost
             if (_witnessedHidingPlayer != null || _witnessedBurrowPlayer != null
                 || _witnessedBedPlayer != null)
             {
-                MoveToward(_lastKnownPosition, speed, deltaTime, allowPartial: true);
+                _navigation.MoveToward(_lastKnownPosition, speed, deltaTime, _roamCenter, _roamExtents, allowPartial: true);
                 return;
             }
 
@@ -1448,8 +1371,8 @@ namespace GhostHunter.Gameplay.Ghost
                 return;
             }
             Vector3 destination = _searchWandering ? _searchDestination : _lastKnownPosition;
-            bool arrived = HasArrived(destination);
-            if (arrived || !MoveToward(destination, speed, deltaTime, allowPartial: true))
+            bool arrived = _navigation.HasArrived(destination);
+            if (arrived || !_navigation.MoveToward(destination, speed, deltaTime, _roamCenter, _roamExtents, allowPartial: true))
             {
                 if (_settings.UtilitySearchEnabled && _searchMemory != null)
                 {
@@ -1477,9 +1400,9 @@ namespace GhostHunter.Gameplay.Ghost
                 Vector2 offset = Random.insideUnitCircle * _settings.SearchWanderRadius;
                 Vector3 probe = _lastKnownPosition + new Vector3(offset.x, 0f, offset.y);
                 if (NavMesh.SamplePosition(probe, out NavMeshHit hit, 1.5f, NavMesh.AllAreas)
-                    && Mathf.Abs(hit.position.y - _lastKnownPosition.y) <= ArrivalVerticalTolerance
-                    && !HasArrived(hit.position)
-                    && TryMeasurePath(hit.position, out _))
+                    && Mathf.Abs(hit.position.y - _lastKnownPosition.y) <= GhostNavigation.ArrivalVerticalTolerance
+                    && !_navigation.HasArrived(hit.position)
+                    && _navigation.TryMeasurePath(hit.position, out _))
                 {
                     _searchDestination = hit.position;
                     return;
@@ -1509,10 +1432,10 @@ namespace GhostHunter.Gameplay.Ghost
             {
                 DoorInteractable door = _sceneDoors[i];
                 if (door == null || !door.IsSpawned
-                    || Mathf.Abs(door.transform.position.y - _lastKnownPosition.y) > ArrivalVerticalTolerance)
+                    || Mathf.Abs(door.transform.position.y - _lastKnownPosition.y) > GhostNavigation.ArrivalVerticalTolerance)
                     continue;
                 float sqr = (door.transform.position - _lastKnownPosition).sqrMagnitude;
-                if (sqr < nearestSqr && !HasArrived(door.transform.position))
+                if (sqr < nearestSqr && !_navigation.HasArrived(door.transform.position))
                 {
                     nearestSqr = sqr;
                     nearestDoor = door.transform.position;
@@ -1526,10 +1449,10 @@ namespace GhostHunter.Gameplay.Ghost
         private void EvaluateSearchCandidate(Vector3 candidate, ref float bestScore)
         {
             if (!IsInsideHouseBounds(candidate)
-                || !NavMesh.SamplePosition(candidate, out NavMeshHit hit, NavSampleRadius, NavMesh.AllAreas)
+                || !NavMesh.SamplePosition(candidate, out NavMeshHit hit, GhostNavigation.SampleRadius, NavMesh.AllAreas)
                 || !IsInsideHouseBounds(hit.position)
-                || Mathf.Abs(hit.position.y - _lastKnownPosition.y) > ArrivalVerticalTolerance
-                || HasArrived(hit.position) || !TryMeasurePath(hit.position, out float length))
+                || Mathf.Abs(hit.position.y - _lastKnownPosition.y) > GhostNavigation.ArrivalVerticalTolerance
+                || _navigation.HasArrived(hit.position) || !_navigation.TryMeasurePath(hit.position, out float length))
                 return;
             float novelty = _searchMemory != null
                 ? _searchMemory.Staleness(hit.position, Time.time) / Mathf.Max(0.1f, _settings.SearchDuration)
@@ -1565,7 +1488,7 @@ namespace GhostHunter.Gameplay.Ghost
             }
 
             Vector3 offset = player.transform.position - transform.position;
-            if (_settings.EvidenceTrackingEnabled && Mathf.Abs(offset.y) > ArrivalVerticalTolerance)
+            if (_settings.EvidenceTrackingEnabled && Mathf.Abs(offset.y) > GhostNavigation.ArrivalVerticalTolerance)
                 return;
             offset.y = 0f;
             if (CanCatchAt(player, offset.magnitude))
@@ -1595,7 +1518,7 @@ namespace GhostHunter.Gameplay.Ghost
                 return;
             }
 
-            bool arrived = HasArrived(_roamDestination);
+            bool arrived = _navigation.HasArrived(_roamDestination);
             if (arrived || Time.time >= _roamGiveUpAt)
             {
                 PickRoamDestination(speed, avoidClosedDoors: !attacking);
@@ -1605,13 +1528,13 @@ namespace GhostHunter.Gameplay.Ghost
                     _lookYaw = transform.eulerAngles.y + Random.Range(60f, 150f) * (Random.value < 0.5f ? -1f : 1f);
                     // 포기 시간은 걷는 시간 기준이다 — 서서 두리번거리는 시간만큼 미룬다.
                     _roamGiveUpAt += _lookAroundRemaining;
-                    ResetStuckCheck();
+                    _navigation.ResetStuckCheck();
                     return;
                 }
             }
 
             // 경로가 끊겼거나(닫힌 문 등) 제자리에 걸렸으면 다음 틱에 다른 목적지를 고른다.
-            if (!MoveToward(_roamDestination, speed, deltaTime, allowPartial: false))
+            if (!_navigation.MoveToward(_roamDestination, speed, deltaTime, _roamCenter, _roamExtents, allowPartial: false))
                 _roamGiveUpAt = 0f;
         }
 
@@ -1645,9 +1568,9 @@ namespace GhostHunter.Gameplay.Ghost
 
             for (int attempt = 0; attempt < RoamPickAttempts && found < wanted; attempt++)
             {
-                if (!TryRandomNavPoint(out Vector3 candidate))
+                if (!_navigation.TryRandomNavPoint(out Vector3 candidate))
                     break;
-                if (!TryMeasurePath(candidate, out float length, avoidClosedDoors))
+                if (!_navigation.TryMeasurePath(candidate, out float length, avoidClosedDoors))
                     continue;
 
                 bool far = (candidate - transform.position).sqrMagnitude >= minSqr;
@@ -1682,80 +1605,7 @@ namespace GhostHunter.Gameplay.Ghost
         private void SetRoamDestination(Vector3 destination, float pathLength, float speed)
         {
             _roamDestination = destination;
-            _roamGiveUpAt = Time.time + RoamGiveUpSeconds(pathLength, speed);
-        }
-
-        /// <summary>경로 길이를 걸어갈 시간에 여유를 더한 배회 포기 시간. 층을 건너는 긴 경로도 끝까지 간다.</summary>
-        internal static float RoamGiveUpSeconds(float pathLength, float speed)
-        {
-            if (speed <= 0.01f)
-                return MinRoamGiveUpSeconds;
-            return Mathf.Max(MinRoamGiveUpSeconds, pathLength / speed * 1.5f + 2f);
-        }
-
-        /// <summary>평면 거리가 도착 반경 안이고 같은 층(높이 차 <see cref="ArrivalVerticalTolerance"/> 이하)인가.</summary>
-        internal static bool HasArrived(Vector3 position, Vector3 destination, float reachDistance)
-        {
-            Vector3 flat = destination - position;
-            if (Mathf.Abs(flat.y) > ArrivalVerticalTolerance)
-                return false;
-            flat.y = 0f;
-            return flat.sqrMagnitude <= reachDistance * reachDistance;
-        }
-
-        private bool HasArrived(Vector3 destination)
-        {
-            return HasArrived(transform.position, destination, _settings.ReachDistance);
-        }
-
-        private bool TryRandomNavPoint(out Vector3 point)
-        {
-            point = default;
-            if (_navCumulativeArea == null || _navCumulativeArea.Length == 0)
-                return false;
-
-            int triangle = System.Array.BinarySearch(_navCumulativeArea, Random.value * _navTotalArea);
-            if (triangle < 0)
-                triangle = ~triangle;
-            triangle = Mathf.Min(triangle, _navCumulativeArea.Length - 1);
-
-            Vector3 a = _navVertices[_navIndices[triangle * 3]];
-            Vector3 b = _navVertices[_navIndices[triangle * 3 + 1]];
-            Vector3 c = _navVertices[_navIndices[triangle * 3 + 2]];
-            float u = Random.value;
-            float v = Random.value;
-            if (u + v > 1f)
-            {
-                u = 1f - u;
-                v = 1f - v;
-            }
-
-            point = a + (b - a) * u + (c - a) * v;
-            return true;
-        }
-
-        /// <summary>
-        /// 현재 위치에서 목적지까지 완전한 경로가 있으면 그 길이를 돌려준다. 현재 경로는 건드리지 않는다.
-        /// NavMesh 는 문을 굽지 않으므로 <paramref name="avoidClosedDoors"/> 면 닫힌 문을 지나는 경로를 따로 거른다.
-        /// </summary>
-        private bool TryMeasurePath(Vector3 destination, out float length, bool avoidClosedDoors = false)
-        {
-            length = 0f;
-            if (!TrySampleNavMesh(transform.position, out Vector3 from)
-                || !TrySampleNavMesh(destination, out Vector3 to)
-                || !NavMesh.CalculatePath(from, to, NavMesh.AllAreas, _navPath)
-                || _navPath.status != NavMeshPathStatus.PathComplete)
-            {
-                return false;
-            }
-
-            int count = _navPath.GetCornersNonAlloc(_probeCorners);
-            if (avoidClosedDoors && PathCrossesClosedDoor(_probeCorners, count))
-                return false;
-
-            for (int i = 1; i < count; i++)
-                length += Vector3.Distance(_probeCorners[i - 1], _probeCorners[i]);
-            return true;
+            _roamGiveUpAt = Time.time + GhostNavigation.RoamGiveUpSeconds(pathLength, speed);
         }
 
         /// <summary>경로 코너를 잇는 선분(허리 높이)이 닫힌 문짝의 충돌체를 지나는가.</summary>
@@ -1822,325 +1672,14 @@ namespace GhostHunter.Gameplay.Ghost
             }
         }
 
-        private static bool TrySampleNavMesh(Vector3 position, out Vector3 onMesh)
+        private bool CanSelectTarget(SanityNetworkState player, bool observedOnly)
         {
-            if (NavMesh.SamplePosition(position, out NavMeshHit hit, NavSampleRadius, NavMesh.AllAreas)
-                || NavMesh.SamplePosition(position, out hit, NavSampleFallbackRadius, NavMesh.AllAreas))
-            {
-                onMesh = hit.position;
-                return true;
-            }
-
-            onMesh = position;
-            return false;
+            return CanChasePlayer(player) && (!observedOnly || _perception.CanSense(player, IsHighRiskAttack));
         }
 
-        /// <summary>
-        /// NavMesh 경로의 코너를 따라 이동한다. 경로가 없거나 1초 동안 거의 못 움직였으면(닫힌 문·걸림)
-        /// false 를 돌려주고 다음 틱에 경로를 다시 만든다.
-        /// </summary>
-        private bool MoveToward(Vector3 target, float speed, float deltaTime, bool allowPartial)
+        private bool TrySelectChaseTarget(int playerCount, out SanityNetworkState selected, bool observedOnly = false)
         {
-            if (deltaTime <= 0f)
-                return true;
-
-            target = ClampToHouseBounds(target, _roamCenter, _roamExtents);
-            _pathRebuildRemaining -= deltaTime;
-            if (_pathRebuildRemaining <= 0f
-                || (target - _pathDestination).sqrMagnitude >
-                    _settings.ReachDistance * _settings.ReachDistance)
-            {
-                RebuildPath(target, allowPartial);
-            }
-
-            if (!_hasPath)
-            {
-                _controller.Move(Vector3.down * _settings.Gravity * deltaTime);
-                ResetStuckCheck();
-                return false;
-            }
-
-            Vector3 waypoint = _pathCornerIndex < _pathCornerCount
-                ? _pathCorners[_pathCornerIndex]
-                : target;
-            Vector3 flat = waypoint - transform.position;
-            flat.y = 0f;
-            float distance = flat.magnitude;
-
-            while (_pathCornerIndex < _pathCornerCount - 1
-                && HasArrived(waypoint))
-            {
-                _pathCornerIndex++;
-                waypoint = _pathCorners[_pathCornerIndex];
-                flat = waypoint - transform.position;
-                flat.y = 0f;
-                distance = flat.magnitude;
-            }
-
-            Vector3 direction = distance > 1e-3f ? flat / distance : Vector3.zero;
-            if (direction != Vector3.zero)
-            {
-                Quaternion look = Quaternion.LookRotation(direction, Vector3.up);
-                transform.rotation = Quaternion.RotateTowards(
-                    transform.rotation,
-                    look,
-                    TurnSpeedDegrees * deltaTime);
-            }
-
-            float step = Mathf.Min(speed, distance / deltaTime);
-            Vector3 move = direction * step;
-            move.y = -_settings.Gravity;
-            _controller.Move(move * deltaTime);
-            ClampToHouseBounds();
-
-            return !IsStuck(target, deltaTime);
-        }
-
-        private bool IsStuck(Vector3 target, float deltaTime)
-        {
-            _stuckCheckRemaining -= deltaTime;
-            if (_stuckCheckRemaining > 0f)
-                return false;
-
-            bool stuck = (transform.position - _stuckCheckPosition).sqrMagnitude
-                    < StuckMinProgress * StuckMinProgress
-                && !HasArrived(target);
-            ResetStuckCheck();
-            if (stuck)
-                _pathRebuildRemaining = 0f;
-            return stuck;
-        }
-
-        private void ResetStuckCheck()
-        {
-            _stuckCheckRemaining = StuckCheckInterval;
-            _stuckCheckPosition = transform.position;
-        }
-
-        private void EnsureNavMesh(Transform house)
-        {
-            RemoveNavMesh();
-            if (house == null)
-            {
-                Debug.LogError("[GhostPrototype] 집 루트가 없어 경로를 만들 수 없습니다.", this);
-                return;
-            }
-
-            int includedLayers = ~0;
-            if (GameLayers.Player >= 0)
-                includedLayers &= ~(1 << GameLayers.Player);
-            if (GameLayers.Furniture >= 0)
-                includedLayers &= ~(1 << GameLayers.Furniture);
-            if (GameLayers.GhostPrototype >= 0)
-                includedLayers &= ~(1 << GameLayers.GhostPrototype);
-
-            _navMeshData = BuildHouseNavMesh(
-                house,
-                includedLayers,
-                _settings.NavAgentRadius,
-                _controller.height,
-                Mathf.Max(0.3f, _controller.stepOffset));
-            if (_navMeshData == null)
-            {
-                Debug.LogError("[GhostPrototype] 집 루트에서 NavMesh 를 만들 충돌체를 찾지 못했습니다.", this);
-                return;
-            }
-
-            _navMeshInstance = NavMesh.AddNavMeshData(_navMeshData);
-            CacheRoamTriangles();
-
-            if (!NavMesh.SamplePosition(transform.position, out _, NavSampleFallbackRadius, NavMesh.AllAreas))
-                Debug.LogError("[GhostPrototype] 집 내부 NavMesh 생성 후에도 스폰 위치를 찾지 못했습니다.", this);
-        }
-
-        /// <summary>
-        /// 집 루트 자식의 물리 충돌체로 귀신 전용 NavMesh 를 굽는다. 에이전트 종류는 기본(0)을 쓰되
-        /// 반경·높이·턱 높이만 귀신에 맞춘다 — 기본 Humanoid 반경 0.5 로는 1.0m 문틀이 막힌다.
-        /// 트리거(은신처·세이프 존)와 문(열고 닫혀 움직임)은 장애물에서 뺀다. 닫힌 문은 이동 중에 연다.
-        /// </summary>
-        internal static NavMeshData BuildHouseNavMesh(
-            Transform root, int layerMask, float agentRadius, float agentHeight, float agentClimb)
-        {
-            var sources = new List<NavMeshBuildSource>();
-            NavMeshBuilder.CollectSources(
-                root,
-                layerMask,
-                NavMeshCollectGeometry.PhysicsColliders,
-                0,
-                new List<NavMeshBuildMarkup>(),
-                sources);
-
-            for (int i = sources.Count - 1; i >= 0; i--)
-            {
-                if (sources[i].component is Collider collider
-                    && (collider.isTrigger || collider.GetComponentInParent<DoorInteractable>() != null))
-                {
-                    sources.RemoveAt(i);
-                }
-            }
-
-            bool hasBounds = false;
-            Bounds bounds = default;
-            foreach (Collider collider in root.GetComponentsInChildren<Collider>())
-            {
-                if (collider.isTrigger || (layerMask & (1 << collider.gameObject.layer)) == 0)
-                    continue;
-                if (hasBounds)
-                {
-                    bounds.Encapsulate(collider.bounds);
-                }
-                else
-                {
-                    bounds = collider.bounds;
-                    hasBounds = true;
-                }
-            }
-
-            if (!hasBounds || sources.Count == 0)
-                return null;
-
-            bounds.Expand(1f);
-            NavMeshBuildSettings settings = NavMesh.GetSettingsByID(0);
-            settings.agentRadius = agentRadius;
-            settings.agentHeight = agentHeight;
-            settings.agentClimb = agentClimb;
-            return NavMeshBuilder.BuildNavMeshData(
-                settings, sources, bounds, Vector3.zero, Quaternion.identity);
-        }
-
-        /// <summary>집 X/Z 경계 안의 NavMesh 삼각형과 누적 면적을 캐시한다(배회 목적지 추첨용).</summary>
-        private void CacheRoamTriangles()
-        {
-            NavMeshTriangulation triangulation = NavMesh.CalculateTriangulation();
-            Vector3[] vertices = triangulation.vertices;
-            int[] indices = triangulation.indices;
-            var kept = new List<int>(indices.Length);
-            var cumulative = new List<float>(indices.Length / 3);
-            float total = 0f;
-
-            for (int i = 0; i + 2 < indices.Length; i += 3)
-            {
-                Vector3 a = vertices[indices[i]];
-                Vector3 b = vertices[indices[i + 1]];
-                Vector3 c = vertices[indices[i + 2]];
-                if (!IsInsideHouseBounds((a + b + c) / 3f))
-                    continue;
-
-                float area = Vector3.Cross(b - a, c - a).magnitude * 0.5f;
-                if (area <= 1e-4f)
-                    continue;
-
-                total += area;
-                kept.Add(indices[i]);
-                kept.Add(indices[i + 1]);
-                kept.Add(indices[i + 2]);
-                cumulative.Add(total);
-            }
-
-            _navVertices = vertices;
-            _navIndices = kept.ToArray();
-            _navCumulativeArea = cumulative.ToArray();
-            _navTotalArea = total;
-        }
-
-        private void RemoveNavMesh()
-        {
-            if (_navMeshInstance.valid)
-                _navMeshInstance.Remove();
-            _navMeshInstance = default;
-            if (_navMeshData != null)
-            {
-                Destroy(_navMeshData);
-                _navMeshData = null;
-            }
-
-            _navVertices = null;
-            _navIndices = null;
-            _navCumulativeArea = null;
-            _navTotalArea = 0f;
-            _hasPath = false;
-        }
-
-        private bool RebuildPath(Vector3 target, bool allowPartial)
-        {
-            _pathRebuildRemaining = _settings.RepathInterval;
-            _pathDestination = target;
-            _hasPath = false;
-
-            if (!TrySampleNavMesh(transform.position, out Vector3 from)
-                || !TrySampleNavMesh(target, out Vector3 to)
-                || !NavMesh.CalculatePath(from, to, NavMesh.AllAreas, _navPath)
-                || _navPath.status == NavMeshPathStatus.PathInvalid
-                || (!allowPartial && _navPath.status != NavMeshPathStatus.PathComplete))
-            {
-                if (!_navigationWarningLogged)
-                {
-                    Debug.LogWarning(
-                        $"[GhostPrototype] {target} 까지 NavMesh 경로가 없습니다. 다른 목적지·경로를 찾습니다.",
-                        this);
-                    _navigationWarningLogged = true;
-                }
-                return false;
-            }
-
-            _pathCornerCount = _navPath.GetCornersNonAlloc(_pathCorners);
-            _pathCornerIndex = _pathCornerCount > 1 ? 1 : 0;
-            _hasPath = _pathCornerCount > 0;
-            _navigationWarningLogged = false;
-            return _hasPath;
-        }
-
-        private bool TryDetectPlayer(int playerCount, out SanityNetworkState detected)
-        {
-            detected = null;
-            Vector3 eye = transform.position + Vector3.up * _settings.GhostEyeHeight;
-            float bestDistance = float.MaxValue;
-
-            for (int i = 0; i < playerCount; i++)
-            {
-                SanityNetworkState player = _players[i];
-                if (!CanChasePlayer(player))
-                    continue;
-
-                Vector3 center = player.transform.position + Vector3.up * _settings.TargetCenterHeight;
-                Vector3 toTarget = center - eye;
-                float distance = toTarget.magnitude;
-                if (distance >= bestDistance)
-                    continue;
-
-                if (IsAudible(player, distance))
-                {
-                    detected = player;
-                    bestDistance = distance;
-                    continue;
-                }
-
-                bool nearby = _settings.NearDetectRadius > 0f
-                    && distance <= _settings.NearDetectRadius;
-                bool inCone = GhostVision.IsInsideCone(
-                    transform.forward,
-                    toTarget,
-                    _machine != null && _machine.IsHighRiskAttack
-                        ? _settings.HighRiskVisionAngle
-                        : _settings.VisionAngle,
-                    distance,
-                    _machine != null && _machine.IsHighRiskAttack
-                        ? _settings.HighRiskVisionDistance
-                        : _settings.VisionDistance);
-
-                if ((nearby || inCone) && HasLineOfSight(eye, center, player.transform))
-                {
-                    detected = player;
-                    bestDistance = distance;
-                }
-            }
-
-            return detected != null;
-        }
-
-        private bool TrySelectChaseTarget(int playerCount, out SanityNetworkState selected)
-        {
-            selected = CanChasePlayer(_target) ? _target : null;
+            selected = CanSelectTarget(_target, observedOnly) ? _target : null;
             bool retainingCurrent = selected != null;
             float bestDistance = selected != null
                 ? Vector3.Distance(transform.position, selected.transform.position)
@@ -2149,7 +1688,7 @@ namespace GhostHunter.Gameplay.Ghost
             for (int i = 0; i < playerCount; i++)
             {
                 SanityNetworkState candidate = _players[i];
-                if (candidate == selected || !CanChasePlayer(candidate))
+                if (candidate == selected || !CanSelectTarget(candidate, observedOnly))
                     continue;
 
                 float distance = Vector3.Distance(transform.position, candidate.transform.position);
@@ -2183,7 +1722,7 @@ namespace GhostHunter.Gameplay.Ghost
         /// <summary>
         /// 어택 틱마다 플레이어별 '침대 밑 은신' 성립 여부를 갱신한다(§9.5, 사용자 확정 2026-09-03).
         /// 이전 틱의 추격 상태(<see cref="_pursuit"/>·<see cref="_target"/>)를 보고 판정하므로
-        /// <see cref="TryDetectPlayer"/> 보다 먼저 부른다.
+        /// <see cref="GhostPerception.TryDetect"/> 보다 먼저 부른다.
         /// </summary>
         private void EvaluateBedHide(int playerCount, float deltaTime)
         {
@@ -2213,7 +1752,7 @@ namespace GhostHunter.Gameplay.Ghost
                 // 놓쳐서 배회로 돌아가면(_pursuit == Roam) 그제서야 성립할 수 있다.
                 bool chased = _pursuit != Pursuit.Roam
                     && (_target == player || _witnessedBedPlayer == player);
-                bool visible = eligible && !chased && IsVisibleInVisionCone(player);
+                bool visible = eligible && !chased && _perception.CanSee(player, IsHighRiskAttack);
                 if (_settings.EvidenceTrackingEnabled && eligible && !evaluator.Granted
                     && _witnessedBedPlayer == null && ((chased && _targetWasVisible) || visible))
                 {
@@ -2285,7 +1824,7 @@ namespace GhostHunter.Gameplay.Ghost
                 return;
             }
             Vector3 delta = player.transform.position - transform.position;
-            if (Mathf.Abs(delta.y) <= ArrivalVerticalTolerance
+            if (Mathf.Abs(delta.y) <= GhostNavigation.ArrivalVerticalTolerance
                 && CanCatchAt(player, new Vector2(delta.x, delta.z).magnitude))
             {
                 player.ServerMarkDead();
@@ -2298,89 +1837,6 @@ namespace GhostHunter.Gameplay.Ghost
             return player != null
                 && _bedHide.TryGetValue(player.OwnerClientId, out BedHideEvaluator evaluator)
                 && evaluator.Granted;
-        }
-
-        /// <summary>귀신 원뿔 시야 + 시야선에만 걸리는지(근거리·소리 무시). 침대 밑 은신 판정 전용.</summary>
-        private bool IsVisibleInVisionCone(SanityNetworkState player)
-        {
-            Vector3 eye = transform.position + Vector3.up * _settings.GhostEyeHeight;
-            Vector3 center = player.transform.position + Vector3.up * _settings.TargetCenterHeight;
-            Vector3 toTarget = center - eye;
-            float distance = toTarget.magnitude;
-
-            bool inCone = GhostVision.IsInsideCone(
-                transform.forward,
-                toTarget,
-                _machine != null && _machine.IsHighRiskAttack
-                    ? _settings.HighRiskVisionAngle
-                    : _settings.VisionAngle,
-                distance,
-                _machine != null && _machine.IsHighRiskAttack
-                    ? _settings.HighRiskVisionDistance
-                    : _settings.VisionDistance);
-
-            return inCone && HasLineOfSight(eye, center, player.transform);
-        }
-
-        private bool IsAudible(SanityNetworkState player, float distance)
-        {
-            // 기획서 §8.3: 웅크려 이동하면 속력과 무관하게 소리 탐지에서 제외한다.
-            // 엎드려 기어서 이동하는 것도 소리를 내지 않는 것으로 친다(P1 확장, player-controller.md).
-            if (player.IsCrouching
-                || player.IsProne
-                || !_playerSpeeds.TryGetValue(player.OwnerClientId, out float speed))
-            {
-                return false;
-            }
-
-            float radius = speed >= _settings.RunSpeedThreshold
-                ? _settings.RunHearingRadius
-                : speed >= _settings.WalkSpeedThreshold
-                    ? _settings.WalkHearingRadius
-                    : 0f;
-
-            return radius > 0f && distance <= radius;
-        }
-
-        private bool HasLineOfSight(Vector3 from, Vector3 to, Transform player)
-        {
-            if (!Physics.Linecast(
-                    from,
-                    to,
-                    out RaycastHit hit,
-                    GameLayers.NonGhostPrototypeRaycastMask,
-                    QueryTriggerInteraction.Ignore))
-            {
-                return true;
-            }
-
-            return hit.transform == player || hit.transform.IsChildOf(player);
-        }
-
-        private void UpdatePlayerSpeeds(int playerCount, float deltaTime)
-        {
-            for (int i = 0; i < playerCount; i++)
-            {
-                SanityNetworkState player = _players[i];
-                if (player == null || !player.IsSpawned)
-                    continue;
-
-                ulong id = player.OwnerClientId;
-                Vector3 position = player.transform.position;
-
-                if (deltaTime > 0f && _previousPlayerPositions.TryGetValue(id, out Vector3 previous))
-                {
-                    Vector3 delta = position - previous;
-                    delta.y = 0f;
-                    float instantaneous = delta.magnitude / deltaTime;
-                    float smoothed = _playerSpeeds.TryGetValue(id, out float last)
-                        ? Mathf.Lerp(last, instantaneous, 0.5f)
-                        : instantaneous;
-                    _playerSpeeds[id] = smoothed;
-                }
-
-                _previousPlayerPositions[id] = position;
-            }
         }
 
         private void TryCatch()
@@ -2410,8 +1866,8 @@ namespace GhostHunter.Gameplay.Ghost
 
             Vector3 delta = _target.transform.position - transform.position;
             if (_settings.EvidenceTrackingEnabled
-                && (Mathf.Abs(delta.y) > ArrivalVerticalTolerance
-                    || !HasLineOfSight(transform.position + Vector3.up * _settings.GhostEyeHeight,
+                && (Mathf.Abs(delta.y) > GhostNavigation.ArrivalVerticalTolerance
+                    || !GhostPerception.HasLineOfSight(transform.position + Vector3.up * _settings.GhostEyeHeight,
                         _target.transform.position + Vector3.up * _settings.TargetCenterHeight,
                         _target.transform)))
                 return;
@@ -2439,9 +1895,7 @@ namespace GhostHunter.Gameplay.Ghost
         /// </summary>
         private void TryOpenBlockingDoor()
         {
-            Vector3 waypoint = _hasPath && _pathCornerIndex < _pathCornerCount
-                ? _pathCorners[_pathCornerIndex]
-                : _lastKnownPosition;
+            Vector3 waypoint = _navigation.GetWaypointOr(_lastKnownPosition);
             Vector3 direction = waypoint - transform.position;
             direction.y = 0f;
             if (direction.sqrMagnitude < 1e-4f)
@@ -2479,32 +1933,14 @@ namespace GhostHunter.Gameplay.Ghost
                 _searchMemory.Clear();
         }
 
-        /// <summary>집 내부 활동 경계는 평면(X/Z)만 제한한다. 높이는 계단·단차를 위해 보존한다.</summary>
-        internal static bool IsInsideHouseBounds(Vector3 position, Vector3 center, Vector3 extents)
-        {
-            return position.x >= center.x - extents.x
-                && position.x <= center.x + extents.x
-                && position.z >= center.z - extents.z
-                && position.z <= center.z + extents.z;
-        }
-
-        /// <summary>집 내부 활동 경계로 평면 좌표만 보정하고 높이는 유지한다.</summary>
-        internal static Vector3 ClampToHouseBounds(Vector3 position, Vector3 center, Vector3 extents)
-        {
-            position.x = Mathf.Clamp(position.x, center.x - extents.x, center.x + extents.x);
-            position.z = Mathf.Clamp(position.z, center.z - extents.z, center.z + extents.z);
-            return position;
-        }
-
         private bool IsInsideHouseBounds(Vector3 position)
         {
-            return IsInsideHouseBounds(position, _roamCenter, _roamExtents)
-                && (!_restrictRoamHeight || Mathf.Abs(position.y - _roamCenter.y) <= _roamExtents.y);
+            return GhostNavigation.IsInsideHouseBounds(position, _roamCenter, _roamExtents, _restrictRoamHeight);
         }
 
         private void ClampToHouseBounds()
         {
-            Vector3 clamped = ClampToHouseBounds(transform.position, _roamCenter, _roamExtents);
+            Vector3 clamped = GhostNavigation.ClampToHouseBounds(transform.position, _roamCenter, _roamExtents);
             if (clamped != transform.position)
                 transform.position = clamped;
         }

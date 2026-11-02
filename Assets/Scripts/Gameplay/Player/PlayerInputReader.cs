@@ -6,29 +6,9 @@ using UnityEngine.InputSystem;
 namespace GhostHunter.Gameplay.Player
 {
     /// <summary>
-    /// 프로젝트의 InputActionAsset을 로컬 플레이어별로 복제한다. 원격 플레이어가 공유 에셋을
-    /// 활성화해 내 입력을 읽는 일을 막기 위해 소유자에서만 런타임 복제본을 켠다.
-    ///
-    /// <para><b>잠금은 네 가지이고 서로 독립이다.</b></para>
-    /// <list type="bullet">
-    /// <item><see cref="SetGameplayInputLocked"/> — 일시정지 메뉴. <b>전부</b> 0으로 만든다(시점·
-    /// 관전 입력 포함) → docs/project/spectator-system.md §2("메뉴가 열리면 관전 입력도 잠근다").</item>
-    /// <item><see cref="SetDeathInputLocked"/> — 사망 상태(관전 기획서 SP-1~SP-2, 사용자 확정
-    /// 2026-09-12). 생존 조작(이동·시점·상호작용·스킬)을 전부 막고 대신 관전 입력(자유비행·모드
-    /// 전환·대상 전환)을 채운다. <b>굴착·휠 잠금보다 우선한다</b> — 사망과 같은 프레임에 굴착 취소가
-    /// 자기 잠금(<see cref="SetSkillInputMode"/>)을 먼저 풀어도 생존 조작이 되살아나지 않게
-    /// 막는 안전장치다.</item>
-    /// <item><see cref="SetSkillInputMode"/> — 굴착 중(두더지 스킬 기획서 §5.5.1). 시전 중
-    /// (<see cref="SkillInputMode.Frozen"/>)은 <b>스킬 키(Burrow)·헤드라이트(F)만 남기고</b> 시야·이동까지
-    /// 막고, 매몰 중(<see cref="SkillInputMode.UndergroundMove"/>)은 시야 회전과 이동을 더 살린다.
-    /// 어느 쪽이든 땅속에서 점프·달리기·던지기·문 여닫기·자세 전환이 되면 안 된다.</item>
-    /// <item><see cref="SetWheelInputLocked"/> — 퀵슬롯 휠이 열린 동안(사용자 확정 2026-09-12).
-    /// <b>시야 회전(Look)만 0으로</b> 만들고 Attack·Interact·Burrow·Detect·Prone·Jump를 막는다.
-    /// Move·Crouch·Sprint는 살려 둔다(QS-5) — 휠을 연 채 이동할 수 있다. 휠 키(QuickSlot) 자신은
-    /// 이 잠금 중에도 계속 읽혀야 스스로 닫힌다.</item>
-    /// </list>
-    /// 우선순위는 <b>메뉴 &gt; 사망 &gt; 굴착 &gt; 휠</b>이다 — 겹치면 더 강한 잠금이 이긴다. 어느 쪽이든
-    /// 자세(웅크리기)는 마지막 값으로 얼려서, 잠기는 것만으로 플레이어가 일어서지 않게 한다.
+    /// 소유자의 InputActionAsset 복제본을 읽어 입력값을 노출한다. 원격 플레이어는 액션을 켜지 않는다.
+    /// 메뉴·복구 > 사망·관전 > 굴착 > 휠 우선순위는 PlayerInputPolicy가 정한다.
+    /// 잠금별 허용 입력·자세 유지 규칙은 docs/architecture/player-controller.md의 입력 매핑을 따른다.
     /// </summary>
     [DefaultExecutionOrder(-200)]
     [DisallowMultipleComponent]
@@ -98,7 +78,7 @@ namespace GhostHunter.Gameplay.Player
         /// <summary>굴착 중이라 조작이 제한됐는가(시전·매몰 모두) → docs/project/mole-skill-system.md §5.5.1</summary>
         public bool IsSkillInputLocked => _skillMode != SkillInputMode.None;
 
-        /// <summary>퀵슬롯 휠이 열려 있어 시점을 뺀 조작이 잠겼는가 → docs/architecture/quick-slot.md</summary>
+        /// <summary>퀵슬롯 휠 잠금이 활성화됐는가 → docs/architecture/quick-slot.md</summary>
         public bool IsWheelInputLocked => _wheelLocked;
 
         /// <summary>
@@ -124,7 +104,7 @@ namespace GhostHunter.Gameplay.Player
         /// <summary>
         /// 굴착 스킬 토글 입력(§5.3) — 한 번 누르면 진입, 진입/유지 중 다시 누르면 즉시 종료.
         /// 키는 사용자 확정 T이며 Interact(E)와 분리된다 → 두더지 스킬 시스템 기획서(mole-skill-system.md).
-        /// <b>굴착 잠금 중에도 이 입력만은 살아 있다</b> — 그래야 스스로 나올 수 있다.
+        /// <b>굴착 잠금 중에도 읽는다</b> — 그래야 스스로 나올 수 있다.
         /// </summary>
         public bool BurrowPressedThisFrame { get; private set; }
 
@@ -254,14 +234,8 @@ namespace GhostHunter.Gameplay.Player
         }
 
         /// <summary>
-        /// 굴착 중 조작 제한(§5.5.1). 두 모드 모두 점프·달리기·던지기·상호작용·자세 전환은 막고
-        /// 굴착 키·헤드라이트만 살린다. 시전(<see cref="SkillInputMode.Frozen"/>) 중에는 시야 회전과
-        /// 이동도 막고, 매몰(<see cref="SkillInputMode.UndergroundMove"/>) 중에는 시야 회전과 이동을
-        /// 허용한다. 자세는 마지막 값으로 얼린다.
-        ///
-        /// 일시정지 메뉴 잠금과 독립이며, 둘이 겹치면 메뉴 쪽이 이긴다.
-        /// 시야를 막는 모드로 들어갈 때 <see cref="Look"/> 을 즉시 비운다 — <see cref="PlayerLook"/> 이
-        /// 이 컴포넌트보다 먼저 돌아서 직전 프레임 값을 한 번 더 적용하기 때문이다.
+        /// 굴착 시전은 시점·이동도 막고, 매몰은 둘을 허용한다. 굴착 키·헤드라이트는 두 모드에서 읽는다.
+        /// 시전 진입은 시점까지 즉시 비워 이미 읽은 입력이 적용되지 않게 한다.
         /// </summary>
         public void SetSkillInputMode(SkillInputMode mode)
         {
@@ -279,13 +253,8 @@ namespace GhostHunter.Gameplay.Player
         }
 
         /// <summary>
-        /// 사망 상태를 반영해 생존 조작을 잠그거나 푼다(관전 기획서 SP-1·SP-2, 사용자 확정
-        /// 2026-09-12). 잠긴 동안 이동·시점·상호작용·스킬 입력은 전부 0이 되고, 대신
-        /// <see cref="SpectatorMove"/> 등 관전 입력이 채워진다.
-        ///
-        /// 굴착·휠 잠금보다 우선한다(<see cref="Update"/> 참고) — 사망과 같은 프레임에 굴착
-        /// 취소가 <see cref="SetSkillInputMode"/>(None)을 먼저 불러도 이 잠금이 살아있는 한
-        /// 생존 조작이 되살아나지 않는다. 일시정지 메뉴 잠금보다는 아래다.
+        /// 생존 조작을 즉시 비우고 다음 Update에서 관전 입력을 읽는다. 해제 시 관전 입력도 즉시 비운다.
+        /// 굴착·휠 해제가 사망 잠금을 풀지 않으며, 메뉴·복구 잠금은 관전도 막는다.
         /// </summary>
         public void SetDeathInputLocked(bool locked)
         {
@@ -307,12 +276,7 @@ namespace GhostHunter.Gameplay.Player
         }
 
         /// <summary>
-        /// 퀵슬롯 휠이 열린 동안 조작을 잠그거나 푼다. 잠긴 동안 <b>시야 회전만</b> 0이 되고
-        /// Attack·Interact·Burrow·Detect·Prone·Jump가 막힌다. Move·Crouch·Sprint는 살아 있다(QS-5,
-        /// 사용자 확정 2026-09-12) — 휠을 연 채로 이동할 수 있다. 휠 입력(QuickSlot) 자신은 이
-        /// 잠금의 영향을 받지 않는다 — 그래야 휠이 스스로 닫힌다.
-        ///
-        /// 일시정지 메뉴·굴착 잠금과 독립이며, 셋이 겹치면 메뉴 &gt; 굴착 &gt; 휠 순으로 이긴다.
+        /// 휠 중에도 이동·자세·휠·헤드라이트를 읽는다(QS-5). 다른 행동은 즉시, 시점은 다음 Update에서 막는다.
         /// </summary>
         public void SetWheelInputLocked(bool locked)
         {
@@ -330,24 +294,13 @@ namespace GhostHunter.Gameplay.Player
         /// <summary>세 잠금이 공통으로 버리는 입력. 시점과 자세 유지 값은 여기서 건드리지 않는다.</summary>
         private void ClearBlockedInputs()
         {
+            ClearWheelBlockedInputs();
             Move = Vector2.zero;
-            AttackPressedThisFrame = false;
-            AttackReleasedThisFrame = false;
-            InteractPressedThisFrame = false;
-            InteractHeld = false;
-            PronePressedThisFrame = false;
             SprintHeld = false;
-            BurrowPressedThisFrame = false;
-            DetectPressedThisFrame = false;
             QuickSlotHeld = false;
             QuickSlotPressedThisFrame = false;
             QuickSlotReleasedThisFrame = false;
-            UseDriverPressedThisFrame = false;
-            UseDriverHeld = false;
-            FurnitureRotateScroll = 0f;
-            FurnitureRotateModePressedThisFrame = false;
             HeadlampPressedThisFrame = false;
-            _jumpQueued = false;
         }
 
         /// <summary>
@@ -422,94 +375,46 @@ namespace GhostHunter.Gameplay.Player
             if (_runtimeActions == null)
                 return;
 
-            // 어떤 잠금 중에도 계속 갱신된다 — 퀵슬롯 휠이 카메라와 무관하게 자기 포인터를 누적할 때 쓴다.
             RawLookDelta = _lookAction.ReadValue<Vector2>();
             VoiceHeld = _voiceAction.IsPressed();
             VoiceMutePressedThisFrame = _voiceMuteAction.WasPressedThisFrame();
 
-            if (_inputLocked || GhostHunter.Gameplay.Recovery.StageRecoveryGate.Restoring)
-            {
-                // 잠긴 동안에는 액션을 읽지 않는다. CrouchHeld 는 마지막 값 그대로 두어
-                // 메뉴를 여는 것만으로 자세가 바뀌지 않게 한다. 관전 입력도 함께 잠근다
-                // → docs/project/spectator-system.md §2.
-                ClearBlockedInputs();
-                Look = Vector2.zero;
-                BurrowPressedThisFrame = false;
-                ClearSpectatorInputs();
-                return;
-            }
-
-            if (_deathLocked)
-            {
-                // 사망(SP-1·SP-2) — 생존 조작은 전부 버리고 관전 입력만 채운다. 굴착·휠 잠금보다
-                // 우선하므로 이 검사가 먼저 와야 한다(§SetDeathInputLocked 참고).
-                ClearBlockedInputs();
-                Look = Vector2.zero;
-                BurrowPressedThisFrame = false;
-                PopulateSpectatorInputs();
-                return;
-            }
-
-            if (_skillMode != SkillInputMode.None)
-            {
-                // 굴착 중(§5.5.1) — 굴착 키를 살려야 스스로 나온다. 시전(Frozen) 중에는 시야·이동도
-                // 막고, 매몰(UndergroundMove) 중에는 시야 회전과 이동만 더 살린다.
-                // 헤드라이트도 살린다 — 땅굴 안에서 켜면 들킨다는 규칙(§5.2.1 ②)이 있어야 할 선택이다.
-                ClearBlockedInputs();
-                bool underground = _skillMode == SkillInputMode.UndergroundMove;
-                Look = underground ? _lookAction.ReadValue<Vector2>() : Vector2.zero;
-                if (underground)
-                    Move = FilterMove(_moveAction.ReadValue<Vector2>());
-                BurrowPressedThisFrame = _burrowAction.WasPressedThisFrame();
-                HeadlampPressedThisFrame = _headlampAction.WasPressedThisFrame();
-                DetectPressedThisFrame = false;
-                ClearSpectatorInputs();
-                return;
-            }
-
-            if (_wheelLocked)
-            {
-                // 퀵슬롯 휠이 열린 동안(QS-5) — 시야 회전만 막고 이동은 살려 둔다.
-                // 휠 입력 자신은 계속 읽어야 스스로 닫힌다.
-                ClearWheelBlockedInputs();
-                Look = Vector2.zero;
-                Move = FilterMove(_moveAction.ReadValue<Vector2>());
+            PlayerInputPolicy policy = PlayerInputPolicy.Resolve(
+                _inputLocked, GhostHunter.Gameplay.Recovery.StageRecoveryGate.Restoring,
+                _deathLocked, _skillMode, _wheelLocked);
+            // 잠금 중에도 마지막 웅크린 자세를 유지한다. 이동 보정은 허용된 이동에만 적용한다.
+            Move = policy.CanMove ? FilterMove(_moveAction.ReadValue<Vector2>()) : Vector2.zero;
+            Look = policy.CanLook ? RawLookDelta : Vector2.zero;
+            if (policy.CanReadStance)
                 CrouchHeld = _crouchAction.IsPressed();
-                SprintHeld = _sprintAction.IsPressed();
-                QuickSlotHeld = _quickSlotAction.IsPressed();
-                QuickSlotPressedThisFrame = _quickSlotAction.WasPressedThisFrame();
-                QuickSlotReleasedThisFrame = _quickSlotAction.WasReleasedThisFrame();
-                HeadlampPressedThisFrame = _headlampAction.WasPressedThisFrame();
-                ClearSpectatorInputs();
-                return;
-            }
+            SprintHeld = policy.CanReadStance && _sprintAction.IsPressed();
 
-            ClearSpectatorInputs();
-            Move = FilterMove(_moveAction.ReadValue<Vector2>());
-            Look = RawLookDelta;
-            AttackPressedThisFrame = _attackAction.WasPressedThisFrame();
-            AttackReleasedThisFrame = _attackAction.WasReleasedThisFrame();
-            CrouchHeld = _crouchAction.IsPressed();
-            SprintHeld = _sprintAction.IsPressed();
+            AttackPressedThisFrame = policy.CanReadGameplay && _attackAction.WasPressedThisFrame();
+            AttackReleasedThisFrame = policy.CanReadGameplay && _attackAction.WasReleasedThisFrame();
+            // Hold Interaction의 phase와 별개로, 누른 프레임부터 탭을 읽어야 한다.
+            InteractPressedThisFrame = policy.CanReadGameplay && _interactAction.WasPressedThisFrame();
+            InteractHeld = policy.CanReadGameplay && _interactAction.IsPressed();
+            DetectPressedThisFrame = policy.CanReadGameplay && _detectAction.WasPressedThisFrame();
+            PronePressedThisFrame = policy.CanReadGameplay && _proneAction.WasPressedThisFrame();
+            UseDriverPressedThisFrame = policy.CanReadGameplay && _useDriverAction.WasPressedThisFrame();
+            UseDriverHeld = policy.CanReadGameplay && _useDriverAction.IsPressed();
+            FurnitureRotateScroll = policy.CanReadGameplay ? _rotateFurnitureAction.ReadValue<Vector2>().y : 0f;
+            FurnitureRotateModePressedThisFrame = policy.CanReadGameplay && _rotateFurnitureModeAction.WasPressedThisFrame();
+            QuickSlotHeld = policy.CanReadWheel && _quickSlotAction.IsPressed();
+            QuickSlotPressedThisFrame = policy.CanReadWheel && _quickSlotAction.WasPressedThisFrame();
+            QuickSlotReleasedThisFrame = policy.CanReadWheel && _quickSlotAction.WasReleasedThisFrame();
+            BurrowPressedThisFrame = policy.CanBurrow && _burrowAction.WasPressedThisFrame();
+            HeadlampPressedThisFrame = policy.CanUseHeadlamp && _headlampAction.WasPressedThisFrame();
 
-            // Interact 액션에는 Hold Interaction 이 붙어 있지만, WasPressedThisFrame 은
-            // Interaction 의 phase 가 아니라 컨트롤이 눌린 순간을 보므로 탭이 씹히지 않는다.
-            InteractPressedThisFrame = _interactAction.WasPressedThisFrame();
-            InteractHeld = _interactAction.IsPressed();
-            BurrowPressedThisFrame = _burrowAction.WasPressedThisFrame();
-            DetectPressedThisFrame = _detectAction.WasPressedThisFrame();
-            PronePressedThisFrame = _proneAction.WasPressedThisFrame();
-            UseDriverPressedThisFrame = _useDriverAction.WasPressedThisFrame();
-            UseDriverHeld = _useDriverAction.IsPressed();
-            FurnitureRotateScroll = _rotateFurnitureAction.ReadValue<Vector2>().y;
-            FurnitureRotateModePressedThisFrame = _rotateFurnitureModeAction.WasPressedThisFrame();
-            QuickSlotHeld = _quickSlotAction.IsPressed();
-            QuickSlotPressedThisFrame = _quickSlotAction.WasPressedThisFrame();
-            QuickSlotReleasedThisFrame = _quickSlotAction.WasReleasedThisFrame();
-            HeadlampPressedThisFrame = _headlampAction.WasPressedThisFrame();
-
-            if (_jumpAction.WasPressedThisFrame())
+            if (!policy.CanReadGameplay)
+                _jumpQueued = false;
+            else if (_jumpAction.WasPressedThisFrame())
                 _jumpQueued = true;
+
+            if (policy.CanSpectate)
+                PopulateSpectatorInputs();
+            else
+                ClearSpectatorInputs();
         }
 
         /// <summary>

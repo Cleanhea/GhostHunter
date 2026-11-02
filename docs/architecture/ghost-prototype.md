@@ -12,7 +12,9 @@
 | --- | --- |
 | `GhostPrototypeSpawner` | Game 씬에서 Host가 기본 귀신 1마리를 자동 스폰. F1 디버그 조작 제공 |
 | `GhostStateMachine` | 팀 평균 정신력·실제 청소 진행도를 받아 활동/경고/어택/자연 진정 결정 |
-| `GhostPrototypeController` | 서버 탐지·타깃 선정·경로 이동·포획·정신력 감소, 각 피어의 연출 |
+| `GhostPrototypeController` | 서버 상태/행동 흐름·타깃 선정·포획·정신력·복구·RPC, 각 피어의 연출 |
+| `GhostPerception` | 시야·시야선·근거리 감지·이동 소리·본체 목격 판정, 플레이어 속도 표본/평활화 |
+| `GhostNavigation` | 런타임 NavMesh·배회 삼각형·경로 코너·이동·걸림 감지·해제 |
 | `GhostPrototypeSettings` | 지속시간·탐지·추격·초자연현상 수치의 ScriptableObject |
 | `GhostPhenomenaDirector` / `GhostPhenomenaPlayer` | 별도 기획 대기 중인 기존 초자연현상 프로토타입 |
 
@@ -21,6 +23,20 @@
 조명·본체·소리를 재생하며 어택 판정이나 사망 판정을 하지 않는다. 잡히면 기존
 `SanityNetworkState.ServerMarkDead()`를 호출한다. 집 밖과 `DrillCarSafeZone`의 플레이어는
 탐지·포획 후보에서 제외한다.
+
+**입력과 처리 경계 (2026-11-02 리팩토링 5단계).** 감지·이동 헬퍼는 같은 Gameplay 어셈블리의 internal 일반
+C# 클래스이며 컴포넌트로 추가하지 않는다. `GhostPrototypeController.OnNetworkSpawn`에서 한 번 연결하고,
+기존 서버 분기에서만 행동을 실행한다. 상태 기계·설정·RPC 2개·NetworkVariable·직렬화 필드와 복구 데이터 형식은 유지한다.
+
+`GhostPerception`은 시야 계산을 공통화하되 침대 은신의 원뿔 시야(`CanSee`)에는 근거리·소리를 섞지 않는다.
+일반 감지(`CanSense`/`TryDetect`)는 기존 근거리·소리 허용 범위를 유지한다. 은신·생존·집 경계·안전구역의 후보
+제외는 Controller가 제공한다. 기본 추격과 단서 추적의 타깃 선정은 한 루프에서 처리하고, 단서 모드에만 관측 가능
+조건을 더한다. 최근접·1m 히스테리시스·목격된 은신의 우선순위는 그대로다.
+
+`GhostNavigation`은 후보 측정과 실제 이동의 경로 계산을 공통화하고, 진행 중 코너와 후보 측정 버퍼를 구분한다.
+배회는 완전한 경로만, 추격·수색은 기존처럼 부분 경로도 허용한다. 집 경계·층 높이·문 회피와 표본 반경을 유지한다.
+닫힌 문 확인은 Controller의 캐시를 콜백으로 연결하며, 프레임마다 헬퍼·콜백·코너 배열을 새로 만들지 않는다.
+디스폰·파괴는 `Dispose`로 NavMesh를 제거하고, 호스트 복구는 재계산 대기시간을 복원한 뒤 이전 경로를 무효화한다.
 
 **Stage1 은 드릴카 모델(`Prefabs/Map/DrillCar.prefab`)을 씬에 고정 배치한다(2026-09-29)** — 안전 구역은 차 실내 상자이고
 런타임에 옮기지 않는다(`_placeBehindSpawnsAtRuntime` 끔). 배치·치수는 [stage-system.md §2.1](../project/stage-system.md).
@@ -74,7 +90,7 @@ G-18 수치가 정해지지 않아 기본 에셋은 일반 시야와 같은 15m/
 
 이동은 **귀신 전용 런타임 NavMesh**를 쓴다([MAP-11](../project/roadmap.md), 2026-09-28).
 스폰 직후 서버가 스포너의 `_navigationRoot`(집 루트) 자식 물리 충돌체를 `NavMeshBuilder`로 모아
-굽는다(`BuildHouseNavMesh`). 에이전트 종류는 기본(0)이지만 반경은 설정 `NavAgentRadius`(0.25m [TEMP]),
+굽는다(`GhostNavigation.BuildHouseNavMesh`). 에이전트 종류는 기본(0)이지만 반경은 설정 `NavAgentRadius`(0.25m [TEMP]),
 높이·턱은 귀신 `CharacterController`(1.8m·0.35m)에 맞춘다 — 프로젝트 기본 Humanoid 반경 0.5로는
 B안 1.0m 문틀이 양쪽에서 깎여 막혔다. Player·Furniture·GhostPrototype 레이어, 트리거, `DoorInteractable`
 (움직이는 문)은 장애물에서 뺀다. 데이터는 despawn·파괴 때 지운다(씬과 무관하게 전역에 남으므로).
@@ -177,17 +193,21 @@ HUD 밝기를 기준값으로 넘긴다([map-generation.md §10.1.6](map-generat
 
 ## 6. 검증과 남은 결정
 
+- 2026-11-02 리팩토링 5단계: 컴파일 오류·경고 0, 전체 EditMode **588/588**·PlayMode **167/167**,
+  그중 귀신 관련 **93/93**·**32/32** 통과. 시야/소리·고위험·타깃 교체·굴착 경합·경로 코너 보존·
+  이동/경계·복구·디스폰 해제를 검사했다. 기존 메서드 이름을 찾던 굴착 소스 검사는 실제 틱 검사로 이관했다.
+  실기 범위와 상세 결과는 [testing.md](../workflow/testing.md)의 5단계 기록을 따른다.
 - 2026-09-30 AI 실험: 검증 복제본 Unity 컴파일 통과, 관련 EditMode **65/65**,
   Local Host PlayMode **16/16** 통과. 단서 상실·전체 OFF 복귀·가구 소음·은신·이벤트 해제를 검증했다.
   실제 Stage1 체감·예측 이동 연출·Steam 다인 접속은 미검증 → [실험 문서](../project/ghost-ai-experiments.md).
 
-- `NavMeshPath`는 `MonoBehaviour` 필드 초기화 중 생성할 수 없어
-  `GhostPrototypeController.Awake()`에서 생성한다. Unity 에디터가 보고한
-  `InitializeNavMeshPath` 예외에 대한 수정이다.
+- `NavMeshPath`는 `MonoBehaviour` 필드 초기화에서 만들지 않는다. 현재는
+  `GhostPrototypeController.OnNetworkSpawn()`이 생성하는 `GhostNavigation` 내부에서 만든다.
+  과거 `InitializeNavMeshPath` 예외를 피하려고 `Awake`에서 만들던 것을 이 수명 경계로 옮겼다.
 - `dotnet build GhostHunter.Tests.PlayMode.csproj -t:Rebuild --ignore-failed-sources`는
   2026-09-27 경고·오류 0건으로 통과했다. Unity 런타임 재확인은 대기 중이다.
-- Unity batchmode는 같은 프로젝트를 연 에디터가 있어 시작되지 않았다.
-  EditMode·PlayMode 테스트 실행 및 실제 NavMesh 이동·조명·음향 확인은 **미검증**이다.
+- 2026-09-27 당시 Unity batchmode는 같은 프로젝트를 연 에디터가 있어 시작되지 않았다.
+  현재 자동 검증은 별도 검증 복제본을 사용한다. 실제 Stage1 이동 체감·조명·음향·Steam 다인은 수동 확인이 필요하다.
 - 2026-09-28 층간 이동(MAP-11): EditMode `GhostNavigationTests`가 `BuildHouseNavMesh`로 1.0m 문틀 통과·
   3m/5m 경사로 위층 도달·트리거 비장애물·층 인식 도착·배회 포기 시간을 검사한다.
   Stage1에서 실제로 계단을 오르내리는지는 Unity 플레이 확인이 필요하다.

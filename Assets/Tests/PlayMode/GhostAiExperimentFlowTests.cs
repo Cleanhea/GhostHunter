@@ -11,6 +11,7 @@ using NUnit.Framework;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
 using UnityEngine;
+using UnityEngine.AI;
 using UnityEngine.TestTools;
 using Object = UnityEngine.Object;
 
@@ -22,6 +23,7 @@ namespace GhostHunter.Tests.PlayMode
         private GhostPrototypeSettings _settings;
         private SanitySystemSettings _sanitySettings;
         private PlayerMoveSettings _moveSettings;
+        private MoleBurrowSettings _burrowSettings;
         private SanityTeamService _team;
         private LocalPlayerContext _localPlayer;
         private NetworkManager _network;
@@ -34,6 +36,7 @@ namespace GhostHunter.Tests.PlayMode
             _settings = ScriptableObject.CreateInstance<GhostPrototypeSettings>();
             _sanitySettings = ScriptableObject.CreateInstance<SanitySystemSettings>();
             _moveSettings = ScriptableObject.CreateInstance<PlayerMoveSettings>();
+            _burrowSettings = ScriptableObject.CreateInstance<MoleBurrowSettings>();
             Set(_settings, "_aiExperimentsEnabled", true);
             _team = Create("GhostAiTestTeam").AddComponent<SanityTeamService>();
             Services.Bind<ISanityTeamService>(_team);
@@ -83,6 +86,7 @@ namespace GhostHunter.Tests.PlayMode
             Object.DestroyImmediate(_settings);
             Object.DestroyImmediate(_sanitySettings);
             Object.DestroyImmediate(_moveSettings);
+            Object.DestroyImmediate(_burrowSettings);
         }
 
         [Test]
@@ -216,24 +220,199 @@ namespace GhostHunter.Tests.PlayMode
             Assert.IsTrue(player.HasSanity);
         }
 
+        [TestCase(false, 3.1f, false)]
+        [TestCase(false, 3f, true)]
+        [TestCase(true, 3.1f, false)]
+        [TestCase(true, 3f, true)]
+        public void 타깃_교체는_실험과_무관하게_1m_이득부터_허용한다(
+            bool experiments, float candidateDistance, bool switches)
+        {
+            Set(_settings, "_aiExperimentsEnabled", experiments);
+            SanityNetworkState current = SpawnPlayer(new Vector3(0f, 0f, 4f), _network.LocalClientId);
+            SanityNetworkState candidate = SpawnPlayer(new Vector3(0f, 0f, candidateDistance), 998);
+            SetChase(current);
+            TickAttack();
+            Assert.AreSame(switches ? candidate : current, Get(_ghost, "_target"));
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void 정지한_플레이어는_시야선이_열려_있을_때만_탐지한다(bool blocked)
+        {
+            Set(_settings, "_aiExperimentsEnabled", false);
+            SanityNetworkState player = SpawnPlayer(new Vector3(0f, 0f, 4f), _network.LocalClientId);
+            if (blocked)
+                Wall(2f);
+            Physics.SyncTransforms();
+            TickAttack();
+            Assert.AreSame(blocked ? null : player, Get(_ghost, "_target"));
+        }
+
+        [TestCase(false, false)]
+        [TestCase(true, false)]
+        [TestCase(false, true)]
+        public void 시야_뒤쪽의_이동은_듣되_웅크림과_엎드림은_소리로_탐지하지_않는다(
+            bool crouching, bool prone)
+        {
+            Set(_settings, "_aiExperimentsEnabled", false);
+            Set(_settings, "_nearDetectRadius", 0f);
+            SanityNetworkState player = SpawnPlayer(new Vector3(0f, 0f, -6f),
+                _network.LocalClientId, withMotor: true);
+            var motor = player.GetComponent<PlayerMotor>();
+            ((NetworkVariable<bool>)Get(motor, "_isCrouching")).Value = crouching;
+            ((NetworkVariable<bool>)Get(motor, "_isProne")).Value = prone;
+            var players = (SanityNetworkState[])Get(_ghost, "_players");
+            int count = _team.CopyPlayerStates(players);
+            ((GhostPerception)Get(_ghost, "_perception")).UpdateSpeeds(players, count, 1f);
+            player.transform.position = new Vector3(0f, 0f, -4f);
+            ((GhostPerception)Get(_ghost, "_perception")).UpdateSpeeds(players, count, 1f);
+            Physics.SyncTransforms();
+            TickAttack();
+            Assert.AreSame(crouching || prone ? null : player, Get(_ghost, "_target"));
+        }
+
+        [TestCase(false, false, false)]
+        [TestCase(true, false, true)]
+        [TestCase(false, true, false)]
+        [TestCase(true, true, true)]
+        public void 원뿔_시야는_고위험_거리각도를_구분하고_근거리_보정을_섞지_않는다(
+            bool highRisk, bool side, bool expected)
+        {
+            Set(_settings, "_visionDistance", 2f);
+            Set(_settings, "_highRiskVisionDistance", 6f);
+            Set(_settings, "_visionAngle", 30f);
+            Set(_settings, "_highRiskVisionAngle", 120f);
+            SanityNetworkState player = SpawnPlayer(side ? new Vector3(1f, 0f, 1f) : new Vector3(0f, 0f, 4f),
+                _network.LocalClientId);
+            Physics.SyncTransforms();
+            var perception = (GhostPerception)Get(_ghost, "_perception");
+            Assert.AreEqual(expected, perception.CanSee(player, highRisk));
+        }
+
+        [Test]
+        public void 복구는_경로_재계산_대기시간을_보존하고_이전_이동_경로는_버린다()
+        {
+            Vector3 center = BuildNavigationFloor();
+            var navigation = (GhostNavigation)Get(_ghost, "_navigation");
+            Assert.IsTrue(navigation.MoveToward(center + Vector3.forward * 3f, 2f, 0.1f,
+                center, Vector3.one * 10f, allowPartial: false));
+            Vector3 fallback = center + Vector3.down;
+            Assert.AreNotEqual(fallback, navigation.GetWaypointOr(fallback));
+            var snapshot = _ghost.CaptureStageState();
+            snapshot.Position = center + Vector3.right;
+            snapshot.PathRebuildRemaining = 0.375f;
+            _ghost.ServerRestoreStageState(snapshot);
+            Assert.AreEqual(snapshot.Position, _ghost.transform.position);
+            Assert.AreEqual(snapshot.PathRebuildRemaining, _ghost.CaptureStageState().PathRebuildRemaining);
+            Assert.AreEqual(fallback, navigation.GetWaypointOr(fallback));
+        }
+
+        [Test]
+        public void 귀신_디스폰은_자신이_생성한_NavMesh를_해제한다()
+        {
+            Vector3 center = BuildNavigationFloor();
+            _ghost.NetworkObject.Despawn(false);
+            Assert.IsFalse(NavMesh.SamplePosition(center, out _, 1f, NavMesh.AllAreas));
+        }
+
+        private Vector3 BuildNavigationFloor()
+        {
+            Vector3 center = new(650f, 0f, 650f);
+            _ghost.transform.position = center;
+            GameObject house = Create("GhostAiNavigationHouse");
+            house.transform.position = center;
+            GameObject floor = Create("GhostAiNavigationFloor");
+            floor.transform.SetParent(house.transform, false);
+            floor.transform.localPosition = Vector3.down * 0.1f;
+            floor.AddComponent<BoxCollider>().size = new Vector3(16f, 0.2f, 16f);
+            Physics.SyncTransforms();
+            _ghost.ServerConfigureRoam(center, Vector3.one * 20f, house.transform);
+            Assert.IsTrue(NavMesh.SamplePosition(center, out _, 1f, NavMesh.AllAreas));
+            return center;
+        }
+
         private void SetProne(SanityNetworkState player)
         {
             var motor = player.GetComponent<PlayerMotor>();
             ((NetworkVariable<bool>)Get(motor, "_isProne")).Value = true;
         }
 
-        private SanityNetworkState SpawnPlayer(Vector3 position, ulong owner, bool withMotor = false)
+        [TestCase(false)]
+        [TestCase(true)]
+        public void 감지된_굴착은_수색을_유지하고_접근하면_포획한다(bool experiments)
+        {
+            Set(_settings, "_aiExperimentsEnabled", experiments);
+            SanityNetworkState player = SpawnPlayer(new Vector3(0f, 0f, 4f),
+                _network.LocalClientId, withBurrow: true);
+            SetChase(player);
+            SetBurrowed(player);
+
+            TickAttack();
+            Set(_ghost, "_searchRemaining", 0f);
+            TickAttack();
+            Assert.AreSame(player, Get(_ghost, "_witnessedBurrowPlayer"));
+            Assert.AreEqual("Search", Get(_ghost, "_pursuit").ToString());
+            Assert.IsTrue(player.HasSanity);
+
+            _ghost.transform.position = new Vector3(0f, 0f, 3f);
+            TickAttack();
+            Assert.IsFalse(player.HasSanity, "감지된 채 굴착해도 접근한 귀신에게 잡혀야 한다.");
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void 같은_틱에_굴착한_추격_대상은_새_타깃을_고르기_전에_노출을_기록한다(bool experiments)
+        {
+            Set(_settings, "_aiExperimentsEnabled", experiments);
+            SanityNetworkState player = SpawnPlayer(new Vector3(0f, 0f, 4f),
+                _network.LocalClientId, withBurrow: true);
+            SpawnPlayer(new Vector3(1f, 0f, 3f), 998);
+            SetChase(player);
+            SetBurrowed(player);
+
+            TickAttack();
+            Assert.AreSame(player, Get(_ghost, "_witnessedBurrowPlayer"));
+            Assert.IsNull(Get(_ghost, "_target"), "새 추격 대상을 고르기 전에 목격된 굴착 수색으로 전환해야 한다.");
+            Assert.AreEqual("Search", Get(_ghost, "_pursuit").ToString());
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void 감지되지_않은_굴착은_가까이_수색해도_포획하지_않는다(bool experiments)
+        {
+            Set(_settings, "_aiExperimentsEnabled", experiments);
+            SanityNetworkState player = SpawnPlayer(new Vector3(0f, 0f, 1f),
+                _network.LocalClientId, withBurrow: true);
+            SetBurrowed(player);
+
+            TickAttack();
+            Assert.IsNull(Get(_ghost, "_target"));
+            Assert.IsNull(Get(_ghost, "_witnessedBurrowPlayer"));
+            Assert.IsTrue(player.HasSanity, "들키기 전에 굴착한 플레이어는 가까워도 안전해야 한다.");
+        }
+
+        private void SetBurrowed(SanityNetworkState player) =>
+            ((NetworkVariable<bool>)Get(player.GetComponent<MoleBurrowController>(), "_isBurrowed")).Value = true;
+
+        private SanityNetworkState SpawnPlayer(Vector3 position, ulong owner, bool withMotor = false,
+            bool withBurrow = false)
         {
             GameObject player = Create("GhostAiTestPlayer");
             player.SetActive(false);
             player.transform.position = position;
             var networkObject = player.AddComponent<NetworkObject>();
             AssignHash(networkObject);
-            if (withMotor)
+            if (withMotor || withBurrow)
             {
                 var motor = player.AddComponent<PlayerMotor>();
                 Set(motor, "_settings", _moveSettings);
                 motor.enabled = false;
+            }
+            if (withBurrow)
+            {
+                var burrow = player.AddComponent<MoleBurrowController>();
+                Set(burrow, "_settings", _burrowSettings);
+                burrow.enabled = false;
             }
             var state = player.AddComponent<SanityNetworkState>();
             Set(state, "_settings", _sanitySettings);

@@ -2,6 +2,128 @@
 
 > Unity Test Framework 사용. 테스트 어셈블리는 MIG-7에서 구성했다.
 
+## 리팩토링 6단계 검증 (2026-11-03)
+
+변경 전 전체는 EditMode **588/588**·PlayMode **167/167**, 관련 기준선은 **50/50**·**16/16**이다.
+변경 후 전체 EditMode **597/597**·PlayMode **171/171** 통과(실패·스킵 0), C# 컴파일 오류·경고 0건이다.
+최종 전체 XML에서 씬/정산 관련 클래스를 집계하면 **59/59**·**20/20**이다.
+
+- `StageSettlementHistoryTests` 9건: 판별 중복 기록 방지·같은 결과의 다음 판 기록, 수신 정산의 로컬 중복 차단,
+  이전 판과 현재 판 결과 분리, 전멸 사망수/음수 보정, 게시 실패 시 FIFO 보존·성공 기록 재게시 금지,
+  1초 재시도와 방 이탈 시 대기열 삭제를 확인했다.
+- `SceneInputTransitionFlowTests` 2건: 실제 Scene의 EventSystem/AudioListener를 중단·복원하고,
+  원래 꺼진 컴포넌트와 이미 파괴된 컴포넌트를 안전하게 처리하는지 검사했다.
+- `InGameLobbyFlowTests` 2건 추가: 실제 Local Host의 중복 정산이 이력·$50 기본 보상·실패 사망수를 다시
+  바꾸지 않는지, NGO 로드 도중 세션 종료 후 `IsLoading`이 풀리고 타이틀로 복귀하는지 확인했다.
+  기존 Tutorial 정상 종료/전멸/재시도·Result 플레이어 보존·인게임 로비 재스폰·상점·음성·복구 회귀도 통과했다.
+- 새 정산 통합 검사의 첫 실행은 기존 `Failed to remove InGameLobby scene handles`로 실패했다.
+  ADR-0018/SF-FIX-1의 알려진 오류를 `LogAssert.Expect`로 명시한 뒤 새 PlayMode 4건과 전체를 재실행했다.
+  기존 통합 픽스처는 Steam 초기화 로그를 무시하고 예외를 모으므로 **통과는 Unity 오류 로그 0건을 뜻하지 않는다.**
+  SF-FIX-1·Steam 2PC/원격 씬 동기화·사용자 화면/입력 체감은 남아 있다.
+- `LoadAsync`의 순서·권한·예외 정리와 `StageSessionFlow`의 사망자 우선 디스폰/재스폰을 변경 전과 비교했다.
+  `ISceneFlow`·`IStageSessionFlow`·정산 DTO·복구 스냅샷/코디네이터·Steam 로비 구현 등 계약/복구 파일 7개,
+  직렬화 필드와 보호 에셋/설정 425개의 해시를 유지했다. 신규 헬퍼는 일반 C# 클래스이며 asmdef 참조는 바꾸지 않았다.
+- 이번 단계의 대상 런타임은 Controller·세션 흐름 959줄에서 헬퍼 2개·EditMode 내부 접근 선언 포함 1,002줄로
+  43줄 증가했다. 계획한 0~6단계 누적은 `Assets/Scripts` **47,927→40,911줄(−7,016)**,
+  `Assets/Tests` 포함 **61,825→55,711줄(−6,114)**이다. 수치는 각 경로의 `.cs` 전체 행을 같은 방식으로 집계했다.
+
+변경 전 전체 결과는 `Logs/tests/scene-flow-baseline-*`, 관련 기준선은 `scene-flow-related-baseline-*`,
+기존 소스 14개는 `scene-flow-before-source.json`, 최종 비교 결과는 `scene-flow-final-audit.json`에 보관한다(커밋 제외).
+기본 보상은 기존 규칙대로이고, 정산 문서·화면의 미정 문구는 추가 보상/치료비와 구분해 바로잡았다.
+
+## 리팩토링 5단계 검증 (2026-11-02)
+
+변경 전 전체 결과는 EditMode **589/589**·PlayMode **146/146**, 귀신 관련 기준선은 **93/93**·**11/11**이다.
+타깃 교체·시야선·이동 소리 검사 9건을 먼저 추가해 기존 구현에서 `GhostAiExperimentFlowTests` **20/20**을 확인했다.
+최종 전체 EditMode **588/588**·PlayMode **167/167** 통과(실패·스킵 0), C# 컴파일 오류·경고 0건이다.
+최종 전체 XML에서 귀신 관련 클래스를 집계하면 EditMode **93/93**·PlayMode **32/32**다.
+
+- `GhostAiExperimentFlowTests` 17건 추가: 기본/단서 모드의 1m 타깃 교체 4건, 벽 가림 2건,
+  시야 뒤쪽의 이동 소리/웅크림/엎드림 3건, 일반/고위험 거리·각도와 순수 원뿔 시야 4건,
+  경로 재계산 대기시간 복구/이전 경로 무효화 1건, 실제 귀신 디스폰의 NavMesh 해제 1건,
+  같은 틱에 다른 후보가 있어도 기존 추격 대상의 굴착 노출을 먼저 기록하는 검사 2건.
+- `GhostNavigationFlowTests` 4건 추가: 실제 NavMesh·CharacterController로 후보 경로 측정 후 진행 코너 보존,
+  경로 없는 목적지로 수평 직선 이동 금지, 집 평면 경계 제한, 반복 Dispose와 경로/배회 캐시 해제를 확인했다.
+- 기존 `GhostNavigationTests`·`Stage1GhostNavigationTests`·`GhostHouseBoundsTests`는 같은 검증을
+  새 책임인 `GhostNavigation`에 직접 연결했다. 실제 Stage1 계단 NavMesh 검사도 통과했다.
+- 첫 전체 실행은 PlayMode **165/165** 통과, EditMode는 `TryDetectPlayer`라는 소스 이름을 찾던
+  `MoleSkillWiringTests` 1건이 실패했다. 해당 검사를 위 같은 틱 굴착 경합 2건으로 대체해 최종 재실행했다.
+  EditMode 총수 감소는 이 이관 때문이다.
+- RPC 2개의 속성·서명·본문, NetworkVariable·직렬화 필드, 복구 스냅샷 매핑과 기존 규칙/AI 파일 8개를
+  비교했다. 설정·상태 기계·튜닝 값·복구 형식과 보호 파일 425개의 해시를 유지한다.
+- Controller는 2,728→2,164줄이며 일반 헬퍼 2개가 594줄이다. 합계는 2,758줄(30줄 증가)로,
+  이번 단계는 중복 계산 통합과 감지/이동 책임 분리에 초점을 뒀다. 새 컴포넌트·어셈블리·프리팹 배선은 없다.
+
+실제 Stage1 이동 체감·시야/조명/음향 연출·Steam 다인 검증은 남아 있다. G-22·G-23·G-25 등 미결정 규칙을
+이번 리팩토링으로 확정하거나 구현하지 않았다. 변경 전 전체 결과는 `Logs/tests/ghost-baseline-*`,
+기존 소스 32개는 `ghost-before-source.json`, 새 흐름 검사의 기준선은 `ghost-flow-baseline-*`,
+첫 전체 결과는 `ghost-first-full-*`에 보관한다(커밋 제외).
+
+## 리팩토링 4단계 검증 (2026-11-02)
+
+기존 검증 복제본에서 컴파일과 전체 EditMode **589/589**·PlayMode **146/146** 통과(실패·스킵 0).
+관련 회귀 검사는 EditMode **42/42**·PlayMode **45/45** 통과. C# 컴파일 오류·경고 0건이다.
+변경 전 전체 결과(591/591·133/133)는 `Logs/tests/input-action-baseline-*`, 소스 6개는
+`input-action-before-source.json`, 변경 후 관련 결과는 `input-action-related-*`로 보관한다(커밋 제외).
+
+- `PlayerInputLockFlowTests`: 기존 메뉴/복구 2건에 6건 추가. 가상 키보드·마우스로 정상 탭/홀드,
+  점프 대기·1회 소비/즉시 폐기, 시전/매몰·휠 허용 입력, 사망과 잠금 해제 경합, 관전 차단,
+  웅크린 자세 유지, 음성/음소거·원시 시점, 이동 반전/강제 이동의 잠금·관전 분리를 확인했다.
+- `CorpsePushInputFlowTests`: 기존 시체 밀기 1건에 7건 추가. Local Host에서 시체 홀드→서버 운반자 등록→
+  버튼 해제, 메뉴 진입 전 강제 해제, 사망·디스폰 정리와 실제 마우스 기반 플레이어 밀치기 차징→
+  서버 승인→소유자 넉백 수신, 강제 해제 후 넉백 없음, 가까운 벽에 가린 대상 거절을 확인했다.
+  시체가 kinematic에서 풀린 직후 속도가 0인 것을 정착으로 오인하지 않도록 낙하·회전이 끝난 뒤 조준한다.
+  짧은 클릭의 물리 검사는 정착한 시체를 수평으로 밀어 바닥에 누르는 힘과 구분한다.
+- `MoleSkillWiringTests`의 굴착 분기 문자열 검사와 `SpectatorTests`의 if문 등장 순서 검사 각 1건을
+  실제 입력 검사로 대체했다. EditMode 총수 감소는 이 두 검사의 이관 때문이다.
+- 기존 RPC 10개의 서명·속성과 서버 검증을 비교했다. 서버 본문 변경은 진단 로그에 들어 있던
+  `ServerTryPush` 호출을 별도 실행문으로 옮긴 것뿐이다. NetworkVariable·직렬화 필드·기존 GUID와
+  보호 파일 425개 해시를 보존했고 새 일반 C# 헬퍼 3개의 `.meta` GUID 중복이 없음을 확인했다.
+
+실제 조작감·Steam 다인 동기화는 수동 검증이 필요하다. 자동 넉백 검사는 Local Host에서 대상 소유권을
+호스트로 이전해 RPC 수신을 확인한 것이며 Steam 2PC 검증을 대신하지 않는다.
+
+## 리팩토링 3단계 검증 (2026-11-02)
+
+기존 검증용 복제 프로젝트에서 상점·로비 기준선(EditMode `InGameLobbyTests` 10/10·PlayMode
+`InGameLobbyFlowTests` 5/5)을 확보한 뒤 공통 계산으로 변경했다.
+변경 후 컴파일·전체 EditMode **591/591**, PlayMode **133/133** 통과(실패·스킵 0).
+
+- `InGameLobbyTests`에 거래 결과·거절 시 입력 상태 보존 20건 추가: 품목별 차감·획득, 재구매·잔액 부족·
+  잘못된 품목·권한/씬/로딩 거절, 촛대 반복 구매, 수리비 올림·내구도/라이터 보존.
+- `InGameLobbyFlowTests`에 실제 Local Host 거래 검사 1건 추가: 비참가자·잘못된 품목·나무 드라이버 수리 거절,
+  장비 구매 순서와 기존 내구도/라이터 보존, 잔액 부족·재구매 거절 뒤 재고·잔액·변경 알림 보존.
+- 공통 계산은 저장 부작용이 없다. Local과 Steam의 참가자 검사·메시지/로비 데이터 형식·성공 알림과
+  Steam의 장비 → 공동 상태 기록 순서는 유지했다. 이전 단계의 씬·프리팹·설정 보호 파일도 보존했다.
+- Core 재컴파일에서 기존 `DeliveredCargoPile`·`FurnitureDeliveryZoneView`·`DetectionTargetMarker`의
+  private `DestroyObject`가 Unity 상속 메서드를 가리는 CS0108 경고 3건을 확인했다.
+  함수와 내부 호출 이름만 `DestroyRuntimeObject`로 정리했고, 최종 컴파일의 C# 오류·경고는 0건이다.
+
+실제 Steam 로비 저장·원격 클라이언트 동기화·저장 실패 상황은 Steam 2PC 실기 확인이 필요하다.
+변경 전 전체 결과는 `Logs/tests/shop-baseline-*`, 관련 기준선은 `shop-related-baseline-*`에 보관한다(커밋 제외).
+
+## 리팩토링 0~2단계 검증 (2026-11-02)
+
+`tools/run-tests.ps1 -Clone Always -ClonePath "C:\Users\mr hong\GHV"`로 열린 원본 에디터와 분리해 실행했다.
+
+| 시점 | 컴파일 | EditMode | PlayMode |
+| --- | --- | --- | --- |
+| 변경 전 | 통과 | 580건 중 578 통과·기존 실패 2·스킵 0 | 122/122 통과·스킵 0 |
+| 변경 후 | 통과 | **571/571 통과·스킵 0** | **132/132 통과·스킵 0** |
+
+- `MoleSkillWiringTests`의 기존 실패 2건은 소스 문자열 검사를 실제 흐름 검사로 대체했다.
+  `PlayerInputLockFlowTests`는 메뉴·복구 잠금 우선순위와 해제 뒤 굴착 이동/시점 복원을 검사한다.
+  `GhostAiExperimentFlowTests`는 감지된 굴착의 수색·접근 포획과 비감지 굴착의 안전을 AI 실험 ON/OFF 양쪽에서 검사한다.
+- `MapGeneratorTests` 9건은 삭제한 생성기 전용 검사다. 가구의 저장 물리 설정·질량 정의 배선은
+  `ProjectWiringTests` 2건으로 옮기고, 실제 질량 주입은 `FurnitureThrowFlowTests` 2건으로 확인한다.
+  프리팹의 저장 질량은 실행 시 `Awake`에서 덮어쓰므로 저장값과 정의값의 일치를 요구하지 않는다.
+- `HudPresentationFlowTests` 2건은 HUD 5개의 배치·채움 방향과 생성 스프라이트/텍스처 해제·외부 아이콘 보존을 검사한다.
+  기존 드라이버 진행·취소 UI와 실제 씬 전환을 포함한 전체 PlayMode도 통과했다.
+- 보호 대상으로 잡은 씬·프리팹·설정·입력·기존 UI 스크립트 meta·프로젝트 설정 등 **425개 파일의 SHA-256이 동일**했다.
+  검증 로그와 변경 전 결과는 `Logs/tests/`의 `refactor-baseline-*`에 보관한다(커밋 제외).
+
+자동 검증은 배치·상태·자원 수명 범위다. 실제 HUD 화면의 육안 확인과 Steam 2PC 실기는 이번 작업에서 실행하지 않았다.
+
 ## Tutorial 검증 기록 (2026-10-02)
 
 원본 프로젝트에서 컴파일 통과, 전체 EditMode 399건 중 397 통과. 기존 MoleSkillWiringTests의 귀신 굴착 노출·일시정지 잠금 순서 소스 검사 2건은 실패가 남아 있다.
@@ -16,7 +138,7 @@ Tutorial 구조/배치·물리 이동·청소/반출 UI·씬 전환의 검증 �
 | ScriptableObject 데이터 유효성 | EditMode | 중간 |
 | MonoBehaviour 상호작용, 비동기(UniTask) | PlayMode | 중간 |
 | 네트워크 동기화·RPC 검증 | PlayMode | 높음 |
-| 렌더링·아트·연출 | 테스트 안 함 (수동 확인) | — |
+| 렌더링·아트·연출 | 구조·자원 수명은 자동 검사, 최종 외형·청감은 수동 확인 | — |
 
 **원칙**: 버그가 나면 비싼 것부터 테스트한다. 커버리지 숫자를 목표로 삼지 않는다.
 
@@ -40,6 +162,8 @@ Assets/Tests/
     ├── GhostHunter.Tests.PlayMode.asmdef
     ├── NetworkFurnitureFixture.cs         호스트 세션 + 가구 스폰 토대
     ├── GhostAiExperimentFlowTests.cs      Host 단서 상실·OFF 복귀·은신 안전·소음·이벤트 해제
+    ├── PlayerInputLockFlowTests.cs        메뉴·복구 잠금 우선순위·해제 후 입력 복원
+    ├── HudPresentationFlowTests.cs        HUD 배치·채움 방향·생성 자원 해제
     └── FurnitureThrowFlowTests.cs         잡기 → 차징 → 발사 상태 기계
 ```
 
@@ -107,6 +231,10 @@ Steam 실경로(로비·초대·SDR 연결)는 사람이 2대로 확인한다 �
 픽스처가 인스턴스마다 고유 값을 리플렉션으로 넣어 준다 → [../conventions/unity-assets.md §5.2](../conventions/unity-assets.md)
 
 ### 4.3 (삭제) 맵 생성 도구 테스트
+
+2026-11-02 작업 트리에서 남아 있던 도구 11개와 `MapGeneratorTests`를 다시 정리했다.
+현재 저장 에셋을 검사하는 `ProjectWiringTests`와 실제 질량 주입을 확인하는 `FurnitureThrowFlowTests`로
+유효한 물리 검증을 이관했다. 생성기 자체의 치수·카탈로그 생성·과거 Game 도면 검사는 제거했다.
 
 맵 생성 도구와 `MapGeneratorTests` 는 2026-09-28 에 지웠다
 ([ADR-0020](../architecture/decisions/ADR-0020-remove-one-off-editor-setup-tools.md)). 설치 결과를 검사하던

@@ -70,13 +70,13 @@ namespace GhostHunter.Gameplay.Map
 
         private void OnDestroy()
         {
-            DestroyObject(_material);
-            DestroyObject(_fillMesh);
-            DestroyObject(_pillarMesh);
+            DestroyRuntimeObject(_material);
+            DestroyRuntimeObject(_fillMesh);
+            DestroyRuntimeObject(_pillarMesh);
         }
 
         // 에디터 모드 테스트에서는 Destroy 를 부를 수 없다.
-        private static void DestroyObject(Object target)
+        private static void DestroyRuntimeObject(Object target)
         {
             if (target == null)
                 return;
@@ -99,7 +99,7 @@ namespace GhostHunter.Gameplay.Map
                 return;
             }
 
-            DestroyObject(_root);
+            DestroyRuntimeObject(_root);
             if (_material == null)
                 _material = new Material(shader) { name = "FurnitureDeliveryZoneViewRuntime" };
 

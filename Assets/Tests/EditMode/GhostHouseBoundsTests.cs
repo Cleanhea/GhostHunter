@@ -13,24 +13,24 @@ namespace GhostHunter.Tests.EditMode
         [Test]
         public void 중심과_경계선의_점은_집_내부다()
         {
-            Assert.IsTrue(GhostPrototypeController.IsInsideHouseBounds(Center, Center, Extents));
-            Assert.IsTrue(GhostPrototypeController.IsInsideHouseBounds(
+            Assert.IsTrue(GhostNavigation.IsInsideHouseBounds(Center, Center, Extents));
+            Assert.IsTrue(GhostNavigation.IsInsideHouseBounds(
                 new Vector3(7f, 100f, -7f), Center, Extents));
         }
 
         [Test]
         public void X축_또는_Z축을_넘은_점은_집_외부다()
         {
-            Assert.IsFalse(GhostPrototypeController.IsInsideHouseBounds(
+            Assert.IsFalse(GhostNavigation.IsInsideHouseBounds(
                 new Vector3(7.01f, 4f, -3f), Center, Extents));
-            Assert.IsFalse(GhostPrototypeController.IsInsideHouseBounds(
+            Assert.IsFalse(GhostNavigation.IsInsideHouseBounds(
                 new Vector3(2f, 4f, 1.01f), Center, Extents));
         }
 
         [Test]
         public void 경계_보정은_XZ만_제한하고_높이는_보존한다()
         {
-            Vector3 clamped = GhostPrototypeController.ClampToHouseBounds(
+            Vector3 clamped = GhostNavigation.ClampToHouseBounds(
                 new Vector3(-10f, 12f, 9f), Center, Extents);
 
             Assert.AreEqual(new Vector3(-3f, 12f, 1f), clamped);
@@ -43,7 +43,7 @@ namespace GhostHunter.Tests.EditMode
 
             Assert.AreEqual(
                 inside,
-                GhostPrototypeController.ClampToHouseBounds(inside, Center, Extents));
+                GhostNavigation.ClampToHouseBounds(inside, Center, Extents));
         }
     }
 }

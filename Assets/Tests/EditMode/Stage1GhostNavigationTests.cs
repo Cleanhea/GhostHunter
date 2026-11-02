@@ -61,7 +61,7 @@ namespace GhostHunter.Tests.EditMode
                     layers &= ~(1 << layer);
             }
 
-            _data = GhostPrototypeController.BuildHouseNavMesh(
+            _data = GhostNavigation.BuildHouseNavMesh(
                 _house.transform,
                 layers,
                 settings.NavAgentRadius,

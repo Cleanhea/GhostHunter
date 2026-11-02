@@ -76,6 +76,57 @@ namespace GhostHunter.Tests.PlayMode
         }
 
         [UnityTest, Timeout(400000)]
+        public IEnumerator 정산을_중복_수신해도_이력과_기본_보상과_실패_상태를_중복_변경하지_않는다()
+        {
+            ISceneFlow flow = Services.Get<ISceneFlow>();
+            IStageSessionFlow stages = Services.Get<IStageSessionFlow>();
+            yield return StartLocalHostInLobby(flow, stages);
+            // ADR-0018/SF-FIX-1에 남아 있는 기존 NGO 첫 로비 언로드 오류를 별도로 확인한다.
+            LogAssert.Expect(LogType.Error, new System.Text.RegularExpressions.Regex(
+                "Failed to remove InGameLobby scene handles"));
+            Assert.IsTrue(stages.StartStage());
+            yield return WaitForPlayerIn(flow, stages, SceneId.Tutorial);
+            IStageShopService shop = Services.Get<IStageShopService>();
+            int balance = shop.Balance;
+            int count = flow.SettlementHistory.Count;
+            var record = new StageSettlementRecord(1, 2, 50, 1, 0, 0, false);
+            flow.RecordStageSettlement(record);
+            flow.RecordStageSettlement(new StageSettlementRecord(2, 2, 100, 0, 0, 2, true));
+            Assert.AreEqual(count + 1, flow.SettlementHistory.Count);
+            Assert.AreEqual(balance + StageShopRules.StageReward, shop.Balance);
+            Assert.AreEqual(1, flow.SettlementHistory[count].DeliveredFurniture);
+            Assert.AreEqual(0, flow.StageFailureDeadCount);
+            CollectionAssert.IsEmpty(_exceptions);
+        }
+
+        [UnityTest, Timeout(400000)]
+        public IEnumerator NGO_로드_중_세션이_끝나도_전환_잠금이_풀리고_타이틀로_복귀한다()
+        {
+            ISceneFlow flow = Services.Get<ISceneFlow>();
+            IStageSessionFlow stages = Services.Get<IStageSessionFlow>();
+            yield return StartLocalHostInLobby(flow, stages);
+            flow.Load(SceneId.Result);
+            Assert.IsTrue(flow.IsLoading);
+            NetworkManager.Singleton.Shutdown();
+            yield return WaitUntil(() => !flow.IsLoading, "세션 종료 뒤 씬 전환 잠금이 풀리지 않았다");
+            flow.Load(SceneId.Title);
+            yield return WaitUntil(() => flow.Current == SceneId.Title && !flow.IsLoading,
+                "세션 종료 뒤 타이틀로 복귀하지 못했다");
+            CollectionAssert.IsEmpty(_exceptions);
+        }
+
+        private IEnumerator StartLocalHostInLobby(ISceneFlow flow, IStageSessionFlow stages)
+        {
+            foreach (UnityTransport transport in Object.FindObjectsByType<UnityTransport>(
+                         FindObjectsInactive.Include, FindObjectsSortMode.None))
+                transport.SetConnectionData("127.0.0.1", TestPort, "127.0.0.1");
+            IConnectionService connection = Services.Get<IConnectionService>();
+            connection.SetTransportMode(TransportMode.Local);
+            connection.StartHostInGameScene(SceneId.InGameLobby);
+            yield return WaitForPlayerIn(flow, stages, SceneId.InGameLobby);
+        }
+
+        [UnityTest, Timeout(400000)]
         public IEnumerator 인게임_로비에서_세션을_열고_스테이지를_오가며_플레이어를_다시_스폰한다()
         {
             LogAssert.ignoreFailingMessages = true;
@@ -221,6 +272,65 @@ namespace GhostHunter.Tests.PlayMode
             Assert.AreEqual(50, shop.Balance, "구매·수리 비용이 각각 한 번 차감된다");
             Assert.AreEqual(100, shop.GetMemberGear(shop.LocalMemberKey).DriverDurability);
             Assert.IsTrue(shop.GetMemberGear(shop.LocalMemberKey).HasLighter);
+            Assert.IsEmpty(_exceptions, "예외:\n" + string.Join("\n---\n", _exceptions));
+        }
+
+        [UnityTest]
+        public IEnumerator 로컬_상점의_거절은_보유품과_변경_알림을_보존한다()
+        {
+            ISceneFlow sceneFlow = Services.Get<ISceneFlow>();
+            IStageSessionFlow stageFlow = Services.Get<IStageSessionFlow>();
+            IConnectionService connection = Services.Get<IConnectionService>();
+            foreach (UnityTransport transport in Object.FindObjectsByType<UnityTransport>(
+                         FindObjectsInactive.Include, FindObjectsSortMode.None))
+                transport.SetConnectionData("127.0.0.1", TestPort, "127.0.0.1");
+            connection.SetTransportMode(TransportMode.Local);
+            connection.StartHostInGameScene(SceneId.InGameLobby);
+            yield return WaitForPlayerIn(sceneFlow, stageFlow, SceneId.InGameLobby);
+            IStageShopService shop = Services.Get<IStageShopService>();
+            yield return WaitUntil(() => shop.IsAvailable, "로컬 세션에서 상점이 열리지 않았다");
+            Assert.IsTrue(shop.TrySetBalanceForDebug(100));
+            ulong me = shop.LocalMemberKey;
+            int changes = 0;
+            Action changed = () => changes++;
+            shop.Changed += changed;
+            try
+            {
+                Assert.IsFalse(shop.TryPurchase(ShopItem.IronLighter, ulong.MaxValue), "참가자가 아닌 개인 장비 대상은 거절");
+                Assert.IsFalse(shop.TryPurchase(ShopItem.None, me));
+                Assert.IsFalse(shop.TryPurchase((ShopItem)999, me));
+                Assert.IsFalse(shop.TryRepairDriver(me), "나무 드라이버 수리 거절");
+                Assert.AreEqual(100, shop.Balance);
+                Assert.AreEqual(0, shop.CandleCount);
+                Assert.AreEqual(MemberGear.Starting, shop.GetMemberGear(me));
+                Assert.AreEqual(0, changes, "거절된 거래는 변경 알림을 내지 않는다");
+
+                Assert.IsTrue(shop.TrySaveDriverDurability(me, 73));
+                Assert.IsTrue(shop.TryPurchase(ShopItem.IronLighter, me));
+                Assert.AreEqual(73, shop.GetMemberGear(me).DriverDurability, "라이터 구매는 드라이버 내구도를 보존");
+                Assert.IsTrue(shop.TryPurchase(ShopItem.IronDriver, me));
+                Assert.AreEqual(new MemberGear(DriverTier.Iron, 100, true), shop.GetMemberGear(me),
+                    "드라이버 교체는 기존 라이터를 보존");
+                Assert.IsTrue(shop.TrySaveDriverDurability(me, 99));
+                Assert.IsTrue(shop.TryRepairDriver(me));
+                Assert.IsTrue(shop.TryPurchase(ShopItem.CandleSet, me));
+                Assert.IsTrue(shop.TryPurchase(ShopItem.CandleSet, ulong.MaxValue), "공동 품목은 개인 대상 키를 쓰지 않는다");
+                Assert.AreEqual(4, shop.Balance);
+                Assert.AreEqual(10, shop.CandleCount);
+
+                int beforeRejected = changes;
+                Assert.IsFalse(shop.TryPurchase(ShopItem.CandleSet, me), "잔액 부족");
+                Assert.IsFalse(shop.TryPurchase(ShopItem.IronDriver, me), "개인 장비 재구매");
+                Assert.IsFalse(shop.TryPurchase(ShopItem.IronLighter, me));
+                Assert.AreEqual(4, shop.Balance);
+                Assert.AreEqual(10, shop.CandleCount);
+                Assert.AreEqual(new MemberGear(DriverTier.Iron, 100, true), shop.GetMemberGear(me));
+                Assert.AreEqual(beforeRejected, changes);
+            }
+            finally
+            {
+                shop.Changed -= changed;
+            }
             Assert.IsEmpty(_exceptions, "예외:\n" + string.Join("\n---\n", _exceptions));
         }
 

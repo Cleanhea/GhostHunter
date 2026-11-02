@@ -78,19 +78,19 @@ namespace GhostHunter.Tests.EditMode
         {
             Vector3 ghost = new(1f, 0f, 1f);
 
-            Assert.IsTrue(GhostPrototypeController.HasArrived(ghost, new Vector3(1.3f, 0.1f, 1f), 0.6f));
-            Assert.IsFalse(GhostPrototypeController.HasArrived(ghost, new Vector3(1f, 3f, 1f), 0.6f),
+            Assert.IsTrue(GhostNavigation.HasArrived(ghost, new Vector3(1.3f, 0.1f, 1f), 0.6f));
+            Assert.IsFalse(GhostNavigation.HasArrived(ghost, new Vector3(1f, 3f, 1f), 0.6f),
                 "바로 위층 지점은 평면 거리가 0이어도 도착이 아니다");
-            Assert.IsFalse(GhostPrototypeController.HasArrived(ghost, new Vector3(2f, 0f, 1f), 0.6f));
+            Assert.IsFalse(GhostNavigation.HasArrived(ghost, new Vector3(2f, 0f, 1f), 0.6f));
         }
 
         [Test]
         public void 배회_포기_시간은_긴_경로를_끝까지_걸을_만큼_길다()
         {
             // 30m 경로(층 이동)를 1.6m/s 로 걸으면 19초 가까이 걸린다.
-            Assert.Greater(GhostPrototypeController.RoamGiveUpSeconds(30f, 1.6f), 30f / 1.6f);
-            Assert.Greater(GhostPrototypeController.RoamGiveUpSeconds(0f, 1.6f), 0f);
-            Assert.Greater(GhostPrototypeController.RoamGiveUpSeconds(10f, 0f), 0f);
+            Assert.Greater(GhostNavigation.RoamGiveUpSeconds(30f, 1.6f), 30f / 1.6f);
+            Assert.Greater(GhostNavigation.RoamGiveUpSeconds(0f, 1.6f), 0f);
+            Assert.Greater(GhostNavigation.RoamGiveUpSeconds(10f, 0f), 0f);
         }
 
         /// <summary>바닥 12×8m 가운데 x=0 에 두께 0.2m 벽, z=±0.5 사이 1.0m 출입구.</summary>
@@ -103,7 +103,7 @@ namespace GhostHunter.Tests.EditMode
 
         private void Bake()
         {
-            _data = GhostPrototypeController.BuildHouseNavMesh(
+            _data = GhostNavigation.BuildHouseNavMesh(
                 _root.transform, ~0, GhostRadius, GhostHeight, GhostClimb);
             Assert.IsNotNull(_data, "NavMesh 를 굽지 못했습니다.");
             _instance = NavMesh.AddNavMeshData(_data);

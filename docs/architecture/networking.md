@@ -169,16 +169,21 @@ private readonly NetworkVariable<bool> _isOpen =
   > failure` 가 653건 났다 — **게스트가 매치에 들어갈 수 없는 상태였다.** 수정 후 게스트가 `scenes=[Bootstrap,Game]`
   > 으로 들어오고 해당 오류가 사라졌다. EditMode `ConnectionSceneValidationTests` 가 규칙을 고정한다.
 - **NGO가 올린 씬은 MUST `NetworkManager.SceneManager.UnloadScene`으로 내린다.** 로컬로 올린 씬은 각 피어가 직접 내린다.
-- additive 전환 중 이전/다음 씬이 공존하므로 `SceneFlowController`가 이전 씬의 `EventSystem`과
+- additive 전환 중 이전/다음 씬이 공존하므로 `SceneFlowController`가 `SceneTransitionOperations`를 통해 이전 씬의 `EventSystem`과
   `AudioListener`를 로드 전에 비활성화한다. 전환 시작 실패 시 원상 복구한다.
 - **인게임 로비 ⇄ 스테이지(Tutorial·Stage1·ProtoTypeGame)는 이전 씬을 먼저 내린다**(`SceneFlowController.UnloadsBeforeLoad`, 2026-09-28). 두 씬의 설치 컴포넌트가
   같은 서비스를 등록해 겹치면 충돌한다. 이 전환은 `IStageSessionFlow` 가 플레이어를 디스폰한 뒤 시작하고, 새 씬이 올라오면
   접속자마다 플레이어를 다시 스폰한다 → [ADR-0018](decisions/ADR-0018-persistent-session-in-game-lobby.md)
-- **NGO 씬 이벤트 대기는 세션 종료로도 풀린다**(`SceneFlowController.WaitForSceneEventAsync`, 2026-10-03). 게스트가 로드 완료를
+- **NGO 씬 이벤트 대기는 세션 종료로도 풀린다**(`SceneTransitionOperations.WaitForSceneEventAsync`, 2026-11-03 실행 책임 분리). 게스트가 로드 완료를
   보고하지 않으면 호스트는 `LoadSceneTimeOut`(120초)까지 기다리는데, 그 사이 세션이 내려가면 NGO는 완료 이벤트를 버린다.
   예전에는 `IsLoading`에 박혀 타이틀 복귀까지 거부됐다. 늦은 게스트는 완료 시 `timedOut` 목록으로 경고 로그에 남는다.
   `IStageSessionFlow`는 자체 시간 제한 없이 `ISceneFlow.IsLoading`이 꺼질 때까지 기다린 뒤 플레이어를 되살린다 —
   예전 60초 제한은 NGO 제한보다 짧아, 뒤늦게 끝난 전환에서 플레이어가 영영 스폰되지 않았다.
+
+2026-11-03 리팩토링: 로드·언로드의 NGO 이벤트 등록/대기/해제는 `SceneTransitionOperations`의 공통 실행으로 처리한다.
+시작 거절은 작업별 기존 오류/경고로 남기고, 세션 종료 뒤 이미 올라온 씬은 수용하며 아직 남은 언로드 대상은 로컬로 내린다.
+헬퍼는 호출자 파괴 토큰을 사용하고 `finally`에서 이벤트를 해제한다. `SceneFlowController`의 권한·전환 순서·
+`IsLoading`과 `StageSessionFlow`의 디스폰/재스폰·완료 대기 정책은 유지한다.
 
 ### 3.6 세션 시작 순서 (MUST)
 
@@ -186,7 +191,8 @@ private readonly NetworkVariable<bool> _isOpen =
 씬 로드 → StartHost → 로비에 시작 신호
 ```
 
-올리는 첫 씬은 **Tutorial**이다(2026-10-02, [ADR-0021](decisions/ADR-0021-tutorial-first-stage.md)). 세션은 여기서 한 번 열리고 스테이지 사이에도 유지된다.
+일반 로비에서 시작하면 **InGameLobby를 먼저 올린 뒤 세션을 연다**(2026-10-03 정정, [ADR-0021](decisions/ADR-0021-tutorial-first-stage.md)).
+그곳에서 첫 출발은 Tutorial이며 세션은 스테이지 사이에도 유지된다. 아래 개발 HUD의 Local 직접 시작은 별도 경로다.
 Tutorial 정산 뒤에는 Result → InGameLobby로 돌아가고, `IStageSessionFlow.StartStage()`가 Stage1으로 NGO 씬 전환한다.
 
 - 로비 씬에서 바로 `StartHost` 하면 플레이어가 스폰 지점 없는 씬에 스폰된다.

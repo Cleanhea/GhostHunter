@@ -69,14 +69,15 @@
 > 커밋 `0aad69e` 가 R→T 로 옮겼고, 실제 바인딩인 T 를 그대로 채택했다.
 > `ProjectWiringTests`의 굴착 키 단언도 현재 확정값 T에 맞춰져 있다.
 >
-> **입력 잠금은 세 가지고 서로 독립이다.**
+> **입력 잠금은 메뉴·사망·굴착·휠이 독립적으로 유지된다.**
 > `SetGameplayInputLocked` 는 일시정지 메뉴용으로 **시점까지 전부** 0으로 만들고,
+> `SetDeathInputLocked` 는 생존 조작 대신 관전 입력을 읽는다.
 > `SetSkillInputMode` 는 굴착용으로 시전 중(`Frozen`)에는 **`Burrow`·`Headlamp` 만 남기고**
 > 매몰 중(`UndergroundMove`)에는 **`Look`·`Move` 를 더 남기며**(2026-10-28 변경, 이전엔 `Look`·`Burrow` 만),
 > `SetWheelInputLocked` 는 퀵슬롯 휠용으로 **`Look` 만 0으로 만들고 `Move`·`Crouch`·`Sprint`·
-> `QuickSlot` 은 남긴다**(2026-09-12 구현, QS-5). 겹치면 **메뉴 > 굴착 > 휠** 순으로 더 강한 쪽이
-> 이긴다. 어느 잠금이든 `CrouchHeld` 는 마지막 값으로 얼려, 잠기는 것만으로 자세가 바뀌지 않게
-> 한다. 굴착은 시전 시작에 걸고 **정상 종료·시전 취소·디스폰·복구가 모두 `MoleBurrowController.ApplyControl` 을 거쳐** 이동 잠금과 함께 푼다 →
+> `QuickSlot` 은 남긴다**(2026-09-12 구현, QS-5). 겹치면 **메뉴·복구 > 사망·관전 > 굴착 > 휠** 순으로
+> 이긴다. 메뉴·복구·사망·굴착 중 `CrouchHeld`는 마지막 값을 유지하고, 휠에서는 실제 자세 입력을 읽는다.
+> 굴착은 시전 시작에 걸고 **정상 종료·시전 취소·디스폰·복구가 모두 `MoleBurrowController.ApplyControl` 을 거쳐** 이동 잠금과 함께 푼다 →
 > [mole-skill-system.md §5.5.1](../project/mole-skill-system.md). 휠은 열리는 조건이 깨지는
 > 즉시 스스로 닫으며 푼다 → [quick-slot.md](quick-slot.md).
 >
@@ -84,7 +85,14 @@
 > [mole-skill-system.md §4·§6](../project/mole-skill-system.md)에 따른다. 탐지 결과는
 > 순수 로컬이라 `NetworkVariable`·RPC를 사용하지 않는다.
 
-> **주의:** `Attack` 액션은 홀드 방식이므로 Interaction을 `Press`(Trigger Behavior: `Press And Release`)로 두고 `started`/`canceled` 콜백을 각각 잡는다. `Hold` Interaction을 붙이면 최소 유지 시간 임계값이 생겨 짧은 탭이 씹힌다.
+2026-11-02 리팩토링: `PlayerInputPolicy`(internal 값 타입)가 위 우선순위와 허용 입력을 정하고,
+`PlayerInputReader.Update`는 각 출력값을 한 곳에서 갱신한다. `RawLookDelta`·음성/음소거는 어떤 잠금에서도 읽고,
+사망 관전의 이동에는 폐급 두더지의 이동 반전·강제 이동 보정을 적용하지 않는다.
+잠금 setter의 즉시 초기화와 점프 소비 대기는 유지한다. 휠을 여는 순간에는 시점을 유지하고 다음 `Update`에서 막는다.
+
+`Attack`·`Interact`의 탭은 액션 phase 대신 `WasPressedThisFrame`으로 읽고, 해제는 `WasReleasedThisFrame`으로 읽는다.
+따라서 `Interact`에 설정된 `Hold` Interaction도 누른 프레임의 탭을 막지 않는다.
+실제 가상 키보드·마우스 검증은 `PlayerInputLockFlowTests`를 따른다.
 
 로컬 소유자가 아닌 플레이어 오브젝트에서는 `PlayerInput`을 **비활성화**한다. 안 그러면 원격 플레이어가 내 입력으로 움직인다.
 

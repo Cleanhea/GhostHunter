@@ -24,13 +24,10 @@ namespace GhostHunter.UI
         [SerializeField] private QuickSlotLoadout _loadout;
 
         private ILocalPlayerContext _localPlayer;
+        private readonly HudUiFactory _ui = new();
         private Canvas _canvas;
         private Font _font;
 
-        private Texture2D _circleTexture;
-        private Texture2D _ringTexture;
-        private Texture2D _whiteTexture;
-        private Texture2D _arrowTexture;
         private Sprite _circleSprite;
         private Sprite _ringSprite;
         private Sprite _whiteSprite;
@@ -70,18 +67,7 @@ namespace GhostHunter.UI
             BuildCanvas();
         }
 
-        private void OnDestroy()
-        {
-            DestroyRuntimeObject(_circleSprite);
-            DestroyRuntimeObject(_ringSprite);
-            DestroyRuntimeObject(_whiteSprite);
-            DestroyRuntimeObject(_arrowSprite);
-            DestroyRuntimeObject(_circleTexture);
-            DestroyRuntimeObject(_ringTexture);
-            DestroyRuntimeObject(_whiteTexture);
-            DestroyRuntimeObject(_arrowTexture);
-            DestroyRuntimeObject(_canvas != null ? _canvas.gameObject : null);
-        }
+        private void OnDestroy() => _ui.Dispose();
 
         private void Update()
         {
@@ -255,33 +241,15 @@ namespace GhostHunter.UI
 
         private void BuildCanvas()
         {
-            GameObject canvasObject = new("QuickSlotCanvas");
-            canvasObject.transform.SetParent(transform, false);
-
-            _canvas = canvasObject.AddComponent<Canvas>();
-            _canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            _canvas.overrideSorting = true;
-            _canvas.sortingOrder = CanvasSortingOrder;
-
-            CanvasScaler scaler = canvasObject.AddComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = _uiSettings.ReferenceResolution;
-            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
-            scaler.matchWidthOrHeight = 0.5f;
-
+            _canvas = _ui.CreateCanvas("QuickSlotCanvas", transform, CanvasSortingOrder, _uiSettings.ReferenceResolution);
             int resolution = _uiSettings.TextureResolution;
-            _circleSprite = CreateCircleSprite(resolution, resolution * 0.5f - 1f, out _circleTexture);
-            _ringSprite = CreateRingSprite(
-                resolution,
-                resolution * 0.5f - 1f,
-                resolution * _uiSettings.RingThicknessRatio,
-                out _ringTexture);
-            _whiteSprite = CreateWhiteSprite(out _whiteTexture);
-            _arrowSprite = CreateArrowSprite(32, out _arrowTexture);
-
-            BuildWheel(canvasObject.transform);
-            BuildEquippedDisplay(canvasObject.transform);
-
+            _circleSprite = _ui.CreateCircleSprite(resolution, resolution * 0.5f - 1f, "QuickSlotCircleRuntime");
+            _ringSprite = _ui.CreateRingSprite(resolution, resolution * 0.5f - 1f,
+                resolution * _uiSettings.RingThicknessRatio, "QuickSlotRingRuntime");
+            _whiteSprite = _ui.CreateWhiteSprite("QuickSlotWhiteRuntime");
+            _arrowSprite = _ui.CreateArrowSprite(32, "QuickSlotArrowRuntime");
+            BuildWheel(_canvas.transform);
+            BuildEquippedDisplay(_canvas.transform);
             _wheelRoot.SetActive(false);
         }
 
@@ -293,7 +261,7 @@ namespace GhostHunter.UI
         {
             GameObject overlayObject = new("DimOverlay");
             overlayObject.transform.SetParent(parent, false);
-            Stretch(overlayObject.AddComponent<RectTransform>());
+            HudUiFactory.Stretch(overlayObject.AddComponent<RectTransform>());
 
             _dimOverlay = overlayObject.AddComponent<Image>();
             _dimOverlay.sprite = _whiteSprite;
@@ -326,7 +294,7 @@ namespace GhostHunter.UI
 
             GameObject ringObject = new("Ring");
             ringObject.transform.SetParent(ringContainer.transform, false);
-            Stretch(ringObject.AddComponent<RectTransform>());
+            HudUiFactory.Stretch(ringObject.AddComponent<RectTransform>());
             Image ring = ringObject.AddComponent<Image>();
             ring.sprite = _ringSprite;
             ring.color = _uiSettings.SlotBaseColor;
@@ -485,151 +453,6 @@ namespace GhostHunter.UI
             text.verticalOverflow = VerticalWrapMode.Truncate;
             text.raycastTarget = false;
             return text;
-        }
-
-        private static void Stretch(RectTransform rectTransform)
-        {
-            rectTransform.anchorMin = Vector2.zero;
-            rectTransform.anchorMax = Vector2.one;
-            rectTransform.offsetMin = Vector2.zero;
-            rectTransform.offsetMax = Vector2.zero;
-            rectTransform.pivot = new Vector2(0.5f, 0.5f);
-        }
-
-        private static Sprite CreateCircleSprite(int resolution, float radius, out Texture2D texture)
-        {
-            texture = new Texture2D(resolution, resolution, TextureFormat.RGBA32, false)
-            {
-                name = "QuickSlotCircleRuntime",
-                filterMode = FilterMode.Bilinear,
-                wrapMode = TextureWrapMode.Clamp,
-            };
-
-            Color32[] pixels = new Color32[resolution * resolution];
-            float center = (resolution - 1) * 0.5f;
-            float radiusSquared = radius * radius;
-            for (int y = 0; y < resolution; y++)
-            {
-                for (int x = 0; x < resolution; x++)
-                {
-                    float dx = x - center;
-                    float dy = y - center;
-                    pixels[y * resolution + x] = dx * dx + dy * dy <= radiusSquared
-                        ? Color.white
-                        : Color.clear;
-                }
-            }
-
-            texture.SetPixels32(pixels);
-            texture.Apply(false, true);
-            return Sprite.Create(
-                texture,
-                new Rect(0f, 0f, resolution, resolution),
-                new Vector2(0.5f, 0.5f),
-                100f);
-        }
-
-        private static Sprite CreateRingSprite(
-            int resolution,
-            float outerRadius,
-            float thickness,
-            out Texture2D texture)
-        {
-            texture = new Texture2D(resolution, resolution, TextureFormat.RGBA32, false)
-            {
-                name = "QuickSlotRingRuntime",
-                filterMode = FilterMode.Bilinear,
-                wrapMode = TextureWrapMode.Clamp,
-            };
-
-            Color32[] pixels = new Color32[resolution * resolution];
-            float center = (resolution - 1) * 0.5f;
-            float outerSquared = outerRadius * outerRadius;
-            float innerRadius = Mathf.Max(0f, outerRadius - thickness);
-            float innerSquared = innerRadius * innerRadius;
-
-            for (int y = 0; y < resolution; y++)
-            {
-                for (int x = 0; x < resolution; x++)
-                {
-                    float dx = x - center;
-                    float dy = y - center;
-                    float distanceSquared = dx * dx + dy * dy;
-                    pixels[y * resolution + x] = distanceSquared <= outerSquared
-                        && distanceSquared >= innerSquared
-                        ? Color.white
-                        : Color.clear;
-                }
-            }
-
-            texture.SetPixels32(pixels);
-            texture.Apply(false, true);
-            return Sprite.Create(
-                texture,
-                new Rect(0f, 0f, resolution, resolution),
-                new Vector2(0.5f, 0.5f),
-                100f);
-        }
-
-        private static Sprite CreateWhiteSprite(out Texture2D texture)
-        {
-            texture = new Texture2D(1, 1, TextureFormat.RGBA32, false)
-            {
-                name = "QuickSlotWhiteRuntime",
-                filterMode = FilterMode.Point,
-                wrapMode = TextureWrapMode.Clamp,
-            };
-            texture.SetPixel(0, 0, Color.white);
-            texture.Apply(false, true);
-            return Sprite.Create(
-                texture,
-                new Rect(0f, 0f, 1f, 1f),
-                new Vector2(0.5f, 0.5f),
-                1f);
-        }
-
-        /// <summary>위(12시)를 가리키는 삼각형. 화살표는 이 그래픽을 회전시켜 방향을 나타낸다.</summary>
-        private static Sprite CreateArrowSprite(int resolution, out Texture2D texture)
-        {
-            texture = new Texture2D(resolution, resolution, TextureFormat.RGBA32, false)
-            {
-                name = "QuickSlotArrowRuntime",
-                filterMode = FilterMode.Bilinear,
-                wrapMode = TextureWrapMode.Clamp,
-            };
-
-            Color32[] pixels = new Color32[resolution * resolution];
-            for (int y = 0; y < resolution; y++)
-            {
-                // 위쪽(y가 클수록)일수록 폭이 좁아지는 삼각형 — 꼭짓점이 위(12시)를 가리킨다.
-                float t = (float)y / (resolution - 1);
-                float halfWidth = (1f - t) * resolution * 0.5f;
-                float center = (resolution - 1) * 0.5f;
-                for (int x = 0; x < resolution; x++)
-                {
-                    float dx = Mathf.Abs(x - center);
-                    pixels[y * resolution + x] = dx <= halfWidth ? Color.white : Color.clear;
-                }
-            }
-
-            texture.SetPixels32(pixels);
-            texture.Apply(false, true);
-            return Sprite.Create(
-                texture,
-                new Rect(0f, 0f, resolution, resolution),
-                new Vector2(0.5f, 0.5f),
-                100f);
-        }
-
-        private static void DestroyRuntimeObject(Object target)
-        {
-            if (target == null)
-                return;
-
-            if (Application.isPlaying)
-                Destroy(target);
-            else
-                DestroyImmediate(target);
         }
     }
 }

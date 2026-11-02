@@ -8,10 +8,9 @@ namespace GhostHunter.Tests.EditMode
     /// 굴착 스킬의 확정 규칙 2건이 실제로 배선돼 있는지 본다
     /// (사용자 확정 2026-09-05 — mole-skill-system.md §5.2.1·§5.5.1).
     ///
-    /// <para><c>MoleBurrowController</c>·<c>PlayerInputReader</c>·
-    /// <c>GhostPrototypeController</c> 는 전부 <c>NetworkBehaviour</c> 라 EditMode 에서 스폰할 수 없다.
-    /// 그래서 <see cref="PauseMenuTests"/> 와 같은 관례로 <b>소스 배선</b>을 확인한다 —
-    /// 규칙 자체의 로직은 <see cref="GhostBurrowExposureTests"/> 가 순수 클래스로 검증한다.</para>
+    /// <para><c>MoleBurrowController</c>·<c>PlayerInputReader</c>의 정적 배선을 확인한다. 규칙 자체는
+    /// <see cref="GhostBurrowExposureTests"/> 가 순수 클래스로 검증하고,
+    /// 입력 잠금 우선순위와 굴착의 탐지·포획 결과는 PlayMode 흐름 테스트로 검증한다.</para>
     /// </summary>
     public sealed class MoleSkillWiringTests
     {
@@ -20,9 +19,6 @@ namespace GhostHunter.Tests.EditMode
 
         private const string InputReaderPath =
             "Assets/Scripts/Gameplay/Player/PlayerInputReader.cs";
-
-        private const string GhostControllerPath =
-            "Assets/Scripts/Gameplay/Ghost/GhostPrototypeController.cs";
 
         private static string ReadSource(string path)
         {
@@ -95,40 +91,6 @@ namespace GhostHunter.Tests.EditMode
         }
 
         [Test]
-        public void 굴착_잠금은_시전_중_시야이동을_막고_매몰_중에만_연다()
-        {
-            string source = ReadSource(InputReaderPath);
-
-            int skillBranch = IndexOf(source, "if (_skillMode != SkillInputMode.None)");
-            Assert.Greater(skillBranch, -1, "PlayerInputReader 에 굴착 잠금 분기가 없습니다.");
-
-            string branch = source.Substring(skillBranch);
-            int branchEnd = IndexOf(branch, "return;");
-            Assert.Greater(branchEnd, -1, "굴착 잠금 분기가 닫히지 않았습니다.");
-            branch = branch.Substring(0, branchEnd);
-
-            Assert.Greater(IndexOf(branch, "_burrowAction.WasPressedThisFrame"), -1,
-                "굴착 중에도 스킬 키는 살아 있어야 합니다 — 안 그러면 스스로 나올 수 없습니다.");
-
-            // 시야·이동은 매몰(UndergroundMove)일 때만 읽는다 — 시전(Frozen) 중에는 0이다.
-            Assert.Greater(IndexOf(branch, "SkillInputMode.UndergroundMove"), -1,
-                "시야·이동 허용은 UndergroundMove 에서만 열려야 합니다.");
-            Assert.Greater(IndexOf(branch, "_lookAction.ReadValue"), -1,
-                "매몰 중에는 시야 회전이 살아 있어야 합니다 → mole-skill-system.md §5.5.1");
-            Assert.Greater(IndexOf(branch, "_moveAction.ReadValue"), -1,
-                "매몰 중에는 이동 입력이 살아 있어야 합니다 → mole-skill-system.md §5.5.1");
-            Assert.Greater(IndexOf(branch, "Vector2.zero"), -1,
-                "시전 중에는 시야 입력을 0으로 만들어야 합니다.");
-
-            // 매몰 중에도 막혀야 하는 입력은 읽지 않는다.
-            Assert.AreEqual(-1, IndexOf(branch, "_jumpAction"), "굴착 중 점프 입력을 읽으면 안 됩니다.");
-            Assert.AreEqual(-1, IndexOf(branch, "_sprintAction"), "굴착 중 달리기 입력을 읽으면 안 됩니다.");
-            Assert.AreEqual(-1, IndexOf(branch, "_proneAction"), "굴착 중 엎드리기 입력을 읽으면 안 됩니다.");
-            Assert.AreEqual(-1, IndexOf(branch, "_attackAction"), "굴착 중 던지기 입력을 읽으면 안 됩니다.");
-            Assert.AreEqual(-1, IndexOf(branch, "_interactAction"), "굴착 중 상호작용 입력을 읽으면 안 됩니다.");
-        }
-
-        [Test]
         public void 시전_모드로_들어갈_때_시야_입력을_즉시_비운다()
         {
             // PlayerLook 이 PlayerInputReader 보다 먼저 돌아서, 비우지 않으면 시전 직후 한 프레임
@@ -144,52 +106,6 @@ namespace GhostHunter.Tests.EditMode
             Assert.Greater(IndexOf(body, "SkillInputMode.Frozen"), -1);
             Assert.Greater(IndexOf(body, "Look = Vector2.zero"), -1,
                 "Frozen 진입 시 Look 을 즉시 비우지 않으면 시전 직후 한 프레임 시점이 샙니다.");
-        }
-
-        [Test]
-        public void 일시정지_잠금이_굴착_잠금보다_먼저_판정된다()
-        {
-            string source = ReadSource(InputReaderPath);
-
-            int pause = IndexOf(source, "if (_inputLocked)");
-            int skill = IndexOf(source, "if (_skillMode != SkillInputMode.None)");
-
-            Assert.Greater(pause, -1, "일시정지 잠금 분기가 없습니다.");
-            Assert.Greater(skill, -1, "굴착 잠금 분기가 없습니다.");
-            Assert.Less(pause, skill,
-                "메뉴가 열리면 시점까지 잠겨야 하므로 일시정지 잠금이 먼저 걸러야 합니다 " +
-                "→ pause-menu-system.md §3.4");
-        }
-
-        [Test]
-        public void 귀신이_탐지와_포획_양쪽에서_굴착_노출을_본다()
-        {
-            string source = ReadSource(GhostControllerPath);
-
-            Assert.Greater(IndexOf(source, "EvaluateBurrowExposure"), -1,
-                "굴착 노출 판정을 갱신하지 않습니다 → mole-skill-system.md §5.2.1");
-
-            Assert.Greater(IndexOf(source, "player.IsBurrowed && !IsBurrowExposed(player)"), -1,
-                "탐지가 굴착 노출을 보지 않습니다 — 감지된 채로 숨은 플레이어도 놓치게 됩니다.");
-
-            Assert.Greater(IndexOf(source, "_target.IsBurrowed && !IsBurrowExposed(_target)"), -1,
-                "포획이 굴착을 보지 않습니다 — 탐지에서 빠져도 _target 은 수색 동안 남으므로, " +
-                "안전하게 숨은 플레이어가 땅속에서 잡힙니다.");
-        }
-
-        [Test]
-        public void 굴착_노출_판정이_탐지보다_먼저_돈다()
-        {
-            string source = ReadSource(GhostControllerPath);
-
-            int evaluate = IndexOf(source, "EvaluateBurrowExposure(playerCount);");
-            int detect = IndexOf(source, "TryDetectPlayer(playerCount, out");
-
-            Assert.Greater(evaluate, -1, "어택 틱에서 굴착 노출을 갱신하지 않습니다.");
-            Assert.Greater(detect, -1, "어택 틱에서 탐지를 부르지 않습니다.");
-            Assert.Less(evaluate, detect,
-                "탐지가 이번 틱의 노출 판정을 읽어야 하므로 갱신이 먼저여야 합니다 " +
-                "(EvaluateBedHide 와 같은 이유).");
         }
     }
 }

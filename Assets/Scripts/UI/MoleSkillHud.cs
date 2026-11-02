@@ -26,14 +26,12 @@ namespace GhostHunter.UI
         [SerializeField] private Sprite _excavationOffIcon;
 
         private ILocalPlayerContext _localPlayer;
+        private readonly HudUiFactory _ui = new();
         private Canvas _canvas;
-        private SkillIndicator _detectionIndicator;
-        private SkillIndicator _excavationIndicator;
-        private Texture2D _circleTexture;
-        private Texture2D _ringTexture;
+        private RadialGaugeView _detectionIndicator;
+        private RadialGaugeView _excavationIndicator;
         private Sprite _circleSprite;
         private Sprite _ringSprite;
-        private Texture2D _whiteTexture;
         private Sprite _whiteSprite;
         private Image _detectionCastOverlay;
 
@@ -60,16 +58,7 @@ namespace GhostHunter.UI
             BuildCanvas();
         }
 
-        private void OnDestroy()
-        {
-            DestroyRuntimeObject(_circleSprite);
-            DestroyRuntimeObject(_ringSprite);
-            DestroyRuntimeObject(_whiteSprite);
-            DestroyRuntimeObject(_circleTexture);
-            DestroyRuntimeObject(_ringTexture);
-            DestroyRuntimeObject(_whiteTexture);
-            DestroyRuntimeObject(_canvas != null ? _canvas.gameObject : null);
-        }
+        private void OnDestroy() => _ui.Dispose();
 
         private void Update()
         {
@@ -90,41 +79,15 @@ namespace GhostHunter.UI
 
         private void BuildCanvas()
         {
-            GameObject canvasObject = new("MoleSkillCanvas");
-            canvasObject.transform.SetParent(transform, false);
-
-            _canvas = canvasObject.AddComponent<Canvas>();
-            _canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            _canvas.overrideSorting = true;
-            _canvas.sortingOrder = CanvasSortingOrder;
-
-            CanvasScaler scaler = canvasObject.AddComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = _uiSettings.ReferenceResolution;
-            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
-            scaler.matchWidthOrHeight = 0.5f;
-
+            _canvas = _ui.CreateCanvas("MoleSkillCanvas", transform, CanvasSortingOrder, _uiSettings.ReferenceResolution);
             int resolution = _uiSettings.TextureResolution;
-            _circleSprite = CreateCircleSprite(resolution, resolution * 0.5f - 1f, out _circleTexture);
-            _ringSprite = CreateRingSprite(
-                resolution,
-                resolution * 0.5f - 1f,
-                resolution * _uiSettings.RingThicknessRatio,
-                out _ringTexture);
-            _whiteSprite = CreateWhiteSprite(out _whiteTexture);
-
+            _circleSprite = _ui.CreateCircleSprite(resolution, resolution * 0.5f - 1f, "MoleSkillCircleRuntime");
+            _ringSprite = _ui.CreateRingSprite(resolution, resolution * 0.5f - 1f,
+                resolution * _uiSettings.RingThicknessRatio, "MoleSkillRingRuntime");
+            _whiteSprite = _ui.CreateWhiteSprite("MoleSkillWhiteRuntime");
             _detectionCastOverlay = BuildDetectionCastOverlay();
-
-            _detectionIndicator = BuildIndicator(
-                "DetectionIndicator",
-                _detectionOnIcon,
-                _detectionOffIcon,
-                0);
-            _excavationIndicator = BuildIndicator(
-                "ExcavationIndicator",
-                _excavationOnIcon,
-                _excavationOffIcon,
-                1);
+            _detectionIndicator = BuildIndicator("DetectionIndicator", _detectionOnIcon, _detectionOffIcon, 0);
+            _excavationIndicator = BuildIndicator("ExcavationIndicator", _excavationOnIcon, _excavationOffIcon, 1);
         }
 
         private Image BuildDetectionCastOverlay()
@@ -133,7 +96,7 @@ namespace GhostHunter.UI
             overlayObject.transform.SetParent(_canvas.transform, false);
 
             RectTransform overlayRect = overlayObject.AddComponent<RectTransform>();
-            Stretch(overlayRect);
+            HudUiFactory.Stretch(overlayRect);
 
             Image overlay = overlayObject.AddComponent<Image>();
             overlay.sprite = _whiteSprite;
@@ -166,59 +129,23 @@ namespace GhostHunter.UI
             _detectionCastOverlay.color = overlayColor;
         }
 
-        private SkillIndicator BuildIndicator(
-            string objectName,
-            Sprite onIcon,
-            Sprite offIcon,
-            int order)
+        private RadialGaugeView BuildIndicator(string objectName, Sprite onIcon, Sprite offIcon, int order)
         {
-            GameObject root = new(objectName);
-            root.transform.SetParent(_canvas.transform, false);
-
-            RectTransform rootRect = root.AddComponent<RectTransform>();
-            rootRect.anchorMin = new Vector2(1f, 1f);
-            rootRect.anchorMax = new Vector2(1f, 1f);
-            rootRect.pivot = new Vector2(1f, 1f);
-            rootRect.sizeDelta = new Vector2(_uiSettings.IndicatorSize, _uiSettings.IndicatorSize);
-            rootRect.anchoredPosition = new Vector2(
-                -_uiSettings.RightMargin,
-                -_uiSettings.TopMargin - order * (_uiSettings.IndicatorSize + _uiSettings.VerticalSpacing));
-
-            Image background = root.AddComponent<Image>();
-            background.sprite = _circleSprite;
-            background.color = _uiSettings.BackgroundColor;
-            background.raycastTarget = false;
-
-            GameObject ringObject = new("ProgressRing");
-            ringObject.transform.SetParent(root.transform, false);
-            RectTransform ringRect = ringObject.AddComponent<RectTransform>();
-            Stretch(ringRect);
-            Image ring = ringObject.AddComponent<Image>();
-            ring.sprite = _ringSprite;
-            ring.type = Image.Type.Filled;
-            ring.fillMethod = Image.FillMethod.Radial360;
-            ring.fillOrigin = (int)Image.Origin360.Top;
-            ring.fillClockwise = false;
-            ring.fillAmount = 0f;
-            ring.raycastTarget = false;
-
-            GameObject iconObject = new("Icon");
-            iconObject.transform.SetParent(root.transform, false);
-            RectTransform iconRect = iconObject.AddComponent<RectTransform>();
-            Stretch(iconRect);
+            var indicator = new RadialGaugeView(_canvas.transform, objectName, _uiSettings.IndicatorSize,
+                _circleSprite, _ringSprite, "ProgressRing", clockwise: false);
+            indicator.PlaceTopRight(new Vector2(-_uiSettings.RightMargin,
+                -_uiSettings.TopMargin - order * (_uiSettings.IndicatorSize + _uiSettings.VerticalSpacing)));
+            indicator.Background.color = _uiSettings.BackgroundColor;
+            indicator.Ring.fillAmount = 0f;
+            Image icon = indicator.CreateIcon(onIcon, offIcon);
             float inset = _uiSettings.IndicatorSize * _uiSettings.IconInsetRatio;
-            iconRect.offsetMin = new Vector2(inset, inset);
-            iconRect.offsetMax = new Vector2(-inset, -inset);
-            Image icon = iconObject.AddComponent<Image>();
-            icon.sprite = onIcon;
-            icon.preserveAspect = true;
-            icon.raycastTarget = false;
-
-            root.SetActive(false);
-            return new SkillIndicator(root, ring, icon, onIcon, offIcon);
+            icon.rectTransform.offsetMin = new Vector2(inset, inset);
+            icon.rectTransform.offsetMax = new Vector2(-inset, -inset);
+            indicator.Root.SetActive(false);
+            return indicator;
         }
 
-        private void UpdateIndicator(SkillIndicator indicator, IMoleSkillStatus status)
+        private void UpdateIndicator(RadialGaugeView indicator, IMoleSkillStatus status)
         {
             if (indicator == null)
                 return;
@@ -266,142 +193,6 @@ namespace GhostHunter.UI
                 return 0f;
 
             return Mathf.Clamp01(remaining / duration);
-        }
-
-        // 아래 도형·정리 도우미는 같은 모양을 써야 하는 헤드라이트 충전 UI(HeadlampChargeHud)도 쓴다.
-        internal static void Stretch(RectTransform rectTransform)
-        {
-            rectTransform.anchorMin = Vector2.zero;
-            rectTransform.anchorMax = Vector2.one;
-            rectTransform.offsetMin = Vector2.zero;
-            rectTransform.offsetMax = Vector2.zero;
-            rectTransform.pivot = new Vector2(0.5f, 0.5f);
-        }
-
-        internal static Sprite CreateCircleSprite(int resolution, float radius, out Texture2D texture)
-        {
-            texture = new Texture2D(resolution, resolution, TextureFormat.RGBA32, false)
-            {
-                name = "MoleSkillCircleRuntime",
-                filterMode = FilterMode.Bilinear,
-                wrapMode = TextureWrapMode.Clamp,
-            };
-
-            Color32[] pixels = new Color32[resolution * resolution];
-            float center = (resolution - 1) * 0.5f;
-            float radiusSquared = radius * radius;
-            for (int y = 0; y < resolution; y++)
-            {
-                for (int x = 0; x < resolution; x++)
-                {
-                    float dx = x - center;
-                    float dy = y - center;
-                    pixels[y * resolution + x] = dx * dx + dy * dy <= radiusSquared
-                        ? Color.white
-                        : Color.clear;
-                }
-            }
-
-            texture.SetPixels32(pixels);
-            texture.Apply(false, true);
-            return Sprite.Create(
-                texture,
-                new Rect(0f, 0f, resolution, resolution),
-                new Vector2(0.5f, 0.5f),
-                100f);
-        }
-
-        internal static Sprite CreateRingSprite(
-            int resolution,
-            float outerRadius,
-            float thickness,
-            out Texture2D texture)
-        {
-            texture = new Texture2D(resolution, resolution, TextureFormat.RGBA32, false)
-            {
-                name = "MoleSkillRingRuntime",
-                filterMode = FilterMode.Bilinear,
-                wrapMode = TextureWrapMode.Clamp,
-            };
-
-            Color32[] pixels = new Color32[resolution * resolution];
-            float center = (resolution - 1) * 0.5f;
-            float outerSquared = outerRadius * outerRadius;
-            float innerRadius = Mathf.Max(0f, outerRadius - thickness);
-            float innerSquared = innerRadius * innerRadius;
-
-            for (int y = 0; y < resolution; y++)
-            {
-                for (int x = 0; x < resolution; x++)
-                {
-                    float dx = x - center;
-                    float dy = y - center;
-                    float distanceSquared = dx * dx + dy * dy;
-                    pixels[y * resolution + x] = distanceSquared <= outerSquared
-                        && distanceSquared >= innerSquared
-                        ? Color.white
-                        : Color.clear;
-                }
-            }
-
-            texture.SetPixels32(pixels);
-            texture.Apply(false, true);
-            return Sprite.Create(
-                texture,
-                new Rect(0f, 0f, resolution, resolution),
-                new Vector2(0.5f, 0.5f),
-                100f);
-        }
-
-        private static Sprite CreateWhiteSprite(out Texture2D texture)
-        {
-            texture = new Texture2D(1, 1, TextureFormat.RGBA32, false)
-            {
-                name = "MoleSkillWhiteRuntime",
-                filterMode = FilterMode.Point,
-                wrapMode = TextureWrapMode.Clamp,
-            };
-            texture.SetPixel(0, 0, Color.white);
-            texture.Apply(false, true);
-            return Sprite.Create(
-                texture,
-                new Rect(0f, 0f, 1f, 1f),
-                new Vector2(0.5f, 0.5f),
-                1f);
-        }
-
-        internal static void DestroyRuntimeObject(Object target)
-        {
-            if (target == null)
-                return;
-
-            if (Application.isPlaying)
-                Destroy(target);
-            else
-                DestroyImmediate(target);
-        }
-
-        private sealed class SkillIndicator
-        {
-            public SkillIndicator(
-                GameObject root,
-                Image ring,
-                Image icon,
-                Sprite onIcon,
-                Sprite offIcon)
-            {
-                Root = root;
-                Ring = ring;
-                Icon = icon;
-                OnIcon = onIcon;
-                OffIcon = offIcon;
-            }
-
-            public GameObject Root { get; }
-            public Image Ring { get; }
-            public Image Icon { get; }
-            public Sprite OnIcon { get; }
-            public Sprite OffIcon { get; }
         }
     }
 }

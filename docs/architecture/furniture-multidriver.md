@@ -179,6 +179,9 @@
 
 ### 2.6 행동 시간 UI — `FurnitureDriverActionHud` (기획서 §6.1, 1.1)
 
+2026-11-02: Canvas·링 생성과 자원 해제는 `UI/HudUiFactory`, 표시부는 `UI/RadialGaugeView`로
+공통화했다. 드라이버 전용 링 두께·시계 방향 채움·문구 외곽선·중단 흔들림·피드백은 그대로다.
+
 로컬 전용 표시다. `Game/PrototypeUI`에 붙어 `ILocalPlayerContext.FurnitureDriverController`를
 매 프레임 읽고, 자체 Screen Space Overlay 캔버스(정렬 140 — 퀵슬롯 휠 150 아래)에 런타임 링
 텍스처로 게이지를 그린다. 네트워크 상태를 새로 만들지 않는다.

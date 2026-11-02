@@ -36,6 +36,10 @@ Evidence Tracking ON은 공통 기획 §9.2의 벽 너머 최근접 좌표 타�
 시험적으로 바꾼다. 기존 기획을 기준으로 비교하려면 전체 또는 해당 개별 토글을 끈다.
 어택 발동 조건·정신력 구간·어택 지속시간·자연 진정 시간·은신의 안전 판정은 유지한다.
 
+2026-11-02 구조 정리: 감지·이동은 `GhostPerception`·`GhostNavigation`으로 분리했다. 기본/단서 모드의
+타깃 선정 루프를 공유하되 단서 모드의 관측 조건은 유지한다. 토글·추적/수색 기억·목격된 은신과 복구 정책은
+그대로이며, 구현 경계는 [ghost-prototype.md §1](../architecture/ghost-prototype.md#1-구성과-서버-권위)을 따른다.
+
 ### 단서와 예측
 
 GhostTrackingMemory는 대상 ID·마지막 관측 위치·평면 속도·관측 시각을 보관한다.
@@ -88,6 +92,8 @@ FurnitureNetworkPhysics.ServerImpactReported는 서버 충돌의 접촉 위치·
 
 ## 4. 검증
 
+- 2026-11-02 구조 정리 후 전체 EditMode **588/588**·PlayMode **167/167**, 귀신 관련 **93/93**·**32/32** 통과.
+  기본/단서 타깃 교체·시야/소리·굴착 경합·경로 유지·복구·해제 추가 검사는 [testing.md](../workflow/testing.md)의 5단계 기록을 따른다.
 - Unity 복제본 컴파일 통과.
 - 새 기억·점수·토글·연출 타이머 EditMode와 기존 귀신·가구 충돌 회귀 테스트 실행.
 - Local Host PlayMode에서 단서 상실→수색, 전체 OFF→좌표 추격, 비목격 은신 안전,

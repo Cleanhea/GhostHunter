@@ -18,6 +18,10 @@
 | `BatteryPackSettings` | `Assets/Settings/Gameplay/BatteryPackSettings_Default.asset` | 총량 200·속도 규칙·거리·청구 간격·서버 허용 배율·표시 색 |
 | 입력(홀드) | `Player/Interact` (E) | `PlayerInputReader.InteractHeld` — 모든 잠금에서 거짓으로 지운다 |
 
+헤드라이트·라이터 HUD의 Canvas와 도형은 `UI/HudUiFactory`, 원형 표시부는
+`UI/RadialGaugeView`로 생성한다(2026-11-02). 각 HUD의 `OnDestroy`가 소유한 생성 자원을
+해제하며, 외부 아이콘은 유지한다. 충전·장착에 따른 노출 조건과 색·아이콘 배치·시계 방향 채움은 보존했다.
+
 ## 2. 권위와 복제
 
 | 데이터 | 권위 | 복제 |

@@ -206,22 +206,10 @@ namespace GhostHunter.Systems.Steam
 
             MemberGear gear = personal ? GetMemberGear(forSteamId) : MemberGear.Starting;
             ReadShopState(out int balance, out int candles);
-            if (!StageShopRules.CanPurchase(IsLobbyOwner, scene, loading, balance, item, gear))
+            if (!StageShopRules.TryPurchase(IsLobbyOwner, scene, loading, item,
+                    ref balance, ref candles, ref gear))
                 return false;
-
-            int price = StageShopRules.PriceOf(item);
-            bool written = item switch
-            {
-                // 새 철제 드라이버는 내구도가 가득 찬 채로 나무 드라이버를 대신한다.
-                ShopItem.IronDriver => WriteMemberGear(forSteamId,
-                    new MemberGear(DriverTier.Iron, StageShopRules.MaxDriverDurability, gear.HasLighter)),
-                ShopItem.IronLighter => WriteMemberGear(forSteamId,
-                    new MemberGear(gear.Driver, gear.DriverDurability, true)),
-                ShopItem.CandleSet => true,
-                _ => false,
-            };
-            if (!written || !WriteShopState(balance - price,
-                    item == ShopItem.CandleSet ? candles + StageShopRules.CandlesPerSet : candles))
+            if ((personal && !WriteMemberGear(forSteamId, gear)) || !WriteShopState(balance, candles))
                 return false;
             LobbyUpdated?.Invoke();
             return true;
@@ -235,12 +223,9 @@ namespace GhostHunter.Systems.Steam
 
             MemberGear gear = GetMemberGear(steamId);
             ReadShopState(out int balance, out int candles);
-            if (!StageShopRules.CanRepair(IsLobbyOwner, scene, loading, balance, gear))
+            if (!StageShopRules.TryRepair(IsLobbyOwner, scene, loading, ref balance, ref gear))
                 return false;
-
-            int cost = StageShopRules.RepairCost(gear.DriverDurability);
-            if (!WriteMemberGear(steamId, gear.WithDurability(StageShopRules.MaxDriverDurability))
-                || !WriteShopState(balance - cost, candles))
+            if (!WriteMemberGear(steamId, gear) || !WriteShopState(balance, candles))
                 return false;
             LobbyUpdated?.Invoke();
             return true;

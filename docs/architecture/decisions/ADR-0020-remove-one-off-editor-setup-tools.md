@@ -47,4 +47,19 @@
 
 ## 재검토 조건
 
+### 2026-11-02 작업 트리 재정리
+
+저장소 분석 중 위 결정과 달리 추적 중인 도구 11개가 남아 있음을 확인했고, 사용자가 기존 ADR 기준의
+삭제를 승인했다. `HousePrototypeBuilder`·`FurnitureCatalog`·`PrototypeSceneSetup`·`GhostPrototypeSetup`·
+`MenuScenesSetup`·`NetworkRigSetup`·`SanitySystemSetup`·`SanityPostProcessingSetup`·`SanityTestbedSetup`·
+`MoleBurrowPostProcessingSetup`·Editor의 `AssemblyInfo`와 각각의 `.meta`를 제거했다(코드 6,679줄).
+`MapGeneratorTests`도 `.meta`와 함께 제거했다. 생성기 밖의 C# 참조는 이 테스트 한 파일이었다.
+
+가구 물리 설정·질량 정의 배선은 저장된 프리팹을 읽는 `ProjectWiringTests`로 옮겼다.
+실행 질량은 `FurnitureNetworkPhysics.Awake`에서 정의로 주입되므로, 프리팹의 저장 질량과
+같음을 요구하지 않고 `FurnitureThrowFlowTests`에서 실제 스폰 결과를 확인한다.
+씬·프리팹·설정 에셋은 수정하지 않았으며 상시 도구 3개는 유지한다.
+
+### 도구 재도입 기준
+
 같은 배선을 여러 씬·프리팹에 반복해야 하는 작업이 생기면, 그 작업에 한정한 도구를 새로 만들고 끝나면 지운다.

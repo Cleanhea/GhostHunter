@@ -31,15 +31,12 @@ namespace GhostHunter.UI
         [Tooltip("헤드라이트가 꺼져 있을 때의 아이콘(ICON_HeadLight_off). 비어 있으면 on 아이콘을 쓴다.")]
         [SerializeField] private Sprite _offIcon;
 
+        private readonly HudUiFactory _ui = new();
         private Canvas _canvas;
         private GameObject _root;
         private Image _ring;
         private Image _icon;
         private Text _label;
-        private Texture2D _circleTexture;
-        private Texture2D _ringTexture;
-        private Sprite _circleSprite;
-        private Sprite _ringSprite;
         private int _shownPercent = -1;
         private bool? _shownOn;
 
@@ -54,14 +51,7 @@ namespace GhostHunter.UI
             }
         }
 
-        private void OnDestroy()
-        {
-            MoleSkillHud.DestroyRuntimeObject(_circleSprite);
-            MoleSkillHud.DestroyRuntimeObject(_ringSprite);
-            MoleSkillHud.DestroyRuntimeObject(_circleTexture);
-            MoleSkillHud.DestroyRuntimeObject(_ringTexture);
-            MoleSkillHud.DestroyRuntimeObject(_canvas != null ? _canvas.gameObject : null);
-        }
+        private void OnDestroy() => _ui.Dispose();
 
         private void LateUpdate()
         {
@@ -106,92 +96,34 @@ namespace GhostHunter.UI
 
         private void BuildCanvas()
         {
-            GameObject canvasObject = new("HeadlampChargeCanvas");
-            canvasObject.transform.SetParent(transform, false);
-
-            _canvas = canvasObject.AddComponent<Canvas>();
-            _canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            _canvas.overrideSorting = true;
-            _canvas.sortingOrder = CanvasSortingOrder;
-
-            CanvasScaler scaler = canvasObject.AddComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = _uiSettings.ReferenceResolution;
-            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
-            scaler.matchWidthOrHeight = 0.5f;
-
+            _canvas = _ui.CreateCanvas("HeadlampChargeCanvas", transform, CanvasSortingOrder, _uiSettings.ReferenceResolution);
             int resolution = _uiSettings.TextureResolution;
-            _circleSprite = MoleSkillHud.CreateCircleSprite(
-                resolution, resolution * 0.5f - 1f, out _circleTexture);
-            _ringSprite = MoleSkillHud.CreateRingSprite(
-                resolution,
-                resolution * 0.5f - 1f,
-                resolution * _uiSettings.RingThicknessRatio,
-                out _ringTexture);
-
+            Sprite circle = _ui.CreateCircleSprite(resolution, resolution * 0.5f - 1f, "MoleSkillCircleRuntime");
+            Sprite ring = _ui.CreateRingSprite(resolution, resolution * 0.5f - 1f,
+                resolution * _uiSettings.RingThicknessRatio, "MoleSkillRingRuntime");
             float size = _uiSettings.IndicatorSize;
-            _root = new GameObject("HeadlampChargeIndicator");
-            _root.transform.SetParent(_canvas.transform, false);
-            RectTransform rootRect = _root.AddComponent<RectTransform>();
-            rootRect.anchorMin = new Vector2(1f, 1f);
-            rootRect.anchorMax = new Vector2(1f, 1f);
-            rootRect.pivot = new Vector2(1f, 1f);
-            rootRect.sizeDelta = new Vector2(size, size);
-            rootRect.anchoredPosition = new Vector2(
-                -_uiSettings.RightMargin,
-                -_uiSettings.TopMargin - SlotIndex * (size + _uiSettings.VerticalSpacing));
-
-            Image background = _root.AddComponent<Image>();
-            background.sprite = _circleSprite;
-            background.color = _uiSettings.BackgroundColor;
-            background.raycastTarget = false;
-
-            GameObject ringObject = new("ChargeRing");
-            ringObject.transform.SetParent(_root.transform, false);
-            MoleSkillHud.Stretch(ringObject.AddComponent<RectTransform>());
-            _ring = ringObject.AddComponent<Image>();
-            _ring.sprite = _ringSprite;
-            _ring.type = Image.Type.Filled;
-            _ring.fillMethod = Image.FillMethod.Radial360;
-            _ring.fillOrigin = (int)Image.Origin360.Top;
-            _ring.fillClockwise = true;
-            _ring.raycastTarget = false;
-
-            // 목업(ICON_HeadLight.png) 배치: 아이콘은 원의 아래 절반, 퍼센트는 그 위.
+            var gauge = new RadialGaugeView(_canvas.transform, "HeadlampChargeIndicator", size,
+                circle, ring, "ChargeRing", clockwise: true);
+            gauge.PlaceTopRight(new Vector2(-_uiSettings.RightMargin,
+                -_uiSettings.TopMargin - SlotIndex * (size + _uiSettings.VerticalSpacing)));
+            gauge.Background.color = _uiSettings.BackgroundColor;
+            _root = gauge.Root;
+            _ring = gauge.Ring;
             if (_onIcon != null)
             {
-                GameObject iconObject = new("Icon");
-                iconObject.transform.SetParent(_root.transform, false);
-                RectTransform iconRect = iconObject.AddComponent<RectTransform>();
-                MoleSkillHud.Stretch(iconRect);
-                iconRect.anchorMin = new Vector2(0.31f, 0.16f);
-                iconRect.anchorMax = new Vector2(0.69f, 0.54f);
-                _icon = iconObject.AddComponent<Image>();
-                _icon.sprite = _onIcon;
-                _icon.preserveAspect = true;
-                _icon.raycastTarget = false;
+                _icon = gauge.CreateIcon(_onIcon, _offIcon);
+                _icon.rectTransform.anchorMin = new Vector2(0.31f, 0.16f);
+                _icon.rectTransform.anchorMax = new Vector2(0.69f, 0.54f);
             }
-
-            GameObject labelObject = new("Percent");
-            labelObject.transform.SetParent(_root.transform, false);
-            RectTransform labelRect = labelObject.AddComponent<RectTransform>();
-            MoleSkillHud.Stretch(labelRect);
+            _label = gauge.CreateLabel("Percent", Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf"),
+                Mathf.RoundToInt(size * (_onIcon != null ? 0.2f : 0.28f)));
             if (_onIcon != null)
             {
-                labelRect.anchorMin = new Vector2(0f, 0.54f);
-                labelRect.anchorMax = new Vector2(1f, 0.86f);
+                _label.rectTransform.anchorMin = new Vector2(0f, 0.54f);
+                _label.rectTransform.anchorMax = new Vector2(1f, 0.86f);
             }
-
-            _label = labelObject.AddComponent<Text>();
-            _label.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            // "100%" 가 링에 닿지 않는 크기.
-            _label.fontSize = Mathf.RoundToInt(size * (_onIcon != null ? 0.2f : 0.28f));
-            _label.fontStyle = FontStyle.Bold;
-            _label.alignment = TextAnchor.MiddleCenter;
             _label.horizontalOverflow = HorizontalWrapMode.Overflow;
             _label.verticalOverflow = VerticalWrapMode.Overflow;
-            _label.raycastTarget = false;
-
             _root.SetActive(false);
         }
     }

@@ -45,6 +45,11 @@
 
 ## 흐름
 
+2026-11-02 입력·행동 정리: `GrabController`는 가구 처리·입력 우선순위·기존 서버 RPC를 맡는다.
+시체의 클릭/홀드는 `CorpseInteraction`, 플레이어 조준·차징은 `PlayerShoveInteraction`(둘 다 internal 일반 C# 클래스)으로
+분리했다. 소유자 스폰에서만 생성·콜백을 연결하며 프레임마다 헬퍼·델리게이트·레이캐스트 배열을 할당하지 않는다.
+우선순위(시체 → 플레이어 밀치기 → 가구), 조준 전송 간격, 공개 상태 API와 RPC 서명·권한은 유지한다.
+
 ### 1. 타겟팅 (클라이언트 로컬)
 
 `FurnitureTargeter`가 매 `Update`에:
@@ -257,7 +262,7 @@ rb.AddTorque(random torque * torqueScale, ForceMode.Impulse)
 (우선순위: 시체 → 플레이어 밀치기 → 가구). 차지 게이지(`ChargeGaugeUI`)는 "플레이어 밀치기 힘 nn%"로 같이 쓴다.
 
 ```
-눌렀을 때  GrabController.TryBeginShove → BeginShoveRpc(targetId)          서버가 시작 시각을 적는다
+눌렀을 때  PlayerShoveInteraction.TryBegin → GrabController.BeginShoveRpc  서버가 시작 시각을 적는다
 뗐을 때    ReleaseShoveRpc(targetId, aimDirection)                          차지는 서버가 (뗀 시각 − 시작 시각)/chargeTime 으로 잰다
 서버 검증  보낸 사람·생존 / 시작 기록과 같은 대상 / 쿨다운 / 대상 생존·굴착 중 아님 /
           수평 거리 ≤ ServerReach(shoveMaxDistance) = 거리×1.2+0.8m, 높이차 ≤ 2.5m

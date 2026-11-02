@@ -78,11 +78,11 @@ namespace GhostHunter.Gameplay.Map
                 return;
 
             for (int i = 0; i < _meshes.Length; i++)
-                DestroyObject(_meshes[i]);
+                DestroyRuntimeObject(_meshes[i]);
         }
 
         // 에디터 모드 테스트에서는 Destroy 를 부를 수 없다.
-        private static void DestroyObject(Object target)
+        private static void DestroyRuntimeObject(Object target)
         {
             if (target == null)
                 return;
@@ -203,7 +203,7 @@ namespace GhostHunter.Gameplay.Map
         private void Clear()
         {
             for (int i = 0; i < _crates.Count; i++)
-                DestroyObject(_crates[i].Object);
+                DestroyRuntimeObject(_crates[i].Object);
             _crates.Clear();
         }
 
