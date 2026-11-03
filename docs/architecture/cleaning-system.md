@@ -48,8 +48,8 @@
 ### 2.1 청소 진행도 HUD (2026-09-29 사용자 요청 "청소 = 대걸레로 닦기 + 필요한 물품 드릴카로 옮기기")
 
 - 두 작업을 **따로** 보여 준다. 합산 진행도·승패 연결은 미정(D-14)이라 만들지 않았다.
-- 수치는 복제 상태에서 읽는다 — 얼룩은 `CleaningStain` 의 배치·제거 상태, 가구는 `RandomFurnitureItem` 의
-  목표(`IsAssignedWorkTarget`)·반출(`IsDelivered`) 플래그. 정산(`SanityTeamService.BuildSettlement`)과 같은 기준이다.
+- 수치는 복제 상태에서 읽는다 — 얼룩은 `CleaningStain` 의 배치·제거 상태, 가구는 `RandomFurnitureItem`·분해 가능 목표 가구(`FurnitureDriverPoolItem`, 2026-11-03)의
+  목표(`IsAssignedWorkTarget`)·반출(`IsDelivered`) 플래그를 `FurnitureSpawnController.CountWorkTargets` 한 곳에서 센다. 정산(`SanityTeamService.BuildSettlement`)과 같은 기준이다.
 - 반출된 목표 가구가 부서진 상태였는지는 따지지 않는다(정산과 같음). 0.2초마다 갱신, 청소 서비스가 없는 씬에서는 숨는다.
 - 귀신의 40% 어택 조건은 여전히 얼룩 비율(`ProgressPercent`)만 본다.
 

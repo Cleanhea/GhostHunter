@@ -45,6 +45,12 @@ namespace GhostHunter.Gameplay.Map
         [Tooltip("0이면 방별 상한을 적용하지 않는다. 최종 집중 제한 수치는 MG-10에서 결정한다.")]
         [SerializeField, Min(0)] private int _maximumTargetsPerRoom;
 
+        [Header("분해 가능 가구 목표 (MD-3)")]
+        [Tooltip("집 안에 놓인 분해 가능한 큰 가구(침대·옷장·선반·식탁) 중 목표 가구로 지정할 개수의 최솟값. " +
+            "후보가 모자라면 있는 만큼만 지정한다. 0이면 지정하지 않는다.")]
+        [SerializeField, Min(0)] private int _minimumDisassemblyTargets;
+        [SerializeField, Min(0)] private int _maximumDisassemblyTargets;
+
         [Header("생성·재현")]
         [SerializeField] private bool _useFixedSeed;
         [SerializeField] private int _seed = 1;
@@ -63,6 +69,8 @@ namespace GhostHunter.Gameplay.Map
         public int MinimumTargetTypes => _minimumTargetTypes;
         public int MaximumTargetTypes => _maximumTargetTypes;
         public int MaximumTargetsPerRoom => _maximumTargetsPerRoom;
+        public int MinimumDisassemblyTargets => _minimumDisassemblyTargets;
+        public int MaximumDisassemblyTargets => Mathf.Max(_minimumDisassemblyTargets, _maximumDisassemblyTargets);
         public bool UseFixedSeed => _useFixedSeed;
         public int Seed => _seed;
         public int SearchBudget => _searchBudget;

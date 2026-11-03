@@ -10,7 +10,8 @@ namespace GhostHunter.Tests.PlayMode
 {
     /// <summary>
     /// 반출 구역 꾸미기(<see cref="FurnitureDeliveryZoneView"/>)를 그래픽이 켜진 PlayMode 에서 어두운 밤 배경에 실제로 렌더해
-    /// 초록 구역이 보이는지 확인한다. <c>GH_DELIVERY_VIEW_PNG</c> 환경 변수가 있으면 그 경로에 장면을 PNG 로 저장한다.
+    /// 빨간 페인트 구역과 밝은 외곽선이 보이는지 확인한다. <c>GH_DELIVERY_VIEW_PNG</c> 환경 변수가 있으면 그 경로에 장면을 PNG 로 저장한다
+    /// (<c>GH_DELIVERY_VIEW_CLOSE_PNG</c> 는 구역 옆에서 내려다본 가까운 시점).
     /// </summary>
     public sealed class FurnitureDeliveryZoneRenderTests
     {
@@ -18,14 +19,14 @@ namespace GhostHunter.Tests.PlayMode
         private const int Height = 540;
 
         [UnityTest]
-        public IEnumerator 어두운_밤_화면에서_렌더하면_초록_구역이_보인다()
+        public IEnumerator 어두운_밤_화면에서_렌더하면_빨간_페인트와_밝은_외곽선이_보인다()
         {
             var zone = new GameObject("FurnitureDeliveryZone");
             zone.transform.position = new Vector3(0f, 1.25f, 0f);
             zone.AddComponent<FurnitureDeliveryZone>();
             zone.AddComponent<FurnitureDeliveryZoneView>();
 
-            // 땅(바닥 y = 0)과 구역 옆 벽 하나 — 빛기둥이 벽에 가려지는지·땅에 얹히는지 보인다.
+            // 땅(바닥 y = 0) — 페인트가 땅에 얹혀 보이는지 본다.
             var ground = GameObject.CreatePrimitive(PrimitiveType.Cube);
             ground.transform.position = new Vector3(0f, -0.25f, 0f);
             ground.transform.localScale = new Vector3(30f, 0.5f, 30f);
@@ -44,6 +45,56 @@ namespace GhostHunter.Tests.PlayMode
             yield return null;
             yield return null;
 
+            Texture2D image = Capture(camera);
+            CountRed(image, out int red, out int bright);
+            Dump("GH_DELIVERY_VIEW_PNG", image);
+
+            // 구역 옆에서 내려다본 가까운 시점 — 서 있는 눈높이에서는 구역이 비스듬히 납작해 외곽선이 대부분이라,
+            // 칠이 어두운지(밝은 것은 외곽선뿐인지)는 여기서 본다.
+            camera.transform.position = new Vector3(-3.5f, 2.6f, -5.5f);
+            camera.transform.LookAt(new Vector3(0f, 0f, 0f));
+            Texture2D close = Capture(camera);
+            CountRed(close, out int closeRed, out int closeBright);
+            Dump("GH_DELIVERY_VIEW_CLOSE_PNG", close);
+
+            Object.Destroy(zone);
+            Object.Destroy(ground);
+            Object.Destroy(cameraObject);
+            Object.Destroy(image);
+            Object.Destroy(close);
+
+            Assert.Greater(red, 400, $"어두운 배경에서 빨간 구역이 보여야 합니다(빨간 픽셀 {red}개).");
+            Assert.Greater(bright, 20, $"외곽선이 밝게 빛나야 합니다(밝은 빨강 픽셀 {bright}개).");
+            Assert.Greater(closeRed, 5000, $"가까이서는 빨간 페인트가 넓게 보여야 합니다(빨간 픽셀 {closeRed}개).");
+            Assert.Less(closeBright, closeRed * 0.3f,
+                $"밝은 곳은 외곽선뿐이고 칠은 어두워야 합니다(밝은 {closeBright} / 빨강 {closeRed}).");
+        }
+
+        // 빨강이 지배하는 픽셀 수와 그중 밝은(R > 200) 픽셀 수.
+        private static void CountRed(Texture2D image, out int red, out int bright)
+        {
+            red = 0;
+            bright = 0;
+            foreach (Color32 pixel in image.GetPixels32())
+            {
+                if (pixel.r > 60 && pixel.r > pixel.g * 2 && pixel.r > pixel.b * 2)
+                {
+                    red++;
+                    if (pixel.r > 200)
+                        bright++;
+                }
+            }
+        }
+
+        private static void Dump(string environmentVariable, Texture2D image)
+        {
+            string path = System.Environment.GetEnvironmentVariable(environmentVariable);
+            if (!string.IsNullOrEmpty(path))
+                File.WriteAllBytes(path, image.EncodeToPNG());
+        }
+
+        private static Texture2D Capture(Camera camera)
+        {
             var target = new RenderTexture(Width, Height, 24);
             camera.targetTexture = target;
             camera.Render();
@@ -53,25 +104,9 @@ namespace GhostHunter.Tests.PlayMode
             image.ReadPixels(new Rect(0, 0, Width, Height), 0, 0);
             image.Apply();
             RenderTexture.active = previous;
-
-            int green = 0;
-            foreach (Color32 pixel in image.GetPixels32())
-            {
-                if (pixel.g > 60 && pixel.g > pixel.r + 15 && pixel.g > pixel.b + 15)
-                    green++;
-            }
-
-            string dump = System.Environment.GetEnvironmentVariable("GH_DELIVERY_VIEW_PNG");
-            if (!string.IsNullOrEmpty(dump))
-                File.WriteAllBytes(dump, image.EncodeToPNG());
-
-            Object.Destroy(zone);
-            Object.Destroy(ground);
-            Object.Destroy(cameraObject);
+            camera.targetTexture = null;
             Object.Destroy(target);
-            Object.Destroy(image);
-
-            Assert.Greater(green, 400, $"어두운 배경에서 초록 구역이 보여야 합니다(초록 픽셀 {green}개).");
+            return image;
         }
     }
 }

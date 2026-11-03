@@ -82,18 +82,8 @@ namespace GhostHunter.Gameplay.Cleaning
 
                 int targets = 0;
                 int delivered = 0;
-                if (_furniture != null && _furniture.Items != null)
-                {
-                    foreach (RandomFurnitureItem item in _furniture.Items)
-                    {
-                        if (item == null || !item.IsAssignedWorkTarget)
-                            continue;
-
-                        targets++;
-                        if (item.IsDelivered)
-                            delivered++;
-                    }
-                }
+                if (_furniture != null)
+                    _furniture.CountWorkTargets(out targets, out delivered);
 
                 return new CleaningTaskProgress(cleaned, placed, delivered, targets);
             }

@@ -97540,6 +97540,7 @@ MonoBehaviour:
   - {fileID: 909288641}
   - {fileID: 120540946}
   _resetter: {fileID: 2103509521}
+  _houseRoot: {fileID: 166072613}
 --- !u!114 &2103992888
 MonoBehaviour:
   m_ObjectHideFlags: 0

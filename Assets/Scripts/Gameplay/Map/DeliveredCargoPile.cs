@@ -7,7 +7,7 @@ namespace GhostHunter.Gameplay.Map
 {
     /// <summary>
     /// 반출 구역에 넣은 목표 가구마다 드릴카 화물칸에 짐이 하나씩 쌓이는 시각 연출(2026-10-29 사용자 요청).
-    /// 게임 규칙과 무관한 로컬 표시다 — 반출 완료 개수는 <see cref="RandomFurnitureItem.IsDelivered"/>(복제되는 배치 상태)에서
+    /// 게임 규칙과 무관한 로컬 표시다 — 반출 완료 개수는 <see cref="FurnitureSpawnController.CountWorkTargets"/>(복제되는 배치 상태)에서
     /// 읽으므로 서버·클라이언트가 따로 통신하지 않고, 늦게 들어온 접속자와 호스트 이전 복구도 같은 더미를 본다.
     /// 충돌체가 없고 모든 도형은 이 오브젝트의 자식이라 드릴카와 함께 사라진다.
     ///
@@ -137,11 +137,7 @@ namespace GhostHunter.Gameplay.Map
             if (_furniture == null || !_furniture.IsReady)
                 return -1;
 
-            int delivered = 0;
-            RandomFurnitureItem[] items = _furniture.Items;
-            for (int i = 0; i < items.Length; i++)
-                if (items[i] != null && items[i].IsDelivered)
-                    delivered++;
+            _furniture.CountWorkTargets(out _, out int delivered);
             return delivered;
         }
 

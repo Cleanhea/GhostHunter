@@ -144,7 +144,8 @@ namespace GhostHunter.Gameplay.FurnitureDriver
             _bundleRoot.SetActive(bundled);
         }
 
-        private void EnsureMesh()
+        /// <summary>짐더미 메시를 만든다(한 번만). <see cref="IsReady"/>일 때만 부른다.</summary>
+        internal void EnsureMesh()
         {
             if (_mesh != null)
                 return;

@@ -40,6 +40,8 @@ MonoBehaviour:
   _minimumTargetTypes: 4
   _maximumTargetTypes: 4
   _maximumTargetsPerRoom: 0
+  _minimumDisassemblyTargets: 2
+  _maximumDisassemblyTargets: 2
   _useFixedSeed: 0
   _seed: 1
   _searchBudget: 20000

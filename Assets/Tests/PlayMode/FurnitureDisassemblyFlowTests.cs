@@ -5,7 +5,9 @@ using GhostHunter.Core;
 using GhostHunter.Gameplay.Furniture;
 using GhostHunter.Gameplay.FurnitureDriver;
 using GhostHunter.Gameplay.Interaction;
+using GhostHunter.Gameplay.Map;
 using GhostHunter.Gameplay.Player;
+using GhostHunter.Gameplay.Recovery;
 using GhostHunter.UI;
 using NUnit.Framework;
 using Unity.Netcode;
@@ -374,6 +376,151 @@ namespace GhostHunter.Tests.PlayMode
             RequestDisassemble();
             AssertUnchanged();
             yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator 집_안의_분해_가능_가구만_설정_개수만큼_목표로_지정되고_정산에_집계된다()
+        {
+            CreateScenario();
+            FurnitureDriverPoolItem second = SpawnPoolItem("TestLarge", true, bundleable: true);
+            second.transform.position = new Vector3(-3f, 1f, 2f);
+            FurnitureDriverPoolItem outside = SpawnPoolItem("TestLarge", true, bundleable: true);
+            outside.transform.position = new Vector3(0f, 1f, 30f);
+            FurnitureSpawnController controller = CreateSpawnController(minimum: 1, maximum: 1);
+
+            InvokePrivate(controller, "ServerAssignDisassemblyTargets", 1234);
+
+            Assert.IsFalse(outside.IsAssignedWorkTarget, "집(방 상자) 밖의 가구는 목표가 되지 않는다");
+            Assert.AreEqual(1, (_large.IsAssignedWorkTarget ? 1 : 0) + (second.IsAssignedWorkTarget ? 1 : 0),
+                "집 안 후보 중 설정 개수만큼만 고른다");
+            foreach (FurnitureDriverPoolItem part in _parts)
+                Assert.IsFalse(part.IsAssignedWorkTarget, "짐더미 형태가 없는 부품은 후보가 아니다");
+            controller.CountWorkTargets(out int targets, out int delivered);
+            Assert.AreEqual(1, targets);
+            Assert.AreEqual(0, delivered);
+
+            FurnitureDriverPoolItem target = _large.IsAssignedWorkTarget ? _large : second;
+            CreateDeliveryZone(target.transform.position);
+            Assert.IsTrue(target.ServerCompleteDelivery());
+            controller.CountWorkTargets(out targets, out delivered);
+            Assert.AreEqual(1, targets, "반출 뒤에도 목표 수에 남는다");
+            Assert.AreEqual(1, delivered);
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator 목표_분해_가구는_짐더미로_반출해도_완료되고_다시_꺼내지지_않는다()
+        {
+            CreateScenario();
+            CreateDeliveryZone(_large.transform.position);
+            Assert.IsTrue(_large.ServerAssignWorkTarget());
+            Assert.IsTrue(_large.ServerConvertToBundle(0f));
+            Assert.IsTrue(_large.IsWorkTarget, "짐더미가 돼도 목표 가구다");
+
+            Assert.IsTrue(_large.ServerCompleteDelivery());
+            Assert.IsTrue(_large.IsDelivered);
+            Assert.IsFalse(_large.IsActive, "반출된 가구는 맵에서 사라진다");
+            Assert.IsFalse(_large.GetComponent<FurnitureGrabTarget>().CanGrab(HostClientId));
+            Assert.IsFalse(_large.ServerCompleteDelivery(), "반출은 한 번만 완료된다");
+            Assert.IsFalse(FurnitureDriverPoolItem.TryFindInactive("TestLarge", out _),
+                "반출된 가구를 조립이 다시 꺼내 쓰면 안 된다");
+            Assert.IsFalse(_large.ServerActivate(Vector3.up, Quaternion.identity, 100));
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator 목표_분해_가구는_온전한_모양으로_반출해도_완료된다()
+        {
+            CreateScenario();
+            CreateDeliveryZone(_large.transform.position);
+            Assert.IsTrue(_large.ServerAssignWorkTarget());
+            Assert.IsFalse(_large.IsBundled);
+            Assert.IsTrue(_large.ServerCompleteDelivery());
+            Assert.IsTrue(_large.IsDelivered);
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator 목표가_아니거나_반출_구역_밖이면_반출되지_않는다()
+        {
+            CreateScenario();
+            CreateDeliveryZone(_large.transform.position + Vector3.right * 20f);
+            Assert.IsFalse(_large.ServerCompleteDelivery(), "목표가 아닌 가구");
+            Assert.IsTrue(_large.ServerAssignWorkTarget());
+            Assert.IsFalse(_large.ServerCompleteDelivery(), "반출 구역 밖");
+            Assert.IsTrue(_large.IsActive);
+            Assert.IsFalse(_large.IsDelivered);
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator 목표_분해_가구만_탐지_마커가_켜지고_반출하면_꺼진다()
+        {
+            CreateScenario();
+            FurnitureDriverPoolItem other = SpawnPoolItem("TestLarge", true, bundleable: true);
+            CreateDeliveryZone(_large.transform.position);
+            Assert.IsNull(_large.GetComponent<DetectionTargetMarker>(), "목표가 되기 전에는 마커가 없다");
+
+            Assert.IsTrue(_large.ServerAssignWorkTarget());
+            DetectionTargetMarker marker = _large.GetComponent<DetectionTargetMarker>();
+            Assert.IsNotNull(marker);
+            Assert.IsTrue(marker.IsTargetActive);
+            Assert.IsNull(other.GetComponent<DetectionTargetMarker>(), "목표가 아닌 큰 가구는 탐지에 빛나지 않는다");
+
+            Assert.IsTrue(_large.ServerCompleteDelivery());
+            Assert.IsFalse(marker.IsTargetActive);
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator 호스트_이전_스냅샷은_목표와_반출_상태를_되살린다()
+        {
+            CreateScenario();
+            Assert.IsTrue(_large.ServerAssignWorkTarget());
+            StageRecoverySnapshot.PoolFurnitureState state = _large.CaptureStageState("TestLarge");
+            Assert.AreEqual(1, state.WorkState);
+
+            state.WorkState = 3;
+            state.Active = false;
+            Assert.IsTrue(_large.ServerRestoreStageState(state));
+            Assert.IsTrue(_large.IsAssignedWorkTarget);
+            Assert.IsTrue(_large.IsDelivered);
+            Assert.IsFalse(_large.IsWorkTarget);
+            yield return null;
+        }
+
+        /// <summary>집 루트 아래 원점 중심 10m 방 상자 하나를 둔 배치 컨트롤러(스폰하지 않는다 — 고르기만 부른다).</summary>
+        private FurnitureSpawnController CreateSpawnController(int minimum, int maximum)
+        {
+            var house = Track(new GameObject("TestHouse"));
+            var room = new GameObject("TestRoom");
+            room.transform.SetParent(house.transform, false);
+            var volume = new GameObject(HouseRoomVolumes.VolumeName);
+            volume.transform.SetParent(room.transform, false);
+            volume.AddComponent<BoxCollider>().size = new Vector3(10f, 1f, 10f);
+
+            var settings = Track(ScriptableObject.CreateInstance<FurnitureSpawnSettings>());
+            SetPrivateField(settings, "_minimumDisassemblyTargets", minimum);
+            SetPrivateField(settings, "_maximumDisassemblyTargets", maximum);
+
+            var instance = Track(new GameObject("TestSpawnController"));
+            instance.SetActive(false);
+            var controller = instance.AddComponent<FurnitureSpawnController>();
+            SetPrivateField(controller, "_settings", settings);
+            SetPrivateField(controller, "_houseRoot", house.transform);
+            instance.SetActive(true);
+            return controller;
+        }
+
+        private void CreateDeliveryZone(Vector3 center)
+        {
+            var instance = Track(new GameObject("TestDeliveryZone"));
+            instance.SetActive(false);
+            instance.transform.position = center;
+            var zone = instance.AddComponent<FurnitureDeliveryZone>();
+            SetPrivateField(zone, "_showFloorMarker", false);
+            instance.SetActive(true);
+            Assert.IsTrue(FurnitureDeliveryZone.Contains(center), "다른 반출 구역이 남아 있다");
         }
 
         [TearDown]

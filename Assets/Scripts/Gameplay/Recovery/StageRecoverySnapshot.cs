@@ -75,6 +75,8 @@ namespace GhostHunter.Gameplay.Recovery
             public Vector3 AngularVelocity;
             public int Durability;
             public bool Bundled;
+            /// <summary>목표 가구·반출 완료 플래그. 이 필드가 없는 스냅샷은 목표가 아닌 가구로 복원된다.</summary>
+            public byte WorkState;
         }
 
         [Serializable]

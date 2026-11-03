@@ -7,7 +7,8 @@ namespace GhostHunter.Gameplay.Map
     /// 목표 가구 반출 완료 구역. 2026-10-04 사용자 요청으로 드릴카 <b>밖</b>, 뒷문 램프 옆 땅에 둔다 — 좁은 뒷문(폭 약 1.15m)과
     /// 램프로 가구를 들고 올라가지 않아도 된다. 안전 구역(드릴카 실내)과는 별도로 판정한다.
     /// 드릴카 모델 프리팹은 구역을 저장해 두고, 임시 상자(ProtoTypeGame)에서는 <see cref="CreateBesideDrillCar"/> 가
-    /// 상자 옆 땅에 런타임으로 만든다. 플레이어에게는 <see cref="FurnitureDeliveryZoneView"/> 가 빛으로 구역을 보여 준다.
+    /// 상자 옆 땅에 런타임으로 만든다. 플레이어에게는 <see cref="FurnitureDeliveryZoneView"/> 가 바닥에 칠한 빨간 페인트와
+    /// 빛나는 외곽선으로 구역을 보여 준다.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class FurnitureDeliveryZone : MonoBehaviour
@@ -22,7 +23,7 @@ namespace GhostHunter.Gameplay.Map
         [Tooltip("반출 구역 상자 크기(m). 오브젝트 위치가 상자 중심이다. 바닥에 놓인 가구의 원점이 들어가도록 땅보다 조금 아래까지 덮는다.")]
         [SerializeField] private Vector3 _size = BesideSize;
 
-        [Tooltip("바닥 채움·윤곽선·모서리 빛기둥·초록 조명으로 구역을 꾸민다(FurnitureDeliveryZoneView, 아래로 땅을 찾아 그 높이에). " +
+        [Tooltip("바닥에 칠한 빨간 페인트·빛나는 외곽선·붉은 조명으로 구역을 꾸민다(FurnitureDeliveryZoneView, 아래로 땅을 찾아 그 높이에). " +
             "필드 이름은 예전 바닥 표시판 때의 것을 직렬화 호환을 위해 그대로 둔다.")]
         [SerializeField] private bool _showFloorMarker = true;
 

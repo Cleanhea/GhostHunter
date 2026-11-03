@@ -9,6 +9,7 @@
 
 | 날짜 | 태스크 | 비고 |
 | --- | --- | --- |
+| 2026-11-03 | **반출 구역 표시를 빨간 페인트 + 빛나는 외곽선으로 변경(사용자 요청 "너무 형광")** | 초록 반투명 채움·모서리 빛기둥·안쪽 선을 없애고, 런타임 생성 페인트 텍스처(띠·틈·안쪽 칠·롤러 자국·벗겨짐, `FurnitureDeliveryZonePaint`) + 밝은 빨강 외곽선·심지·빛무리·약한 붉은 조명으로 교체. 판정 구역·크기·위치는 그대로. EditMode `FurnitureDeliveryZoneViewTests` 5/5·PlayMode 렌더 1/1 통과, 렌더 이미지 육안 확인. 실제 Stage1·Tutorial 화면은 미확인 → [stage-system.md §2.1](stage-system.md) |
 | 2026-11-03 | **리팩토링 6단계 — 씬·정산 흐름 정리** | `SceneTransitionOperations`·`StageSettlementHistory`로 실행/이력 분리, NGO 완료/종료 대기·입력 중단·복귀 권한 중복 통합. 기존 전환/재스폰·권한·보상·정산/복구 형식 보존. EditMode 9건·PlayMode 4건 추가. 컴파일 오류/경고 0·전체 597/597·171/171 통과, 보호 파일 425개 보존. 0~6단계 누적 런타임 7,016줄·테스트 포함 6,114줄 감소. 기존 SF-FIX-1·Steam 다인·화면/체감은 남음 → [testing.md](../workflow/testing.md) |
 | 2026-11-02 | **리팩토링 5단계 — 귀신 감지·이동 구조 정리** | `GhostPerception`·`GhostNavigation`으로 감지·이동 분리, 기본/단서 타깃 선정과 후보/이동 경로 계산 통합. 기존 규칙·설정·RPC 2개·직렬화·복구 형식 보존. PlayMode 21건 추가, 굴착 노출 소스 검사 1건을 실제 경합 검사로 이관. 컴파일 오류/경고 0·전체 EditMode 588/588·PlayMode 167/167 통과(실패·스킵 0). 보호 파일 425개 보존. Stage1 체감·연출·Steam 2PC 미검증 → [ghost-prototype.md](../architecture/ghost-prototype.md), [testing.md](../workflow/testing.md) |
 | 2026-11-02 | **리팩토링 4단계 — 입력·행동 정리** | `PlayerInputPolicy`로 잠금 우선순위·허용 입력 통합, `CorpseInteraction`·`PlayerShoveInteraction`으로 로컬 행동 상태 분리. 기존 조작·직렬화·RPC 10개·서버 검증 보존, 시체 진단 로그 제거. PlayMode 13건 추가·소스 구조 검사 2건을 실제 입력으로 이관. 컴파일 오류/경고 0·전체 EditMode 589/589·PlayMode 146/146 통과(실패·스킵 0). 보호 파일 425개 보존. 실제 조작감·Steam 2PC 미검증 → [testing.md](../workflow/testing.md) |

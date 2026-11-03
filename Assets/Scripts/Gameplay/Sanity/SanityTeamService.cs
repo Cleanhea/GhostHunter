@@ -193,14 +193,8 @@ namespace GhostHunter.Gameplay.Sanity
             int targets = 0;
             int delivered = 0;
             FurnitureSpawnController furniture = FindFirstObjectByType<FurnitureSpawnController>();
-            if (furniture != null && furniture.Items != null)
-                foreach (RandomFurnitureItem item in furniture.Items)
-                    if (item != null && item.IsAssignedWorkTarget)
-                    {
-                        targets++;
-                        if (item.IsDelivered)
-                            delivered++;
-                    }
+            if (furniture != null)
+                furniture.CountWorkTargets(out targets, out delivered);
 
             CleaningController cleaning = FindFirstObjectByType<CleaningController>();
             int cleaned = cleaning != null ? cleaning.ProgressPercent : 0;

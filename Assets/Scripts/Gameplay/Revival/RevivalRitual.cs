@@ -174,10 +174,10 @@ namespace GhostHunter.Gameplay.Revival
         private void CollectRooms()
         {
             _rooms.Clear();
-            foreach (BoxCollider box in _houseRoot.GetComponentsInChildren<BoxCollider>(true))
+            var volumes = new List<BoxCollider>();
+            HouseRoomVolumes.Collect(_houseRoot, volumes);
+            foreach (BoxCollider box in volumes)
             {
-                if (box.name != "RoomDimensions" || box.transform.parent == null)
-                    continue;
                 Transform root = box.transform.parent;
                 _rooms.Add(new Room
                 {
@@ -628,13 +628,8 @@ namespace GhostHunter.Gameplay.Revival
         }
 
         /// <summary>방 범위 상자(바닥 높이 ±0.5m)의 수평 안쪽이고, 바닥에서 2.5m 안의 높이인가.</summary>
-        internal static bool IsInsideRoom(BoxCollider bounds, Vector3 position)
-        {
-            Vector3 local = bounds.transform.InverseTransformPoint(position) - bounds.center;
-            Vector3 half = bounds.size * 0.5f;
-            return Mathf.Abs(local.x) <= half.x && Mathf.Abs(local.z) <= half.z
-                && local.y >= -1f && local.y <= 2.5f;
-        }
+        internal static bool IsInsideRoom(BoxCollider bounds, Vector3 position) =>
+            HouseRoomVolumes.Contains(bounds, position);
 
         private bool TryGetAlivePlayer(ulong clientId, out SanityNetworkState player)
         {

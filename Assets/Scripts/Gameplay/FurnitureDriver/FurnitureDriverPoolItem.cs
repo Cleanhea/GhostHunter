@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using GhostHunter.Gameplay.Furniture;
 using GhostHunter.Gameplay.Map;
+using GhostHunter.Gameplay.Player;
 using GhostHunter.Gameplay.Recovery;
 using Unity.Netcode;
 using Unity.Netcode.Components;
@@ -19,12 +20,19 @@ namespace GhostHunter.Gameplay.FurnitureDriver
     /// (<see cref="FurniturePartRequirement.PartId"/>). 어느 쪽이든 씬에 미리 배치되어 있고,
     /// 서버가 활성화(<see cref="ServerActivate"/>)·비활성화(<see cref="ServerDeactivate"/>)만
     /// 한다 — 새로 스폰하지 않는다.</para>
+    ///
+    /// <para><b>목표 가구</b>(MD-3, 2026-11-03 사용자 확정) — 분해 가능한 큰 가구는 스테이지 시작 때
+    /// <see cref="FurnitureSpawnController"/>가 집 안의 것 중 설정 개수만큼 골라 목표로 지정한다.
+    /// 짐더미든 온전한 모양이든 반출 구역에 들어오면 반출 완료다. 플래그는 <see cref="RandomFurnitureItem"/>과 같은 뜻이다.</para>
     /// </summary>
     [DisallowMultipleComponent]
     [RequireComponent(typeof(NetworkObject), typeof(NetworkTransform), typeof(Rigidbody))]
     [RequireComponent(typeof(FurnitureNetworkPhysics))]
     public sealed class FurnitureDriverPoolItem : NetworkBehaviour
     {
+        private const byte TargetFlag = 1;
+        private const byte DeliveredFlag = 2;
+
         private static readonly List<FurnitureDriverPoolItem> Registry = new();
 
         [SerializeField] private string _poolKey = "";
@@ -35,7 +43,10 @@ namespace GhostHunter.Gameplay.FurnitureDriver
 
         private readonly NetworkVariable<bool> _active = new(false,
             NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+        private readonly NetworkVariable<byte> _workState = new(0,
+            NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
         private FurnitureNetworkPhysics _physics;
+        private DetectionTargetMarker _detectionMarker;
 
         private NetworkTransform _networkTransform;
         private Rigidbody _body;
@@ -57,6 +68,15 @@ namespace GhostHunter.Gameplay.FurnitureDriver
         /// <summary>짐더미 형태를 가진 큰 가구인가 — 분해 대상이 될 수 있는 조건.</summary>
         public bool CanBundle => _bundle != null && _bundle.IsReady;
 
+        /// <summary>등록된 전체 인스턴스(서버·클라이언트 모두 스폰된 것). 여러 씬의 것이 섞일 수 있다.</summary>
+        public static IReadOnlyList<FurnitureDriverPoolItem> All => Registry;
+
+        /// <summary>이번 스테이지의 목표 가구로 지정됐는가. 파손·반출 뒤에도 정산 집계를 위해 남는다.</summary>
+        public bool IsAssignedWorkTarget => IsSpawned && (_workState.Value & TargetFlag) != 0;
+        public bool IsDelivered => IsAssignedWorkTarget && (_workState.Value & DeliveredFlag) != 0;
+        /// <summary>아직 반출해야 하는 목표 가구인가(맵에 있고 파손되지 않았다).</summary>
+        public bool IsWorkTarget => IsAssignedWorkTarget && !IsDelivered && IsActive;
+
         private void Awake()
         {
             _physics = GetComponent<FurnitureNetworkPhysics>();
@@ -69,6 +89,29 @@ namespace GhostHunter.Gameplay.FurnitureDriver
         /// </summary>
         public bool ServerConvertToBundle(float dropHeight) =>
             IsServer && IsSpawned && IsActive && _bundle != null && _bundle.ServerConvert(dropHeight);
+
+        /// <summary>서버 전용 — 맵에 놓인 큰 가구를 이번 스테이지의 목표 가구로 지정한다.</summary>
+        public bool ServerAssignWorkTarget()
+        {
+            if (!IsServer || !IsActive || !CanBundle || IsAssignedWorkTarget)
+                return false;
+            _workState.Value = TargetFlag;
+            RefreshTargetVisibility();
+            return true;
+        }
+
+        /// <summary>
+        /// 서버 전용 — 반출 구역에 들어온 목표 가구를 한 번만 완료 처리한다. 짐더미든 온전한 모양이든 같다.
+        /// 잡고 있던 플레이어를 놓게 하고 숨긴다. 정산 집계를 위해 목표 플래그는 남긴다.
+        /// </summary>
+        public bool ServerCompleteDelivery()
+        {
+            if (!IsServer || !IsWorkTarget || !FurnitureDeliveryZone.Contains(transform.position))
+                return false;
+            _workState.Value |= DeliveredFlag;
+            ServerDeactivate();
+            return true;
+        }
 
         public override void OnNetworkSpawn()
         {
@@ -86,29 +129,37 @@ namespace GhostHunter.Gameplay.FurnitureDriver
             _grabTarget = GetComponent<FurnitureGrabTarget>();
 
             _active.OnValueChanged += HandleActiveChanged;
+            _workState.OnValueChanged += HandleWorkStateChanged;
             if (IsServer && !StageRecoveryGate.Restoring)
+            {
                 _active.Value = _startActive;
+                _workState.Value = 0;
+            }
             ApplyPresentation(_active.Value);
+            RefreshTargetVisibility();
             Registry.Add(this);
         }
 
         public override void OnNetworkDespawn()
         {
             _active.OnValueChanged -= HandleActiveChanged;
+            _workState.OnValueChanged -= HandleWorkStateChanged;
             Registry.Remove(this);
+            if (_detectionMarker != null)
+                _detectionMarker.SetTargetActive(false);
         }
 
         /// <summary>
         /// 서버 전용 — 지정한 풀 키의 비활성(대기 중) 인스턴스를 하나 찾는다. 분해가 부품을 꺼내거나
         /// 조립이 완성된 큰 가구를 꺼낼 때 쓴다. 어떤 개체인지는 규칙 2에 따라 구분하지 않으므로
-        /// 먼저 찾은 것을 그대로 쓴다.
+        /// 먼저 찾은 것을 그대로 쓴다. 반출된 목표 가구는 숨겨져 있어도 다시 꺼내지 않는다.
         /// </summary>
         public static bool TryFindInactive(string poolKey, out FurnitureDriverPoolItem item)
         {
             foreach (FurnitureDriverPoolItem candidate in Registry)
             {
                 if (candidate != null && candidate.IsSpawned && candidate.PoolKey == poolKey
-                    && !candidate.IsActive && !candidate.IsBroken)
+                    && !candidate.IsActive && !candidate.IsBroken && !candidate.IsDelivered)
                 {
                     item = candidate;
                     return true;
@@ -134,6 +185,7 @@ namespace GhostHunter.Gameplay.FurnitureDriver
                 AngularVelocity = _body != null ? _body.angularVelocity : Vector3.zero,
                 Durability = Durability,
                 Bundled = IsBundled,
+                WorkState = _workState.Value,
             };
         }
 
@@ -146,6 +198,7 @@ namespace GhostHunter.Gameplay.FurnitureDriver
             _networkTransform.Teleport(state.Position, state.Rotation, transform.localScale);
             RoomPreset.TeleportBody(_body, state.Position, state.Rotation);
             _active.Value = state.Active;
+            _workState.Value = state.WorkState;
             _bundle?.ServerSetBundled(state.Bundled);
             _physics.ServerRestoreStageDurability(state.Durability);
             ApplyPresentation(state.Active);
@@ -161,7 +214,8 @@ namespace GhostHunter.Gameplay.FurnitureDriver
         /// <summary>서버에서 지정한 위치에 나타나 물리적으로 낙하한다(§6.2·§6.3).</summary>
         public bool ServerActivate(Vector3 dropPosition, Quaternion rotation, int durability)
         {
-            if (!IsServer || !IsSpawned || _networkTransform == null || !_networkTransform.IsSpawned)
+            if (!IsServer || !IsSpawned || _networkTransform == null || !_networkTransform.IsSpawned
+                || IsDelivered)
                 return false;
             if (_physics == null || !_physics.ServerSetDurability(durability))
                 return false;
@@ -191,6 +245,27 @@ namespace GhostHunter.Gameplay.FurnitureDriver
         }
 
         private void HandleActiveChanged(bool previous, bool current) => ApplyPresentation(current);
+
+        private void HandleWorkStateChanged(byte previous, byte current) => RefreshTargetVisibility();
+
+        /// <summary>
+        /// 탐지 스킬 마커를 목표 여부에 맞춘다. 모든 접속자에서 부른다 — 파손·활성 변화는
+        /// <see cref="FurnitureNetworkPhysics.RefreshPresentation"/>를 거쳐 들어온다.
+        /// 마커는 처음 목표가 될 때 붙인다: 목표가 아닌 큰 가구가 탐지에 빛나면 안 되고, 미리 붙이면 가구마다 덧그리기 메시가 생긴다.
+        /// </summary>
+        public void RefreshTargetVisibility()
+        {
+            bool target = IsWorkTarget;
+            if (target && _detectionMarker == null)
+            {
+                // 짐더미 메시는 처음 짐더미가 될 때 만든다. 마커가 렌더러를 모을 때 메시가 있어야 짐더미도 빛난다.
+                if (_bundle != null && _bundle.IsReady)
+                    _bundle.EnsureMesh();
+                _detectionMarker = gameObject.AddComponent<DetectionTargetMarker>();
+            }
+            if (_detectionMarker != null)
+                _detectionMarker.SetTargetActive(target);
+        }
 
         private void ApplyPresentation(bool active)
         {

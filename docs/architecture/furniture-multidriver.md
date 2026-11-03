@@ -251,6 +251,21 @@ Stage1·Tutorial 조립 구역은 드릴카 오른쪽(+X) 차체 옆 램프 쪽�
 - **서브메시:** 0 = 천(`M_FurnitureBundle_Fabric`), 1 = 끈(`M_FurnitureBundle_Strap`). 법선은 `RecalculateNormals`(홈 음영 반영).
 - **감는 방향:** 삼각형마다 꼭짓점 법선 평균과 비교해 바깥을 향하게 맞춘다 — 축 치환의 홀짝을 따로 계산하지 않는다.
 
+### 2.9 목표 가구·반출 — 분해 가능 가구 (기획서 §4.1·MD-3, 1.4, 2026-11-03)
+
+분해 가능한 큰 가구도 목표 가구로 집계한다. 짐더미든 온전한 모양이든 반출 구역에 들어오면 완료다.
+
+| 단계 | 처리 |
+| --- | --- |
+| 지정 | `FurnitureSpawnController`가 랜덤 풀 배치 직후(`IsReady` 전) `ServerAssignDisassemblyTargets`를 부른다. 후보 = 같은 씬·활성·`CanBundle`(짐더미 형태가 있는 큰 가구)이고 `_houseRoot` 아래 `RoomDimensions` 방 상자 안(`HouseRoomVolumes`)이며, `ServerExcludeArea`로 뺀 방(부활 의식 방) 밖인 것. `FurnitureSpawnSettings`의 `Minimum/MaximumDisassemblyTargets` 범위에서 개수를 뽑아 시드 고정 무작위로 고른다(`NetworkObjectId`로 정렬해 재현). 후보가 모자라면 있는 만큼만 지정하고 경고 로그만 남긴다. `_houseRoot`가 비었거나 최대 0이면 아무것도 하지 않는다 |
+| 상태 | `FurnitureDriverPoolItem._workState`(서버 쓰기 `NetworkVariable<byte>`, 1 = 목표, 2 = 반출 완료) — `RandomFurnitureItem`의 배치 플래그와 같은 뜻. `IsAssignedWorkTarget`(파손·반출 뒤에도 남음)·`IsDelivered`·`IsWorkTarget`(활성·미반출). 스테이지 시작 시 서버가 0으로 되돌린다 |
+| 반출 | `FurnitureDeliveryTracker`가 `FixedUpdate`마다 `FurnitureDriverPoolItem.All` 중 `IsWorkTarget`에 `ServerCompleteDelivery`를 부른다 — 원점이 `FurnitureDeliveryZone` 안이면 완료 플래그를 세우고 `ServerDeactivate`(홀더 해제·숨김). 짐더미 여부는 보지 않는다 |
+| 재사용 차단 | 반출된 가구는 `TryFindInactive`(조립이 완성품을 꺼낼 때)와 `ServerActivate`가 거절한다 |
+| 집계 | `FurnitureSpawnController.CountWorkTargets` — 랜덤 풀 + 같은 씬의 분해 가능 목표. 정산(`SanityTeamService`)·청소 진행도(`CleaningController.TaskProgress`)·화물칸 짐(`DeliveredCargoPile`)이 함께 쓴다 |
+| 탐지 표시 | `RefreshTargetVisibility`가 처음 목표가 될 때 `DetectionTargetMarker`를 붙이고(짐더미 메시를 먼저 만들어 짐더미도 빛나게) 목표 여부에 맞춰 켜고 끈다. 파손·활성 변화는 `FurnitureNetworkPhysics.RefreshPresentation`을 거쳐 들어온다 |
+| 복구 | `PoolFurnitureState.WorkState` — 필드가 없던 옛 스냅샷은 목표가 아닌 가구로 복원된다 |
+| 배선 | Stage1 `FurnitureSpawnController._houseRoot` = `House_Prototype_PlanB`(부활 의식과 같은 집 루트). `FurnitureSpawnSettings_PlanB`는 **임시 2개**(N 확정은 MD-3). ProtoTypeGame은 같은 설정을 쓰지만 집 루트를 비워 지정하지 않는다. Tutorial은 0 |
+
 ## 3. 에셋과 설치
 
 - **짐더미(2026-10-29, 사용자 요청 — 메시를 직접 생성):** 분해 가능한 큰 가구 프리팹 8종(위 6종 + 싱글 침대 2종)에 `FurnitureBundle` 컴포넌트를
@@ -299,8 +314,8 @@ Stage1·Tutorial 조립 구역은 드릴카 오른쪽(+X) 차체 옆 램프 쪽�
   그때까지 분해한 가구는 되돌릴 수 없다(전환은 되돌릴 수 있게 짜 두었다 — §2.8 회수).
 - **짐더미 외형은 게임 화면에서 확인하지 않았다.** 메시는 EditMode로 크기·경계·감는 방향·부피를 검증했고 렌더 결과를 이미지로 확인했지만([기획서 §6.5](../project/furniture-multidriver-system.md)),
   실제 가구 위에서의 모습·조명·윤곽선 셸 모양과 Host/Client 복제는 실기 미확인이다. 크기 비율(0.4배·최소 0.3m)은 **임시값**이다(MD-15).
-- **드릴카 적재(반출) 판정은 짐더미를 세지 않을 수 있다.** 짐더미는 일반 가구처럼 잡고 옮길 수 있지만, 반출 완료 판정(`FurnitureDeliveryTracker`)은
-  `RandomFurnitureItem` 목표 가구만 센다. 분해한 침대·옷장의 반출 집계는 MD-3(MG-22) 대기.
+- **분해 가능 목표 가구(§2.9)는 Stage1 실기에서 확인하지 않았다.** 방 상자 판정·탐지 마커·화물칸 짐 연출·Host/Client 복제는 PlayMode 단위 시나리오로만 봤다.
+  목표 개수 2는 임시값이다(MD-3).
 
 - **조립은 아직 한 번도 끝까지 돌아간 적이 없다.** §2.4의 뜬 트리거 때문에 그동안 불가능했고,
   수정은 코드에만 있다 — 씬에 반영(재배치 메뉴)한 뒤 실기로 확인해야 "된다"고 말할 수 있다.
@@ -319,6 +334,12 @@ Stage1·Tutorial 조립 구역은 드릴카 오른쪽(+X) 차체 옆 램프 쪽�
   대상 피드백은 FM-IMPL-4 몫이다.
 
 ## 5. 검증 상태
+
+**2026-11-03 (기획서 1.4, 분해 가능 가구 목표 집계 §2.9):** 검증용 복제 프로젝트에서 컴파일 오류 0건. `FurnitureDisassemblyFlowTests`·`RevivalRoomFlowTests` **39/39 통과** —
+새 6건: 집 안(방 상자) 후보만 설정 개수만큼 지정·부품/집 밖 제외·`CountWorkTargets` 집계, 짐더미 반출 완료·중복 거절·조립 재사용 차단, 온전한 모양 반출 완료,
+목표 아님/구역 밖 거절, 목표만 탐지 마커·반출 시 꺼짐, 스냅샷 `WorkState` 복원. 전체 실행은 EditMode **598/599**·PlayMode **176/177** —
+실패 2건은 같은 시점 작업 트리에 함께 있던 반출 구역 바닥 페인트 변경(`FurnitureDeliveryZoneView`·`FurnitureDeliveryZonePaint`)의 테스트이고 이번 변경과 무관.
+**Stage1 실기(탐지 표시·화물칸 짐·Host/Client 복제)는 미수행.**
 
 **2026-10-29 (기획서 1.3, 짐더미):** 검증용 복제 프로젝트에서 컴파일 오류 0건. EditMode **541건 중 539 통과**(실패 2건은 기존 `MoleSkillWiringTests` 소스 검사 —
 이번 변경과 무관). 전체 PlayMode **116/116 통과**. 새 `FurnitureBundleMeshTests`(크기·경계, 서브메시·인덱스, NaN·법선, 닫힌 껍질 부피 부호, 끈이 경계를 넘지 않음, 크기 계산, 결정성; 4가지 크기)가 모두 통과.

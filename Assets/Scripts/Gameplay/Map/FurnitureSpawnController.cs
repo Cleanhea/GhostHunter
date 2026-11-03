@@ -5,6 +5,7 @@ using Cysharp.Threading.Tasks;
 using Unity.Netcode;
 using Unity.Netcode.Components;
 using UnityEngine;
+using GhostHunter.Gameplay.FurnitureDriver;
 using GhostHunter.Gameplay.Recovery;
 using Random = System.Random;
 
@@ -21,6 +22,9 @@ namespace GhostHunter.Gameplay.Map
         [SerializeField] private RandomFurnitureItem[] _items = Array.Empty<RandomFurnitureItem>();
         [SerializeField] private FurnitureSpawnPoint[] _points = Array.Empty<FurnitureSpawnPoint>();
         [SerializeField] private FurnitureResetter _resetter;
+        [Tooltip("분해 가능 가구 목표 후보를 고를 집 루트(그 아래 RoomDimensions 방 상자 안의 가구만 고른다). " +
+            "비우면 분해 가능 가구를 목표로 지정하지 않는다.")]
+        [SerializeField] private Transform _houseRoot;
 
         private readonly NetworkVariable<bool> _isReady = new(false,
             NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
@@ -278,6 +282,7 @@ namespace GhostHunter.Gameplay.Map
                     if (!item.ServerPlace(pose, requests[i].IsTarget))
                         throw new InvalidOperationException($"{item.name} 배치에 실패했습니다.");
                 }
+                ServerAssignDisassemblyTargets(seed);
                 if (_resetter != null)
                     _resetter.CapturePoses();
                 _isReady.Value = true;
@@ -292,6 +297,86 @@ namespace GhostHunter.Gameplay.Map
                             item.ServerPark();
                 Debug.LogException(exception, this);
             }
+        }
+
+        /// <summary>
+        /// 목표 가구(랜덤 풀 + 분해 가능 가구) 수와 그중 반출 완료 수. 복제되는 상태만 읽으므로 모든 접속자에서 같다.
+        /// 정산·청소 진행도 HUD·화물칸 짐 연출이 같은 기준을 쓴다.
+        /// </summary>
+        public void CountWorkTargets(out int targets, out int delivered)
+        {
+            targets = 0;
+            delivered = 0;
+            if (_items != null)
+            {
+                foreach (RandomFurnitureItem item in _items)
+                {
+                    if (item == null || !item.IsAssignedWorkTarget)
+                        continue;
+                    targets++;
+                    if (item.IsDelivered)
+                        delivered++;
+                }
+            }
+
+            IReadOnlyList<FurnitureDriverPoolItem> pool = FurnitureDriverPoolItem.All;
+            for (int i = 0; i < pool.Count; i++)
+            {
+                FurnitureDriverPoolItem item = pool[i];
+                if (item == null || item.gameObject.scene != gameObject.scene || !item.IsAssignedWorkTarget)
+                    continue;
+                targets++;
+                if (item.IsDelivered)
+                    delivered++;
+            }
+        }
+
+        /// <summary>
+        /// 서버 전용 — 집 안(방 상자 안)에 놓인 분해 가능한 큰 가구 중 설정 개수만큼 무작위로 목표 가구로 지정한다(MD-3).
+        /// 배치에서 뺀 방(부활 의식 방)의 가구는 고르지 않는다. 같은 시드면 같은 가구를 고른다.
+        /// 후보가 모자라면 있는 만큼만 지정한다 — 랜덤 풀 배치까지 실패시킬 일은 아니다.
+        /// </summary>
+        private void ServerAssignDisassemblyTargets(int seed)
+        {
+            int maximum = _settings.MaximumDisassemblyTargets;
+            if (maximum == 0 || _houseRoot == null)
+                return;
+
+            var rooms = new List<BoxCollider>();
+            HouseRoomVolumes.Collect(_houseRoot, rooms);
+            var candidates = new List<FurnitureDriverPoolItem>();
+            IReadOnlyList<FurnitureDriverPoolItem> pool = FurnitureDriverPoolItem.All;
+            for (int i = 0; i < pool.Count; i++)
+            {
+                FurnitureDriverPoolItem item = pool[i];
+                if (item != null && item.gameObject.scene == gameObject.scene && item.IsActive && item.CanBundle
+                    && HouseRoomVolumes.ContainsAny(rooms, item.transform.position)
+                    && !IsExcluded(item.transform.position))
+                    candidates.Add(item);
+            }
+            // 등록 순서는 스폰 순서라 실행마다 같다는 보장이 없다 — 고정 시드 재현을 위해 정렬한다.
+            candidates.Sort((a, b) => a.NetworkObjectId.CompareTo(b.NetworkObjectId));
+
+            var random = new Random(unchecked(seed * 31 + 17));
+            int requested = random.Next(_settings.MinimumDisassemblyTargets, maximum + 1);
+            int count = Math.Min(requested, candidates.Count);
+            for (int i = 0; i < count; i++)
+            {
+                int other = random.Next(i, candidates.Count);
+                (candidates[i], candidates[other]) = (candidates[other], candidates[i]);
+                candidates[i].ServerAssignWorkTarget();
+            }
+            if (count < requested)
+                Debug.LogWarning($"[FurnitureSpawnController] 분해 가능 목표 가구 후보가 {candidates.Count}개뿐이라 " +
+                    $"{requested}개 중 {count}개만 지정했습니다.", this);
+        }
+
+        private bool IsExcluded(Vector3 position)
+        {
+            foreach (Func<Vector3, bool> area in _excludedAreas)
+                if (area(position))
+                    return true;
+            return false;
         }
 
         private bool ValidateReferences(out string error)

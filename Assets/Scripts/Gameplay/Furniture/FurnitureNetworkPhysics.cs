@@ -296,6 +296,8 @@ namespace GhostHunter.Gameplay.Furniture
                 && (_grabTarget == null || _grabTarget.State != FurnitureState.Held);
             if (_randomItem != null)
                 _randomItem.RefreshTargetVisibility();
+            if (_poolItem != null)
+                _poolItem.RefreshTargetVisibility();
         }
 
         private void SetDurability(int durability)
