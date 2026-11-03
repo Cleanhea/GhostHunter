@@ -126,7 +126,7 @@ rb.angularVelocity = 같은 방식 (carryRotationResponse, heldMaxAngularSpeed, 
   비켜 들어간다(시뮬레이션에서 0.05m 어긋남은 보조 없이도 통과).
 - §3.3의 충돌 끄기, §3.2의 끼임 보조.
 
-**그대로인 것.** 차징 중 눈~가구 표면 `holdBreakDistance`(4m) 초과 시 그 홀더만 발사 없이 해제(2026-09-13 사용자 요청),
+**그대로인 것.** 차징 중 눈~가구 표면 `holdBreakDistance`(4m) 초과 시 그 홀더 해제(2026-09-13 사용자 요청 — 2인 잡기에서는 놓기와 같게 발사, 2026-11-03),
 플레이어 오브젝트가 없어진 홀더 해제, 홀드 중인 클라이언트만 `UpdateAimRpc(origin, direction)`를 0.05초 간격으로 보냄,
 2명 중 1명이 놓으면 중력이 켜지고 속도가 남는 것(이제 기본은 바로 발사 — 「2인 흡착 규칙」, `launchOnFirstRelease` 를 끄면 `ThrowReady` 로 돌아감).
 
@@ -298,8 +298,9 @@ rb.AddTorque(random torque * torqueScale, ForceMode.Impulse)
 | 남은 1명도 해제 — 먼저 놓은 뒤 `jointPutDownWindow`(2.5초) 안 | **같이 내려놓기 — 발사하지 않는다.** 홀더 없이 `Idle`, 중력으로 그 자리에 떨어진다 (2026-09-29 사용자 요청) |
 | 남은 1명도 해제 — 2.5초가 지난 뒤 | **발사.** 발사 시점에는 1명이므로 1인 힘 |
 | heavy 가구를 1명이 입력 → 해제 | 발사되긴 하되 `heavySoloMultiplier`(초기값 0.5)만큼 약하게 |
-| 차징 중 한 홀더가 가구 표면에서 4 m 넘게 멀어짐 | 그 홀더만 발사 없이 해제. 2인이었으면 남은 1명의 `ThrowReady` |
-| 홀더 전원이 4 m 이탈/접속 종료 | 발사 없이 `Idle`로 낙하 |
+| 2인 잡기(`Held`) 중 한 홀더가 가구 표면에서 4 m 넘게 멀어짐 | **그 홀더가 손을 뗀 것과 같다** — 위 "2명 중 1명만 해제" 두 행을 그대로 따른다(기본은 남은 사람 조준으로 즉시 발사) (2026-11-03 사용자 요청) |
+| 1인 `ThrowReady` 홀더가 가구 표면에서 4 m 넘게 멀어짐 | 발사 없이 해제, `Idle`로 낙하 |
+| 홀더 접속 종료·플레이어 오브젝트 없음 | 그 홀더만 발사 없이 해제. 2인이었으면 남은 1명의 `ThrowReady`, 전원이면 `Idle` |
 
 "2명 잡기 → 1명만 해제"에서는 2인 잡기 조건이 깨졌으므로 즉시 중력을 복구한다.
 
@@ -310,7 +311,8 @@ rb.AddTorque(random torque * torqueScale, ForceMode.Impulse)
 >   경로는 놓은 사람 방향과 남은 사람 방향을 합산했다. 남은 조준이 없으면 놓은 사람 방향으로 대신한다. 발사각 보정(§5)은 그대로.
 > - 힘: 해제 시점의 홀더 수(2)·`charge` 로 `FurnitureLauncher.ServerLaunch` — 2인 힘(`twoHolderForce`).
 > - 남은 사람의 버튼은 아직 눌려 있어도 홀더는 풀리고(`ClearRemainingHolders`), 그 뒤 해제 요청은 무시된다.
-> - 강제 해제(4m 이탈·접속 종료)는 이 정책과 무관하게 발사 없이 남은 1명의 `ThrowReady` 로 돌아간다.
+> - 2인 잡기 중 4m 이탈은 손을 뗀 것으로 보고 이 정책을 그대로 탄다(2026-11-03 사용자 요청 "한 명이 사정거리 밖으로 나가서 놓으면 안 날아간다").
+>   강제 해제(접속 종료·사망)만 이 정책과 무관하게 발사 없이 남은 1명의 `ThrowReady` 로 돌아간다.
 > - 이 정책에서는 `jointPutDownWindow`(같이 내려놓기)가 쓰이지 않는다 — 첫 해제가 곧 발사라 '거의 같이 놓기'를 구분할 수 없다.
 >   예전 동작이 필요하면 `launchOnFirstRelease` 를 끄면 되며, 그때는 남은 사람이 자신의 버튼을 놓을 때만 1인 힘으로 던진다.
 
@@ -318,7 +320,7 @@ rb.AddTorque(random torque * torqueScale, ForceMode.Impulse)
 > 놓는 건 불가능해서, 이전에는 둘이 들던 가구를 내려놓으면 늦게 놓은 사람 쪽으로 늘 1인 투척이 나갔다.
 > 서버는 2인 잡기에서 첫 해제(비강제) 순간 `jointPutDownWindow` 마감 시각을 적고, 그 안에 마지막 홀더가
 > 놓으면 발사 없이 `Idle` 로 돌린다(`FurnitureGrabTarget.IsJointPutDown`). 마감 전에 다시 둘이 잡거나 새로 잡으면
-> 대기는 사라진다. 강제 해제(4m 이탈·접속 종료)로 한 명이 빠진 경우는 창을 열지 않는다. 0초면 기능이 꺼진다.
+> 대기는 사라진다. 2인 잡기 중 4m 이탈은 놓기와 같아 창을 연다. 강제 해제(접속 종료·사망)로 한 명이 빠진 경우는 창을 열지 않는다. 0초면 기능이 꺼진다.
 > UI 표시("같이 내려놓기 대기")는 아직 없다.
 
 `FurnitureThrowSettings`에 `bool launchOnFirstRelease` 토글을 두어 플레이테스트에서 반대 정책도 즉시 비교할 수 있게 한다.
@@ -330,7 +332,7 @@ rb.AddTorque(random torque * torqueScale, ForceMode.Impulse)
 | 값 | 초기값 | 메모 |
 |---|---|---|
 | `maxTargetDistance` | 12 m | 조준 사거리 |
-| `holdBreakDistance` | 4 m | 차징 중 눈 → 가구 표면 거리 초과 시 발사 없이 해제 (2026-09-13, `maxHoldDistance` 15 m 대체) |
+| `holdBreakDistance` | 4 m | 차징 중 눈 → 가구 표면 거리 초과 시 해제. 1인은 발사 없이, 2인 잡기는 놓기와 같게 (2026-09-13, `maxHoldDistance` 15 m 대체. 2인 처리 2026-11-03) |
 | `carryMinHandDistance` / `carryMaxHandDistance` | 0.9 / 2.2 m | 손잡이를 눈에서 떨어뜨려 드는 거리 범위. 진입 때 거리를 이 범위로 자른다 (2026-10-04, `hoverDistance` 3 m 대체) |
 | `carryAimSmoothing` | 0.05 s | 20Hz 조준을 잇는 지수 평활 시간 상수 |
 | `carryPositionResponse` / `carryRotationResponse` | 0.06 / 0.08 s | 위치·자세 오차를 줄이는 시간 상수 |
@@ -394,5 +396,5 @@ rb.AddTorque(random torque * torqueScale, ForceMode.Impulse)
 
 ---
 
-최종 갱신: 2026-11-01 (맨손 플레이어 밀치기 §6). 이전: 2026-10-29 (2인 중 첫 해제 즉시 발사·남은 사람 조준 방향, `launchOnFirstRelease` 기본 켜짐). 이전: 2026-10-04 (2인 운반을 조준점 중간 순간 추종 → 두 손잡이·속도 서보로 변경, 운반 중 마찰 낮추기·끼임 보조·
+최종 갱신: 2026-11-03 (2인 잡기 중 4 m 이탈을 놓기로 처리 — 발사). 이전: 2026-11-01 (맨손 플레이어 밀치기 §6). 이전: 2026-10-29 (2인 중 첫 해제 즉시 발사·남은 사람 조준 방향, `launchOnFirstRelease` 기본 켜짐). 이전: 2026-10-04 (2인 운반을 조준점 중간 순간 추종 → 두 손잡이·속도 서보로 변경, 운반 중 마찰 낮추기·끼임 보조·
 두 홀더와 열린 문짝 충돌 끄기 추가, 차지 → 힘 곡선·발사 힘 하한 제거·Hub "가구 투척 힘" 섹션). 이전: 2026-09-13 (스프링 부양 → 조준점 중간 고정 추종, 휠 회전·기울이기, 4 m 이탈 해제)

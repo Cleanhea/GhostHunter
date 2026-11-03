@@ -284,7 +284,7 @@ v0.4 변경 이력에는 맵 크기·도면 수정이 있으나 이번 첨부에
 | 항목 | 초기값 | 메모 |
 | --- | --- | --- |
 | `maxTargetDistance` | 2 m | 좌클릭 조준·붙잡기 사거리 (2026-08-31 12 m → 2 m 근접 그랩) |
-| `holdBreakDistance` | 4 m | 차징 중 눈 → 가구 표면 거리 초과 시 발사 없이 해제 (2026-09-13 사용자 요청, 이전 `maxHoldDistance` 15 m) |
+| `holdBreakDistance` | 4 m | 차징 중 눈 → 가구 표면 거리 초과 시 해제. 1인 투척 준비는 발사 없이, 2인 잡기는 놓은 것과 같게 발사 (2026-09-13 사용자 요청, 이전 `maxHoldDistance` 15 m. 2인 발사는 2026-11-03 사용자 요청) |
 | `carryMinHandDistance` / `carryMaxHandDistance` | 0.9 / 2.2 m | 2인 운반 손잡이를 눈에서 떨어뜨려 드는 거리 (2026-10-04, `hoverDistance` 대체) |
 | `heldMaxLinearSpeed` | 15 m/s | 2인 운반 최대 속력 |
 | `heldMaxAngularSpeed` | 720 °/s | 2인 운반 최대 각속력 — 나머지 운반·끼임 보조 값은 [throw-system.md 초기 파라미터](../architecture/throw-system.md#초기-파라미터) |
