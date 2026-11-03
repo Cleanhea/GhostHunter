@@ -318,6 +318,28 @@ namespace GhostHunter.Tests.PlayMode
             Assert.AreEqual(FurnitureState.Idle, furniture.State, "발사(Launched)가 아니라 그냥 풀려야 합니다.");
         }
 
+        /// <summary>
+        /// 두 명이 들다가 한 명이 4m 밖으로 멀어지면 손을 뗀 것과 같게 발사된다.
+        /// 호스트를 먼저 잡게 해 모터가 호스트의 거리 이탈을 파트너의 플레이어 없음 정리보다 먼저 본다.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator Hold_두_명_중_한_명이_4m를_넘으면_놓은_것처럼_발사된다()
+        {
+            FurnitureGrabTarget furniture = SpawnFurniture();
+            yield return null;
+            Assume.That(Settings.HoldBreakDistance, Is.EqualTo(4f));
+            Assume.That(Settings.LaunchOnFirstRelease, Is.True);
+
+            furniture.ServerTryAddHolder(HostClientId, AimOrigin, AimDirection);
+            furniture.ServerTryAddHolder(PartnerClientId, AimOrigin + Vector3.right, AimDirection);
+            furniture.ServerUpdateAim(HostClientId, new Vector3(0f, 1f, -1.6f), AimDirection);
+            yield return new WaitForFixedUpdate();
+            yield return new WaitForFixedUpdate();
+
+            Assert.AreEqual(0, furniture.HolderCount);
+            Assert.AreEqual(FurnitureState.Launched, furniture.State, "강제 해제가 아니라 놓기로 처리돼야 합니다.");
+        }
+
         [UnityTest]
         public IEnumerator ServerTryAddHolder_두_명이_잡으면_그_순간_자세를_목표_자세로_잡는다()
         {

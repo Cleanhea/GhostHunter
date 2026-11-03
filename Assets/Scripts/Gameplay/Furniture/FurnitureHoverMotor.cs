@@ -106,13 +106,20 @@ namespace GhostHunter.Gameplay.Furniture
                 }
 
                 int currentIndex = FindHolderIndex(clientId);
-                if (!_target.TryGetHolderAim(currentIndex, out _, out Vector3 origin, out _))
+                if (!_target.TryGetHolderAim(currentIndex, out _, out Vector3 origin, out Vector3 direction))
                     continue;
 
-                // 차징 중(1인 투척 준비·2인 잡기 모두) 눈 위치에서 가구 표면까지 멀어지면 발사 없이 푼다.
+                // 차징 중 눈 위치에서 가구 표면까지 멀어지면 그 홀더를 푼다.
                 // 중심이 아니라 표면 기준이라 큰 가구나 위를 보고 든 2인 잡기에서 헛해제되지 않는다.
+                // 2인 잡기에서는 손을 뗀 것과 같게 처리해 남은 사람의 조준으로 발사하고,
+                // 1인 투척 준비는 발사 없이 푼다.
                 if (DistanceToSurface(origin) > _settings.HoldBreakDistance)
-                    _target.ServerForceRelease(clientId);
+                {
+                    if (_target.State == FurnitureState.Held && _target.HolderCount > 1)
+                        _target.ServerRelease(clientId, direction, false);
+                    else
+                        _target.ServerForceRelease(clientId);
+                }
             }
 
             if (_target.State != FurnitureState.Held || _target.HolderCount < FurnitureGrabTarget.MaxHolders)
