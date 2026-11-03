@@ -5,6 +5,9 @@ namespace GhostHunter.Gameplay.Player
     {
         /// <summary>매몰(Buried) 중 굴착 스킬.</summary>
         Burrow,
+
+        /// <summary>스태미나가 바닥나 지친 상태 — <see cref="PlayerStamina"/>.</summary>
+        Stamina,
     }
 
     /// <summary>
