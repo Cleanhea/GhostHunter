@@ -136,6 +136,27 @@ namespace GhostHunter.Tests.EditMode
         }
 
         [Test]
+        public void 회복_비율이_1이면_가득_찰_때까지_다시_달릴_수_없다()
+        {
+            Set("_exhaustedRecoverRatio", 1f);
+            var model = new StaminaModel(_settings);
+            model.Tick(5f, sprinting: true);
+            model.Tick(1f, sprinting: false); // 지연
+
+            for (int second = 1; second <= 9; second++)
+            {
+                model.Tick(1f, sprinting: false); // 10, 20, … 90
+                Assert.IsTrue(model.Exhausted, $"{second * 10}% 에서는 아직 탈진이다.");
+                Assert.IsFalse(model.CanSprint);
+            }
+
+            model.Tick(1f, sprinting: false); // 100
+            Assert.AreEqual(100f, model.Current, 1e-3f);
+            Assert.IsFalse(model.Exhausted);
+            Assert.IsTrue(model.CanSprint);
+        }
+
+        [Test]
         public void 느려지기_시작하는_비율_위에서는_배율이_1이다()
         {
             var model = new StaminaModel(_settings);

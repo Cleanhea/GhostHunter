@@ -20,15 +20,12 @@ namespace GhostHunter.Gameplay.Map
         internal const float BandWidth = 0.3f;
         internal const float GapWidth = 0.1f;
         private const float EdgeWobble = 0.025f;
-        // 한 겹 칠했을 때의 불투명도 — 1 이 아니라서 바닥 질감이 은근히 비친다.
-        private const float PaintOpacity = 0.92f;
-
-        // 칠한 색(sRGB). 형광이 아니라 마른 페인트처럼 어둡고 탁한 빨강(2026-11-03 렌더 확인: 이전 #A41110 계열은
-        // 조명 영향을 안 받는 셰이더라 어두운 바닥 위에서 번쩍여 낮췄다). 띠가 안쪽 칠보다 살짝 진하다.
-        private static readonly Color BandPaint = new(0.47f, 0.065f, 0.055f, 1f);
-        private static readonly Color FillPaint = new(0.41f, 0.055f, 0.045f, 1f);
-        // 페인트가 벗겨진 곳에 드러나는 밑바탕 색(탁한 붉은 갈색).
-        private static readonly Color Primer = new(0.27f, 0.14f, 0.12f, 1f);
+        // 칠한 색(sRGB) — 2026-11-03 사용자 지정 영역 내부색 #C65A20. 띠와 안쪽 칠이 같은 색이고, 칠이 온전한 곳은
+        // 불투명해 화면에 이 색이 그대로 나온다(농도 얼룩은 밝기로만 흔든다 — shade).
+        private static readonly Color BandPaint = new(0xC6 / 255f, 0x5A / 255f, 0x20 / 255f, 1f);
+        private static readonly Color FillPaint = BandPaint;
+        // 페인트가 벗겨진 곳에 드러나는 밑바탕 색(칠 색을 어둡게 가라앉힌 갈색).
+        private static readonly Color Primer = new(0.40f, 0.20f, 0.11f, 1f);
 
         // 노이즈 오프셋 — 값은 임의의 고정 상수다.
         private const float OffsetWear = 31.7f;
@@ -98,10 +95,11 @@ namespace GhostHunter.Gameplay.Map
             float speck = Hash(Mathf.FloorToInt(mx * PixelsPerMeter), Mathf.FloorToInt(mz * PixelsPerMeter));
             float pinhole = speck > 0.985f ? 0.3f : 1f;
 
-            float thickness = coverage * PaintOpacity * (1f - 0.85f * worn) * Mathf.Lerp(0.9f, 1f, streak) * pinhole;
+            float thickness = coverage * (1f - 0.85f * worn) * pinhole;
 
             Color paint = inBand ? BandPaint : FillPaint;
-            float shade = 0.92f + 0.16f * streak - (speck < 0.03f ? 0.18f : 0f);
+            // 롤러 자국은 밝기로만 흔든다(평균 1.0) — 알파를 흔들면 바닥이 비쳐 지정색에서 벗어난다.
+            float shade = 0.94f + 0.12f * streak - (speck < 0.03f ? 0.18f : 0f);
             Color color = Color.Lerp(paint * shade, Primer, worn * 0.8f);
             // 투명한 곳도 색을 남겨 둔다 — 밉맵·필터링 때 검정이 섞여 가장자리가 어두워지지 않게.
             color.a = Mathf.Clamp01(thickness);

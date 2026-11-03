@@ -26,8 +26,8 @@ namespace GhostHunter.Gameplay.Player
         [SerializeField, Min(0f)] private float _regenDelaySeconds = 1f;
 
         [Header("탈진 [TEMP]")]
-        [Tooltip("스태미나가 0이 되면 탈진해 달릴 수 없다. 총량 대비 이 비율까지 회복해야 다시 달릴 수 있다 — 0 근처에서 달리기가 깜빡이는 것을 막는다.")]
-        [SerializeField, Range(0f, 1f)] private float _exhaustedRecoverRatio = 0.25f;
+        [Tooltip("스태미나가 0이 되면 탈진해 달릴 수 없다. 총량 대비 이 비율까지 회복해야 다시 달릴 수 있다. 1 이면 가득 찰 때까지 못 달린다.")]
+        [SerializeField, Range(0f, 1f)] private float _exhaustedRecoverRatio = 1f;
 
         [Header("지침 — 점점 느려짐 [TEMP]")]
         [Tooltip("스태미나가 총량 대비 이 비율 아래로 내려가면 이동 속도가 줄기 시작한다. 0 이면 느려지지 않는다.")]

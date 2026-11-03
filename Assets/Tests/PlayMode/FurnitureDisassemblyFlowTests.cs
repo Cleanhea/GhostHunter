@@ -453,6 +453,115 @@ namespace GhostHunter.Tests.PlayMode
             yield return null;
         }
 
+        // ── 포장(반출) 판정: 구역 안 85% 이상·내려놓음·1초 유지 (2026-11-03 기획 "2-2. 가구 포장 처리") ──
+
+        [UnityTest]
+        public IEnumerator 포장은_구역_안에_내려놓은_목표_가구가_1초_이어져야_완료된다()
+        {
+            CreateScenario();
+            CreateDeliveryZone(_large.transform.position);
+            Assert.IsTrue(_large.ServerAssignWorkTarget());
+            FurnitureDeliveryTracker tracker = CreateTracker(out FurnitureSpawnSettings settings);
+
+            tracker.Step(0.5f, NoItems, settings);
+            tracker.Step(0.4f, NoItems, settings);
+            Assert.IsFalse(_large.IsDelivered, "0.9초에는 아직 포장되지 않는다");
+
+            tracker.Step(0.2f, NoItems, settings);
+            Assert.IsTrue(_large.IsDelivered, "1초 이상 이어지면 포장된다");
+            Assert.IsFalse(_large.IsActive, "포장된 가구는 맵에서 사라진다(드릴카 짐칸 상자로 쌓인다)");
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator 구역에_가구의_85퍼센트_미만만_걸치면_오래_두어도_포장되지_않는다()
+        {
+            CreateScenario();
+            // 구역 가장자리가 가구 원점을 지난다 — 원점은 구역 안이지만 몸은 절반만 안이다.
+            CreateDeliveryZone(_large.transform.position + Vector3.right * 2f);
+            Assert.IsTrue(FurnitureDeliveryZone.Contains(_large.transform.position), "원점은 구역 안이어야 이 시험이 비율을 가른다");
+            Assert.IsTrue(_large.ServerAssignWorkTarget());
+            FurnitureDeliveryTracker tracker = CreateTracker(out FurnitureSpawnSettings settings);
+
+            tracker.Step(5f, NoItems, settings);
+
+            Assert.IsFalse(_large.IsDelivered, "몸의 절반만 안이면 포장되지 않는다");
+            Assert.IsTrue(_large.IsActive);
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator 붙잡고_있으면_포장되지_않고_놓으면_처음부터_센다()
+        {
+            CreateScenario();
+            CreateDeliveryZone(_large.transform.position);
+            Assert.IsTrue(_large.ServerAssignWorkTarget());
+            FurnitureDeliveryTracker tracker = CreateTracker(out FurnitureSpawnSettings settings);
+            var grab = _large.GetComponent<FurnitureGrabTarget>();
+
+            tracker.Step(0.9f, NoItems, settings);
+            Assert.IsTrue(grab.ServerTryAddHolder(HostClientId,
+                _large.transform.position + new Vector3(0f, 0.5f, -1.5f), Vector3.forward));
+            tracker.Step(5f, NoItems, settings);
+            Assert.IsFalse(_large.IsDelivered, "붙잡고 있는 동안은 포장되지 않는다");
+
+            grab.ServerForceRelease(HostClientId);
+            Assert.AreEqual(0, grab.HolderCount);
+            tracker.Step(0.9f, NoItems, settings);
+            Assert.IsFalse(_large.IsDelivered, "놓은 뒤 처음부터 센다 — 잡기 전 0.9초는 이어 붙지 않는다");
+            tracker.Step(0.2f, NoItems, settings);
+            Assert.IsTrue(_large.IsDelivered);
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator 던져지거나_떨어지는_중인_가구는_포장되지_않고_멈추면_센다()
+        {
+            CreateScenario();
+            CreateDeliveryZone(_large.transform.position);
+            Assert.IsTrue(_large.ServerAssignWorkTarget());
+            FurnitureDeliveryTracker tracker = CreateTracker(out FurnitureSpawnSettings settings);
+            var body = _large.GetComponent<Rigidbody>();
+            body.isKinematic = false;
+            body.useGravity = false;
+
+            body.linearVelocity = Vector3.right * (settings.PackMaxSpeed + 1f);
+            tracker.Step(5f, NoItems, settings);
+            Assert.IsFalse(_large.IsDelivered, "움직이는 중에는 포장되지 않는다");
+
+            body.linearVelocity = Vector3.zero;
+            tracker.Step(1.1f, NoItems, settings);
+            Assert.IsTrue(_large.IsDelivered, "멈춘 채 1초 이어지면 포장된다");
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator 목표가_아닌_가구는_구역에_오래_있어도_포장되지_않는다()
+        {
+            CreateScenario();
+            CreateDeliveryZone(_large.transform.position);
+            FurnitureDeliveryTracker tracker = CreateTracker(out FurnitureSpawnSettings settings);
+
+            tracker.Step(5f, NoItems, settings);
+
+            Assert.IsFalse(_large.IsAssignedWorkTarget);
+            Assert.IsFalse(_large.IsDelivered);
+            Assert.IsTrue(_large.IsActive);
+            yield return null;
+        }
+
+        private static readonly RandomFurnitureItem[] NoItems = System.Array.Empty<RandomFurnitureItem>();
+
+        /// <summary>포장 판정을 손으로 한 스텝씩 돌리는 추적기(FixedUpdate 는 꺼 둔다). 설정은 기본값(85%·1초)이다.</summary>
+        private FurnitureDeliveryTracker CreateTracker(out FurnitureSpawnSettings settings)
+        {
+            settings = Track(ScriptableObject.CreateInstance<FurnitureSpawnSettings>());
+            var instance = Track(new GameObject("TestDeliveryTracker"));
+            var tracker = instance.AddComponent<FurnitureDeliveryTracker>();
+            tracker.enabled = false;
+            return tracker;
+        }
+
         [UnityTest]
         public IEnumerator 목표_분해_가구만_탐지_마커가_켜지고_반출하면_꺼진다()
         {

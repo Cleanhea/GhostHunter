@@ -35,16 +35,20 @@ namespace GhostHunter.Tests.EditMode
             Assert.IsNotNull(root, "표시 루트가 없습니다.");
             Assert.IsNotNull(root.Find("Paint"), "바닥에 칠한 페인트");
             Assert.IsNotNull(root.Find("Halo"), "외곽선 둘레 빛무리");
-            Assert.IsNotNull(root.Find("OuterEdge"), "빛나는 외곽선");
-            Assert.IsNotNull(root.Find("CoreEdge"), "외곽선 가운데 심지");
+            Assert.IsNotNull(root.Find("OuterEdge"), "테두리 선");
+            Assert.IsNull(root.Find("CoreEdge"), "흰 선 위의 심지는 없앴다(같은 흰색).");
             Assert.IsNull(root.Find("Pillars"), "빛기둥은 없앴다(형광 느낌).");
             Assert.IsNull(root.Find("InnerEdge"), "안쪽 선은 페인트 띠로 바뀌었다.");
+
+            LineRenderer edge = root.Find("OuterEdge").GetComponent<LineRenderer>();
+            Assert.AreEqual(Color.white, edge.startColor, "테두리 선은 #FFFFFF(2026-11-03 지정)");
+            Assert.AreEqual(Color.white, edge.endColor, "테두리 선은 #FFFFFF(2026-11-03 지정)");
 
             Light glow = root.Find("DeliveryGlow").GetComponent<Light>();
             Assert.AreEqual(LightType.Point, glow.type);
             Assert.AreEqual(LightShadows.None, glow.shadows, "그림자 없는 조명이어야 비용이 없다");
-            Assert.Greater(glow.color.r, glow.color.g * 3f, "빨간 계열이어야 합니다.");
-            Assert.Greater(glow.color.r, glow.color.b * 3f, "빨간 계열이어야 합니다.");
+            Assert.Greater(glow.color.r, glow.color.g, "영역 내부색(#C65A20) 계열 주황이어야 합니다.");
+            Assert.Greater(glow.color.g, glow.color.b, "영역 내부색(#C65A20) 계열 주황이어야 합니다.");
 
             Assert.IsEmpty(root.GetComponentsInChildren<Collider>(true), "표시는 충돌체가 없어야 가구·플레이어를 막지 않는다.");
             Assert.AreEqual(Vector3.one, root.lossyScale, "스케일 1 규칙");
@@ -82,7 +86,7 @@ namespace GhostHunter.Tests.EditMode
             for (int i = 0; i < 4; i++)
             {
                 Assert.AreEqual(0f, colors[i].a, 0.001f, $"안쪽 끝 {i}");
-                Assert.Greater(colors[4 + i].a, 0.3f, $"외곽선 위 {i}");
+                Assert.GreaterOrEqual(colors[4 + i].a, 0.15f, $"외곽선 위 {i}");
                 Assert.AreEqual(0f, colors[8 + i].a, 0.001f, $"바깥쪽 끝 {i}");
             }
 
@@ -92,7 +96,7 @@ namespace GhostHunter.Tests.EditMode
         }
 
         [Test]
-        public void 페인트는_탁한_빨강이고_벗겨진_곳과_띠_사이_틈이_있다()
+        public void 페인트는_지정한_주황이고_벗겨진_곳과_띠_사이_틈이_있다()
         {
             const float size = 4f;
             Texture2D texture = FurnitureDeliveryZonePaint.CreateTexture(size, size);
@@ -103,24 +107,39 @@ namespace GhostHunter.Tests.EditMode
 
             int opaque = 0;
             int bare = 0;
+            int solid = 0;
+            long sumR = 0, sumG = 0, sumB = 0;
             foreach (Color32 pixel in texture.GetPixels32())
             {
                 if (pixel.a >= 128)
                 {
                     opaque++;
-                    Assert.Greater(pixel.r, pixel.g * 1.8f, "칠한 곳은 빨강이 지배해야 한다.");
-                    Assert.Greater(pixel.r, pixel.b * 1.8f, "칠한 곳은 빨강이 지배해야 한다.");
-                    Assert.LessOrEqual(pixel.r, 200, "형광처럼 번쩍이지 않게 어둡고 탁해야 한다.");
+                    Assert.Greater(pixel.r, pixel.g * 1.6f, "칠한 곳은 주황(#C65A20 계열)이어야 한다.");
+                    Assert.Greater(pixel.g, pixel.b * 1.4f, "칠한 곳은 주황(#C65A20 계열)이어야 한다.");
+                    Assert.LessOrEqual(pixel.r, 215, "지정색보다 훨씬 밝게 번쩍이면 안 된다.");
                 }
                 else if (pixel.a < 40)
                 {
                     bare++;
                 }
+
+                // 온전히 칠해진 곳(불투명)의 평균색이 지정색 #C65A20 = (198, 90, 32) 이다.
+                if (pixel.a == 255)
+                {
+                    solid++;
+                    sumR += pixel.r;
+                    sumG += pixel.g;
+                    sumB += pixel.b;
+                }
             }
 
             int total = texture.width * texture.height;
-            Assert.Greater(opaque, total * 0.5f, $"대부분은 칠해져 있어야 빨간 바닥으로 읽힌다(칠한 {opaque} / 전체 {total}).");
+            Assert.Greater(opaque, total * 0.5f, $"대부분은 칠해져 있어야 주황 바닥으로 읽힌다(칠한 {opaque} / 전체 {total}).");
             Assert.Greater(bare, total * 0.03f, $"벗겨진 곳·틈이 있어야 스티커가 아니라 페인트로 읽힌다(빈 {bare} / 전체 {total}).");
+            Assert.Greater(solid, total * 0.3f, "온전히 칠한 곳이 넓어야 지정색이 그대로 보인다.");
+            Assert.AreEqual(198f, sumR / (float)solid, 10f, "영역 내부색 #C65A20 의 R");
+            Assert.AreEqual(90f, sumG / (float)solid, 10f, "영역 내부색 #C65A20 의 G");
+            Assert.AreEqual(32f, sumB / (float)solid, 10f, "영역 내부색 #C65A20 의 B");
 
             // 띠(가장자리 0~0.3m)와 안쪽 칠(0.4m~) 사이 0.35m 선은 비어 있다. 띠 한가운데(0.15m)는 대부분 칠해져 있다.
             int samples = 0;

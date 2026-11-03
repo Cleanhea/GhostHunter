@@ -42,6 +42,9 @@ MonoBehaviour:
   _maximumTargetsPerRoom: 0
   _minimumDisassemblyTargets: 2
   _maximumDisassemblyTargets: 2
+  _packInsideRatio: 0.85
+  _packHoldSeconds: 1
+  _packMaxSpeed: 0.3
   _useFixedSeed: 0
   _seed: 1
   _searchBudget: 20000

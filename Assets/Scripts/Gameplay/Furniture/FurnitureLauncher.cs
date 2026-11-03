@@ -7,8 +7,9 @@ namespace GhostHunter.Gameplay.Furniture
     [RequireComponent(typeof(Rigidbody), typeof(FurnitureNetworkPhysics))]
     public sealed class FurnitureLauncher : NetworkBehaviour
     {
-        private const float MinimumLaunchAngle = 20f;
-        private const float MaximumLaunchAngle = 70f;
+        // 시체(PlayerVisuals)가 같은 발사각 규칙을 쓴다.
+        internal const float MinimumLaunchAngle = 20f;
+        internal const float MaximumLaunchAngle = 70f;
 
         [SerializeField] private FurnitureThrowSettings _settings;
 

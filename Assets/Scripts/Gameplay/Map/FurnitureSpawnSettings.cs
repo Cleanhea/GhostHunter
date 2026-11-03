@@ -51,6 +51,14 @@ namespace GhostHunter.Gameplay.Map
         [SerializeField, Min(0)] private int _minimumDisassemblyTargets;
         [SerializeField, Min(0)] private int _maximumDisassemblyTargets;
 
+        [Header("가구 포장(반출) 판정 (2026-11-03)")]
+        [Tooltip("목표 가구의 몸(콜라이더 경계 상자) 중 반출 구역 안에 있는 비율이 이 값 이상이어야 포장이 진행된다.")]
+        [SerializeField, Range(0.5f, 1f)] private float _packInsideRatio = 0.85f;
+        [Tooltip("조건(비율·내려놓음)을 끊김 없이 이 시간(초) 유지하면 포장이 완료된다. 하나라도 어긋나면 처음부터 센다.")]
+        [SerializeField, Min(0f)] private float _packHoldSeconds = 1f;
+        [Tooltip("바닥에 내려놓은 상태로 보는 최대 속력(m/s). 던져지거나 떨어지는 중인 가구는 포장되지 않는다.")]
+        [SerializeField, Min(0f)] private float _packMaxSpeed = 0.3f;
+
         [Header("생성·재현")]
         [SerializeField] private bool _useFixedSeed;
         [SerializeField] private int _seed = 1;
@@ -71,6 +79,9 @@ namespace GhostHunter.Gameplay.Map
         public int MaximumTargetsPerRoom => _maximumTargetsPerRoom;
         public int MinimumDisassemblyTargets => _minimumDisassemblyTargets;
         public int MaximumDisassemblyTargets => Mathf.Max(_minimumDisassemblyTargets, _maximumDisassemblyTargets);
+        public float PackInsideRatio => _packInsideRatio;
+        public float PackHoldSeconds => _packHoldSeconds;
+        public float PackMaxSpeed => _packMaxSpeed;
         public bool UseFixedSeed => _useFixedSeed;
         public int Seed => _seed;
         public int SearchBudget => _searchBudget;

@@ -297,7 +297,7 @@ if (_input.AttackReleasedThisFrame && !_testHoldLatched)
 `ForceRelease()` 는 개발용 F12 입력 고정(`_testHoldLatched`)도 함께 푼다 — 그러지 않으면
 고정된 홀드가 메뉴를 열어도 남는다.
 
-시체 운반과 플레이어 밀치기 차징도 여기서 취소한다. 시체 운반 해제는 기존 RPC로 보내고,
+시체 잡기와 플레이어 밀치기 차징도 여기서 취소한다. 시체는 `launch=false`로 발사 없이 놓고(가구 해제와 달리 던지지 않는다),
 밀치기는 차징만 접어 버튼을 나중에 떼도 넉백을 보내지 않는다. 로컬 상태는 각각
 `CorpseInteraction`·`PlayerShoveInteraction`이 맡는다(2026-11-02 정리).
 

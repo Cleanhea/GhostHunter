@@ -319,4 +319,6 @@ Facepunch 고유 `targetSteamId` 설정은 `ISteamLobbyService.TrySetConnectionT
 최종 갱신: 2026-09-13 (Local 3프로세스 실측 — §3.5 서버 측 씬 검증이 게스트 `Game` 동기화를 막던 결함 수정·확인,
 §3.6.1 자발적 종료 뒤 늦게 오는 자기 끊김 처리. 이전: 2026-09-04 §3.6.1 세션 종료 순서 신설)
 
+2026-11-03 시체 잡기: `PlayerVisuals`에 잡기 상태·차지·홀더(`NetworkVariable<FurnitureState>`·`NetworkVariable<float>`·`NetworkList<ulong>`)를 추가하고 시체 RPC 서명을 바꿨다(잡기·조준·놓기·휠 회전). 직렬화 변경에 맞춰 `NetProtocolVersion`을 8→9로 올렸다 → [death-system.md](death-system.md).
+
 2026-10-02 Tutorial: 가구의 발사 기록(bool NetworkVariable)과 호스트 이전의 현상 후보 마스크를 추가했다. 직렬화 변경에 맞춰 SteamLobbyManager.NetProtocolVersion을 7→8로 올렸다.

@@ -10,7 +10,7 @@ namespace GhostHunter.Tests.PlayMode
 {
     /// <summary>
     /// 반출 구역 꾸미기(<see cref="FurnitureDeliveryZoneView"/>)를 그래픽이 켜진 PlayMode 에서 어두운 밤 배경에 실제로 렌더해
-    /// 빨간 페인트 구역과 밝은 외곽선이 보이는지 확인한다. <c>GH_DELIVERY_VIEW_PNG</c> 환경 변수가 있으면 그 경로에 장면을 PNG 로 저장한다
+    /// 주황 페인트(#C65A20) 구역과 흰 외곽선(#FFFFFF)이 보이는지 확인한다. <c>GH_DELIVERY_VIEW_PNG</c> 환경 변수가 있으면 그 경로에 장면을 PNG 로 저장한다
     /// (<c>GH_DELIVERY_VIEW_CLOSE_PNG</c> 는 구역 옆에서 내려다본 가까운 시점).
     /// </summary>
     public sealed class FurnitureDeliveryZoneRenderTests
@@ -19,7 +19,7 @@ namespace GhostHunter.Tests.PlayMode
         private const int Height = 540;
 
         [UnityTest]
-        public IEnumerator 어두운_밤_화면에서_렌더하면_빨간_페인트와_밝은_외곽선이_보인다()
+        public IEnumerator 어두운_밤_화면에서_렌더하면_주황_페인트와_흰_외곽선이_보인다()
         {
             var zone = new GameObject("FurnitureDeliveryZone");
             zone.transform.position = new Vector3(0f, 1.25f, 0f);
@@ -46,15 +46,15 @@ namespace GhostHunter.Tests.PlayMode
             yield return null;
 
             Texture2D image = Capture(camera);
-            CountRed(image, out int red, out int bright);
+            CountPixels(image, out int paint, out int white);
             Dump("GH_DELIVERY_VIEW_PNG", image);
 
             // 구역 옆에서 내려다본 가까운 시점 — 서 있는 눈높이에서는 구역이 비스듬히 납작해 외곽선이 대부분이라,
-            // 칠이 어두운지(밝은 것은 외곽선뿐인지)는 여기서 본다.
+            // 칠이 넓게 보이고 흰 것은 외곽선(과 빛무리)뿐인지는 여기서 본다.
             camera.transform.position = new Vector3(-3.5f, 2.6f, -5.5f);
             camera.transform.LookAt(new Vector3(0f, 0f, 0f));
             Texture2D close = Capture(camera);
-            CountRed(close, out int closeRed, out int closeBright);
+            CountPixels(close, out int closePaint, out int closeWhite);
             Dump("GH_DELIVERY_VIEW_CLOSE_PNG", close);
 
             Object.Destroy(zone);
@@ -63,26 +63,24 @@ namespace GhostHunter.Tests.PlayMode
             Object.Destroy(image);
             Object.Destroy(close);
 
-            Assert.Greater(red, 400, $"어두운 배경에서 빨간 구역이 보여야 합니다(빨간 픽셀 {red}개).");
-            Assert.Greater(bright, 20, $"외곽선이 밝게 빛나야 합니다(밝은 빨강 픽셀 {bright}개).");
-            Assert.Greater(closeRed, 5000, $"가까이서는 빨간 페인트가 넓게 보여야 합니다(빨간 픽셀 {closeRed}개).");
-            Assert.Less(closeBright, closeRed * 0.3f,
-                $"밝은 곳은 외곽선뿐이고 칠은 어두워야 합니다(밝은 {closeBright} / 빨강 {closeRed}).");
+            Assert.Greater(paint, 400, $"어두운 배경에서 주황 구역이 보여야 합니다(주황 픽셀 {paint}개).");
+            Assert.Greater(white, 20, $"흰 외곽선이 보여야 합니다(흰 픽셀 {white}개).");
+            Assert.Greater(closePaint, 5000, $"가까이서는 주황 페인트가 넓게 보여야 합니다(주황 픽셀 {closePaint}개).");
+            Assert.Less(closeWhite, closePaint * 0.5f,
+                $"흰 곳은 외곽선뿐이고 칠이 대부분이어야 합니다(흰 {closeWhite} / 주황 {closePaint}).");
         }
 
-        // 빨강이 지배하는 픽셀 수와 그중 밝은(R > 200) 픽셀 수.
-        private static void CountRed(Texture2D image, out int red, out int bright)
+        // 주황(#C65A20 계열, R 이 G 의 1.4배 이상·B 의 3배 이상) 픽셀 수와 흰(세 채널 모두 200 초과) 픽셀 수.
+        private static void CountPixels(Texture2D image, out int paint, out int white)
         {
-            red = 0;
-            bright = 0;
+            paint = 0;
+            white = 0;
             foreach (Color32 pixel in image.GetPixels32())
             {
-                if (pixel.r > 60 && pixel.r > pixel.g * 2 && pixel.r > pixel.b * 2)
-                {
-                    red++;
-                    if (pixel.r > 200)
-                        bright++;
-                }
+                if (pixel.r > 60 && pixel.r > pixel.g * 1.4f && pixel.r > pixel.b * 3f)
+                    paint++;
+                else if (pixel.r > 200 && pixel.g > 200 && pixel.b > 200)
+                    white++;
             }
         }
 

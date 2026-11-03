@@ -46,9 +46,10 @@
 ## 흐름
 
 2026-11-02 입력·행동 정리: `GrabController`는 가구 처리·입력 우선순위·기존 서버 RPC를 맡는다.
-시체의 클릭/홀드는 `CorpseInteraction`, 플레이어 조준·차징은 `PlayerShoveInteraction`(둘 다 internal 일반 C# 클래스)으로
-분리했다. 소유자 스폰에서만 생성·콜백을 연결하며 프레임마다 헬퍼·델리게이트·레이캐스트 배열을 할당하지 않는다.
-우선순위(시체 → 플레이어 밀치기 → 가구), 조준 전송 간격, 공개 상태 API와 RPC 서명·권한은 유지한다.
+시체의 조준·누름·놓음은 `CorpseInteraction`, 플레이어 조준·차징은 `PlayerShoveInteraction`(둘 다 internal 일반 C# 클래스)으로
+분리했다. 소유자 스폰에서만 생성·콜백을 연결하며 프레임마다 헬퍼·델리게이트를 할당하지 않는다.
+우선순위(시체 → 플레이어 밀치기 → 가구)와 조준 전송 간격은 유지한다.
+2026-11-03: 시체도 이 문서의 잡기·던지기 규칙을 그대로 쓴다 → §7.
 
 ### 1. 타겟팅 (클라이언트 로컬)
 
@@ -281,6 +282,27 @@ rb.AddTorque(random torque * torqueScale, ForceMode.Impulse)
 - **차징 취소.** 일시정지 메뉴(`ForceRelease`)·사망·대걸레/드라이버 장착은 밀지 않고 차징만 접는다.
 - **쿨다운.** 서버가 `shoveCooldown`(0.6초)으로 연타를 막는다(밀친 사람 기준).
 - **밀려난 쪽 피드백·밀친 쪽 모션·효과음은 아직 없다**(미결정 아래).
+
+### 7. 시체 (2026-11-03)
+
+> 사용자 요청: "사람 시체 되면 가구처럼 밀치고 잡을 수 있게 해줘. 가구판정 느낌으로다가."
+
+죽은 플레이어의 시체(`PlayerVisuals`가 만드는 `Corpse_{id}`)는 가구와 같은 `Furniture` 레이어에서 판정받고, 위의 §1~§5와 같은
+규칙으로 잡는다 — 1명이 누르고 있으면 `ThrowReady`(차징), 떼면 발사, 2명이 누르면 `Held`(두 손잡이 운반·휠 회전), 한 명이 놓으면 남은 사람
+조준으로 즉시 발사, 눈~표면 4m 초과 시 놓은 것과 같게 처리. `FurnitureThrowSettings` 값을 공유한다.
+다른 점은 아래뿐이다.
+
+- 시체는 별도 NetworkObject가 아니라 Player의 `PlayerVisuals`가 상태·차지·홀더를 복제하고 서버가 `FixedUpdate`에서 처리한다
+  (`FurnitureGrabTarget`+`FurnitureHoverMotor`+`FurnitureLauncher`를 옮긴 것). `FurnitureCarrySession`·`FurnitureHeldControl`·
+  `FurnitureCollisionIgnoreSet`·`FurnitureLauncher.ResolveLaunchDirection`은 그대로 재사용한다.
+- **끼임 보조(§3.2)와 heavy 감쇠는 없다.** 열린 문짝 통과(§3.3)와 운반 중 낮은 마찰은 있다.
+- 사망 연출의 상승(kinematic) 중에는 잡을 수 없다. 생존자만 잡을 수 있고 시체 주인은 이미 죽어 있어야 한다.
+- 조준 사거리는 가구와 같이 `maxTargetDistance`지만 벽에 가려지면 잡을 수 없다(시체 조준은 모든 레이어 레이캐스트).
+- 전용 RPC 4개: `RequestCorpseGrabRpc`·`RequestCorpseAimRpc`·`RequestCorpseReleaseRpc(…, bool launch)`·`RequestCorpseRotateRpc`.
+  메뉴 열기·장비 장착 취소는 `launch=false`로 발사 없이 놓는다.
+- 윤곽선은 `PlayerVisuals`가 몸 렌더러마다 반전 셸을 붙여 가구와 같은 색 규칙으로 켠다. 차지 게이지는 "시체 · …"로 같은 UI를 쓴다.
+
+구현·튜닝 메모는 [death-system.md](death-system.md).
 
 ## 2인 흡착 규칙
 

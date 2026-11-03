@@ -5,92 +5,107 @@ using UnityEngine;
 
 namespace GhostHunter.Gameplay.Interaction
 {
-    /// <summary>시체 클릭·홀드·해제의 로컬 상태. 서버 요청은 GrabController의 기존 RPC로 보낸다.</summary>
+    /// <summary>
+    /// 시체 조준(윤곽선)·누름·놓음의 로컬 상태. 가구와 같이 누르면 잡고 떼면 던진다.
+    /// 서버 요청은 GrabController의 RPC로 보내고, 상태·차지·홀더는 서버가 정해 PlayerVisuals로 복제한다.
+    /// </summary>
     internal sealed class CorpseInteraction
     {
         private readonly Camera _camera;
         private readonly FurnitureThrowSettings _settings;
-        private readonly Action<ulong, Vector3, Vector3> _push;
-        private readonly Action<ulong, Vector3, Vector3> _carry;
+        private readonly ulong _localClientId;
+        private readonly Action<ulong, Vector3, Vector3> _grab;
         private readonly Action<ulong, Vector3, Vector3> _aim;
-        private readonly Action<ulong> _release;
-        private ulong _targetId = GrabController.NoObjectId;
-        private float _pressAt;
-        private float _holdThreshold;
-        private Vector3 _pressOrigin;
-        private Vector3 _pressDirection;
-        private bool _carryRequested;
+        private readonly Action<ulong, Vector3, bool> _release;
+        private PlayerVisuals _target;
+        private PlayerVisuals _hover;
 
-        public bool IsActive => _targetId != GrabController.NoObjectId;
+        public bool IsActive => _target != null;
+
+        /// <summary>지금 누르고 있는 시체. 없으면 null.</summary>
+        public PlayerVisuals Target => _target;
 
         public CorpseInteraction(
-            Camera camera, FurnitureThrowSettings settings,
-            Action<ulong, Vector3, Vector3> push, Action<ulong, Vector3, Vector3> carry,
-            Action<ulong, Vector3, Vector3> aim, Action<ulong> release)
+            Camera camera, FurnitureThrowSettings settings, ulong localClientId,
+            Action<ulong, Vector3, Vector3> grab, Action<ulong, Vector3, Vector3> aim,
+            Action<ulong, Vector3, bool> release)
         {
             _camera = camera;
             _settings = settings;
-            _push = push;
-            _carry = carry;
+            _localClientId = localClientId;
+            _grab = grab;
             _aim = aim;
             _release = release;
         }
 
+        /// <summary>조준선이 시체를 겨누고 있으면 윤곽선을 켜고, 아니면 끈다. 매 프레임 부른다.</summary>
+        public void UpdateHover(bool enabled)
+        {
+            PlayerVisuals next = null;
+            if (enabled && !IsActive)
+                TryFindCorpse(out next);
+
+            if (next == _hover)
+                return;
+
+            if (_hover != null)
+                _hover.SetTargeted(false);
+            _hover = next;
+            if (_hover != null)
+                _hover.SetTargeted(true);
+        }
+
         public bool TryBegin(bool furnitureBusy)
         {
-            if (furnitureBusy || _settings == null
-                || !Physics.Raycast(_camera.transform.position, _camera.transform.forward,
-                    out RaycastHit hit, _settings.MaxTargetDistance,
-                    Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore)
-                || !PlayerVisuals.TryGetCorpseOwner(hit.collider, out PlayerVisuals corpse))
+            if (furnitureBusy || IsActive || !TryFindCorpse(out PlayerVisuals corpse))
                 return false;
 
-            _targetId = corpse.NetworkObjectId;
-            _pressAt = Time.unscaledTime;
-            _holdThreshold = corpse.CarryHoldSeconds;
-            _pressOrigin = _camera.transform.position;
-            _pressDirection = _camera.transform.forward;
-            _carryRequested = false;
+            _target = corpse;
+            _grab(corpse.NetworkObjectId, _camera.transform.position, _camera.transform.forward);
             return true;
         }
 
         public void Tick(bool released, float aimSendInterval, ref float nextAimSendAt)
         {
-            ulong corpseId = _targetId;
+            if (_target == null)
+                return;
+
             if (released)
             {
-                if (_carryRequested)
-                    _release(corpseId);
-                else if (Time.unscaledTime - _pressAt < _holdThreshold)
-                    _push(corpseId, _pressOrigin, _pressDirection);
+                _release(_target.NetworkObjectId, _camera.transform.forward, true);
                 Clear();
                 return;
             }
 
-            if (!_carryRequested && Time.unscaledTime - _pressAt >= _holdThreshold)
-            {
-                _carryRequested = true;
-                _carry(corpseId, _camera.transform.position, _camera.transform.forward);
-            }
-
-            if (_carryRequested && Time.unscaledTime >= nextAimSendAt)
+            // 서버가 잡기를 받아들여 내가 홀더로 복제된 뒤에만 조준을 보낸다(가구와 같다).
+            if (_target.ContainsHolder(_localClientId) && Time.unscaledTime >= nextAimSendAt)
             {
                 nextAimSendAt = Time.unscaledTime + aimSendInterval;
-                _aim(corpseId, _camera.transform.position, _camera.transform.forward);
+                _aim(_target.NetworkObjectId, _camera.transform.position, _camera.transform.forward);
             }
         }
 
+        /// <summary>발사 없이 놓는다. 일시정지·장비 장착처럼 던질 의도가 없는 취소에 쓴다.</summary>
         public void Cancel(bool isSpawned)
         {
-            if (IsActive && _carryRequested && isSpawned)
-                _release(_targetId);
+            if (_target != null && isSpawned)
+                _release(_target.NetworkObjectId, _camera.transform.forward, false);
             Clear();
         }
 
         private void Clear()
         {
-            _targetId = GrabController.NoObjectId;
-            _carryRequested = false;
+            _target = null;
+        }
+
+        private bool TryFindCorpse(out PlayerVisuals corpse)
+        {
+            corpse = null;
+            return _settings != null
+                && Physics.Raycast(_camera.transform.position, _camera.transform.forward,
+                    out RaycastHit hit, _settings.MaxTargetDistance,
+                    Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore)
+                && PlayerVisuals.TryGetCorpseOwner(hit.collider, out corpse);
         }
     }
 }

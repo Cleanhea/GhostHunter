@@ -2,6 +2,8 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using GhostHunter.Core;
+using GhostHunter.Gameplay.Furniture;
+using GhostHunter.Gameplay.Interaction;
 using GhostHunter.Gameplay.Player;
 using GhostHunter.Gameplay.Sanity;
 using NUnit.Framework;
@@ -18,6 +20,7 @@ namespace GhostHunter.Tests.PlayMode
         private readonly List<GameObject> _objects = new();
         private SanitySystemSettings _sanitySettings;
         private SpectatorSettings _deathSettings;
+        private FurnitureThrowSettings _throwSettings;
         private SanityTeamService _team;
         private NetworkManager _network;
         private uint _hash = 0x6F300000;
@@ -27,6 +30,7 @@ namespace GhostHunter.Tests.PlayMode
         {
             _sanitySettings = ScriptableObject.CreateInstance<SanitySystemSettings>();
             _deathSettings = ScriptableObject.CreateInstance<SpectatorSettings>();
+            _throwSettings = ScriptableObject.CreateInstance<FurnitureThrowSettings>();
             _team = Create("DeathTestTeam").AddComponent<SanityTeamService>();
             Services.Bind<ISanityTeamService>(_team);
 
@@ -63,6 +67,7 @@ namespace GhostHunter.Tests.PlayMode
             _objects.Clear();
             Object.DestroyImmediate(_sanitySettings);
             Object.DestroyImmediate(_deathSettings);
+            Object.DestroyImmediate(_throwSettings);
         }
 
         [UnityTest]
@@ -125,7 +130,7 @@ namespace GhostHunter.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator 호스트는_원격_플레이어_시체를_밀_수_있다()
+        public IEnumerator 호스트는_원격_플레이어_시체를_가구처럼_던질_수_있다()
         {
             GameObject ground = GameObject.CreatePrimitive(PrimitiveType.Cube);
             _objects.Add(ground);
@@ -140,6 +145,7 @@ namespace GhostHunter.Tests.PlayMode
             yield return null;
             GameObject corpse = GameObject.Find("Corpse_999");
             Assert.IsNotNull(corpse);
+            Assert.AreEqual(GameLayers.Furniture, corpse.layer, "시체는 가구와 같은 레이어에서 판정받는다");
 
             // 떠올랐다 떨어지는 연출(kinematic)이 끝나고 바닥에 가라앉을 때까지.
             float deadline = Time.realtimeSinceStartup + 6f;
@@ -150,12 +156,16 @@ namespace GhostHunter.Tests.PlayMode
             Assert.IsFalse(body.isKinematic, "연출이 끝나면 물리 시체가 되어야 한다");
 
             Vector3 before = corpse.transform.position;
-            Assert.IsTrue(visuals.ServerTryPush(before + Vector3.back * 0.3f, Vector3.forward));
+            Vector3 eye = before + new Vector3(0f, 1.2f, -1.2f);
+            Assert.IsTrue(visuals.ServerTryAddHolder(0, eye, (before - eye).normalized));
+            Assert.AreEqual(FurnitureState.ThrowReady, visuals.GrabState);
+            visuals.ServerRelease(0, Vector3.forward, false);
+            Assert.AreEqual(FurnitureState.Launched, visuals.GrabState);
             for (int i = 0; i < 25; i++)
                 yield return new WaitForFixedUpdate();
 
             Assert.Greater((corpse.transform.position - before).magnitude, 0.2f,
-                $"밀었는데 시체가 움직이지 않았다 (before {before}, after {corpse.transform.position})");
+                $"던졌는데 시체가 움직이지 않았다 (before {before}, after {corpse.transform.position})");
         }
 
         [UnityTest]
@@ -198,6 +208,7 @@ namespace GhostHunter.Tests.PlayMode
             Set(spectator, "_settings", _deathSettings);
 
             visuals = root.AddComponent<PlayerVisuals>();
+            Set(root.AddComponent<GrabController>(), "_settings", _throwSettings);
             if (withSkinnedModel)
                 AttachSkinnedModel(root.transform, visuals);
             else

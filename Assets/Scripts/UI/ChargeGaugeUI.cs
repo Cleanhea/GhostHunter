@@ -32,22 +32,42 @@ namespace GhostHunter.UI
 
             if (!grab.TryGetHeldTarget(out FurnitureGrabTarget target))
             {
-                if (grab.IsChargingShove)
+                // 시체도 가구와 같은 게이지를 쓴다.
+                if (grab.TryGetHeldCorpse(out PlayerVisuals corpse))
+                {
+                    DrawGauge(
+                        corpse.LaunchPower,
+                        HolderColor(corpse.HolderCount),
+                        "시체 · " + HolderCaption(corpse.GrabState, grab.RotateMode));
+                }
+                else if (grab.IsChargingShove)
+                {
                     DrawGauge(grab.ShovePower, new Color(1f, 0.55f, 0.2f), "플레이어 밀치기");
+                }
+
                 return;
             }
-
-            string holders = target.State != FurnitureState.Held
-                ? "1인 투척 준비"
-                : grab.RotateMode == FurnitureRotateMode.Tilt
-                    ? "2인 협력 잡기 · 휠 기울이기 (휠 클릭: 회전)"
-                    : "2인 협력 잡기 · 휠 회전 (휠 클릭: 기울이기)";
 
             // 누른 시간이 아니라 지금 놓으면 나갈 힘을 채운다 — 살짝 누르면 짧게 보여야 약하게 나가는 걸 안다.
             DrawGauge(
                 target.LaunchPower,
-                target.HolderCount >= 2 ? new Color(1f, 0.85f, 0.1f) : new Color(0.1f, 0.95f, 0.8f),
-                holders);
+                HolderColor(target.HolderCount),
+                HolderCaption(target.State, grab.RotateMode));
+        }
+
+        private static Color HolderColor(int holderCount)
+        {
+            return holderCount >= 2 ? new Color(1f, 0.85f, 0.1f) : new Color(0.1f, 0.95f, 0.8f);
+        }
+
+        private static string HolderCaption(FurnitureState state, FurnitureRotateMode mode)
+        {
+            if (state != FurnitureState.Held)
+                return "1인 투척 준비";
+
+            return mode == FurnitureRotateMode.Tilt
+                ? "2인 협력 잡기 · 휠 기울이기 (휠 클릭: 회전)"
+                : "2인 협력 잡기 · 휠 회전 (휠 클릭: 기울이기)";
         }
 
         private void DrawGauge(float power, Color fill, string caption)

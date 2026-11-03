@@ -239,9 +239,9 @@ Player (root)          ← 요(Y) 회전. ClientNetworkTransform이 복제
 |---|---|
 | 소모 | **달리는 동안만.** 달리기 키를 누르고 + 서 있고 + 실제로 움직이고 + 탈진하지 않았을 때(`PlayerMotor.IsSprinting`). 제자리에서 키만 누르면 소모하지 않는다 |
 | 회복 | 달리지 않는 동안 초당 일정량. 달리기를 멈추고 `RegenDelaySeconds` 가 지나야 시작한다. 걷든 서 있든 웅크리든 같다 |
-| 탈진 | 0 이 되면 탈진해 달릴 수 없다. 총량 대비 `ExhaustedRecoverRatio` 까지 회복해야 다시 달릴 수 있다(0 근처 깜빡임 방지) |
+| 탈진 | 0 이 되면 탈진해 달릴 수 없다. 총량 대비 `ExhaustedRecoverRatio` 까지 회복해야 다시 달릴 수 있다. 기본 1(= **가득 찰 때까지 못 달린다**, 2026-11-03 사용자 지정), 낮추면 그 비율에서 풀린다 |
 | 지침 | 총량 대비 `SlowStartRatio` 아래부터 이동 속도가 선형으로 줄어 0 에서 `MinSpeedMultiplier` 배가 된다. **걷기·웅크리기·엎드리기 모두**에 곱해진다(`SpeedModifierSource.Stamina`) |
-| 헐떡임 | `BreathStartRatio` 이하이거나 탈진하면 시작, `BreathStopRatio` 이상으로 회복해야 멈춘다. 소리는 `BreathCue`(비어 있으면 무음)를 `PlayAttached` 로 건다 — **반복(Loop) 큐를 권장**한다. 사망·로딩·정산 중에는 끊는다 |
+| 헐떡임 | `BreathStartRatio` 이하이거나 탈진하면 시작, **탈진이 풀리고** `BreathStopRatio` 이상으로 회복해야 멈춘다(해제 비율이 1이면 탈진 내내 헐떡인다). 소리는 `BreathCue`(비어 있으면 무음)를 `PlayAttached` 로 건다 — **반복(Loop) 큐를 권장**한다. 사망·로딩·정산 중에는 끊는다 |
 | 멈추는 구간 | 정산·로딩(`PlayerMotor` 의 early-return)에서는 스태미나 진행이 멈추고 헐떡임만 끊는다. 메뉴·굴착처럼 이동만 잠긴 구간은 회복이 계속된다 |
 | HUD | 왼쪽부터 채워지는 흰색 바. 가득 차 있으면 `HideDelaySeconds` 뒤 서서히 사라지고, 가득 찬 채 스폰하면 처음부터 숨어 있다. `AlwaysShowBar` 로 항상 표시할 수 있다 |
 

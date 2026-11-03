@@ -48,7 +48,7 @@ C# 클래스이며 컴포넌트로 추가하지 않는다. `GhostPrototypeContro
 현관에서 약 5.8m 떨어진다. 스폰 자리에 겹쳐 두던 때는 상자 안의 종료 단말기가 현관을 막았다.
 종료 단말기·공동 아이템 선반은 이 상자의 자식이라 같이 움직이고, 조립 영역
 (`FurnitureMultiDriverPrototype`)은 같은 이동량만큼 따라간다. 2026-10-04부터 반출 구역은 상자 **오른쪽(+X) 바깥 땅**
-(`FurnitureDeliveryZone.CreateBesideDrillCar`, 4 × 3.5 × 4m, 빨간 페인트·빛나는 외곽선 표시 `FurnitureDeliveryZoneView`), 조립 영역은 상자 **왼쪽(−X) 바깥 땅**에 둔다(`GameInstaller`) —
+(`FurnitureDeliveryZone.CreateBesideDrillCar`, 4 × 3.5 × 4m, 주황(#C65A20) 페인트·흰(#FFFFFF) 외곽선 표시 `FurnitureDeliveryZoneView`), 조립 영역은 상자 **왼쪽(−X) 바깥 땅**에 둔다(`GameInstaller`) —
 이전에는 둘 다 상자 안이었다.
 
 ## 2. 생성, 청소, 상태

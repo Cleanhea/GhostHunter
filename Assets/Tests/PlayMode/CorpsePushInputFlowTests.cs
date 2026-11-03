@@ -20,7 +20,8 @@ using Object = UnityEngine.Object;
 namespace GhostHunter.Tests.PlayMode
 {
     /// <summary>
-    /// 실제 마우스 입력으로 시체 밀기·운반·취소와 플레이어 밀치기의 서버 RPC 경로를 검증한다.
+    /// 실제 마우스 입력으로 시체를 가구처럼 잡기·던지기·2인 운반·취소하는 서버 RPC 경로와
+    /// 플레이어 밀치기를 검증한다.
     /// </summary>
     public sealed class CorpsePushInputFlowTests
     {
@@ -40,6 +41,7 @@ namespace GhostHunter.Tests.PlayMode
         private SanityNetworkState _hostSanity;
         private PlayerVisuals _corpseOwner;
         private Rigidbody _corpseBody;
+        private FurnitureThrowSettings _throwSettings;
 
         [UnitySetUp]
         public IEnumerator SetUp()
@@ -53,6 +55,10 @@ namespace GhostHunter.Tests.PlayMode
 
             _sanitySettings = ScriptableObject.CreateInstance<SanitySystemSettings>();
             _deathSettings = ScriptableObject.CreateInstance<SpectatorSettings>();
+            Set(_deathSettings, "_corpseOutlineMaterial",
+                AssetDatabase.LoadAssetAtPath<Material>("Assets/Materials/Furniture_Outline.mat"));
+            _throwSettings = AssetDatabase.LoadAssetAtPath<FurnitureThrowSettings>(
+                "Assets/Settings/Gameplay/FurnitureThrowSettings_Default.asset");
             _team = Create("CorpseTestTeam").AddComponent<SanityTeamService>();
             _context = new LocalPlayerContext();
             Services.Bind<ISanityTeamService>(_team);
@@ -92,7 +98,7 @@ namespace GhostHunter.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator 호스트가_짧게_좌클릭하면_원격_플레이어_시체가_밀린다()
+        public IEnumerator 호스트가_짧게_좌클릭하면_원격_플레이어_시체가_가구처럼_발사된다()
         {
             yield return PrepareCorpse();
             Vector3 eye = _camera.transform.position;
@@ -100,41 +106,43 @@ namespace GhostHunter.Tests.PlayMode
             _camera.transform.position = eye;
             _camera.transform.LookAt(_corpseBody.position);
             Vector3 before = _corpseBody.position;
-            Press();
-            yield return null;
+            yield return BeginGrab();
+            Assert.AreEqual(FurnitureState.ThrowReady, _corpseOwner.GrabState, "첫 홀더는 투척 준비다.");
             Release();
-            yield return null;
+            yield return WaitFor(() => _corpseOwner.HolderCount == 0, 2f);
             for (int i = 0; i < 30; i++)
                 yield return new WaitForFixedUpdate();
 
             Assert.Greater((_corpseBody.position - before).magnitude, 0.2f,
-                "짧은 좌클릭은 서버 시체 물리에 충격량을 줘야 한다.");
+                "짧게 눌렀다 떼면 서버가 가구와 같은 발사 힘을 준다.");
         }
 
         [UnityTest]
-        public IEnumerator 길게_누르면_시체를_운반하고_떼면_운반자를_해제한다()
+        public IEnumerator 누르고_있는_동안_차징하고_떼면_홀더를_해제한다()
         {
             yield return PrepareCorpse();
-            Vector3 before = _corpseBody.position;
-            yield return BeginCarry();
+            yield return BeginGrab();
             Assert.IsFalse(_grab.IsChargingShove, "시체가 플레이어 밀치기보다 먼저 입력을 소비한다.");
+            Assert.IsTrue(_grab.TryGetHeldCorpse(out _), "게이지가 읽을 수 있게 홀더로 복제돼야 한다.");
+            yield return WaitFor(() => _corpseOwner.GrabCharge > 0.05f, 2f);
+            Assert.Greater(_corpseOwner.GrabCharge, 0.05f, "누르고 있는 동안 차지가 오른다.");
             Release();
-            yield return null;
-            Assert.AreEqual(0, Carriers.Count);
+            yield return WaitFor(() => _corpseOwner.HolderCount == 0, 2f);
+            Assert.AreEqual(0, _corpseOwner.HolderCount);
             Assert.AreEqual(GrabController.NoObjectId, Get<ulong>(_grab, "_serverHeldCorpseId"));
-            Assert.Less(Vector3.ProjectOnPlane(_corpseBody.position - before, Vector3.up).magnitude, 0.1f,
-                "운반 후 해제는 짧은 클릭 밀기를 추가로 보내면 안 된다.");
         }
 
         [UnityTest]
-        public IEnumerator 메뉴를_열기_전_강제해제하면_운반을_취소하고_버튼을_떼도_밀지_않는다()
+        public IEnumerator 메뉴를_열기_전_강제해제하면_발사하지_않고_버튼을_떼도_던지지_않는다()
         {
             yield return PrepareCorpse();
-            yield return BeginCarry();
+            yield return BeginGrab();
+            Vector3 before = _corpseBody.position;
             _grab.ForceRelease();
             _input.SetGameplayInputLocked(true);
-            Assert.AreEqual(0, Carriers.Count);
-            Vector3 before = _corpseBody.position;
+            yield return WaitFor(() => _corpseOwner.HolderCount == 0, 2f);
+            Assert.AreEqual(0, _corpseOwner.HolderCount);
+            Assert.AreEqual(FurnitureState.Idle, _corpseOwner.GrabState, "취소는 발사가 아니라 그냥 놓는 것이다.");
             Release();
             yield return null;
             for (int i = 0; i < 10; i++)
@@ -143,24 +151,82 @@ namespace GhostHunter.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator 운반자가_사망하면_서버의_시체_운반자도_해제한다()
+        public IEnumerator 홀더가_사망하면_서버의_시체_홀더도_해제한다()
         {
             yield return PrepareCorpse();
-            yield return BeginCarry();
+            yield return BeginGrab();
             Assert.IsTrue(_hostSanity.ServerMarkDead());
             yield return null;
-            Assert.AreEqual(0, Carriers.Count);
+            Assert.AreEqual(0, _corpseOwner.HolderCount);
             Assert.AreEqual(GrabController.NoObjectId, Get<ulong>(_grab, "_serverHeldCorpseId"));
         }
 
         [UnityTest]
-        public IEnumerator 운반자가_디스폰하면_서버의_시체_운반자도_해제한다()
+        public IEnumerator 홀더가_디스폰하면_서버의_시체_홀더도_해제한다()
         {
             yield return PrepareCorpse();
-            yield return BeginCarry();
+            yield return BeginGrab();
             _grab.NetworkObject.Despawn();
             yield return null;
-            Assert.AreEqual(0, Carriers.Count);
+            Assert.AreEqual(0, _corpseOwner.HolderCount);
+        }
+
+        [UnityTest]
+        public IEnumerator 두번째_홀더가_붙으면_2인_운반으로_손_목표를_따라온다()
+        {
+            yield return PrepareCorpse();
+            yield return BeginGrab();
+            float startHeight = _corpseBody.position.y;
+
+            // 두 사람 모두 위쪽 앞을 보고 든다 — 시체가 눈높이 근처까지 떠올라야 한다.
+            Vector3 up = new Vector3(0f, 0.5f, 1f).normalized;
+            _camera.transform.rotation = Quaternion.LookRotation(up);
+            Vector3 origin = _camera.transform.position;
+            Assert.IsTrue(_corpseOwner.ServerTryAddHolder(998, origin + Vector3.right * 0.3f, up));
+            Assert.AreEqual(FurnitureState.Held, _corpseOwner.GrabState);
+            Assert.IsFalse(_corpseBody.useGravity, "2인 운반 중에는 중력을 끈다.");
+
+            for (int i = 0; i < 60; i++)
+                yield return new WaitForFixedUpdate();
+
+            Assert.Greater(_corpseBody.position.y, startHeight + 0.4f, "두 손 목표를 향해 시체가 들려 올라온다.");
+        }
+
+        [UnityTest]
+        public IEnumerator 둘이_들다가_한_명이_놓으면_남은_사람_방향으로_즉시_발사한다()
+        {
+            yield return PrepareCorpse();
+            yield return BeginGrab();
+            Vector3 up = new Vector3(0f, 0.5f, 1f).normalized;
+            _camera.transform.rotation = Quaternion.LookRotation(up);
+            Assert.IsTrue(_corpseOwner.ServerTryAddHolder(998, _camera.transform.position, up));
+            for (int i = 0; i < 20; i++)
+                yield return new WaitForFixedUpdate();
+
+            _corpseOwner.ServerRelease(998, up, false);
+
+            Assert.AreEqual(FurnitureState.Launched, _corpseOwner.GrabState);
+            Assert.AreEqual(0, _corpseOwner.HolderCount, "남은 홀더도 같이 풀린다.");
+            yield return new WaitForFixedUpdate();
+            Assert.Greater(_corpseBody.linearVelocity.magnitude, 1f, "발사 속도가 실려 있어야 한다.");
+        }
+
+        [UnityTest]
+        public IEnumerator 조준하면_시체_윤곽선이_켜지고_시선을_돌리면_꺼진다()
+        {
+            yield return PrepareCorpse();
+            var shells = Get<Renderer[]>(_corpseOwner, "_outlineShells");
+            Assert.IsNotNull(shells, "윤곽선 재질이 있으면 셸이 만들어진다.");
+            Assert.IsNotEmpty(shells);
+            foreach (Renderer shell in shells)
+                Assert.IsFalse(shell.enabled, "평소에는 꺼져 있다.");
+
+            _corpseOwner.SetTargeted(true);
+            foreach (Renderer shell in shells)
+                Assert.IsTrue(shell.enabled);
+            _corpseOwner.SetTargeted(false);
+            foreach (Renderer shell in shells)
+                Assert.IsFalse(shell.enabled);
         }
 
         [UnityTest]
@@ -258,16 +324,19 @@ namespace GhostHunter.Tests.PlayMode
                 $"카메라가 시체 대신 {hit.collider.name} 을(를) 맞힌다");
         }
 
-        private Dictionary<ulong, Vector3> Carriers => Get<Dictionary<ulong, Vector3>>(_corpseOwner, "_carrierTargets");
-
-        private IEnumerator BeginCarry()
+        private IEnumerator BeginGrab()
         {
             Press();
-            float deadline = Time.realtimeSinceStartup + 2f;
-            while (Carriers.Count == 0 && Time.realtimeSinceStartup < deadline)
-                yield return null;
-            Assert.AreEqual(1, Carriers.Count, "시체를 계속 조준하고 누르면 운반자로 등록돼야 한다.");
+            yield return WaitFor(() => _corpseOwner.HolderCount > 0, 2f);
+            Assert.AreEqual(1, _corpseOwner.HolderCount, "시체를 조준하고 누르면 홀더로 등록돼야 한다.");
             Assert.AreEqual(_corpseOwner.NetworkObjectId, Get<ulong>(_grab, "_serverHeldCorpseId"));
+        }
+
+        private static IEnumerator WaitFor(System.Func<bool> condition, float seconds)
+        {
+            float deadline = Time.realtimeSinceStartup + seconds;
+            while (!condition() && Time.realtimeSinceStartup < deadline)
+                yield return null;
         }
 
         private void Press() => InputSystem.QueueStateEvent(_mouse, new MouseState().WithButton(MouseButton.Left));
@@ -288,6 +357,7 @@ namespace GhostHunter.Tests.PlayMode
             var spectator = root.AddComponent<SpectatorController>();
             Set(spectator, "_settings", _deathSettings);
             PlayerVisuals visuals = root.AddComponent<PlayerVisuals>();
+            Set(root.AddComponent<GrabController>(), "_settings", _throwSettings);
             GameObject body = GameObject.CreatePrimitive(PrimitiveType.Capsule);
             body.name = "RemoteBody";
             body.transform.SetParent(root.transform, false);
@@ -320,8 +390,7 @@ namespace GhostHunter.Tests.PlayMode
             var grab = root.AddComponent<GrabController>();
             Set(grab, "_input", input);
             Set(grab, "_camera", camera);
-            Set(grab, "_settings", AssetDatabase.LoadAssetAtPath<FurnitureThrowSettings>(
-                "Assets/Settings/Gameplay/FurnitureThrowSettings_Default.asset"));
+            Set(grab, "_settings", _throwSettings);
             _grab = grab;
             root.SetActive(true);
             root.GetComponent<NetworkObject>().SpawnWithOwnership(ownerId);

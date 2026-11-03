@@ -4,14 +4,14 @@ using UnityEngine.Rendering;
 namespace GhostHunter.Gameplay.Map
 {
     /// <summary>
-    /// 반출 구역을 모든 플레이어 눈에 보이게 꾸민다. 2026-10-04 에는 초록 빛기둥·반투명 채움이었는데 "너무 형광"이라는
-    /// 요청(2026-11-03)으로 <b>바닥에 칠한 빨간 페인트 + 빛나는 외곽선</b>으로 다시 만들었다 — 가장자리 띠·틈·안쪽 칠에
-    /// 롤러 자국과 벗겨진 곳이 있는 페인트 질감(<see cref="FurnitureDeliveryZonePaint"/>), 그 테두리를 따라 도는 밝은 빨강 선
-    /// (가운데 가는 달아오른 심지) + 바닥으로 번지는 부드러운 빛무리, 구역 위의 은은한 붉은 조명이다. 외곽선만 숨 쉬듯 맥동한다.
+    /// 반출(포장) 구역을 모든 플레이어 눈에 보이게 꾸민다. 2026-10-04 에는 초록 빛기둥·반투명 채움이었는데 "너무 형광"이라는
+    /// 요청(2026-11-03)으로 <b>바닥에 칠한 페인트 + 빛나는 외곽선</b>으로 다시 만들었고, 같은 날 색을 지정받았다 —
+    /// 영역 내부 <c>#C65A20</c>, 테두리 선 <c>#FFFFFF</c>. 가장자리 띠·틈·안쪽 칠에 롤러 자국과 벗겨진 곳이 있는 페인트 질감
+    /// (<see cref="FurnitureDeliveryZonePaint"/>), 그 테두리를 따라 도는 흰 선 + 바닥으로 번지는 부드러운 흰 빛무리,
+    /// 구역 위의 은은한 주황 조명이다. 외곽선·빛무리만 숨 쉬듯 맥동한다.
     ///
     /// <para>로컬 표시 전용(복제 없음)이고 <see cref="FurnitureDeliveryZone"/> 이 만든다. 머티리얼 에셋 없이 항상 포함
     /// 셰이더(<c>Sprites/Default</c>)로 런타임 생성 — 벽에 가려지고 뒷면도 보이며 조명 영향을 받지 않아 어둠 속에서도 보인다.
-    /// 칠은 어둡고 탁하게 그려 형광처럼 번쩍이지 않고, 밝은 것은 외곽선뿐이다.
     /// 모든 도형은 구역 오브젝트의 자식이라 드릴카·씬과 함께 사라지고 충돌체가 없다.</para>
     /// </summary>
     [DisallowMultipleComponent]
@@ -20,32 +20,31 @@ namespace GhostHunter.Gameplay.Map
         private const string ShaderName = "Sprites/Default";
 
         // 색은 모두 sRGB 로 적는다(화면에 보이는 색). 정점 색은 선형 색공간에서 그대로 쓰이므로 ToVertexColor 로 바꿔 넣는다.
-        private static readonly Color EdgeColor = new(1f, 0.16f, 0.1f, 1f);
-        private static readonly Color CoreColor = new(1f, 0.5f, 0.38f, 1f);
-        private static readonly Color HaloColor = new(1f, 0.1f, 0.06f, 1f);
-        private static readonly Color LightColor = new(1f, 0.2f, 0.14f, 1f);
+        // 테두리 선(#FFFFFF, 2026-11-03 지정)과 그 빛무리.
+        private static readonly Color EdgeColor = Color.white;
+        private static readonly Color HaloColor = Color.white;
+        // 구역 위 조명은 영역 내부색(#C65A20)을 밝힌 주황.
+        private static readonly Color LightColor = new(1f, 0.5f, 0.2f, 1f);
 
         // 바닥과 같은 높이에 그리면 깊이가 겹쳐 깜빡인다.
         private const float FloorLift = 0.03f;
         // 구역 바닥은 땅 아래로 뻗어 있어 땅을 못 찾으면 바닥에서 이만큼 위를 땅으로 본다(FurnitureDeliveryZone.BelowGround).
         private const float FallbackGroundAboveBottom = 0.5f;
         private const float EdgeLineWidth = 0.1f;
-        private const float CoreLineWidth = 0.035f;
         // 빛무리: 외곽선에서 안쪽·바깥쪽으로 번지는 폭(m)과 외곽선 바로 옆의 불투명도.
         private const float HaloInward = 0.25f;
         private const float HaloOutward = 0.4f;
-        private const float HaloEdgeAlpha = 0.4f;
+        private const float HaloEdgeAlpha = 0.2f;
         private const float PulsePeriodSeconds = 3f;
         private const float PulseMinimum = 0.7f;
         private const float GlowIntensity = 0.6f;
         private const float GlowHeight = 1f;
         private const float GlowRangeScale = 1.4f;
 
-        // 투명 도형끼리 겹치는 순서(깊이 기록이 없어 정렬 순서로 결정된다): 칠 → 빛무리 → 외곽선 → 심지.
+        // 투명 도형끼리 겹치는 순서(깊이 기록이 없어 정렬 순서로 결정된다): 칠 → 빛무리 → 외곽선.
         private const int PaintOrder = 0;
         private const int HaloOrder = 1;
         private const int EdgeOrder = 2;
-        private const int CoreOrder = 3;
 
         private FurnitureDeliveryZone _zone;
         private Material _paintMaterial;
@@ -132,7 +131,6 @@ namespace GhostHunter.Gameplay.Map
             BuildPaint(size, halfX, halfZ, y);
             BuildHalo(lineHalfX, lineHalfZ, y);
             BuildLoop("OuterEdge", lineHalfX, lineHalfZ, y, EdgeLineWidth, EdgeColor, EdgeOrder);
-            BuildLoop("CoreEdge", lineHalfX, lineHalfZ, y, CoreLineWidth, CoreColor, CoreOrder);
             BuildGlow(floorY + GlowHeight, Mathf.Max(size.x, size.z) * GlowRangeScale);
         }
 

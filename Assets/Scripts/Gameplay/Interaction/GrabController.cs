@@ -39,6 +39,9 @@ namespace GhostHunter.Gameplay.Interaction
         private float _serverNextShoveAt;
 
         public ulong HeldObjectId => _heldObjectId.Value;
+
+        /// <summary>시체(PlayerVisuals)가 가구와 같은 잡기·던지기 값을 쓰도록 노출한다.</summary>
+        public FurnitureThrowSettings Settings => _settings;
         public bool IsHolding => _heldObjectId.Value != NoObjectId;
         public bool IsTestHoldLatched => _testHoldLatched;
 
@@ -69,11 +72,10 @@ namespace GhostHunter.Gameplay.Interaction
 
             if (IsOwner)
             {
-                _corpseInteraction = new CorpseInteraction(_camera, _settings,
-                    (id, origin, direction) => RequestCorpsePushRpc(id, origin, direction),
-                    (id, origin, direction) => RequestCorpseCarryRpc(id, origin, direction),
+                _corpseInteraction = new CorpseInteraction(_camera, _settings, OwnerClientId,
+                    (id, origin, direction) => RequestCorpseGrabRpc(id, origin, direction),
                     (id, origin, direction) => RequestCorpseAimRpc(id, origin, direction),
-                    id => RequestCorpseReleaseRpc(id));
+                    (id, direction, launch) => RequestCorpseReleaseRpc(id, direction, launch));
                 _shoveInteraction = new PlayerShoveInteraction(transform, NetworkObject, _camera, _settings,
                     id => BeginShoveRpc(id), (id, direction) => ReleaseShoveRpc(id, direction));
                 _localPlayer = Services.Get<ILocalPlayerContext>();
@@ -86,6 +88,7 @@ namespace GhostHunter.Gameplay.Interaction
             _heldObjectId.OnValueChanged -= HandleHeldObjectChanged;
             _testHoldLatched = false;
             _corpseInteraction?.Cancel(IsSpawned);
+            _corpseInteraction?.UpdateHover(false);
             _shoveInteraction?.Cancel();
             _corpseInteraction = null;
             _shoveInteraction = null;
@@ -136,6 +139,7 @@ namespace GhostHunter.Gameplay.Interaction
                 || (_driver != null && _driver.IsDriverEquipped))
             {
                 _corpseInteraction.Cancel(IsSpawned);
+                _corpseInteraction.UpdateHover(false);
                 _shoveInteraction.Cancel();
                 return;
             }
@@ -144,9 +148,13 @@ namespace GhostHunter.Gameplay.Interaction
             if (keyboard != null && keyboard[_testHoldToggleKey].wasPressedThisFrame)
                 ToggleTestHold();
 
+            bool furnitureHeld = IsHolding || _requestedObjectId != NoObjectId;
+            _corpseInteraction.UpdateHover(
+                !furnitureHeld && !IsChargingShove && (_sanity == null || _sanity.HasSanity));
+
             if (_input.AttackPressedThisFrame)
             {
-                bool furnitureBusy = IsHolding || _requestedObjectId != NoObjectId;
+                bool furnitureBusy = furnitureHeld;
                 if (!_corpseInteraction.TryBegin(furnitureBusy)
                     && !_shoveInteraction.TryBegin(furnitureBusy || _corpseInteraction.IsActive,
                         _sanity == null || _sanity.HasSanity))
@@ -172,8 +180,13 @@ namespace GhostHunter.Gameplay.Interaction
                     _camera.transform.forward);
             }
 
-            if (IsHolding)
-                HandleHeldRotationInput();
+            bool corpseHeld = _corpseInteraction.IsActive
+                && _corpseInteraction.Target.GrabState == FurnitureState.Held
+                && _corpseInteraction.Target.ContainsHolder(OwnerClientId);
+            if (IsHolding || corpseHeld)
+                HandleHeldRotationInput(corpseHeld);
+            else if (!_corpseInteraction.IsActive)
+                _rotateMode = FurnitureRotateMode.Rotate;
 
             if (!IsHolding
                 && _requestedObjectId != NoObjectId
@@ -203,7 +216,7 @@ namespace GhostHunter.Gameplay.Interaction
                 this);
         }
 
-        private void HandleHeldRotationInput()
+        private void HandleHeldRotationInput(bool corpseHeld)
         {
             if (_input.FurnitureRotateModePressedThisFrame)
             {
@@ -213,20 +226,34 @@ namespace GhostHunter.Gameplay.Interaction
             }
 
             float scroll = _input.FurnitureRotateScroll;
-            if (Mathf.Approximately(scroll, 0f)
-                || !TryResolveTarget(_heldObjectId.Value, out FurnitureGrabTarget target)
-                || target.State != FurnitureState.Held)
+            if (Mathf.Approximately(scroll, 0f))
+                return;
+
+            // 휠 값의 크기는 플랫폼·설정마다 달라 부호만 쓴다 — 한 프레임에 최대 한 칸.
+            int steps = scroll > 0f ? 1 : -1;
+            if (corpseHeld)
             {
+                RequestCorpseRotateRpc(_corpseInteraction.Target.NetworkObjectId, steps, _rotateMode);
                 return;
             }
 
-            // 휠 값의 크기는 플랫폼·설정마다 달라 부호만 쓴다 — 한 프레임에 최대 한 칸.
-            RequestRotateHeldRpc(_heldObjectId.Value, scroll > 0f ? 1 : -1, _rotateMode);
+            if (TryResolveTarget(_heldObjectId.Value, out FurnitureGrabTarget target)
+                && target.State == FurnitureState.Held)
+            {
+                RequestRotateHeldRpc(_heldObjectId.Value, steps, _rotateMode);
+            }
         }
 
         public bool TryGetHeldTarget(out FurnitureGrabTarget target)
         {
             return TryResolveTarget(_heldObjectId.Value, out target);
+        }
+
+        /// <summary>로컬 소유자가 지금 잡고 있는(서버가 홀더로 받아들인) 시체. 차지 게이지가 읽는다.</summary>
+        public bool TryGetHeldCorpse(out PlayerVisuals corpse)
+        {
+            corpse = _corpseInteraction != null ? _corpseInteraction.Target : null;
+            return corpse != null && corpse.ContainsHolder(OwnerClientId);
         }
 
         private void BeginGrab()
@@ -304,39 +331,20 @@ namespace GhostHunter.Gameplay.Interaction
                 _settings.ShoveMaxSpeed, _settings.ShoveUpwardSpeed));
         }
 
+        /// <summary>
+        /// 시체를 가구처럼 잡는다 — 첫 홀더는 투척 준비(차징), 둘째 홀더가 붙으면 2인 운반.
+        /// 서버가 생존·거리·가시선·시체 상태를 다시 검사한다.
+        /// </summary>
         [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
-        private void RequestCorpsePushRpc(
+        private void RequestCorpseGrabRpc(
             ulong corpseNetworkId, Vector3 origin, Vector3 direction,
             RpcParams rpcParams = default)
         {
+            ServerForgetStaleCorpse();
             if (rpcParams.Receive.SenderClientId != OwnerClientId
                 || _sanity == null || !_sanity.HasSanity
-                || _settings == null || !IsValidAim(origin, direction)
-                || Vector3.Distance(transform.position, origin) > 3f
-                || !TryResolveCorpse(corpseNetworkId, out PlayerVisuals corpse))
-                return;
-
-            if (Vector3.Distance(transform.position, corpse.CorpsePosition)
-                    > _settings.MaxTargetDistance * 1.2f)
-                return;
-
-            if (Physics.Raycast(origin, direction, out RaycastHit hit,
-                    _settings.MaxTargetDistance * 1.2f,
-                    Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore)
-                && PlayerVisuals.TryGetCorpseOwner(hit.collider, out PlayerVisuals owner)
-                && owner == corpse)
-            {
-                corpse.ServerTryPush(hit.point, direction.normalized);
-            }
-        }
-
-        [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
-        private void RequestCorpseCarryRpc(
-            ulong corpseNetworkId, Vector3 origin, Vector3 direction,
-            RpcParams rpcParams = default)
-        {
-            if (rpcParams.Receive.SenderClientId != OwnerClientId
-                || _sanity == null || !_sanity.HasSanity
+                || (_cleaning != null && _cleaning.ServerHasMop)
+                || (_driver != null && _driver.ServerHasDriver)
                 || _settings == null || !IsValidAim(origin, direction)
                 || Vector3.Distance(transform.position, origin) > 3f
                 || IsHolding || _serverHeldCorpseId != NoObjectId
@@ -352,8 +360,7 @@ namespace GhostHunter.Gameplay.Interaction
                 || owner != corpse)
                 return;
 
-            Vector3 target = origin + direction.normalized * corpse.CarryDistance;
-            if (corpse.ServerAddCarrier(OwnerClientId, target))
+            if (corpse.ServerTryAddHolder(OwnerClientId, origin, direction))
                 _serverHeldCorpseId = corpseNetworkId;
         }
 
@@ -370,17 +377,48 @@ namespace GhostHunter.Gameplay.Interaction
                 || !TryResolveCorpse(corpseNetworkId, out PlayerVisuals corpse))
                 return;
 
-            corpse.ServerUpdateCarrier(OwnerClientId,
-                origin + direction.normalized * corpse.CarryDistance);
+            corpse.ServerUpdateAim(OwnerClientId, origin, direction);
+        }
+
+        /// <summary>
+        /// 시체에서 손을 뗀다. <paramref name="launch"/>면 가구처럼 차지만큼 던지고,
+        /// 아니면(일시정지·장비 장착 취소) 발사 없이 그 홀더만 푼다.
+        /// </summary>
+        [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
+        private void RequestCorpseReleaseRpc(
+            ulong corpseNetworkId, Vector3 aimDirection, bool launch,
+            RpcParams rpcParams = default)
+        {
+            if (rpcParams.Receive.SenderClientId != OwnerClientId
+                || _serverHeldCorpseId != corpseNetworkId
+                || !IsFinite(aimDirection))
+                return;
+
+            if (TryResolveCorpse(corpseNetworkId, out PlayerVisuals corpse))
+                corpse.ServerRelease(OwnerClientId, aimDirection, !launch || _sanity == null || !_sanity.HasSanity);
+            _serverHeldCorpseId = NoObjectId;
         }
 
         [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
-        private void RequestCorpseReleaseRpc(
-            ulong corpseNetworkId, RpcParams rpcParams = default)
+        private void RequestCorpseRotateRpc(
+            ulong corpseNetworkId, int steps, FurnitureRotateMode mode,
+            RpcParams rpcParams = default)
         {
-            if (rpcParams.Receive.SenderClientId == OwnerClientId
-                && _serverHeldCorpseId == corpseNetworkId)
-                ServerReleaseCorpseCarry();
+            if (rpcParams.Receive.SenderClientId != OwnerClientId
+                || _serverHeldCorpseId != corpseNetworkId
+                || _sanity == null || !_sanity.HasSanity
+                || !TryResolveCorpse(corpseNetworkId, out PlayerVisuals corpse))
+                return;
+
+            // 홀더 여부·Held 상태·한 칸 범위·모드 값은 시체 쪽에서 다시 검증한다.
+            corpse.ServerRotateHeld(OwnerClientId, steps, mode);
+        }
+
+        /// <summary>시체가 홀더를 풀었을 때(발사·같이 내려놓기·강제 해제) 서버가 이쪽 기록을 지운다.</summary>
+        public void ServerClearHeldCorpse(ulong corpseNetworkId)
+        {
+            if (IsServer && _serverHeldCorpseId == corpseNetworkId)
+                _serverHeldCorpseId = NoObjectId;
         }
 
         private void ServerReleaseCorpseCarry()
@@ -389,8 +427,17 @@ namespace GhostHunter.Gameplay.Interaction
                 return;
 
             if (TryResolveCorpse(_serverHeldCorpseId, out PlayerVisuals corpse))
-                corpse.ServerRemoveCarrier(OwnerClientId);
+                corpse.ServerForceRelease(OwnerClientId);
             _serverHeldCorpseId = NoObjectId;
+        }
+
+        /// <summary>시체가 사라졌거나 더는 내가 홀더가 아니면 남은 기록을 지워 다음 잡기를 막지 않게 한다.</summary>
+        private void ServerForgetStaleCorpse()
+        {
+            if (_serverHeldCorpseId != NoObjectId
+                && (!TryResolveCorpse(_serverHeldCorpseId, out PlayerVisuals corpse)
+                    || !corpse.ContainsHolder(OwnerClientId)))
+                _serverHeldCorpseId = NoObjectId;
         }
 
         private bool TryResolveCorpse(ulong corpseNetworkId, out PlayerVisuals corpse)

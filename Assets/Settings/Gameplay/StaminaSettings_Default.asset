@@ -16,7 +16,7 @@ MonoBehaviour:
   _sprintDrainPerSecond: 20
   _regenPerSecond: 12
   _regenDelaySeconds: 1
-  _exhaustedRecoverRatio: 0.25
+  _exhaustedRecoverRatio: 1
   _slowStartRatio: 0.4
   _minSpeedMultiplier: 0.6
   _breathStartRatio: 0.3

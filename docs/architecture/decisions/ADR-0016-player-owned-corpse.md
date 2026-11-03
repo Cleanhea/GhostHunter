@@ -35,3 +35,12 @@
 - 런타임 시체는 별도 NetworkObject가 아니므로 늦게 접속한 플레이어는 Player의 생존 상태와 시체
   위치·회전에서 현재 모습을 재구성한다.
 - 정식 캐릭터 모델·래그돌·부활 위치 규칙이 정해지면 전용 시체 프리팹과 수명 분리를 재검토한다.
+
+## 2026-11-03 갱신 — 가구와 같은 잡기
+
+사용자 요청("가구처럼 밀치고 잡을 수 있게")으로 시체의 짧은 클릭 충격량·0.3초 홀드 운반을 없애고 가구와 같은 차징·발사·
+2인 운반으로 바꿨다. 결정은 그대로다 — 시체는 별도 NetworkObject가 아니라 Player의 `PlayerVisuals`가 복제한다.
+잡기 상태(`FurnitureState`)·차지·홀더 목록이 `PlayerVisuals`의 `NetworkVariable`·`NetworkList`로 늘었고 서버가
+`FurnitureCarrySession` 등 가구 계산을 그대로 써서 시체 `Rigidbody`를 움직인다. 시체 콜라이더는 `Furniture` 레이어다.
+가구 상태 기계를 옮겨 온 코드가 `FurnitureGrabTarget`과 `PlayerVisuals`에 나뉘어 있어, 전용 시체 프리팹을 만들 때
+`FurnitureGrabTarget`을 시체에 직접 붙이는 쪽(아래 재검토)이 중복을 없앤다.

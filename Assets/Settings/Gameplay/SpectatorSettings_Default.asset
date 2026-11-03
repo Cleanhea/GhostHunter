@@ -15,3 +15,4 @@ MonoBehaviour:
   _flySpeed: 10
   _lookSensitivity: 0.1
   _pitchLimit: 89
+  _corpseOutlineMaterial: {fileID: 2100000, guid: 954762cd56af7ef419ea83d9f78d3b48, type: 2}

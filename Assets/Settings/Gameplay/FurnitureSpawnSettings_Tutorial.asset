@@ -76,6 +76,9 @@ MonoBehaviour:
   _minimumTargetTypes: 6
   _maximumTargetTypes: 6
   _maximumTargetsPerRoom: 6
+  _packInsideRatio: 0.85
+  _packHoldSeconds: 1
+  _packMaxSpeed: 0.3
   _useFixedSeed: 0
   _seed: 1
   _searchBudget: 20000
