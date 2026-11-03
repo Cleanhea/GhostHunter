@@ -42,7 +42,9 @@ namespace GhostHunter.Gameplay.Player
         private readonly MoveSpeedModifierStack _speedModifiers = new();
 
         private CharacterController _controller;
+        private PlayerStamina _stamina;
         private ISceneFlow _sceneFlow;
+        private bool _sprinting;
         private float _verticalVelocity;
         private Vector3 _knockbackVelocity;
         private Vector3 _standingBodyPosition;
@@ -172,6 +174,7 @@ namespace GhostHunter.Gameplay.Player
         private void Awake()
         {
             _controller = GetComponent<CharacterController>();
+            TryGetComponent(out _stamina);
             Services.TryGet(out _sceneFlow);
 
             if (_visualBody != null)
@@ -212,6 +215,9 @@ namespace GhostHunter.Gameplay.Player
             {
                 _verticalVelocity = 0f;
                 _knockbackVelocity = Vector3.zero;
+                // 스태미나는 이 구간에서 진행하지 않으니 반복되는 헐떡임만 끊는다.
+                if (_stamina != null)
+                    _stamina.StopBreathing();
                 return;
             }
 
@@ -229,7 +235,12 @@ namespace GhostHunter.Gameplay.Player
                 else
                 {
                     _knockbackVelocity = Vector3.zero;
+                    _sprinting = false;
                 }
+
+                // 이동이 잠겨 있어도 회복은 계속된다.
+                if (_stamina != null)
+                    _stamina.Tick(deltaTime, _sprinting);
             }
 
             ApplyPosture(deltaTime, false);
@@ -290,7 +301,10 @@ namespace GhostHunter.Gameplay.Player
             Vector2 input = Vector2.ClampMagnitude(_input.Move, 1f);
             Vector3 planar = transform.right * input.x + transform.forward * input.y;
             float control = grounded ? 1f : _settings.AirControl;
-            float moveSpeed = ResolveMoveSpeed();
+            _sprinting = IsSprinting(input);
+            if (_stamina != null)
+                _speedModifiers.Set(SpeedModifierSource.Stamina, _stamina.SpeedMultiplier);
+            float moveSpeed = ResolveMoveSpeed(_sprinting);
             Vector3 velocity = planar * (moveSpeed * control);
 
             // 밀쳐진 속도는 입력 이동에 더해지고, 땅/공중 감속으로 줄어든다. 걸어서 맞서면 덜 밀리는 정도다.
@@ -305,10 +319,22 @@ namespace GhostHunter.Gameplay.Player
             _controller.Move(velocity * deltaTime);
         }
 
-        /// <summary>엎드리기 > 웅크리기 > 달리기 > 걷기 순으로 이동 속도를 정하고, 출처별 배율을 곱한다.</summary>
-        private float ResolveMoveSpeed()
+        /// <summary>
+        /// 달리고 있는가 — 달리기 키를 누르고, 서 있고, 실제로 움직이고, 스태미나가 남아 있을 때만이다.
+        /// 제자리에서 키만 누르거나 탈진했으면 스태미나를 쓰지 않고 속도도 오르지 않는다.
+        /// </summary>
+        private bool IsSprinting(Vector2 moveInput)
         {
-            return PlayerPosture.MoveSpeed(Stance, _input.SprintHeld, _settings) * _speedModifiers.Multiplier;
+            return _input.SprintHeld
+                && moveInput.sqrMagnitude > 0.0001f
+                && Stance == PlayerStance.Standing
+                && (_stamina == null || _stamina.CanSprint);
+        }
+
+        /// <summary>엎드리기 > 웅크리기 > 달리기 > 걷기 순으로 이동 속도를 정하고, 출처별 배율을 곱한다.</summary>
+        private float ResolveMoveSpeed(bool sprinting)
+        {
+            return PlayerPosture.MoveSpeed(Stance, sprinting, _settings) * _speedModifiers.Multiplier;
         }
 
         private void ApplyPosture(float deltaTime, bool immediate)

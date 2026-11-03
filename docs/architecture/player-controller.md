@@ -11,6 +11,7 @@
 | `PlayerLook` | 로컬 소유자만(피치 복제는 전원) | 마우스 델타 → 요(몸통 Y 회전) / 피치(카메라 X 회전) |
 | `PlayerMotor` | 로컬 소유자만(카메라 높이 복제는 전원) | `CharacterController`로 이동·중력·점프 |
 | `PlayerInteractor` | 로컬 소유자만 | 조준선 끝의 문을 찾아 E 입력을 넘김 |
+| `PlayerStamina` / `StaminaHud` | 로컬 소유자만(복제 없음) | 달리기 스태미나 — 아래 "스태미나" |
 | `ClientNetworkTransform` | 전원 | 소유자가 쓰고 나머지가 읽는 트랜스폼 복제 |
 | `PlayerVisuals` | 전원 | 생존 몸(두더지 모델) 표시. 로컬 몸은 자기 Game 카메라에서만 가리고 Scene 뷰에는 표시한다. 사망 시 모델째 복제해 시체를 만든다 |
 | `PlayerCharacterAnimator` | 전원 | 루트 이동 속도로 몸 모델의 대기·걷기를 고른다 — 아래 "캐릭터 모델·애니메이션" |
@@ -183,7 +184,7 @@ Player (root)          ← 요(Y) 회전. ClientNetworkTransform이 복제
 | 값 | 초기값 |
 |---|---|
 | 이동 속도 (걷기) | 5.0 m/s |
-| 달리기 배수 (`sprintMultiplier`, `Sprint`=Left Shift) | 1.4× → 7.0 m/s. 웅크리는 중엔 무효 |
+| 달리기 배수 (`sprintMultiplier`, `Sprint`=Left Shift) | 1.4× → 7.0 m/s. 웅크리는 중엔 무효, 스태미나가 있어야 한다 |
 | 웅크리기 이동 속도 (`Crouch`=C) | 3.5 m/s |
 | 공중 제어 계수 | 0.4 |
 | 점프 높이 | 1.2 m |
@@ -202,6 +203,7 @@ Player (root)          ← 요(Y) 회전. ClientNetworkTransform이 복제
 
 이동 속도 결정 순서: **엎드리기 > 웅크리기 > 달리기 > 걷기** (`PlayerMotor.ResolveMoveSpeed` →
 순수 규칙은 `PlayerPosture`). 엎드리거나 웅크리는 동안에는 `Sprint` 입력을 무시한다.
+여기에 출처별 배율(`MoveSpeedModifierStack` — 굴착 매몰, 스태미나 지침)이 곱해진다.
 
 ## 3단 자세 (`PlayerStance` / `PlayerPosture`)
 
@@ -219,6 +221,36 @@ Player (root)          ← 요(Y) 회전. ClientNetworkTransform이 복제
   [ghost-prototype.md](ghost-prototype.md), [ghost-system.md §8.3](../project/ghost-system.md).
 - 침대 밑에서 완전히 숨으면 귀신 탐지가 끊긴다 — 규칙과 "들어가는 걸 봤을 때"의 처리는
   [ghost-prototype.md](ghost-prototype.md)의 침대 밑 은신 절을 본다.
+
+## 스태미나 (2026-11-03)
+
+달리면 스태미나가 줄고, 바닥나면 달릴 수 없으며, 지치면 점점 느려지고 헐떡인다. 화면에는 흰색 바로 보인다.
+**수치는 전부 임시값(`[TEMP]`)이고 `StaminaSettings` 에셋에서 조정한다** — 플레이 중 `F2` 튜닝 창의 "스태미나"
+항목에서 슬라이더·입력칸으로 실시간 조정된다(바 크기·위치·사라지는 시간 포함, 색·소리 큐는 에셋에서).
+
+| 파일 | 역할 |
+|---|---|
+| `Gameplay/Player/StaminaSettings.cs` · `Assets/Settings/Gameplay/StaminaSettings_Default.asset` | 소모·회복·탈진·지침·헐떡임·HUD 수치 전부 |
+| `Gameplay/Player/StaminaModel.cs` | 순수 규칙(소모·회복·탈진·지침 배율·헐떡임 판정). `PlayerPosture` 처럼 EditMode 로 직접 검증 |
+| `Gameplay/Player/PlayerStamina.cs` | 소유자 쪽에서 모델을 들고 있고, 헐떡이는 소리를 건다. `NetworkBehaviour`(소유 여부를 알기 위해), **복제 필드·RPC 없음** |
+| `UI/StaminaHud.cs` | 로컬 소유자에게만 화면 아래 가운데 흰색 가로 바를 그린다 |
+
+| 규칙 | 내용 |
+|---|---|
+| 소모 | **달리는 동안만.** 달리기 키를 누르고 + 서 있고 + 실제로 움직이고 + 탈진하지 않았을 때(`PlayerMotor.IsSprinting`). 제자리에서 키만 누르면 소모하지 않는다 |
+| 회복 | 달리지 않는 동안 초당 일정량. 달리기를 멈추고 `RegenDelaySeconds` 가 지나야 시작한다. 걷든 서 있든 웅크리든 같다 |
+| 탈진 | 0 이 되면 탈진해 달릴 수 없다. 총량 대비 `ExhaustedRecoverRatio` 까지 회복해야 다시 달릴 수 있다(0 근처 깜빡임 방지) |
+| 지침 | 총량 대비 `SlowStartRatio` 아래부터 이동 속도가 선형으로 줄어 0 에서 `MinSpeedMultiplier` 배가 된다. **걷기·웅크리기·엎드리기 모두**에 곱해진다(`SpeedModifierSource.Stamina`) |
+| 헐떡임 | `BreathStartRatio` 이하이거나 탈진하면 시작, `BreathStopRatio` 이상으로 회복해야 멈춘다. 소리는 `BreathCue`(비어 있으면 무음)를 `PlayAttached` 로 건다 — **반복(Loop) 큐를 권장**한다. 사망·로딩·정산 중에는 끊는다 |
+| 멈추는 구간 | 정산·로딩(`PlayerMotor` 의 early-return)에서는 스태미나 진행이 멈추고 헐떡임만 끊는다. 메뉴·굴착처럼 이동만 잠긴 구간은 회복이 계속된다 |
+| HUD | 왼쪽부터 채워지는 흰색 바. 가득 차 있으면 `HideDelaySeconds` 뒤 서서히 사라지고, 가득 찬 채 스폰하면 처음부터 숨어 있다. `AlwaysShowBar` 로 항상 표시할 수 있다 |
+
+**복제하지 않는 이유.** 스태미나는 소유자 화면의 바와 소유자 자신의 이동 속도에만 쓰이고 서버는 읽지 않는다. 이동이 소유자
+권위인 것(ADR-0008)의 연장이라 새 `NetworkVariable`·RPC 가 없다. **다른 플레이어·귀신이 헐떡임을 듣게 하려면**
+`PlayerStamina.Panting` 만 `NetworkVariable<bool>`(Owner 쓰기 + Everyone 읽기)로 복제하고 각 접속자가 로컬 재생하면 된다 — 지금은 하지 않았다.
+
+**헐떡임 소리 파일이 아직 없다.** 오디오 에셋에 헐떡임이 없어 `BreathCue` 는 비어 있다([audio-system.md §5](audio-system.md) 절차:
+mp3/wav/ogg 를 `Assets/Sound/SFX/` 에 넣고 `Sound Cue` 를 만들어 `StaminaSettings_Default.asset` 의 `Breath Cue` 에 연결).
 
 ## 머리 위 닉네임 (2026-09-27)
 

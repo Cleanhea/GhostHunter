@@ -32,6 +32,8 @@ namespace GhostHunter.Tests.EditMode
             "Assets/Settings/Gameplay/SanitySystemSettings_Default.asset";
         private const string HeadlampSettingsPath =
             "Assets/Settings/Gameplay/HeadlampSettings_Default.asset";
+        private const string StaminaSettingsPath =
+            "Assets/Settings/Gameplay/StaminaSettings_Default.asset";
         private const string GhostPrefabPath = "Assets/Prefabs/Ghost/Ghost_Prototype.prefab";
         private const string GhostSettingsPath =
             "Assets/Settings/Gameplay/GhostPrototypeSettings_Default.asset";
@@ -402,6 +404,26 @@ namespace GhostHunter.Tests.EditMode
                 Assert.AreEqual(expected, serialized.FindProperty(property).objectReferenceValue,
                     $"헤드라이트 충전 HUD 의 {property} 가 {path} 로 배선되지 않았습니다.");
             }
+        }
+
+        [Test]
+        public void Player_프리팹에_스태미나와_HUD_가_배선되어_있다()
+        {
+            Assert.IsTrue(File.Exists(StaminaSettingsPath), $"{StaminaSettingsPath} 파일이 없습니다.");
+
+            var player = AssetDatabase.LoadAssetAtPath<GameObject>(PlayerPrefabPath);
+            Assert.IsNotNull(player, $"{PlayerPrefabPath} 를 찾지 못했습니다.");
+
+            PlayerStamina stamina = GetProjectComponentOrIgnore<PlayerStamina>(player, PlayerPrefabPath);
+            var settings = AssetDatabase.LoadAssetAtPath<StaminaSettings>(StaminaSettingsPath);
+            Assert.IsNotNull(settings, $"{StaminaSettingsPath} 를 찾지 못했습니다.");
+            Assert.AreEqual(settings, new SerializedObject(stamina).FindProperty("_settings").objectReferenceValue,
+                "Player 스태미나 설정 배선이 잘못됐습니다.");
+
+            GhostHunter.UI.StaminaHud hud =
+                GetProjectComponentOrIgnore<GhostHunter.UI.StaminaHud>(player, PlayerPrefabPath);
+            Assert.AreEqual(stamina, new SerializedObject(hud).FindProperty("_stamina").objectReferenceValue,
+                "스태미나 HUD 가 같은 Player 의 PlayerStamina 를 가리키지 않습니다.");
         }
 
         [Test]

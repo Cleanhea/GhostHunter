@@ -578,6 +578,8 @@ GameObject:
   - component: {fileID: 5930182746601928374}
   - component: {fileID: 4739941112550861376}
   - component: {fileID: 7400000000000000001}
+  - component: {fileID: 7400000000000000002}
+  - component: {fileID: 7400000000000000003}
   m_Layer: 8
   m_Name: Player
   m_TagString: Untagged
@@ -1343,3 +1345,30 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier: GhostHunter.Gameplay::GhostHunter.Gameplay.Player.PlayerBatteryCharger
   ShowTopMostFoldoutHeaderGroup: 1
+--- !u!114 &7400000000000000002
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6853845278674404290}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a953c79b013e87d0af14715a7042f067, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: GhostHunter.Gameplay::GhostHunter.Gameplay.Player.PlayerStamina
+  ShowTopMostFoldoutHeaderGroup: 1
+  _settings: {fileID: 11400000, guid: 0849a231cfd7f36ed3424bc45ece672f, type: 2}
+--- !u!114 &7400000000000000003
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6853845278674404290}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4cc7e2dd35679416b66abacbc028d56b, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: GhostHunter.UI::GhostHunter.UI.StaminaHud
+  _stamina: {fileID: 7400000000000000002}
