@@ -23,6 +23,7 @@ docs/
 │   ├── ghost-ai-experiments.md     귀신 AI 실험 토글·단서 기억·수색·예측·가구 소음·공포 간격·검증
 │   ├── mole-skill-system.md        두더지 스킬(탐지·굴착) 공통 규칙·판정·쿨타임·UI — 저장소 반영 1.2
 │   ├── headlamp-system.md          기본 장착 헤드라이트(원문 "손전등" 0.1) — F키·배터리·드릴카 충전·충전 UI·효과음
+│   ├── lift-system.md              리프트(승강 발판) — 상승·하강 버튼·정지 포인트·막힘·본체 밀기, 원문 1.0(2026-11-02)·Tutorial/Stage1 배치
 │   ├── pause-menu-system.md        일시정지 메뉴·호스트 연결 끊김 규칙 — 구현됨, 수동 검증 대기
 │   ├── quick-slot-system.md        퀵슬롯 규칙·대걸레/맨손 장착
 │   ├── cleaning-system.md          대걸레·랜덤 얼룩·HUD 초기화, 상세 룰·진행도 미정
@@ -49,6 +50,7 @@ docs/
 │   ├── pause-menu.md                일시정지 메뉴·연결 끊김 배선·권위·검증 — 구현됨, 수동 검증 대기
 │   ├── quick-slot.md                퀵슬롯 휠 구현 — 입력 잠금·선택 계산·장착 전달
 │   ├── headlamp.md                  헤드라이트 권위·복제·땅굴/은신 판정·조명 배치
+│   ├── lift-system.md               리프트 구현 — 발판 분리 구동·막힘 판정·플레이어 탑승·본체 밀기(가구 정의 확장)·씬 배치 기록
 │   ├── cleaning-system.md           서버 얼룩 상태·청소 검증·씬 풀·설치/검증
 │   ├── furniture-multidriver.md     분해(짐더미 형태 전환 `FurnitureBundle`·코드 생성 메시)·조립 서버 판정·씬 풀 재배치·행동 시간 HUD — 손목 애니메이션·실루엣 렌더링 미구현
 │   ├── death-system.md              사망 연출·시체 물리·전멸 결과 데이터 흐름
@@ -76,6 +78,7 @@ docs/
 | [project/ghost-base.md](project/ghost-base.md) | 튜토리얼 귀신은 시선에 어떻게 멈추고 언제 공격하는가 | 베이스 귀신 규칙·수치·적용 스테이지 변경 |
 | [project/mole-skill-system.md](project/mole-skill-system.md) | 플레이어는 어떤 스킬을 언제 쓰고 어떻게 끝나는가 | 스킬 규칙·수치·연출 변경 |
 | [project/headlamp-system.md](project/headlamp-system.md) | 헤드라이트는 언제 켜지고 배터리는 어떻게 줄고 차는가 | 헤드라이트 규칙·수치·UI·효과음 변경 |
+| [project/lift-system.md](project/lift-system.md) | 리프트는 어떻게 오르내리고, 막히면 어디서 서며, 본체는 어떻게 미는가 | 리프트 규칙·치수·배치·버튼 입력(LF-Q1) 변경 |
 | [project/pause-menu-system.md](project/pause-menu-system.md) | 매치를 어떻게 떠나고, 끊기면 무엇을 보는가 | 일시정지 메뉴·나가기·끊김 규칙 변경 |
 | [project/quick-slot-system.md](project/quick-slot-system.md) | 퀵슬롯 휠은 언제 열리고 무엇을 담는가 | 퀵슬롯 규칙·슬롯 구성 변경 |
 | [project/furniture-multidriver-system.md](project/furniture-multidriver-system.md) | 큰 가구를 어떻게 분해해서 옮기고 다시 조립하는가 | 분해(짐더미)·조립 규칙, 아이템 내구도 |
@@ -100,6 +103,7 @@ docs/
 | [architecture/pause-menu.md](architecture/pause-menu.md) | 메뉴·끊김 처리는 어떤 서비스를 거치고 무엇을 검증하는가 | 세션 종료 경로·메뉴 배선 변경 |
 | [architecture/quick-slot.md](architecture/quick-slot.md) | 퀵슬롯 휠의 입력 잠금·선택 계산·UI는 어떻게 구성되는가 | 퀵슬롯 배선·잠금 규칙 변경 |
 | [architecture/headlamp.md](architecture/headlamp.md) | 헤드라이트 상태는 누가 정하고 귀신 판정에 어떻게 들어가는가 | 헤드라이트 코드·배선·판정 변경 |
+| [architecture/lift-system.md](architecture/lift-system.md) | 리프트 상태는 누가 정하고, 발판·탑승·막힘은 어떻게 구현되며, 씬 어디에 놓였는가 | 리프트 코드·프리팹·배치·검증 변경 |
 | [architecture/decisions/](architecture/decisions/README.md) | 왜 이렇게 골랐는가 | 되돌리기 비싼 선택 발생 시 |
 | [conventions/code-style.md](conventions/code-style.md) | C# 코드를 어떻게 쓰는가 | 규약 합의 변경 |
 | [conventions/unity-assets.md](conventions/unity-assets.md) | 에셋 이름·구조·설정은 | 에셋 파이프라인 변경 |
@@ -128,9 +132,10 @@ docs/
 | project/overview.md | 🟡 본게임 범위 반영 — 정신력 코어 구현, 게임 루프·승패와 귀신 원문 0.3의 잔여 규칙 TBD |
 | project/gdd.md | 🟡 던지기·정신력 방향과 귀신 원문 0.3 요약 반영, 승패·루프·귀신 세부 충돌 TBD |
 | project/sanity-system.md | 🟡 귀신 본체 목격 −5/5초 서버 연결 / 목격 범위 확정·Unity PlayMode 검증 TBD |
-| project/ghost-system.md | 🟡 손민지 원문 **0.3** 반영(2026-11-01, 문서만) — 자연 진정 40초·조기 종료 60초 이내·청소 40~50% 일회성 강제 어택·쉬움 난이도 사망 시 종료·튜토리얼 시야 축소. 자연 진정·조기 종료·Tutorial 시야는 코드 반영, 청소 일회성·난이도 사망 종료는 §12.3에 차이 기록·G-22~26 결정 대기 |
+| project/ghost-system.md | 🟡 손민지 원문 **0.4** 반영(2026-11-06) — 귀신 움직이는 로직(소리 조사·층 활동량·소음 7단계·플레이어 없을 때 7m 스폰, §9.6, 수치 G-27~30 대기). 소리 조사·층 활동량은 [TEMP] 구현, 7m 스폰·음성 소음은 미구현. 이전 0.3(2026-11-01) — 자연 진정 40초·조기 종료 60초 이내·청소 40~50% 일회성 강제 어택·쉬움 난이도 사망 시 종료·튜토리얼 시야 축소. 자연 진정·조기 종료·Tutorial 시야는 코드 반영, 청소 일회성·난이도 사망 종료는 §12.3에 차이 기록·G-22~26 결정 대기 |
 | project/ghost-base.md | 🟡 **Tutorial 한정 구현(2026-11-01)** — 컴파일·상태 기계 EditMode 통과, 실플레이·다인·정지 연출 미검증. 정지 유발 범위·속도 대상·해제 사유 등 임시 해석 BG-2·5·6·7·8 확인 대기 |
 | project/mole-skill-system.md | 🟢 **굴착: 기획서 1.0 규칙 구현 완료** (2026-09-05) — 키 T · 유지 5초 · 쿨타임 10초 · 조작 전부 잠금 · 감지 상태 매몰 시 은신 무효. 🟡 **탐지·공통 UI 코드 스캐폴드 + 시전 파란빛 오버레이 부분 구현** — Q·활성 판정·5초·10초·색상별 활성 마커·탐지/굴착 동시 게이지. **벽 투시는 없다**(시야에 보이는 표면만, 2026-09-05 확정). `Game` 씬·`Player` 프리팹·아이콘 배선은 정적 확인됐고 수동 Play 검증 대기, 손·레이저 포인터 애니메이션과 작업 시스템의 실제 대상 정의는 MS-14·MS-5. 마지막 완료 복제 batchmode EditMode **165/172**(탐지 신규 전부 통과 — 상태 머신 float 오차 버그 1건을 잡아 수정), 최신 재시도는 Licensing/오프라인 Git 패키지 단계에서 테스트 XML 전에 차단. 실패 1·skip 6은 복제 환경의 에셋 임포트 문제 |
+| project/lift-system.md | 🟡 **원문 1.0 반영·구현(2026-11-06).** 버튼 입력 원문 불일치 LF-Q1은 우클릭 임시, 속도·밀기 세기 등 LF-6~12 임시값. Tutorial·Stage1 임시 개구부(LF-Q2) 레벨 확정 대기 |
 | project/pause-menu-system.md | 🟢 **규칙 확정 + 구현 완료.** PM-1~15 전부 확정. 설정 화면 **내용**(PM-6)만 설정 시스템 기획서로 이월 / 수동 검증 대기 |
 | project/quick-slot-system.md | 🟡 **대걸레·맨손 장착 연결(2026-09-12).** 일반 인벤토리·정식 아이콘은 별도 작업 |
 | project/cleaning-system.md | 🟡 **대걸레·좌클릭·랜덤 얼룩·HUD 초기화 구현.** 정식 얼룩 규칙·가구 완료·진행도는 미정 |
@@ -148,6 +153,7 @@ docs/
 | architecture/ghost-prototype.md | 🟡 원문 0.2 기반 상태·실제 청소 진행도·NavMesh 경로·목격·연출 코드 반영 / 고위험 수치·Unity PlayMode 검증 TBD |
 | architecture/sanity-system.md | 🟢 코어 P1·World Space 4인 숫자 모니터 구현 / 실제 연출·콘텐츠 연결 TBD |
 | architecture/map-generation.md | 🟡 **B안 선택 + 가구 랜덤 배치 1차 구현(2026-09-12, MAP-19).** 임시 4종 16개 설정·서버 재배치·대상 복제·B안 앞마당 시작 위치를 설치했다. 풀 16개·안전 후보 91개 저장 및 설치 내부 seed 0~15 검증 완료. C# 빌드 경고 0·오류 0, 순수 계획 테스트 13/13 통과. **Unity Test Runner·Host/Client Play 검증 대기**. 정식 작업량·운반 완료·계단 세부·열쇠는 TBD → [설치 절차 §10.1.3](architecture/map-generation.md), [ADR-0013](architecture/decisions/ADR-0013-plan-b-random-furniture.md) |
+| architecture/lift-system.md | 🟡 **코드·프리팹·Tutorial/Stage1 배치 구현(2026-11-06).** EditMode·PlayMode 자동 검증 통과(§7). **화면 배치·조작감·클라이언트·호스트 이전 미검증** |
 | architecture/pause-menu.md | 🟢 **구현됨.** EditMode 141/142·PlayMode 12/12 통과 / **수동 검증(§10.4~10.6)과 선행 검증 D-1(클라이언트 씬 동기화 모드) 미수행** |
 | architecture/quick-slot.md | 🟡 **대걸레 장착 전달 연결.** 사망 게이팅 구현됨, 일반 인벤토리 대기 |
 | architecture/cleaning-system.md | 🟡 **씬·프리팹 설치/저장 및 Local Host 입력 검증 완료.** 자동 검증 결과·Steam 2PC 잔여 기록 |
@@ -158,7 +164,9 @@ docs/
 
 ---
 
-최종 갱신: 2026-09-27 (죽음 시스템 코드·구현 문서·검증 상태 연결.)
+최종 갱신: 2026-11-06 (리프트 시스템 기획·구현 문서 추가 — 인덱스·라우팅·상태 반영.)
+
+이전 갱신: 2026-09-27 (죽음 시스템 코드·구현 문서·검증 상태 연결.)
 
 이전 갱신: 2026-09-12 (가구용 멀티 드라이버 MD-1·2·5·9·10·11·12 확정 + FM-IMPL-1~3 구현·씬 설치
 반영, 신규 architecture/furniture-multidriver.md 라우팅 추가. 같은 날 사망 후 관전 기획서·구현

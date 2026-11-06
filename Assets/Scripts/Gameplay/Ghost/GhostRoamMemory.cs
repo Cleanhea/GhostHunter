@@ -48,11 +48,14 @@ namespace GhostHunter.Gameplay.Ghost
             return Staleness(position, time) - travel;
         }
 
+        /// <summary>높이(y)가 속한 층 번호. 방문 기록 칸과 층별 활동량(<see cref="GhostActivityMap"/>)이 같은 기준을 쓴다.</summary>
+        public static int FloorOf(float y) => Mathf.FloorToInt((y + FloorHeight * 0.5f) / FloorHeight);
+
         internal Vector3Int CellOf(Vector3 position)
         {
             return new Vector3Int(
                 Mathf.FloorToInt(position.x / _cellSize),
-                Mathf.FloorToInt((position.y + FloorHeight * 0.5f) / FloorHeight),
+                FloorOf(position.y),
                 Mathf.FloorToInt(position.z / _cellSize));
         }
     }

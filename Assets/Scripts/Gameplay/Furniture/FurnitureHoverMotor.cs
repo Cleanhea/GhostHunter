@@ -113,7 +113,7 @@ namespace GhostHunter.Gameplay.Furniture
                 // 중심이 아니라 표면 기준이라 큰 가구나 위를 보고 든 2인 잡기에서 헛해제되지 않는다.
                 // 2인 잡기에서는 손을 뗀 것과 같게 처리해 남은 사람의 조준으로 발사하고,
                 // 1인 투척 준비는 발사 없이 푼다.
-                if (DistanceToSurface(origin) > _settings.HoldBreakDistance)
+                if (_target.DistanceToSurface(origin) > _settings.HoldBreakDistance)
                 {
                     if (_target.State == FurnitureState.Held && _target.HolderCount > 1)
                         _target.ServerRelease(clientId, direction, false);
@@ -319,25 +319,6 @@ namespace GhostHunter.Gameplay.Furniture
             }
 
             return best;
-        }
-
-        /// <summary>점에서 가구 콜라이더 표면까지의 최단 거리. 켜진 콜라이더가 없으면 바디 위치까지 잰다.</summary>
-        private float DistanceToSurface(Vector3 point)
-        {
-            float bestSqr = float.PositiveInfinity;
-            foreach (Collider part in _colliders)
-            {
-                if (part == null || !part.enabled || part.isTrigger)
-                    continue;
-
-                float sqr = (part.ClosestPoint(point) - point).sqrMagnitude;
-                if (sqr < bestSqr)
-                    bestSqr = sqr;
-            }
-
-            return float.IsPositiveInfinity(bestSqr)
-                ? Vector3.Distance(point, _rigidbody.position)
-                : Mathf.Sqrt(bestSqr);
         }
 
         private int FindHolderIndex(ulong clientId)

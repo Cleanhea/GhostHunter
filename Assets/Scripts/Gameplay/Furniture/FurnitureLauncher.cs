@@ -52,18 +52,25 @@ namespace GhostHunter.Gameplay.Furniture
                 && _networkPhysics.Definition != null
                 && _networkPhysics.Definition.IsHeavy;
 
+            FurnitureDefinition definition = _networkPhysics.Definition;
+            bool horizontalOnly = definition != null && definition.HorizontalLaunchOnly;
+            float speedScale = definition != null ? definition.LaunchSpeedScale : 1f;
+
             float weightMultiplier = heavySolo ? _settings.HeavySoloMultiplier : 1f;
-            float magnitude = baseForce * weightMultiplier * _settings.ForceRatio(charge);
-            Vector3 direction = ResolveLaunchDirection(
-                aimDirection,
-                MinimumLaunchAngle,
-                MaximumLaunchAngle);
+            float magnitude = baseForce * weightMultiplier * _settings.ForceRatio(charge) * speedScale;
+            Vector3 direction = horizontalOnly
+                ? ResolveHorizontalDirection(aimDirection)
+                : ResolveLaunchDirection(aimDirection, MinimumLaunchAngle, MaximumLaunchAngle);
 
             _rigidbody.useGravity = true;
             _rigidbody.AddForce(direction * magnitude, ForceMode.VelocityChange);
-            _rigidbody.AddTorque(
-                Random.insideUnitSphere * _settings.TorqueScale,
-                ForceMode.Impulse);
+            // 수평으로만 미는 오브젝트(리프트 본체)는 회전을 주지 않는다 — 바퀴 달린 채 뒤집히지 않는다.
+            if (!horizontalOnly)
+            {
+                _rigidbody.AddTorque(
+                    Random.insideUnitSphere * _settings.TorqueScale,
+                    ForceMode.Impulse);
+            }
 
             _hasLaunched.Value = true;
             NotifyLaunchedRpc(direction, magnitude);
@@ -73,6 +80,13 @@ namespace GhostHunter.Gameplay.Furniture
         private void NotifyLaunchedRpc(Vector3 direction, float magnitude)
         {
             // 사운드/파티클을 붙일 때 사용할 네트워크 훅. 프로토타입 범위에서는 물리 피드백만 쓴다.
+        }
+
+        /// <summary>조준 방향의 수평 성분(정규화). 거의 수직으로 조준했으면 +Z.</summary>
+        internal static Vector3 ResolveHorizontalDirection(Vector3 aimDirection)
+        {
+            Vector3 horizontal = Vector3.ProjectOnPlane(aimDirection, Vector3.up);
+            return horizontal.sqrMagnitude < 0.0001f ? Vector3.forward : horizontal.normalized;
         }
 
         internal static Vector3 ResolveLaunchDirection(

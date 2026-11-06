@@ -59,6 +59,7 @@
 | `RotateFurniture` | 마우스 휠 (`<Mouse>/scroll`, 부호만 사용) | 2인 잡기 가구 회전/기울이기 한 칸 → [throw-system.md §3.1](throw-system.md) |
 | `RotateFurnitureMode` | 휠 클릭 (`<Mouse>/middleButton`) | 휠 조작 회전 ↔ 기울이기 전환 |
 | `Interact` | E | 문 여닫기 (조준선 2.5m 안의 문) |
+| `UseDriver` | 마우스 우클릭 | 가구용 멀티 드라이버 분해·조립(드라이버 장착 시) · **리프트 버튼 누르기**(2026-11-06, 장착 불필요 — 조준선 2.5m 안의 `LiftButton`, `PlayerInteractor`가 읽는다 → [lift-system.md](lift-system.md)) |
 | `Crouch` | C (홀드) | 웅크리기 |
 | `Burrow` | **T** | 굴착 스킬 토글 — **확정(2026-09-05)**. 기획서의 E는 `Interact`(E)와 겹쳐 채택하지 않았다 → [mole-skill-system.md §3.5](../project/mole-skill-system.md) |
 | `Detect` | **Q** | 탐지 스킬 — 소유자 화면에서만 5초 동안 활성 마커를 표시하고 종료 후 10초 대기 |
@@ -113,6 +114,14 @@
   `_startsOpen`(기본 켬)이 정한다.
 - 문짝은 런타임에 회전하므로 **정적 배칭에서 빼고**(배칭된 메시는 정점이 월드 좌표로 구워진다)
   경첩에 **키네마틱 `Rigidbody`**를 달아 PhysX가 정적 콜라이더 트리를 매 프레임 다시 만들지 않게 한다.
+
+### 승강 발판 위에서 이동 (2026-11-06)
+
+`CharacterController`는 발밑의 키네마틱 바디를 따라가지 않는다. `PlayerMotor.TickMovement`는 땅에 서 있을 때(`isGrounded`) 발밑 0.6m 광선으로 `LiftPlatform`을 찾고
+(`PlatformCarry`, internal), 이전 프레임 대비 발판의 **물리 자세**(콜라이더 위치) 변위를 **먼저 별도 `Move`** 로 옮기고 그다음 입력·중력 `Move`를 한다(`PlatformCarry.Move`).
+접지 중력과 한 `Move`에 합치면 올라갈 때 발이 스킨 폭을 넘을 때만 튀어 올라 화면이 떨린다. 발은 콜라이더 위에 일관되게 서므로(물리 스텝 단위) 보이는 눈높이는
+`PlatformCarry.VisualOffset`(발판 화면 위치 − 물리 자세)을 `ApplyPosture`가 카메라 피벗에 얹어 보간된 발판을 따라가게 한다.
+소유자 권위 이동(ADR-0008)의 연장이라 새 `NetworkVariable`·RPC가 없다. 1.5m를 넘는 한 프레임 변위는 순간이동으로 보고 따라가지 않는다 → [lift-system.md §6](lift-system.md).
 
 ## 시점 처리
 

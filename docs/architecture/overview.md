@@ -57,6 +57,7 @@ Assets/Scripts/
 │   ├── Ghost/         귀신 프로토타입 상태·탐지·추격·스폰 서비스
 │   ├── Sanity/        개인 정신력·팀 평균·감소 누적·디버프 상태
 │   ├── Lighting/      스테이지 집 천장등·해·환경광 (로컬 연출, HUD 조절)
+│   ├── Lift/          리프트 — 서버 승강 발판·정지 포인트 규칙·버튼·설정 (lift-system.md)
 │   └── Map/           방 슬롯·프리셋·랜덤 가구 설정/후보/서버 배치
 ├── Networking/    연결·세션 관리 (트랜스포트 구현은 모른다)
 ├── UI/            뷰·프리젠터. Gameplay를 참조하되 그 반대는 금지
@@ -282,6 +283,12 @@ Door (씬 배치 NetworkObject)
 ├─ 키네마틱 Rigidbody (경첩)
 └─ DoorInteractable         열림/닫힘 bool 하나만 복제. 서버 권위, 거리 검증
 
+Lift (씬 배치 NetworkObject, 프리팹 Prefabs/Map/Lift — Tutorial·Stage1, 2026-11-06)
+├─ 가구 파이프라인           Rigidbody(회전 고정)·NetworkTransform·FurnitureNetworkPhysics·GrabTarget·Launcher — 하부 본체를 좌클릭 1인으로 수평 밀기
+├─ LiftController           서버 승강 발판 구동·막힘 판정. 높이·이동 중 여부만 복제. 발판(키네마틱 Rigidbody)은 실행 때 본체에서 떼어내 MovePosition 으로 구동
+├─ LiftButton ×4            발판 위 2 + 본체 2(상승·하강). 우클릭 → PlayerInteractor → 서버 RPC
+└─ LiftPlatform             발판 표지. PlayerMotor(PlatformCarry)가 발판 위 플레이어를 같이 옮긴다
+
 UI (씬별, 로컬 전용)
 ├─ CrosshairUI              조준 대상 유무에 따른 상태 변화
 ├─ ChargeGaugeUI            투척 준비 게이지, 1인 준비/2인 잡기 표시
@@ -360,6 +367,7 @@ NGO 로드와 언로드는 한 실행 루프를 사용하되 시작 거절·완�
 | `MoleSkillUiSettings` | 원형 게이지 크기·여백·간격, 배경/시전/쿨타임 색, 런타임 텍스처 해상도 |
 | `PlayerNameTagSettings` | 머리 위 닉네임 높이(눈높이 기준)·최대 표시 거리·글자 높이/해상도·색·외곽선 |
 | `StageLightingSettings` | 천장등 밝기·반경 배율·색온도·그림자·패널 발광, 해 밝기·그림자, 환경광 배율. HUD(Tab "조명")·튜닝 창(F2)에서 조절 |
+| `LiftSettings` | 리프트 층 높이(Stage1 3m·Tutorial 3.57m 에셋 각각)·정지 포인트 수·최대 속력·가속·버튼 사용 거리·바퀴 마찰·막힘 여유. 어셈블리 경계 변경 없음 → [lift-system.md](lift-system.md) |
 | `SceneNameSO` | 씬 참조 목록 (문자열 대신) |
 
 경로: `Assets/Settings/Gameplay/`, `Assets/Settings/Scenes/`
@@ -391,7 +399,7 @@ NGO 로드와 언로드는 한 실행 루프를 사용하되 시작 거절·완�
 
 관련: [networking.md](networking.md) · [steam.md](steam.md) · [decisions/](decisions/README.md)
 
-최종 갱신: 2026-09-28 (일회성 에디터 설치·생성 도구 삭제 — ADR-0020, 어셈블리 경계 변경 없음. 씬 구성: `Game` → `ProtoTypeGame` 이름 변경, 스테이지 씬 `Stage1` 추가, `SceneId.IsStage()` 판정 — ADR-0019.
+최종 갱신: 2026-11-06 (리프트 `Gameplay/Lift`·프리팹·`LiftSettings` 추가 — 어셈블리 경계 변경 없음). 이전: 2026-09-28 (일회성 에디터 설치·생성 도구 삭제 — ADR-0020, 어셈블리 경계 변경 없음. 씬 구성: `Game` → `ProtoTypeGame` 이름 변경, 스테이지 씬 `Stage1` 추가, `SceneId.IsStage()` 판정 — ADR-0019.
 어셈블리 경계 변경 없음. 이전: 2026-09-27 Player 프리팹에 머리 위 닉네임 `PlayerNameTag`·`PlayerNameTagView`와 설정 에셋 추가 —
 어셈블리 경계 변경 없음 → [player-controller.md](player-controller.md) "머리 위 닉네임". 이전: 2026-09-12 B안 랜덤 가구
 설정·후보·서버 배치 구조와 Game 씬 배선 반영. 풀 16개·후보 91개 저장, 기존 어셈블리 경계 유지.)

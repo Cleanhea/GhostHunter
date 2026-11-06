@@ -28,6 +28,13 @@ namespace GhostHunter.Gameplay.Ghost
             _playerSpeeds.Clear();
         }
 
+        /// <summary>서버가 위치 변화로 추정한 평면 속력. 표본이 없으면 false.</summary>
+        public bool TryGetSpeed(SanityNetworkState player, out float speed)
+        {
+            speed = 0f;
+            return player != null && _playerSpeeds.TryGetValue(player.OwnerClientId, out speed);
+        }
+
         public bool TryDetect(SanityNetworkState[] players, int count, bool highRisk,
             out SanityNetworkState detected)
         {

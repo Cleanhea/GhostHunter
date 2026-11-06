@@ -42,6 +42,10 @@ namespace GhostHunter.Gameplay.Player
         private readonly MoveSpeedModifierStack _speedModifiers = new();
 
         private CharacterController _controller;
+        private PlatformCarry _platformCarry;
+
+        // 지금 카메라 피벗 로컬 위치에 얹혀 있는 리프트 보정(자세 높이 상태와 분리해 둔다).
+        private Vector3 _appliedPlatformOffset;
         private PlayerStamina _stamina;
         private ISceneFlow _sceneFlow;
         private bool _sprinting;
@@ -93,7 +97,7 @@ namespace GhostHunter.Gameplay.Player
         /// 대상 생존자의 눈높이를 재현할 때 쓴다.
         /// </summary>
         public float CameraLocalHeight => IsOwner
-            ? (_cameraPivot != null ? _cameraPivot.localPosition.y : 0f)
+            ? (_cameraPivot != null ? _cameraPivot.localPosition.y - _appliedPlatformOffset.y : 0f)
             : _networkCameraHeight.Value;
 
         public void ServerRestoreStageState(StageRecoverySnapshot.PlayerState snapshot)
@@ -174,6 +178,7 @@ namespace GhostHunter.Gameplay.Player
         private void Awake()
         {
             _controller = GetComponent<CharacterController>();
+            _platformCarry = new PlatformCarry();
             TryGetComponent(out _stamina);
             Services.TryGet(out _sceneFlow);
 
@@ -236,6 +241,8 @@ namespace GhostHunter.Gameplay.Player
                 {
                     _knockbackVelocity = Vector3.zero;
                     _sprinting = false;
+                    // 움직이지 않는 동안에는 발판을 따라가지 않으므로 낡은 시각 보정도 버린다.
+                    _platformCarry.Reset();
                 }
 
                 // 이동이 잠겨 있어도 회복은 계속된다.
@@ -316,7 +323,9 @@ namespace GhostHunter.Gameplay.Player
 
             velocity.y = _verticalVelocity;
 
-            _controller.Move(velocity * deltaTime);
+            // 리프트 승강 발판 위에 서 있으면 발판이 이번 프레임 움직인 만큼 같이 옮겨진다(lift-system.md §6.2).
+            // 싣고 가는 이동과 입력·중력 이동의 순서는 PlatformCarry.Move 가 정한다.
+            _platformCarry.Move(_controller, velocity * deltaTime, grounded);
         }
 
         /// <summary>
@@ -335,6 +344,16 @@ namespace GhostHunter.Gameplay.Player
         private float ResolveMoveSpeed(bool sprinting)
         {
             return PlayerPosture.MoveSpeed(Stance, sprinting, _settings) * _speedModifiers.Multiplier;
+        }
+
+        /// <summary>월드 변위를 카메라 피벗 부모 기준의 로컬 변위로 바꾼다(피벗 <c>localPosition</c> 에 더할 수 있게).</summary>
+        private Vector3 ToCameraParentLocal(Vector3 worldOffset)
+        {
+            if (worldOffset == Vector3.zero)
+                return Vector3.zero;
+
+            Transform parent = _cameraPivot != null ? _cameraPivot.parent : null;
+            return parent != null ? parent.InverseTransformVector(worldOffset) : worldOffset;
         }
 
         private void ApplyPosture(float deltaTime, bool immediate)
@@ -358,17 +377,22 @@ namespace GhostHunter.Gameplay.Player
 
             if (_cameraPivot != null)
             {
-                Vector3 cameraPosition = _cameraPivot.localPosition;
+                // 지난 프레임에 얹은 발판 보정은 빼고 순수 자세 높이만 보간한다 — 보정이 상태에 쌓이거나 복제되지 않게.
+                Vector3 cameraPosition = _cameraPivot.localPosition - _appliedPlatformOffset;
                 cameraPosition.y = immediate
                     ? targetCameraHeight
                     : Mathf.MoveTowards(
                         cameraPosition.y,
                         targetCameraHeight,
                         _settings.PostureTransitionSpeed * deltaTime);
-                _cameraPivot.localPosition = cameraPosition;
 
                 if (IsOwner)
                     _networkCameraHeight.Value = cameraPosition.y;
+
+                // 리프트에 타고 있으면 물리 스텝마다 뛰는 콜라이더 대신 보간된 발판을 따라 보이게 눈을 옮긴다(PlatformCarry).
+                Vector3 platformOffset = IsOwner ? ToCameraParentLocal(_platformCarry.VisualOffset) : Vector3.zero;
+                _cameraPivot.localPosition = cameraPosition + platformOffset;
+                _appliedPlatformOffset = platformOffset;
             }
 
             if (_visualBody == null)
@@ -435,6 +459,7 @@ namespace GhostHunter.Gameplay.Player
             _controller.enabled = wasEnabled;
             _verticalVelocity = 0f;
             _knockbackVelocity = Vector3.zero;
+            _platformCarry.Reset();
         }
     }
 }

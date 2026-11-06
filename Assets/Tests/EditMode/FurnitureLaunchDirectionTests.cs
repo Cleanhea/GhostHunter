@@ -93,5 +93,25 @@ namespace GhostHunter.Tests.EditMode
 
             Assert.AreEqual(60f, ElevationDegrees(result), Tolerance);
         }
+
+        // 리프트 본체처럼 수평으로만 미는 오브젝트(FurnitureDefinition.HorizontalLaunchOnly, lift-system.md §5).
+        [TestCase(0f, 1f, 1f)]
+        [TestCase(0f, -1f, 1f)]
+        [TestCase(1f, 5f, 0f)]
+        public void ResolveHorizontalDirection_위아래_성분_없이_수평_단위_벡터다(float x, float y, float z)
+        {
+            Vector3 result = FurnitureLauncher.ResolveHorizontalDirection(new Vector3(x, y, z));
+
+            Assert.AreEqual(0f, result.y, Tolerance);
+            Assert.AreEqual(1f, result.magnitude, Tolerance);
+        }
+
+        [Test]
+        public void ResolveHorizontalDirection_거의_수직_조준은_정면으로_민다()
+        {
+            Vector3 result = FurnitureLauncher.ResolveHorizontalDirection(Vector3.up);
+
+            Assert.AreEqual(Vector3.forward, result);
+        }
     }
 }

@@ -7,6 +7,25 @@
 
 ## 0. 시스템별 현재 상태
 
+**리프트 탑승 떨림(2026-11-06, 수정·자동 검증, 화면 미검증):** 올라갈 때 화면이 달달 떨리던 원인은 ① 탑승자가 물리 스텝(50Hz)마다 뛰는 발판 콜라이더를
+밟는데 변위는 보간된 화면 위치로 재고 접지 중력과 한 `Move`에 합쳐 발이 스킨 폭을 넘을 때만 62~75mm씩 튀어 올랐고(내릴 때도 계단식),
+② 발판 높이를 프레임 시간으로 진행해 물리 스텝이 읽는 증가량이 들쭉날쭉했다. → 높이 진행·`MovePosition` 을 `FixedUpdate` 로, 탑승 변위는 물리 자세 기준 별도
+`Move`(`PlatformCarry.Move`) + 눈에 보간 보정(`VisualOffset`). 측정(60·144fps): 보이는 높이 프레임 변위 편차 218%→0%, 짐 높이 변동 55mm→0.
+회귀 `LiftRideSmoothnessTests`. 상세 [lift-system.md §4.2·§6](../architecture/lift-system.md).
+
+**잡기 사거리·거부 후 조준 고정 버그(2026-11-06, 수정·자동 검증, 화면·2인 미검증):** "가구·리프트가 간헐적으로 안 잡힌다"의 원인은 둘이었다.
+① 서버 잡기 검사가 플레이어 발~가구 **피벗** 거리(2.4m)라, 표면은 2m 안인데 피벗이 먼 큰 가구(침대·책상 45~62%, 리프트 57%, 소파·선반 34%)를
+서 있는 자리에 따라 조용히 거부했다 → 조준 원점~**콜라이더 표면** 기준(`FurnitureGrabTarget.DistanceToSurface`)으로 바꿨다.
+② 거부된 뒤 0.5초 안에 떼면 `FurnitureTargeter` 가 거부된 가구에 묶여 다음 가구도 못 잡았다 → `GrabController.ReleaseGrab` 이 풀어 준다.
+회귀 테스트 `GrabReachRuleTests`·`GrabReachFlowTests`(수정 전 코드에서 두 흐름 테스트 실패 확인). 상세: [throw-system.md §2](../architecture/throw-system.md).
+
+**리프트(2026-11-06, 구현·자동 검증, 화면 미검증):** 기획서 「리프트 시스템」 1.0(최유민)을 [lift-system.md](lift-system.md)로 옮기고 구현했다 —
+상승·하강 버튼(우클릭)·층 높이 정지 포인트·이동 중 입력 무시·막히면 그 자리에서 종료(다음 입력은 가장 가까운 정지 포인트)·1인 좌클릭으로
+하부 본체를 수평으로만 밀기(2인 잡기·부양·회전 금지)·발판 위 플레이어/짐 탑승. 프리팹 `Lift`·`LiftSettings`·`FurnitureDefinition_Lift`를 만들고
+**Tutorial(발코니 앞, 3.57m)·Stage1(2층 남쪽 외벽 개구부 앞, 3m)** 에 배치했다. 맵을 임의로 고친 곳(Tutorial 앞쪽 난간 일부, Stage1 외벽·방 벽 개구부)이 있다 → LF-Q2.
+원문의 버튼 입력 서술("던지기"/"우클릭")이 어긋나 우클릭으로 임시 구현(LF-Q1). **실제 화면·조작감·2인 접속은 미검증** →
+[architecture/lift-system.md §7](../architecture/lift-system.md).
+
 **시체 가구 규칙(2026-11-03, 구현·자동 검증 완료):** 사용자 요청("사람 시체 되면 가구처럼 밀치고 잡을 수 있게, 가구 판정 느낌으로")으로
 시체를 가구와 같은 `Furniture` 레이어·잡기·던지기 규칙으로 바꿨다. 혼자 누르고 있다 떼면 차지만큼 발사, 둘이 누르면 두 손잡이로 들어 옮기고(휠 회전,
 열린 문 통과), 조준 윤곽선·차지 게이지가 가구와 같다. 이전의 짧은 클릭 고정 충격량·0.3초 홀드 운반과 전용 시체 설정 5개는 없앴다.
@@ -226,6 +245,7 @@ B안(`PlanBFurnitureSpawnSetup` — 가구 풀·후보·서버 생성기·앞마
 | M8-GS-1c | [귀신 공통 시스템 원문 0.2](ghost-system.md)를 구현에 반영한다: 활동 시작, 0~30 어택 100%, 일반/고위험 지속시간, 자연 진정으로의 아이템 강제 종료, 10초 수색, 0.2초·1m 타깃 선정과 최단 경로 이동, 활동 중 본체 목격 정신력 감소, 경고·어택 조명. | G-9 고위험 종료·G-17 목격 기준·G-18 탐지 강화 수치, Unity PlayMode 검증 | **부분 구현 — 코드·에셋·실제 청소 진행도·자동 스폰 연결. 중간 .NET 빌드 통과, 최신 빌드는 병행 `GrabController.cs` 오류로 실패. 런타임 검증 대기(2026-09-27)** → [ghost-prototype.md](../architecture/ghost-prototype.md) |
 | M8-GS-1d | 귀신 AI 실험 요소 적용과 개별/전체 런타임 토글 | 정식 채택·수치는 플레이 확인 후 결정 | **구현·자동 검증 통과 (2026-09-30)** — EditMode 65/65·PlayMode 16/16, 실제 체감 미검증 → [ghost-ai-experiments.md](ghost-ai-experiments.md) |
 | M8-GS-1e | [귀신 공통 시스템 원문 0.3](ghost-system.md)을 구현에 반영한다: 자연 진정 40초, 조기 종료 60초 이내, 청소 40~50% 일회성 강제 어택, 쉬움 난이도 사망 시 어택 종료, 튜토리얼 시야 축소. | G-22 청소 전제 충돌 · G-23 난이도 정의 · G-24 시야 수치 확정 · G-25 비활동/활동 | **부분 구현(2026-11-01)** — 자연 진정 40초·조기 종료 60초·Tutorial 시야 7.5m 반영. 청소 40~50% 일회성·쉬움 사망 종료는 대기 → [ghost-system.md §12.3](ghost-system.md) |
+| M8-GS-1f | [귀신 공통 시스템 원문 0.4](ghost-system.md) "귀신 움직이는 로직"(§9.6)을 구현에 반영한다: 어택 중 소리 조사(작은 물건 내려놓기·대형 가구 운반), 층 활동량 가산 배회, 0.5초 훑기. | G-27 소음 거리·음성 / G-28 활동량 정의 / G-29 적용 상태 / G-30 7m 스폰 | **부분 구현(2026-11-06, [TEMP] 수치)** — `Noise Reaction` 토글, EditMode 677/677·PlayMode 212/212. 7m 스폰·음성 소음 미구현, 가구 훑기 실제 체감 미검증 → [ghost-prototype.md](../architecture/ghost-prototype.md) |
 | M8-GS-2 | 9종 초자연현상 중 무엇을 `귀신 이벤트 목격`으로 처리할지 정의하고, 서버 가시 판정에서 `ServerApplyGhostEventWitnessed()`를 호출한다. 단순 근접은 현재 감소 조건이 아니다. | [G-6](ghost-system.md) | ✅ **완료 (2026-08-31)** — 사용자 확정: 종류 불문 목격 시 전부 적용, 감소량 10→**15**. `GhostPrototypeController.ServerCheckPhenomenonWitnessed`(거리 12m·각도 70°·가림)가 현상 발생마다 판정해 `ServerApplyGhostEventWitnessed()` 호출 → [ghost-prototype.md §4](../architecture/ghost-prototype.md) |
 | M8-GS-3 | 시체 목격·정신력 아이템·귀중품 발견·사망·스테이지 생명주기를 정신력 서버 API에 연결한다. | 관련 시스템 구현 | **부분 — 헤드라이트·드릴카 어둠 노출 연결(2026-09-28)은 2026-10-29 어둠 감소 삭제로 제거.** 귀중품·돈 발견 증가 API `ServerApplyValuableFound`·금액표는 구현(호출부 = 귀중품 획득 시스템, 추후). 시체·아이템·스테이지 생명주기 대기 |
 | M8-GS-11 | **정신력 원문 0.4 반영 (2026-10-29, 사용자 확정):** 귀신 이벤트 15→5, 시체 20→10, 어둠 감소 삭제(판정 체인·스냅샷 필드·F1 버튼 제거), 귀중품 증가표·API, 모니터는 월드 P1~P4 유지. | 귀중품 획득 시스템(추후) | ✅ **코드·문서 반영.** 후속 확정(2026-10-29): 금액 체계는 표 4종뿐, 증가는 개인에게만, 이벤트·본체 목격 합산(−10)은 의도, 헤드라이트는 시야 확보용, 모니터 레퍼런스 이미지 저장. 컴파일 통과, 정신력 EditMode 통과. Unity 에디터·Host 실기 미확인 → [sanity-system.md](sanity-system.md) §4·§6.2 |
@@ -379,6 +399,22 @@ B안(`PlanBFurnitureSpawnSetup` — 가구 풀·후보·서버 생성기·앞마
 | FD-IMPL-1 | 모든 가구에 서버 권위 내구도 값, 충돌 속도 판정·감소량 순수 함수, 배치 직후 보호 시간, SO 설정 | FD-DECIDE-구조 | **진행중 (2026-09-15)** — 코드·테스트 추가, C# 빌드 통과. Unity 실행·Host/Client 검증 대기 |
 | FD-IMPL-2 | 0 도달 처리(FD-10), F1 개발 HUD 확인·초기화 | FD-IMPL-1 | **진행중 (2026-09-15)** — 코드·테스트 추가, C# 빌드 통과. Unity 실행·Host/Client 검증 대기 |
 | FD-TEST | 공식 EditMode, 충돌·보호 시간·복제 PlayMode(기획서 §6 AC-1~12) | FD-IMPL-1 | **진행중 (2026-09-15)** — 코드·테스트 추가, C# 빌드 통과. Unity 실행·Host/Client 검증 대기 |
+
+### 1.8 LF 리프트 TODO
+
+> 2026-11-06 사용자 요청: 「리프트 시스템 기획서」 1.0 문서화·구현, Tutorial·Stage1 배치. 규칙은 [lift-system.md](lift-system.md).
+
+| # | TODO | 선행 조건 | 상태 |
+| --- | --- | --- | --- |
+| LF-DOC | 기획서·구현 문서·인덱스·라우팅 | — | **완료 (2026-11-06)** |
+| LF-IMPL-1 | `LiftController`(서버 발판 구동·막힘 판정)·`LiftStopRules`·`LiftMotion`·`LiftSettings`·`LiftButton`·`LiftPlatform` | LF-DOC | **완료 (2026-11-06)** |
+| LF-IMPL-2 | 본체 밀기 — `FurnitureDefinition` 홀더 수·수평 발사·속도 배율, 회전 고정, 바퀴 마찰 | LF-IMPL-1 | **완료 (2026-11-06)** |
+| LF-IMPL-3 | 우클릭 버튼 입력(`PlayerInteractor`)·안내 문구·플레이어 탑승(`PlatformCarry`) | LF-IMPL-1 | **완료 (2026-11-06)** |
+| LF-ASSET | 프리팹 `Lift`·메시·머티리얼·설정 SO·네트워크 프리팹 등록 | LF-IMPL-1 | **완료 (2026-11-06)** — 외형은 박스 임시, 아트·소리 없음 |
+| LF-MAP | Tutorial·Stage1 배치와 필요한 개구부(난간·외벽) | LF-ASSET | **완료 (2026-11-06)** — 개구부는 임시(LF-Q2), 에디터 육안 확인 대기 |
+| LF-TEST | EditMode(정지 규칙·이동 계산·배선)·PlayMode(승강·막힘·짐·검증·실제 프리팹) | LF-IMPL-1 | **완료 (2026-11-06)** → [architecture/lift-system.md §7](../architecture/lift-system.md) |
+| LF-검증 | 에디터에서 화면·조작감 확인, Host+Client 2인, 호스트 이전, 귀신 NavMesh | LF-MAP | **대기** |
+| LF-DECIDE | LF-Q1(버튼 입력)·LF-Q2(개구부)·LF-Q3~5 기획자 확정 | — | **대기** |
 
 ## 2. 현재 스프린트 — MIG: 아키텍처 정비
 

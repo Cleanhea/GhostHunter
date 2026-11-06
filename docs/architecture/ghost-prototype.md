@@ -1,6 +1,6 @@
 # 귀신 공통 시스템 구현
 
-기획 권위: [귀신 공통 시스템 기획서 0.3](../project/ghost-system.md). 이 문서는
+기획 권위: [귀신 공통 시스템 기획서 0.4](../project/ghost-system.md). 이 문서는
 2026-09-27 코드 구조와 검증 범위를 기록한다. 과거 프로토타입 규칙은 Git 이력에 보존한다.
 
 > **원문 0.3 반영 상태 (2026-11-01).** 자연 진정 40초·조기 종료 60초 이내·Tutorial 시야 7.5m(`_Tutorial` 에셋만)는 반영했다.
@@ -251,3 +251,32 @@ GhostPrototypeSpawner._restrictRoamHeight를 Tutorial에서만 켜서 202호 아
 
 **미구현·미검증:** 정지 시각·청각 연출(BG-3), 호스트 이전 복원, 실제 플레이에서 화면 판정·가림 체감, Steam 다인 보고 지연.
 단위 검증은 EditMode `GhostGazeFreezeTests`(상태 기계 10건)뿐이다.
+
+## 원문 0.4 소리 조사·층 활동량 (구현, 2026-11-06)
+
+기획: [ghost-system.md §9.6](../project/ghost-system.md#96-귀신-움직이는-로직). 설정 토글 `Noise Reaction Enabled`(AI 실험 그룹, 전체 OFF면 같이 꺼짐,
+`AiFeatureMask` 비트 64). **모든 수치는 [TEMP]** — 원문에 거리·확률식이 없다(G-27~29). 서버만 판정하고 새 NetworkVariable·RPC는 없다.
+
+| 구성 | 역할 |
+| --- | --- |
+| `GhostNoiseMemory` | 조사하지 못한 가장 중요한 소리 1개. 높은 수준이 낮은 수준을 덮고 같으면 최신이 이긴다. `EvidenceMemorySeconds`(8초) 지나면 버림 |
+| `GhostActivityMap` | 층(`GhostRoamMemory.FloorOf`, 3m 단위)별 활동량. 반감기 20초. `Bonus(floor)` = 가장 활동한 층 대비 비례 × `ActivityBonusSeconds`(30), 최고 활동량 < `ActivityMinimumPeak`(2)면 0 |
+| `GhostFurnitureNoiseScanner` | `FurnitureGrabTarget.State`·위치를 0.5초마다 비교. 든 큰 가구가 0.5m 이상 이동 → 높음, 든 가구를 내려놓음 → 작은 물건 보통 / 큰 가구 높음. 가구 코드는 건드리지 않는다 |
+| `GhostPrototypeController.ServerTickNoiseSense` | `NoiseScanInterval`(0.5초)마다 활동량 갱신 + 가구 훑기. 활동량은 모든 상태에서, 소리는 어택 중 배회일 때만 기억 |
+| `CanHearNoiseAt` | 충돌 조사에서 뽑은 공통 판정: 직선거리·NavMesh 경로 길이 ≤ 반경, 벽·문에 가리면 반경 × 0.5 |
+
+**흐름.** 소리 > 활동량 > 배회 순서다.
+1. 어택 중 `Pursuit.Roam`이고 타깃 선정 틱(0.2초)에 유효한 소리가 있으면 `_lastKnownPosition`을 소리 지점으로 두고 `BeginSearch()`.
+   조사 = 기존 수색(지점으로 이동 → 주변 둘러보기 10초 → 배회 복귀). 추격·수색 중과 목격된 은신 확인 중에는 새 소리로 바꾸지 않는다.
+2. 소리가 없으면 배회 목적지 후보 점수(`GhostRoamMemory.Score`)에 층 활동량 가산을 더한다. 활동이 없으면 가산 0 = 기존 방문 기록 배회.
+3. 활동량: 집 안·드릴 카 밖 생존자의 가만히·웅크림 0.25 / 걷기 1 / 달리기 1.5 (/s) + `GrabController.IsHolding` 운반 +2. 청소 작업은 세지 않는다.
+
+가구 충돌·낙하(매우 높음)는 기존 `HandleServerImpact` 경로(`_hasPendingImpact`, 14m, 최소 2m/s)를 그대로 쓴다 — 공통 판정만 `CanHearNoiseAt`으로 뺐고 동작은 같다.
+소리·훑기 상태는 AI 토글 변경·호스트 복구·디스폰·어택 종료에서 초기화한다.
+
+**미구현.** ① 플레이어 없는 어택의 7m 스폰(G-30 — 기준점·§3.2 상시 존재와의 충돌). ② 음성 채팅 소음(G-27 ④ — 서버가 받는 음성 패킷에 음량이 없고
+열린 마이크는 무음도 보낸다). ③ 활동·자연 진정 배회의 소리 반응(G-29). ④ 웅크려 이동 "거의 반응하지 않음"과 "탐지 없음"의 통일(G-27 ②).
+
+**검증 (2026-11-06, 검증 복제본).** EditMode **677/677**·PlayMode **212/212** 통과(컴파일 포함, 기존 충돌 조사 `GhostAiExperimentFlowTests` 회귀 없음).
+새 `GhostNoiseReactionTests` 14건: 소리 우선순위·만료·소비, 활동량 가산·반감기·최소 기준, 층 번호 기준, 토글/마스크, 기본 수치 순서.
+**가구 훑기가 실제 `FurnitureGrabTarget`을 보고 소리를 내는지, 조사 → 배회 복귀의 체감, 다인 접속은 미검증**(EditMode에서 NetworkBehaviour를 스폰할 수 없다).

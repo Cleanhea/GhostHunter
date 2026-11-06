@@ -60,7 +60,7 @@ Physics.Raycast(camera.position, camera.forward, out hit,
                 maxTargetDistance, GameLayers.FurnitureMask)
 ```
 
-- `maxTargetDistance` 초기값 **12 m**
+- `maxTargetDistance` 초기값 **2 m**(`FurnitureThrowSettings_Default`, 이 문서의 12 m 는 옛 값이었다)
 - 히트한 `FurnitureGrabTarget`이 이전 프레임과 다르면 이전 대상 윤곽선 OFF, 새 대상 ON
 - 이미 입력 중이면 타겟팅을 멈춘다 (투척/잡기 대상 고정)
 - 대상이 `Launched` 상태거나 슬롯이 꽉 찼으면 윤곽선을 "불가" 색으로
@@ -75,7 +75,15 @@ Physics.Raycast(camera.position, camera.forward, out hit,
 - [ ] 상태가 `Idle` 또는 `Held`인가 (`Launched` 거부)
 - [ ] 홀더 슬롯에 여유가 있는가 (최대 2)
 - [ ] 요청자가 이미 다른 가구를 잡고 있지 않은가 (1인 1가구)
-- [ ] 요청자와 가구의 거리 ≤ `maxTargetDistance * 1.2` (지연 보정 여유)
+- [ ] **조준 원점(카메라) → 가구 콜라이더 표면** 거리 ≤ `maxTargetDistance * 1.2` (지연 보정 여유) —
+      클라이언트 타게팅과 같은 기준이다. 원점은 클라이언트가 보낸 값이라 플레이어 루트에서 3m(`GrabController.AimOriginMaxOffset`)
+      안이어야 한다. `GrabController.IsWithinGrabReach`, 표면 거리는 `FurnitureGrabTarget.DistanceToSurface`(홀드 해제 `holdBreakDistance`도 같은 함수)
+
+> **2026-11-06 수정(간헐적으로 가구·리프트가 안 잡힘):** 예전 검사는 **플레이어 발 ~ 가구 피벗** 거리였다. 클라이언트 레이는 표면 2m 안에서 맞는데
+> 피벗이 멀리 있는 큰 가구는 서 있는 자리에 따라 서버가 조용히 거부했다(프리팹 44종 시뮬레이션: 침대·책상 45~62%, 리프트 57%, 소파·선반 34%,
+> 폭 0.5m 이하 가구는 ~0%). 거부는 응답이 없으므로 클라이언트는 `GrabController.ReleaseGrab` 에서 아직 홀더가 아니면 조준 고정(`_holdTarget`)을
+> 같이 푼다 — 예전에는 0.5초 타임아웃만 풀어 줘서, 그 전에 떼면(탭) 타게터가 거부된 가구에 묶여 다른 가구를 겨눠도 외곽선·잡기가 먹지 않았다.
+> 회귀: EditMode `GrabReachRuleTests`, PlayMode `GrabReachFlowTests`. 시체 잡기(`RequestCorpseGrabRpc`)는 시체 위치 기준 검사가 남아 있다(미확인).
 
 통과하면 `NetworkList<ulong> _holders`에 클라이언트 ID를 추가한다. 첫 번째 ID만 있으면
 `ThrowReady`, 두 번째 ID가 추가되면 `Held`로 전환한다. 이 리스트 변경이 모든 클라이언트에
@@ -304,6 +312,22 @@ rb.AddTorque(random torque * torqueScale, ForceMode.Impulse)
 
 구현·튜닝 메모는 [death-system.md](death-system.md).
 
+### 8. 리프트 본체 (2026-11-06)
+
+> 사용자 요청: 「리프트 시스템 기획서」 — 하부 본체를 조준하고 던지기 입력을 쓰면 **수평으로 밀리고, 공중에 뜨지 않으며 뒤집히지도 않는다.**
+
+리프트 하부 본체(`Prefabs/Map/Lift`)는 위 §1~§5 파이프라인(타겟팅·차지·`FurnitureGrabTarget`·`FurnitureLauncher`)을 그대로 쓰는 가구 하나이고,
+다른 점은 `FurnitureDefinition_Lift`의 새 필드와 Rigidbody 설정뿐이다. 일반 가구 정의는 기본값이라 동작이 그대로다.
+
+| `FurnitureDefinition` 필드 | 기본 | 리프트 | 효과 |
+| --- | --- | --- | --- |
+| `_maxHolders` | 2 | 1 | 서버 검증(`ServerTryAddHolder`)·조준 표시(`CanGrab`)·`HasFreeSlot`이 `MaxHoldersAllowed`를 쓴다. 두 번째 사람은 거절되어 **`Held`(부양·운반)에 들어갈 수 없다** |
+| `_horizontalLaunchOnly` | 꺼짐 | 켜짐 | 발사 방향 = 조준의 수평 성분(위 성분 없음, §5의 20°~70° 보정 대신). 토크 없음 |
+| `_launchSpeedScale` | 1 | 0.5 | 발사 속도 배율 — 최대 차지 7.5m/s(약 3.8m 미끄러짐), 살짝 1.1m/s(약 0.2m). Heavy 1인 ×0.5 포함 |
+
+본체 Rigidbody는 `FreezeRotation`(회전 전부 고정)·선형 감쇠 1.2, 하부 콜라이더에 마찰 0.1(결합 최소값, `LiftSettings.WheelFriction`)이라 밀면 평행으로 굴러가다 선다.
+승강 발판·버튼·플레이어 탑승은 [lift-system.md](lift-system.md).
+
 ## 2인 흡착 규칙
 
 > 원문: "혼자 던지기, 2명 흡착 (단, 한명이 흡착을 안하면 던져지게 만들어주세요)"
@@ -353,7 +377,7 @@ rb.AddTorque(random torque * torqueScale, ForceMode.Impulse)
 
 | 값 | 초기값 | 메모 |
 |---|---|---|
-| `maxTargetDistance` | 12 m | 조준 사거리 |
+| `maxTargetDistance` | 2 m | 조준 사거리. 서버 잡기 검사는 눈 → 표면 이 값 × 1.2 |
 | `holdBreakDistance` | 4 m | 차징 중 눈 → 가구 표면 거리 초과 시 해제. 1인은 발사 없이, 2인 잡기는 놓기와 같게 (2026-09-13, `maxHoldDistance` 15 m 대체. 2인 처리 2026-11-03) |
 | `carryMinHandDistance` / `carryMaxHandDistance` | 0.9 / 2.2 m | 손잡이를 눈에서 떨어뜨려 드는 거리 범위. 진입 때 거리를 이 범위로 자른다 (2026-10-04, `hoverDistance` 3 m 대체) |
 | `carryAimSmoothing` | 0.05 s | 20Hz 조준을 잇는 지수 평활 시간 상수 |
@@ -418,5 +442,5 @@ rb.AddTorque(random torque * torqueScale, ForceMode.Impulse)
 
 ---
 
-최종 갱신: 2026-11-03 (2인 잡기 중 4 m 이탈을 놓기로 처리 — 발사). 이전: 2026-11-01 (맨손 플레이어 밀치기 §6). 이전: 2026-10-29 (2인 중 첫 해제 즉시 발사·남은 사람 조준 방향, `launchOnFirstRelease` 기본 켜짐). 이전: 2026-10-04 (2인 운반을 조준점 중간 순간 추종 → 두 손잡이·속도 서보로 변경, 운반 중 마찰 낮추기·끼임 보조·
+최종 갱신: 2026-11-06 (§8 리프트 본체 — 홀더 1명·수평 발사·속도 배율 가구 정의 필드). 이전: 2026-11-03 (2인 잡기 중 4 m 이탈을 놓기로 처리 — 발사). 이전: 2026-11-01 (맨손 플레이어 밀치기 §6). 이전: 2026-10-29 (2인 중 첫 해제 즉시 발사·남은 사람 조준 방향, `launchOnFirstRelease` 기본 켜짐). 이전: 2026-10-04 (2인 운반을 조준점 중간 순간 추종 → 두 손잡이·속도 서보로 변경, 운반 중 마찰 낮추기·끼임 보조·
 두 홀더와 열린 문짝 충돌 끄기 추가, 차지 → 힘 곡선·발사 힘 하한 제거·Hub "가구 투척 힘" 섹션). 이전: 2026-09-13 (스프링 부양 → 조준점 중간 고정 추종, 휠 회전·기울이기, 4 m 이탈 해제)

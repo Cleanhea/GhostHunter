@@ -112,6 +112,8 @@ namespace GhostHunter.Gameplay.Ghost
         [SerializeField] private bool _impactInvestigationEnabled = true;
         [Tooltip("최근 위협이 강하면 초자연현상 간격을 늘려 연출 사이에 여유를 준다.")]
         [SerializeField] private bool _tensionPacingEnabled = true;
+        [Tooltip("원문 0.4 §7(귀신 움직이는 로직): 어택 중 배회가 소리(가구 운반·내려놓기)를 조사하고 활동이 많은 층을 더 자주 간다. 수치는 모두 [TEMP].")]
+        [SerializeField] private bool _noiseReactionEnabled = true;
 
         [Header("AI experiment tuning ([TEMP])")]
         [SerializeField, Min(0.1f)] private float _evidenceMemorySeconds = 8f;
@@ -129,6 +131,27 @@ namespace GhostHunter.Gameplay.Ghost
         [SerializeField, Min(0.1f)] private float _impactInvestigateCooldown = 1f;
         [SerializeField, Min(0.1f)] private float _tensionReleaseSeconds = 15f;
         [SerializeField, Min(1f)] private float _tensionIntervalMultiplier = 2f;
+
+        [Header("Noise reaction · 활동량 층 선택 (원문 0.4 §7 · [TEMP] G-27~29)")]
+        [Tooltip("소리를 훑고 조사 여부를 정하는 주기(초). 원문 0.4: 0.5초.")]
+        [SerializeField, Min(0.1f)] private float _noiseScanInterval = 0.5f;
+        [Tooltip("작은 물건을 내려놓는 소리(보통)가 들리는 반경(m). 거리 수치는 원문에 없다.")]
+        [SerializeField, Min(0f)] private float _smallPropNoiseRadius = 8f;
+        [Tooltip("대형 가구를 들고 옮기거나 내려놓는 소리(높음)가 들리는 반경(m). 충돌·낙하(매우 높음)는 Impact Hearing Radius를 쓴다.")]
+        [SerializeField, Min(0f)] private float _largeFurnitureNoiseRadius = 12f;
+        [Tooltip("든 큰 가구가 한 번의 훑기 동안 이만큼(m) 이상 움직이면 '옮기는 중' 소리를 낸다.")]
+        [SerializeField, Min(0.05f)] private float _largeFurnitureMoveThreshold = 0.5f;
+        [Tooltip("층별 활동량이 절반이 되는 시간(초).")]
+        [SerializeField, Min(1f)] private float _activityHalfLifeSeconds = 20f;
+        [Tooltip("가장 활동이 많은 층의 배회 목적지 점수 가산(초). 방문 기록 점수와 같은 단위(최대 Roam Memory Seconds).")]
+        [SerializeField, Min(0f)] private float _activityBonusSeconds = 30f;
+        [Tooltip("최고 층 활동량이 이 값 미만이면 편향하지 않는다(활동 없음 = 층 무관 배회).")]
+        [SerializeField, Min(0f)] private float _activityMinimumPeak = 2f;
+        [Tooltip("플레이어 1명이 1초 활동했을 때 쌓이는 양: 가만히/웅크림, 걷기, 달리기, 가구 운반(추가).")]
+        [SerializeField, Min(0f)] private float _activityIdleWeight = 0.25f;
+        [SerializeField, Min(0f)] private float _activityWalkWeight = 1f;
+        [SerializeField, Min(0f)] private float _activityRunWeight = 1.5f;
+        [SerializeField, Min(0f)] private float _activityCarryWeight = 2f;
 
         [Header("Navigation (MAP-11 · [TEMP])")]
         [Tooltip("귀신 전용 NavMesh 를 굽는 에이전트 반경(m). 프로젝트 기본 Humanoid(0.5)로는 B안 1.0m 문틀이 " +
@@ -281,6 +304,18 @@ namespace GhostHunter.Gameplay.Ghost
         public bool PredictiveChaseEnabled => _aiExperimentsEnabled && _predictiveChaseEnabled;
         public bool ImpactInvestigationEnabled => _aiExperimentsEnabled && _impactInvestigationEnabled;
         public bool TensionPacingEnabled => _aiExperimentsEnabled && _tensionPacingEnabled;
+        public bool NoiseReactionEnabled => _aiExperimentsEnabled && _noiseReactionEnabled;
+        public float NoiseScanInterval => _noiseScanInterval;
+        public float SmallPropNoiseRadius => _smallPropNoiseRadius;
+        public float LargeFurnitureNoiseRadius => _largeFurnitureNoiseRadius;
+        public float LargeFurnitureMoveThreshold => _largeFurnitureMoveThreshold;
+        public float ActivityHalfLifeSeconds => _activityHalfLifeSeconds;
+        public float ActivityBonusSeconds => _activityBonusSeconds;
+        public float ActivityMinimumPeak => _activityMinimumPeak;
+        public float ActivityIdleWeight => _activityIdleWeight;
+        public float ActivityWalkWeight => _activityWalkWeight;
+        public float ActivityRunWeight => _activityRunWeight;
+        public float ActivityCarryWeight => _activityCarryWeight;
         public float EvidenceMemorySeconds => _evidenceMemorySeconds;
         public float PredictionSeconds => _predictionSeconds;
         public float PredictionMaxDistance => _predictionMaxDistance;
@@ -299,7 +334,7 @@ namespace GhostHunter.Gameplay.Ghost
         public int AiFeatureMask => !_aiExperimentsEnabled ? 0
             : 1 | (_evidenceTrackingEnabled ? 2 : 0) | (_utilitySearchEnabled ? 4 : 0)
                 | (_predictiveChaseEnabled ? 8 : 0) | (_impactInvestigationEnabled ? 16 : 0)
-                | (_tensionPacingEnabled ? 32 : 0);
+                | (_tensionPacingEnabled ? 32 : 0) | (_noiseReactionEnabled ? 64 : 0);
         public float NavAgentRadius => _navAgentRadius;
         public float RoamMinDistance => _roamMinDistance;
         public float SearchWanderRadius => _searchWanderRadius;

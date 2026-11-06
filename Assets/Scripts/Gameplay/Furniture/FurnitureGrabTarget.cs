@@ -38,6 +38,7 @@ namespace GhostHunter.Gameplay.Furniture
         private readonly List<Collider> _playerColliderScratch = new();
 
         private Rigidbody _rigidbody;
+        private Collider[] _colliders;
         private FurnitureCollisionIgnoreSet _holderIgnores;
         private FurnitureLauncher _launcher;
         private RandomFurnitureItem _randomItem;
@@ -62,7 +63,15 @@ namespace GhostHunter.Gameplay.Furniture
         /// <summary>지금 놓으면 나갈 힘의 비율(최대 힘 대비, 차지 곡선 적용). 차지 게이지가 표시한다.</summary>
         public float LaunchPower => _settings != null ? _settings.ForceRatio(_charge.Value) : _charge.Value;
         public int HolderCount => _holders.Count;
-        public bool HasFreeSlot => _holders.Count < MaxHolders;
+        public bool HasFreeSlot => _holders.Count < MaxHoldersAllowed;
+
+        /// <summary>
+        /// 이 대상이 동시에 받을 수 있는 홀더 수 — 일반 가구는 <see cref="MaxHolders"/>(2), 가구 정의가 1로 낮춘 리프트 본체 등은 1.
+        /// 서버 검증과 조준 가능 표시가 같은 값을 쓴다.
+        /// </summary>
+        public int MaxHoldersAllowed => _physics != null && _physics.Definition != null
+            ? Mathf.Clamp(_physics.Definition.MaxHolders, 1, MaxHolders)
+            : MaxHolders;
 
         /// <summary>서버 전용 — 2인 잡기 중 가구가 맞출 목표 자세. Held 진입 시 현재 자세로 시작해 휠로만 바뀐다.</summary>
         public Quaternion HeldRotation => _heldRotation;
@@ -71,7 +80,8 @@ namespace GhostHunter.Gameplay.Furniture
         private void Awake()
         {
             _rigidbody = GetComponent<Rigidbody>();
-            _holderIgnores = new FurnitureCollisionIgnoreSet(GetComponentsInChildren<Collider>(true));
+            _colliders = GetComponentsInChildren<Collider>(true);
+            _holderIgnores = new FurnitureCollisionIgnoreSet(_colliders);
             _launcher = GetComponent<FurnitureLauncher>();
             _randomItem = GetComponent<RandomFurnitureItem>();
             _driverPoolItem = GetComponent<FurnitureDriverPoolItem>();
@@ -143,6 +153,37 @@ namespace GhostHunter.Gameplay.Furniture
                 _state.Value = FurnitureState.Idle;
         }
 
+        /// <summary>
+        /// 점에서 이 가구의 켜진 콜라이더 표면까지의 최단 거리(점이 콜라이더 안이면 0). 켜진 콜라이더가 없으면 바디 위치까지 잰다.
+        /// 잡기 사거리와 홀드 해제 거리가 같이 쓴다 — 피벗(중심)이 아니라 표면 기준이라야 침대·소파·리프트처럼
+        /// 큰 가구에서 '눈에는 닿는데 피벗이 멀다'는 이유로 거부·해제되지 않는다.
+        /// </summary>
+        public float DistanceToSurface(Vector3 point)
+        {
+            float bestSqr = float.PositiveInfinity;
+            if (_colliders != null)
+            {
+                foreach (Collider part in _colliders)
+                {
+                    if (part == null || !part.enabled || part.isTrigger)
+                        continue;
+
+                    // 볼록하지 않은 MeshCollider 는 ClosestPoint 를 지원하지 않는다 — 경계 상자로 갈음한다(관대한 쪽).
+                    Vector3 closest = part is MeshCollider { convex: false }
+                        ? part.bounds.ClosestPoint(point)
+                        : part.ClosestPoint(point);
+                    float sqr = (closest - point).sqrMagnitude;
+                    if (sqr < bestSqr)
+                        bestSqr = sqr;
+                }
+            }
+
+            if (!float.IsPositiveInfinity(bestSqr))
+                return Mathf.Sqrt(bestSqr);
+
+            return Vector3.Distance(point, _rigidbody != null ? _rigidbody.position : transform.position);
+        }
+
         public bool CanGrab(ulong clientId)
         {
             if (!IsPlacementReady)
@@ -150,7 +191,7 @@ namespace GhostHunter.Gameplay.Furniture
             if (_state.Value == FurnitureState.Launched)
                 return false;
 
-            return ContainsHolder(clientId) || _holders.Count < MaxHolders;
+            return ContainsHolder(clientId) || _holders.Count < MaxHoldersAllowed;
         }
 
         public bool ContainsHolder(ulong clientId)
@@ -172,7 +213,7 @@ namespace GhostHunter.Gameplay.Furniture
             if (!IsServer
                 || !IsPlacementReady
                 || _state.Value == FurnitureState.Launched
-                || _holders.Count >= MaxHolders
+                || _holders.Count >= MaxHoldersAllowed
                 || ContainsHolder(clientId)
                 || !TrySanitizeAim(origin, direction, out HolderAim aim))
             {

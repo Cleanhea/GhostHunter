@@ -179,7 +179,7 @@ namespace GhostHunter.Tests.PlayMode
         /// <c>GlobalObjectIdHash</c> 는 에디터가 에셋 경로로 굽는 internal 필드다. 런타임에
         /// 만든 오브젝트에는 0 이 들어 있어 NGO 가 스폰 대상을 구분하지 못한다.
         /// </summary>
-        private void AssignPrefabHash(NetworkObject networkObject)
+        protected void AssignPrefabHash(NetworkObject networkObject)
         {
             FieldInfo field = typeof(NetworkObject).GetField(
                 "GlobalObjectIdHash",

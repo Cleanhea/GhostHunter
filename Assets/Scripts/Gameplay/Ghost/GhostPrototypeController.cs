@@ -170,6 +170,15 @@ namespace GhostHunter.Gameplay.Ghost
         private Vector3 _pendingImpactPosition;
         private float _pendingImpactAt;
         private float _nextImpactAt;
+
+        // 원문 0.4 §7 — 소리 조사 > 층 활동량 > 배회. 충돌 조사(위 _hasPendingImpact)와 별개 경로다.
+        private readonly GhostNoiseMemory _noise = new();
+        private readonly GhostActivityMap _activity = new();
+        private readonly GhostFurnitureNoiseScanner _furnitureNoise = new();
+        private float _noiseScanElapsed;
+        private bool _noiseScanAttacking;
+        private System.Action<Vector3, GhostNoiseLevel> _reportFurnitureNoise;
+        private System.Func<FurnitureGrabTarget, bool> _isSmallProp;
         private float _tension;
         private SanityNetworkState _witnessedBedPlayer;
 
@@ -281,6 +290,8 @@ namespace GhostHunter.Gameplay.Ghost
             _navigation.InvalidatePath();
             _trackingMemory.Clear();
             _hasPendingImpact = false;
+            ClearNoiseSense();
+            _activity.Clear();
             _searchWandering = false;
             _searchScanRemaining = 0f;
             _witnessedBedPlayer = null;
@@ -457,6 +468,8 @@ namespace GhostHunter.Gameplay.Ghost
             _trackingMemory.Clear();
             _searchMemory = null;
             _hasPendingImpact = false;
+            ClearNoiseSense();
+            _activity.Clear();
             _witnessedBedPlayer = null;
             _tension = 0f;
             _phase.OnValueChanged -= HandlePhaseChanged;
@@ -729,6 +742,7 @@ namespace GhostHunter.Gameplay.Ghost
                 _phase.Value = current;
                 if (current != GhostPhase.Attack)
                 {
+                    _noise.Clear();
                     ResetPursuit();
                     _bedHide.Clear();
                     _burrowExposure.Clear();
@@ -738,6 +752,8 @@ namespace GhostHunter.Gameplay.Ghost
 
             if (_catchCooldownRemaining > 0f)
                 _catchCooldownRemaining = Mathf.Max(0f, _catchCooldownRemaining - deltaTime);
+
+            ServerTickNoiseSense(deltaTime, playerCount, current);
 
             if (current == GhostPhase.Attack)
                 ServerTickAttack(deltaTime, playerCount);
@@ -760,6 +776,8 @@ namespace GhostHunter.Gameplay.Ghost
             _searchScanRemaining = 0f;
             _searchWandering = false;
             _hasPendingImpact = false;
+            ClearNoiseSense();
+            _activity.Clear();
             _trackingMemory.Clear();
             _searchMemory.Clear();
             if (!_settings.EvidenceTrackingEnabled)
@@ -776,7 +794,21 @@ namespace GhostHunter.Gameplay.Ghost
                 || !IsInsideHouseBounds(position) || DrillCarSafeZone.Contains(position))
                 return;
 
-            float radius = _settings.ImpactHearingRadius;
+            if (!CanHearNoiseAt(position, _settings.ImpactHearingRadius))
+                return;
+
+            _hasPendingImpact = true;
+            _pendingImpactPosition = position;
+            _pendingImpactAt = Time.time;
+            _nextImpactAt = Time.time + _settings.ImpactInvestigateCooldown;
+        }
+
+        /// <summary>
+        /// 소리가 귀신에게 들리는가 — 직선거리와 NavMesh 경로 길이가 모두 반경 안이어야 하고,
+        /// 벽·문에 가리면 반경을 <c>OccludedImpactMultiplier</c>배로 줄인다. 집 안·드릴 카 밖 검사는 호출자가 한다.
+        /// </summary>
+        private bool CanHearNoiseAt(Vector3 position, float radius)
+        {
             Vector3 ear = transform.position + Vector3.up * _settings.GhostEyeHeight;
             int mask = GameLayers.NonGhostPrototypeRaycastMask;
             if (GameLayers.Furniture >= 0)
@@ -786,14 +818,74 @@ namespace GhostHunter.Gameplay.Ghost
             if (Physics.Linecast(ear, position + Vector3.up * DoorRayHeight,
                     mask, QueryTriggerInteraction.Ignore))
                 radius *= _settings.OccludedImpactMultiplier;
-            if (Vector3.Distance(ear, position) > radius
-                || !_navigation.TryMeasurePath(position, out float length) || length > radius)
+            return Vector3.Distance(ear, position) <= radius
+                && _navigation.TryMeasurePath(position, out float length) && length <= radius;
+        }
+
+        /// <summary>
+        /// 원문 0.4 §7.4 — 0.5초마다 (1) 가구 운반 소리를 훑고 (2) 층별 활동량을 갱신한다.
+        /// 소리는 어택 중에만 기억하고, 활동량은 모든 상태에서 쌓아 어택이 시작될 때 이미 알고 있게 한다.
+        /// </summary>
+        private void ServerTickNoiseSense(float deltaTime, int playerCount, GhostPhase phase)
+        {
+            if (!_settings.NoiseReactionEnabled)
                 return;
 
-            _hasPendingImpact = true;
-            _pendingImpactPosition = position;
-            _pendingImpactAt = Time.time;
-            _nextImpactAt = Time.time + _settings.ImpactInvestigateCooldown;
+            _noiseScanElapsed += deltaTime;
+            if (_noiseScanElapsed < _settings.NoiseScanInterval)
+                return;
+
+            float elapsed = _noiseScanElapsed;
+            _noiseScanElapsed = 0f;
+
+            _activity.Decay(elapsed, _settings.ActivityHalfLifeSeconds);
+            for (int i = 0; i < playerCount; i++)
+            {
+                SanityNetworkState player = _players[i];
+                if (player == null || !player.IsSpawned || !player.HasSanity)
+                    continue;
+                Vector3 position = player.transform.position;
+                if (!IsInsideHouseBounds(position) || DrillCarSafeZone.Contains(position))
+                    continue;
+
+                float weight = _settings.ActivityIdleWeight;
+                if (!player.IsCrouching && !player.IsProne && _perception.TryGetSpeed(player, out float speed))
+                {
+                    if (speed >= _settings.RunSpeedThreshold)
+                        weight = _settings.ActivityRunWeight;
+                    else if (speed >= _settings.WalkSpeedThreshold)
+                        weight = _settings.ActivityWalkWeight;
+                }
+                if (player.TryGetComponent(out GrabController grab) && grab.IsHolding)
+                    weight += _settings.ActivityCarryWeight;
+                _activity.Add(GhostRoamMemory.FloorOf(position.y), weight * elapsed);
+            }
+
+            EnsureSceneCollections();
+            _noiseScanAttacking = phase == GhostPhase.Attack;
+            _reportFurnitureNoise ??= ReportFurnitureNoise;
+            _isSmallProp ??= IsSmallProp;
+            _furnitureNoise.Scan(_sceneFurniture, _settings.LargeFurnitureMoveThreshold,
+                _isSmallProp, _reportFurnitureNoise);
+        }
+
+        private void ReportFurnitureNoise(Vector3 position, GhostNoiseLevel level)
+        {
+            if (!_noiseScanAttacking || _pursuit != Pursuit.Roam || !IsInsideHouseBounds(position)
+                || DrillCarSafeZone.Contains(position))
+                return;
+
+            float radius = level == GhostNoiseLevel.Medium
+                ? _settings.SmallPropNoiseRadius : _settings.LargeFurnitureNoiseRadius;
+            if (CanHearNoiseAt(position, radius))
+                _noise.Report(position, level, Time.time, _settings.EvidenceMemorySeconds);
+        }
+
+        private void ClearNoiseSense()
+        {
+            _noise.Clear();
+            _furnitureNoise.Clear();
+            _noiseScanElapsed = 0f;
         }
 
         private void UpdateTension(float deltaTime, GhostPhase phase, int playerCount)
@@ -1249,6 +1341,7 @@ namespace GhostHunter.Gameplay.Ghost
                     _searchWandering = false;
                     _searchScanRemaining = 0f;
                     _hasPendingImpact = false;
+                    _noise.Clear();
                     _witnessedHidingPlayer = null;
                     ObserveTarget(detected);
                 }
@@ -1267,6 +1360,16 @@ namespace GhostHunter.Gameplay.Ghost
                         BeginSearch();
                     }
                     _hasPendingImpact = false;
+                }
+                else if (_settings.NoiseReactionEnabled && _witnessedHidingPlayer == null
+                    && _witnessedBurrowPlayer == null && _witnessedBedPlayer == null
+                    && _noise.TryTake(Time.time, _settings.EvidenceMemorySeconds, out Vector3 noisePosition))
+                {
+                    // 원문 0.4 §7.1: 배회 → 반응(소리 감지) → 조사(발생지로 이동·확인) → 배회.
+                    // 조사는 기존 수색(마지막 위치로 가서 주변을 둘러본 뒤 배회 복귀)을 그대로 쓴다.
+                    _trackingMemory.Clear();
+                    _lastKnownPosition = noisePosition;
+                    BeginSearch();
                 }
             }
 
@@ -1521,7 +1624,7 @@ namespace GhostHunter.Gameplay.Ghost
             bool arrived = _navigation.HasArrived(_roamDestination);
             if (arrived || Time.time >= _roamGiveUpAt)
             {
-                PickRoamDestination(speed, avoidClosedDoors: !attacking);
+                PickRoamDestination(speed, avoidClosedDoors: !attacking, useActivity: attacking);
                 if (arrived && !attacking && _settings.RoamLookAroundMax > 0f)
                 {
                     _lookAroundRemaining = Random.Range(_settings.RoamLookAroundMin, _settings.RoamLookAroundMax);
@@ -1555,8 +1658,10 @@ namespace GhostHunter.Gameplay.Ghost
         /// 가장 높은 곳을 배회 목적지로 정한다. 계단으로 이어진 모든 층이 후보이고, 완전한 경로가 있는 곳만 고른다
         /// (지붕 위 같은 끊긴 섬 제외). `RoamMinDistance` 이상 떨어진 곳을 우선한다.
         /// </summary>
-        private void PickRoamDestination(float speed, bool avoidClosedDoors)
+        private void PickRoamDestination(float speed, bool avoidClosedDoors, bool useActivity = false)
         {
+            // 원문 0.4 §7.2: 어택 중 배회는 플레이어가 많이 활동한 층을 더 자주 고른다(점수 가산).
+            bool weightByActivity = useActivity && _settings.NoiseReactionEnabled;
             float minSqr = _settings.RoamMinDistance * _settings.RoamMinDistance;
             int wanted = Mathf.Max(1, _settings.RoamCandidateCount);
             int found = 0;
@@ -1582,6 +1687,9 @@ namespace GhostHunter.Gameplay.Ghost
 
                 float score = _roamMemory.Score(candidate, length, speed, Time.time)
                     + Random.value * RoamScoreJitterSeconds;
+                if (weightByActivity)
+                    score += _activity.Bonus(GhostRoamMemory.FloorOf(candidate.y),
+                        _settings.ActivityBonusSeconds, _settings.ActivityMinimumPeak);
                 if (!hasBest || (far && !bestIsFar) || score > bestScore)
                 {
                     hasBest = true;

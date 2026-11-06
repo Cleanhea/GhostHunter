@@ -1356,6 +1356,22 @@ Stage1 만 고쳤다 — ProtoTypeGame 의 B안은 마감 전 구조 그대로�
 스케일이 있는 메시를 정점에 베이크한 저장 프리팹을 사용한다. 앞마당 드릴카와 Stage1 밤/암흑 조명 설정을 참조한다.
 B안 랜덤 방/가구 생성과는 별도다. 배치·흐름·검증: [Tutorial](../project/tutorial-stage.md), [ADR-0021](decisions/ADR-0021-tutorial-first-stage.md).
 
+**리프트 (2026-11-06).** 발코니 앞 남서쪽에 리프트 한 대(층 높이 3.57m)를 놓고 앞쪽 난간을 리프트 구간만 비웠다 → [lift-system.md §6](../project/lift-system.md).
+
+#### 10.1.8 Stage1 리프트 개구부 (2026-11-06)
+
+사용자 요청으로 2층에서 앞마당으로 가구를 내리는 리프트를 Stage1 남쪽 앞마당(월드 (61.67, 0, −13.22), Y 180°)에 놓았다 → [lift-system.md](../project/lift-system.md).
+리프트가 닿으려면 2층 외벽에 출입구가 있어야 해서 **구조를 임의로 고쳤다 — 레벨 디자인이 확정할 임시 변경(LF-Q2)이다.**
+
+| 항목 | 변경 |
+| --- | --- |
+| 2층 남쪽 외벽 `Floor_02/Structure/Outer_South` | 폭 30.18m 한 덩어리를 3조각으로: `Outer_South`(왼쪽 8.09m)·`Outer_South_Right`(20.09m)·`Outer_South_Lintel`(개구부 위 상인방, 높이 0.5m). 개구부 x −7.0~−5.0(집 기준)·높이 2.5m·문턱 y 3.0(1층 외벽 윗면) |
+| 가족실 남쪽 방 벽 `FamilyRoom/Wall_South` | 같은 폭으로 3조각(`Wall_South`·`_Right`·`_Lintel`) — 외벽 안쪽에 방 벽이 한 겹 더 있어 둘 다 잘라야 지나간다 |
+| 가족실 남쪽 창 `Windows_TEMP/Window_South_Left_*` 5개 | 개구부 자리라 비활성 |
+| 새 메시 `S1Box_8.09x3x0.18`·`_20.09x3x0.18`·`_2x0.5x0.18`·`_1.375x2.8x0.18`·`_5x2.8x0.18`·`_2x0.3x0.18` | 스케일 1 규칙 때문에 치수마다 박스 메시 |
+
+`Stage1StructureTests`의 외벽 윗면 높이 검사는 새 조각 이름(`Outer_*`)에도 그대로 통한다(상인방 윗면 = 슬래브 + 3.0m).
+
 ### 10.2 프로토타입에서 확인해야 할 것
 
 #### A. 맵 생성 로직

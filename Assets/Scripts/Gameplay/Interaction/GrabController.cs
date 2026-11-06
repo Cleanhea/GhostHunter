@@ -18,6 +18,12 @@ namespace GhostHunter.Gameplay.Interaction
     {
         public const ulong NoObjectId = ulong.MaxValue;
 
+        /// <summary>서버가 받아들이는 조준 원점(카메라)과 플레이어 루트 사이의 최대 거리(m). 시선 원점을 속여 사거리를 늘리는 것을 막는다.</summary>
+        internal const float AimOriginMaxOffset = 3f;
+
+        /// <summary>서버 잡기 사거리의 지연 보정 여유 배수 — 클라이언트 타게팅 사거리(<c>MaxTargetDistance</c>)에 곱한다.</summary>
+        internal const float GrabReachSlack = 1.2f;
+
         [SerializeField] private PlayerInputReader _input;
         [SerializeField] private FurnitureTargeter _targeter;
         [SerializeField] private Camera _camera;
@@ -473,6 +479,13 @@ namespace GhostHunter.Gameplay.Interaction
 
             RequestReleaseRpc(objectId, _camera.transform.forward);
             _requestedObjectId = NoObjectId;
+
+            // 서버가 잡기를 거부했다면 '잡힘' 복제가 오지 않아 HandleHeldObjectChanged 가 조준 고정을 풀어 주지 않는다.
+            // 0.5초 타임아웃은 아직 요청이 남아 있을 때만 도므로, 그 전에 떼면(탭) 타게터가 거부된 가구에 계속 묶여
+            // 다른 가구를 겨눠도 외곽선·잡기가 먹지 않았다. 아직 홀더가 아니면 여기서 푼다 —
+            // 요청이 받아들여졌다면 이어서 오는 복제가 다시 걸었다가 해제 복제가 푼다.
+            if (!IsHolding)
+                _targeter?.SetHoldTarget(null);
         }
 
         [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
@@ -491,14 +504,29 @@ namespace GhostHunter.Gameplay.Interaction
                 || _settings == null
                 || !TryResolveTarget(objectId, out FurnitureGrabTarget target)
                 || !IsValidAim(aimOrigin, aimDirection)
-                || Vector3.Distance(transform.position, target.transform.position)
-                    > _settings.MaxTargetDistance * 1.2f)
+                || !IsWithinGrabReach(
+                    Vector3.Distance(transform.position, aimOrigin),
+                    target.DistanceToSurface(aimOrigin),
+                    _settings.MaxTargetDistance))
             {
                 return;
             }
 
             if (target.ServerTryAddHolder(sender, aimOrigin, aimDirection))
                 _heldObjectId.Value = objectId;
+        }
+
+        /// <summary>
+        /// 서버 잡기 사거리 — 클라이언트 타게팅(<see cref="FurnitureTargeter"/>)과 같은 기준으로 잰다:
+        /// 조준 원점에서 가구 <b>표면</b>까지가 <c>maxTargetDistance × 1.2</c> 이내여야 한다.
+        /// 예전에는 플레이어 발~가구 피벗 거리를 쟀다 — 표면은 2m 안인데 피벗이 멀리 있는 큰 가구(침대·소파·리프트)는
+        /// 서 있는 자리에 따라 서버가 조용히 거부했다. 조준 원점은 클라이언트가 보낸 값이므로 플레이어에서 멀리 떨어진
+        /// 값은 거른다(<see cref="AimOriginMaxOffset"/>).
+        /// </summary>
+        internal static bool IsWithinGrabReach(float aimOriginToPlayer, float aimOriginToSurface, float maxTargetDistance)
+        {
+            return aimOriginToPlayer <= AimOriginMaxOffset
+                && aimOriginToSurface <= maxTargetDistance * GrabReachSlack;
         }
 
         [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]

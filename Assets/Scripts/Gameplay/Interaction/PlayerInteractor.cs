@@ -1,6 +1,7 @@
 using GhostHunter.Core;
 using GhostHunter.Gameplay.Player;
 using GhostHunter.Gameplay.Ghost;
+using GhostHunter.Gameplay.Lift;
 using GhostHunter.Gameplay.Revival;
 using GhostHunter.Gameplay.Sanity;
 using Unity.Netcode;
@@ -31,6 +32,9 @@ namespace GhostHunter.Gameplay.Interaction
 
         /// <summary>지금 조준 중인 드릴카 배터리 팩. E 홀드 충전(<c>PlayerBatteryCharger</c>)과 프롬프트가 읽는다.</summary>
         public BatteryPack CurrentBatteryPack { get; private set; }
+
+        /// <summary>지금 조준 중인 리프트 버튼. 우클릭으로 누르고 프롬프트가 읽는다(lift-system.md).</summary>
+        public LiftButton CurrentLiftButton { get; private set; }
         private StageExitInteractable _currentStageExit;
         private StageLobbyTerminal _currentLobbyTerminal;
         private RevivalCandleSlot _currentCandleSlot;
@@ -66,6 +70,7 @@ namespace GhostHunter.Gameplay.Interaction
 
             CurrentDoor = null;
             CurrentBatteryPack = null;
+            CurrentLiftButton = null;
         }
 
         private void Update()
@@ -87,6 +92,11 @@ namespace GhostHunter.Gameplay.Interaction
 
             if (CurrentDoor != null && _input.InteractPressedThisFrame)
                 CurrentDoor.RequestToggle();
+
+            // 리프트 버튼은 우클릭(Player/UseDriver 액션을 공유) — 드라이버를 들고 있지 않아도 된다. 서버가 거리·생존을 다시 검사한다.
+            if (CurrentLiftButton != null && _input.UseDriverPressedThisFrame
+                && !_input.IsDeathInputLocked && !_input.IsGameplayInputLocked)
+                CurrentLiftButton.Press();
 
             if (_currentStageExit != null && _input.InteractPressedThisFrame
                 && !_input.IsDeathInputLocked && !_input.IsGameplayInputLocked)
@@ -114,9 +124,11 @@ namespace GhostHunter.Gameplay.Interaction
                 _currentLobbyTerminal = null;
                 _currentCandleSlot = null;
                 CurrentBatteryPack = null;
+                CurrentLiftButton = null;
                 return;
             }
 
+            CurrentLiftButton = hit.collider.GetComponentInParent<LiftButton>();
             CurrentDoor = hit.collider.GetComponentInParent<DoorInteractable>();
             _currentStageExit = hit.collider.GetComponentInParent<StageExitInteractable>();
             _currentLobbyTerminal = hit.collider.GetComponentInParent<StageLobbyTerminal>();
@@ -199,6 +211,11 @@ namespace GhostHunter.Gameplay.Interaction
                     && !string.IsNullOrEmpty(_currentCandleSlot.Prompt))
                     GUI.Label(new Rect((Screen.width - 300f) * 0.5f,
                         Screen.height * 0.62f, 300f, 28f), _currentCandleSlot.Prompt);
+                else if (CurrentLiftButton != null && _input != null
+                    && !_input.IsDeathInputLocked && !_input.IsGameplayInputLocked
+                    && !string.IsNullOrEmpty(CurrentLiftButton.Prompt))
+                    GUI.Label(new Rect((Screen.width - 300f) * 0.5f,
+                        Screen.height * 0.62f, 300f, 28f), CurrentLiftButton.Prompt);
                 return;
             }
 
