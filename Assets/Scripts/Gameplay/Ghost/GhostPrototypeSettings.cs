@@ -83,6 +83,60 @@ namespace GhostHunter.Gameplay.Ghost
         [Tooltip("추격·수색 중 이 거리 안의 닫힌 방문을 직접 연다 (§9.4).")]
         [SerializeField] private float _doorOpenRange = 2.2f;
 
+        [Header("Attack rules · 원문 0.3·0.4 (project/ghost-system.md G-9·22·23·30·27)")]
+        [Tooltip("난이도. 쉬움은 어택 중 한 명이라도 죽으면 어택이 자동 종료된다(원문 0.3). 박치기 돌진 속도도 난이도별이다. " +
+            "누가 어떻게 고르는지는 미정(G-23) — 지금은 에셋마다 하나(Default=보통, Tutorial=쉬움).")]
+        [SerializeField] private GhostDifficulty _difficulty = GhostDifficulty.Normal;
+        [Tooltip("팀 정신력이 0~30이면 어택 시간(60초·고위험 90초)이 지나도 어택을 끝내지 않는다(원문 0.3 '무조건 계속 어택').")]
+        [SerializeField] private bool _attackContinuesWhileCritical = true;
+        [Tooltip("청소 진행도가 기준(40%)을 처음 넘으면 정신력과 무관하게 무조건 한 번 어택한다(원문 0.3, 일회성). " +
+            "끄면 예전처럼 40%는 정신력 어택의 필수 전제일 뿐이다.")]
+        [SerializeField] private bool _cleaningForcesAttackOnce = true;
+        [Tooltip("어택이 시작될 때 반경 안에 플레이어가 없으면 가장 가까운 플레이어 근처(아래 반경)에 스폰한다(원문 0.4 '근처 7m 스폰').")]
+        [SerializeField] private bool _attackSpawnNearPlayerEnabled = true;
+        [Tooltip("스폰 반경(m). 어택 시작 때 가장 가까운 플레이어가 이 거리보다 멀면, 그 플레이어에게서 이 거리쯤 떨어진 NavMesh 지점으로 옮긴다. 원문 7m.")]
+        [SerializeField, Min(1f)] private float _attackSpawnRadius = 7f;
+        [Tooltip("켜면 어택 중 배회하는 귀신이 플레이어의 말소리에 반응한다(원문 0.4 소음표 '음성 채팅 — 보통~높음, 말소리 크기에 따라'). " +
+            "소음 반응(Noise Reaction)이 꺼져 있으면 같이 꺼진다.")]
+        [SerializeField] private bool _voiceNoiseEnabled = true;
+        [Tooltip("말소리 입력이 이 값(dBFS) 이하면 최소 반경, 이상이면 최대 반경으로 듣는다. 그 사이는 보간. [TEMP]")]
+        [SerializeField] private float _voiceNoiseQuietDb = -40f;
+        [SerializeField] private float _voiceNoiseLoudDb = -15f;
+        [Tooltip("말소리 소음의 최소(보통)·최대(높음) 반경(m). 보통 8m(작은 물건 놓기)·높음 12m(대형 가구 이동)와 같다. [TEMP]")]
+        [SerializeField, Min(1f)] private float _voiceNoiseMinRadius = 8f;
+        [SerializeField, Min(1f)] private float _voiceNoiseMaxRadius = 12f;
+
+        [Header("Body · 몸 충돌")]
+        [Tooltip("켜면 귀신 몸이 가구(시체 포함)와 물리 충돌한다 — 가구가 귀신을 통과하지 않고, 귀신도 가구를 뚫고 걷지 못한다. "
+            + "가구 내구도는 여전히 귀신과의 충돌로 줄지 않는다(FD-7). 플레이어와의 충돌은 항상 끈다(포획은 거리 판정).")]
+        [SerializeField] private bool _collideWithFurniture = true;
+
+        [Header("Dino ghost · '박치기 공룡' (project/ghost-dino.md) — 어택 중 추격→준비→돌진→스턴 반복")]
+        [Tooltip("켜면 어택 중 박치기 사이클을 돈다. 서버가 판정한다. 켜진 채 '뒤돌아보지마'(Gaze Freeze)와 같이 쓰지 않는다.")]
+        [SerializeField] private bool _dinoChargeEnabled;
+        [Tooltip("어택이 시작되거나 스턴이 끝난 뒤 이 시간(초) 동안 기존 어택 규칙대로 추격한다. 기획 8초.")]
+        [SerializeField, Min(0f)] private float _dinoChaseSeconds = 8f;
+        [Tooltip("제자리에 서서 돌진을 준비하는 시간(초). 기획 2초.")]
+        [SerializeField, Min(0.1f)] private float _dinoPrepareSeconds = 2f;
+        [Tooltip("준비의 마지막 몇 초 동안 방향을 고정한다(그 앞은 마지막으로 타깃팅한 플레이어를 따라 방향 조정). 기획 0.7초.")]
+        [SerializeField, Min(0f)] private float _dinoDirectionLockSeconds = 0.7f;
+        [Tooltip("돌진이 끝난 자리에서 행동 불가인 시간(초). 기획 5초.")]
+        [SerializeField, Min(0f)] private float _dinoStunSeconds = 5f;
+        [Tooltip("돌진 속도(m/s) — 쉬움. 기획 5. 프로토타입에서 변경 가능성이 있다.")]
+        [SerializeField, Min(0.1f)] private float _dinoChargeSpeedEasy = 5f;
+        [Tooltip("돌진 속도(m/s) — 보통. 기획 7.")]
+        [SerializeField, Min(0.1f)] private float _dinoChargeSpeedNormal = 7f;
+        [Tooltip("돌진 속도(m/s) — 어려움. 기획 9.")]
+        [SerializeField, Min(0.1f)] private float _dinoChargeSpeedHard = 9f;
+        [Tooltip("준비 중 귀신이 돌진 방향으로 몸을 돌리는 속도(도/초). 방향 조정·고정 연출이다.")]
+        [SerializeField, Min(30f)] private float _dinoTurnSpeedDegrees = 540f;
+        [Tooltip("돌진 중 귀신 중심과 플레이어 사이 수평 거리가 이 값(m) 이하면 충돌해 즉사한다. 귀신 컨트롤러 반경 + 플레이어 반경 정도.")]
+        [SerializeField, Min(0.1f)] private float _dinoHitRadius = 0.7f;
+        [Tooltip("돌진으로 가구와 부딪혔을 때 돌진 거리 1m당 내구도 손실. 손실 = ⌊거리 × 이 값⌋, 최소 1. 기획 5.")]
+        [SerializeField, Min(0f)] private float _dinoDamagePerMeter = 5f;
+        [Tooltip("돌진이 이 시간(초)을 넘기면 충돌이 없어도 끝낸다. 보이지 않는 장애물에 끼어 영원히 도는 것을 막는 안전장치.")]
+        [SerializeField, Min(1f)] private float _dinoMaxChargeSeconds = 8f;
+
         [Header("Base ghost · '뒤돌아보지마' (project/ghost-base.md) — Tutorial 에셋만 켠다")]
         [Tooltip("켜면 어택 중 플레이어 화면에 귀신이 렌더링될 때 정지한다. 서버가 판정하고 포획 거리도 아래 값을 쓴다.")]
         [SerializeField] private bool _gazeFreezeEnabled;
@@ -288,6 +342,33 @@ namespace GhostHunter.Gameplay.Ghost
         public float RepathInterval => _repathInterval;
         public float ReachDistance => _reachDistance;
         public float CatchRadius => _catchRadius;
+        public GhostDifficulty Difficulty => _difficulty;
+        public bool AttackContinuesWhileCritical => _attackContinuesWhileCritical;
+        public bool CleaningForcesAttackOnce => _cleaningForcesAttackOnce;
+        public bool AttackSpawnNearPlayerEnabled => _attackSpawnNearPlayerEnabled;
+        public float AttackSpawnRadius => _attackSpawnRadius;
+        public bool VoiceNoiseEnabled => _voiceNoiseEnabled;
+        public float VoiceNoiseQuietDb => _voiceNoiseQuietDb;
+        public float VoiceNoiseLoudDb => _voiceNoiseLoudDb;
+        public float VoiceNoiseMinRadius => _voiceNoiseMinRadius;
+        public float VoiceNoiseMaxRadius => _voiceNoiseMaxRadius;
+        public bool CollideWithFurniture => _collideWithFurniture;
+        public bool DinoChargeEnabled => _dinoChargeEnabled;
+        public float DinoChaseSeconds => _dinoChaseSeconds;
+        public float DinoPrepareSeconds => _dinoPrepareSeconds;
+        public float DinoDirectionLockSeconds => _dinoDirectionLockSeconds;
+        public float DinoStunSeconds => _dinoStunSeconds;
+        /// <summary>난이도별 돌진 속도(m/s). 기획: 쉬움 5 · 보통 7 · 어려움 9.</summary>
+        public float DinoChargeSpeed => _difficulty switch
+        {
+            GhostDifficulty.Easy => _dinoChargeSpeedEasy,
+            GhostDifficulty.Hard => _dinoChargeSpeedHard,
+            _ => _dinoChargeSpeedNormal,
+        };
+        public float DinoTurnSpeedDegrees => _dinoTurnSpeedDegrees;
+        public float DinoHitRadius => _dinoHitRadius;
+        public float DinoDamagePerMeter => _dinoDamagePerMeter;
+        public float DinoMaxChargeSeconds => _dinoMaxChargeSeconds;
         public bool GazeFreezeEnabled => _gazeFreezeEnabled;
         public float GazeFreezeMaxSeconds => _gazeFreezeMaxSeconds;
         public float GazeImmunitySeconds => _gazeImmunitySeconds;

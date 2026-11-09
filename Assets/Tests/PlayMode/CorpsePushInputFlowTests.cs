@@ -193,6 +193,34 @@ namespace GhostHunter.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator 가상_파트너를_붙이면_혼자서도_시체_2인_운반이_된다()
+        {
+            // 개발자 테스트용 가상 두 번째 홀더(FurnitureVirtualPartner) — 시체 경로도 같은 서버 API 로 붙는다.
+            yield return PrepareCorpse();
+            yield return BeginGrab();
+            _camera.transform.rotation = Quaternion.LookRotation(new Vector3(0f, 0.5f, 1f).normalized);
+
+            var partner = new FurnitureVirtualPartner();
+            Assert.IsTrue(partner.TryAttach(
+                _corpseOwner, 0UL, _camera.transform.position, _camera.transform.forward), partner.Message);
+            Assert.AreEqual(FurnitureState.Held, _corpseOwner.GrabState);
+            Assert.AreEqual(2, _corpseOwner.HolderCount);
+
+            for (int i = 0; i < 10; i++)
+            {
+                yield return new WaitForFixedUpdate();
+                partner.Tick(_camera.transform.position, _camera.transform.forward);
+            }
+
+            Assert.IsTrue(partner.IsAttached, partner.Message);
+            Assert.AreEqual(FurnitureState.Held, _corpseOwner.GrabState);
+
+            partner.Detach();
+            Assert.AreEqual(1, _corpseOwner.HolderCount);
+            Assert.AreEqual(FurnitureState.ThrowReady, _corpseOwner.GrabState);
+        }
+
+        [UnityTest]
         public IEnumerator 둘이_들다가_한_명이_놓으면_남은_사람_방향으로_즉시_발사한다()
         {
             yield return PrepareCorpse();

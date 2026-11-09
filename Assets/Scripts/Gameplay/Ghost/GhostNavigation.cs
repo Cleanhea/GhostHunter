@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using GhostHunter.Core;
+using GhostHunter.Gameplay.Furniture;
 using GhostHunter.Gameplay.Interaction;
 using UnityEngine;
 using UnityEngine.AI;
@@ -245,6 +246,8 @@ namespace GhostHunter.Gameplay.Ghost
             }
 
             _navMeshInstance = NavMesh.AddNavMeshData(_navMeshData);
+            // 가구는 굽지 않고 장애물(carving)로 반영한다 — 새 NavMesh 에도 지금 놓인 자리를 뚫는다.
+            FurnitureNavObstacle.RefreshAll();
             CacheRoamTriangles(center, extents, restrictHeight);
 
             if (!NavMesh.SamplePosition(_transform.position, out _, NavSampleFallbackRadius, NavMesh.AllAreas))

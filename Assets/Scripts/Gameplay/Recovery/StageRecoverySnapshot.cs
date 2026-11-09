@@ -109,6 +109,9 @@ namespace GhostHunter.Gameplay.Recovery
             public bool HighRiskAttack;
             public bool AttackStartedBelowRecoveryThreshold;
             public int LastTeamSanity;
+            // 청소 40% 일회성 강제 어택(원문 0.3). 예전 스냅샷에는 없어 둘 다 false 로 읽힌다 — 이미 40%를 넘긴 판이면 다시 발동하지 않는다.
+            public bool CleaningAttackPending;
+            public bool CleaningAttackFired;
             public float PhenomenonCooldown;
             public int LastPhenomenon;
             public uint PhenomenaPoolMask;

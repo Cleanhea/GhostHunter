@@ -47,6 +47,13 @@ namespace GhostHunter.Gameplay.Voice
         private bool _wasMuted;
         private VoiceMode _lastMode;
         private float _volume = 1f;
+        // 말소리 크기 보고(귀신 소음 반응용, 원문 0.4). 소유자는 말하는 동안 SpeechReportInterval 마다 입력 레벨을 서버에 알린다.
+        private const double SpeechReportInterval = 0.25;
+        private const double SpeechReportTimeout = 0.6;
+        private float _frameDecibels = -120f;
+        private double _nextSpeechReport;
+        private float _speechLevelDb = -120f;
+        private double _speechReportedAt = double.NegativeInfinity;
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
         private readonly EchoSpeaker _echo = new();
         private bool _echoReady;
@@ -62,6 +69,15 @@ namespace GhostHunter.Gameplay.Voice
         public Vector3 MouthPosition => transform.position + Vector3.up * (_motor != null ? _motor.CameraLocalHeight : 0f);
         public Transform Ear => _look != null && _look.PlayerCamera != null ? _look.PlayerCamera.transform : null;
         public string DisplayName { get; private set; }
+        /// <summary>
+        /// 서버 전용 — 소유자가 방금 보고한 말소리 입력 레벨(dBFS). 말하는 중이 아니거나 보고가 끊긴 지 <see cref="SpeechReportTimeout"/>초가 지났으면 false.
+        /// 귀신이 말소리를 듣는 데 쓴다(<c>GhostPrototypeController.ReportVoiceNoise</c>).
+        /// </summary>
+        internal bool TryGetSpeechLevel(double now, out float decibels)
+        {
+            decibels = _speechLevelDb;
+            return IsServer && now - _speechReportedAt <= SpeechReportTimeout;
+        }
         public float Volume { get => _volume; set { _volume = Mathf.Clamp01(value); if (_volume == 0f && _receiver != null) _receiver.Flush(); } }
         public override void OnNetworkSpawn()
         {
@@ -138,6 +154,12 @@ namespace GhostHunter.Gameplay.Voice
             if (!transmit) _pending.Clear();
             int bytes = transmit ? _pending.Pack(_packet) : 0;
             _chat.IsTransmitting = transmit;
+            if (transmit && _speech.IsOpen && now >= _nextSpeechReport)
+            {
+                _nextSpeechReport = now + SpeechReportInterval;
+                ReportSpeechLevelRpc(_frameDecibels);
+            }
+            _frameDecibels = -120f;
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
             UpdateDiagnostics(bytes);
 #endif
@@ -145,6 +167,14 @@ namespace GhostHunter.Gameplay.Voice
             using var payload = new NativeArray<byte>(bytes, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
             NativeArray<byte>.Copy(_packet, payload, bytes);
             SubmitVoiceRpc(payload, _activeCapture.Codec, _sequence++, IsAlive);
+        }
+        /// <summary>말하는 동안 입력 레벨만 서버에 알린다 — 원시 음성은 보내지 않는다. 서버 검증은 소유자·유한값뿐이다.</summary>
+        [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner, Delivery = RpcDelivery.Unreliable)]
+        private void ReportSpeechLevelRpc(float decibels, RpcParams rpcParams = default)
+        {
+            if (!IsServer || rpcParams.Receive.SenderClientId != OwnerClientId || !float.IsFinite(decibels)) return;
+            _speechLevelDb = Mathf.Clamp(decibels, -120f, 0f);
+            _speechReportedAt = Time.unscaledTimeAsDouble;
         }
         [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner, Delivery = RpcDelivery.Unreliable)]
         private void SubmitVoiceRpc(NativeArray<byte> frame, byte codec, ushort sequence, bool aliveChannel, RpcParams rpcParams = default)
@@ -304,6 +334,7 @@ namespace GhostHunter.Gameplay.Voice
             {
                 int length = Math.Min(window, samples - offset);
                 float decibels = VoiceActivityGate.Decibels(_pcm, offset, length);
+                _frameDecibels = Math.Max(_frameDecibels, decibels);
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
                 _level = Math.Max(_level, decibels);
 #endif

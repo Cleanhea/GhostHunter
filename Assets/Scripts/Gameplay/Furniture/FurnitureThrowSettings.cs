@@ -50,8 +50,8 @@ namespace GhostHunter.Gameplay.Furniture
         [Tooltip("2인 운반 중 가구 콜라이더 마찰 계수. 낮을수록 문틀·벽을 긁으며 미끄러져 지나간다.")]
         [SerializeField, Range(0f, 1f)] private float _carryFriction = 0.05f;
 
-        [Tooltip("2인 운반 중 들고 있는 두 사람과 가구가 서로 부딪히지 않는다.")]
-        [SerializeField] private bool _carryIgnoresHolders = true;
+        [Tooltip("켜면 2인 운반 중 들고 있는 두 사람과 가구가 서로 부딪히지 않는다(몸을 통과). 기본은 끔 — 가구와 몸이 물리 충돌한다. 시체 운반에도 같이 적용.")]
+        [SerializeField] private bool _carryIgnoresHolders;
 
         [Tooltip("2인 운반 중 열린 문짝과 부딪히지 않는다(닫힌 문은 그대로 막는다).")]
         [SerializeField] private bool _carryPassesOpenDoors = true;

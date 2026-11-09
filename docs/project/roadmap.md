@@ -89,6 +89,10 @@ HUD 5개의 Canvas·도형 생성/해제를 `HudUiFactory`, 원형 표시부를 
 
 **베이스 귀신(2026-11-01):** Tutorial 귀신을 "베이직 귀신"에서 **베이스 귀신**(임시 이름)으로 바꾸고 '뒤돌아보지마' 기믹(어택 중 시선 정지·정지 면역 5초·이동 ×1.5·거리 구간별 공격 시선 조건)을 반영했다. 사용자 결정: 바라봄 = 귀신이 화면에 렌더링될 때, 적용은 Tutorial 한정, 붉은 원뿔 유지. **Tutorial 설정 에셋에서만 구현**, 컴파일·EditMode 통과, 실플레이·다인·연출은 미검증. 남은 임시 해석 BG-2·5·6·7·8 → [ghost-base.md](ghost-base.md), [ghost-prototype.md](../architecture/ghost-prototype.md).
 
+**귀신 공통 기획서 미구현 항목 구현(2026-11-07, 사용자 요청 "구현 안된거 있으면 구현해"):** 원문 0.3·0.4 중 문서가 미구현·충돌로 적어 둔 것을 임시 해석으로 구현했다 — 청소 40%를 처음 넘으면 정신력과 무관하게 한 번 어택(일회성, 정신력 어택의 40% 전제는 유지, G-22)·팀 정신력 0~30이면 어택 시간이 지나도 계속 어택(G-9)·`GhostDifficulty`(Default 보통·Tutorial 쉬움)와 쉬움의 사망 시 어택 종료·박치기 돌진 속도 난이도별(G-23)·어택이 시작될 때 플레이어가 7m 밖이면 7m 근처로 스폰(G-30)·말소리 크기에 따른 소음 반응(입력 레벨 보고 RPC, G-27④)·Default 고위험 탐지 20m/140° 임시 수치(G-18). 전부 설정으로 켜고 끈다. `NetProtocolVersion` 9→10. **난이도 선택 UI·추격 속도 조정·실제 Stage1 체감·실제 마이크 클라이언트 왕복은 미검증/미정** → [ghost-system.md](ghost-system.md) §12.3·§13, [ghost-prototype.md](../architecture/ghost-prototype.md).
+
+**박치기 공룡 귀신(2026-11-07):** 어택 중 추격 8초 → 돌진 준비 2초(앞 1.3초 방향 추적·뒤 0.7초 고정) → 돌진(첫 충돌까지, 7m/s) → 스턴 5초를 반복하는 기믹을 구현했다. 가구와 부딪히면 ⌊돌진 거리×5⌋(최소 1) 내구도가 줄고(FD-7의 돌진 예외), 플레이어와 부딪히면 즉사, 벽·닫힌 문은 돌진만 끝난다. 어택 시간이 돌진 준비·돌진 중에 끝나면 돌진 뒤 스턴 없이 종료. **`_Default` 에셋(Stage1·ProtoTypeGame)에 켰고** F2 로 끌 수 있다. 컴파일·EditMode 14건·실제 컨트롤러 PlayMode 7건 통과, **실제 Stage1 돌진 장면·예고 연출(몸 조명만)·다인·난이도별 속도는 미검증**, 임시 해석·미결정 BD-1~15 → [ghost-dino.md](ghost-dino.md), [ghost-prototype.md](../architecture/ghost-prototype.md).
+
 **Tutorial 원룸 게임플레이(2026-10-02):** 202호 한 방으로 확정. 분홍 얼룩 5후보/3개·빨간 고정 4개,
 랜덤 소품 4종 각 1개·고정 위치 반출 가구 6개(선반 포함), 욕실 고정, 베이스 귀신 1명(뒤돌아보지마 기믹, 2026-11-01 구현)·매 판 3종 현상 반복,
 키캡/루시우 내구도 안내와 청소·반출 퀘스트 배선. 2~4명·쉬움·5~8분/10분 이내는 설계 목표이며 강제 종료 없음.
@@ -174,6 +178,7 @@ B안(`PlanBFurnitureSpawnSetup` — 가구 풀·후보·서버 생성기·앞마
 | TU-1 | 모텔 텍스처·Tutorial 씬·Stage1 조명·앞 드릴카·첫 게임/다음 Stage1 흐름 | **구현 완료** — 씬/프리팹 저장·컴파일·Local Host 종료/전멸 전환 확인 |
 | TU-2 | 202호 도면 배치·얼룩/소품 랜덤·고정 위치 반출 가구·귀신 3종 현상·키캡/퀘스트 | **구현 완료** — 관련 PlayMode 43/43·EditMode 35/35. Steam 2~4인과 시간/난이도 실기 확인 필요, 가구별 가격 미정 → [tutorial-stage.md](tutorial-stage.md) |
 | TU-3 | 베이스 귀신 '뒤돌아보지마' 기믹 구현 — 어택 중 시선 정지·정지 면역·가속·거리 구간별 공격 시선 조건 | **구현(2026-11-01, Tutorial 한정)** — `GhostGazeFreeze`·화면 렌더링 바라봄 보고 RPC·포획 거리 판정. 상태 기계 EditMode 10건 통과. **실플레이·Steam 다인 미검증, 정지 연출(BG-3)·호스트 이전 복원 미구현** → [ghost-base.md](ghost-base.md), [ghost-prototype.md](../architecture/ghost-prototype.md) |
+| TU-4 | 박치기 공룡 귀신 — 어택 중 추격→돌진 준비→돌진→스턴 반복, 가구 내구도 피해(FD-7 예외)·어택 종료 유예 | **구현(2026-11-07, Stage1·ProtoTypeGame)** — `GhostDinoCharge`·컨트롤러 partial·`FurnitureNetworkPhysics.ServerApplyDirectDamage`. EditMode 14건·PlayMode 7건 통과. **실제 Stage1 플레이·예고 연출(BD-2)·난이도별 속도(BD-1)·호스트 이전 복원 미검증** → [ghost-dino.md](ghost-dino.md) |
 
 ### 씬 전환 오류 (2026-10-04 사용자 로그)
 

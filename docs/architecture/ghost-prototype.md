@@ -106,8 +106,13 @@ B안 1.0m 문틀이 양쪽에서 깎여 막혔다. Player·Furniture·GhostProto
 | 걸림 | 경로가 없거나 1초에 0.25m 미만 이동이면 배회는 다른 목적지를, 추격은 경로를 다시 만들고 문을 검사한다 |
 | 문 | 어택 중(배회 포함) 0.5초마다 **다음 경로 코너 방향** 앞 `DoorOpenRange` 안의 닫힌 문을 연다. 활동 중 배회는 문을 열지 않는다 — 목적지를 고를 때 경로 선분(높이 1m)이 닫힌 문짝 충돌체를 지나는 후보를 버리고(2026-09-29), 가는 도중 닫히면 걸림으로 보고 목적지를 바꾼다 |
 | 열린 문짝 (2026-09-29) | 문은 Default 레이어라 귀신 캡슐을 막는다. NavMesh 는 문을 빼고 구우므로 경로가 열린 문짝을 스치면 걸렸다 → 0.2초마다 **열린** 문 충돌체만 `Physics.IgnoreCollision` 으로 귀신과 무시한다. 닫힌 문은 계속 막는다 |
+| 가구 (2026-11-07) | 귀신 몸은 가구(시체 포함)와 **물리 충돌한다** — 가구가 귀신을 통과하지 않고 귀신도 가구를 뚫고 걷지 못한다(설정 `CollideWithFurniture` 기본 켬, 끄면 예전 "유령" 동작). 플레이어 레이어와는 계속 충돌하지 않는다(포획은 거리 판정). 가구는 굽는 NavMesh 에 넣지 않고(던져지고 옮겨지므로) 서버에서 가구마다 `FurnitureNavObstacle`(NavMeshObstacle carving, 멈춘 뒤 0.5초부터 뚫음)로 지금 놓인 자리를 장애물로 반영한다 → 경로가 가구를 돌아간다. 높이 0.4m 미만·바닥 0.3m 미만 소품은 뺀다. NavMesh 가 새로 추가될 때 `RefreshAll` 로 다시 뚫는다 |
+| 흔들기와 충돌 (2026-11-07) | 초자연현상 "물건 흔들기" 대상 가구는 흔드는 동안만 귀신 캡슐과 충돌을 끈다 — 귀신 바로 옆에서 떨리는 가구가 캡슐에 걸려 튀는 문제(충돌을 전부 끄던 이유)를 피한다. 끝나면 되돌린다 |
 
 경로가 없으면 벽을 가로질러 직선 이동하지 않는다.
+
+**가구 충돌과 내구도(2026-11-07).** 귀신과 부딪쳐도 가구 내구도는 줄지 않고(FD-7, `FurnitureNetworkPhysics.IsExcluded`), 귀신 충돌은 충돌 소리·
+`ServerImpactReported`(귀신의 가구 충돌 조사)도 만들지 않는다 — 귀신이 자기 몸이 닿은 소리를 조사하러 가지 않는다.
 
 일반 `HidingSpot`은 타깃이 들어가기 직전 귀신 시야에 있었다면 해당 위치로 가서 확률 없이
 처치한다. 못 봤다면 탐지·포획 후보에서 빠진다. 과거의 비목격 은신처 30% 검사는 제거했다.
@@ -251,6 +256,49 @@ GhostPrototypeSpawner._restrictRoamHeight를 Tutorial에서만 켜서 202호 아
 
 **미구현·미검증:** 정지 시각·청각 연출(BG-3), 호스트 이전 복원, 실제 플레이에서 화면 판정·가림 체감, Steam 다인 보고 지연.
 단위 검증은 EditMode `GhostGazeFreezeTests`(상태 기계 10건)뿐이다.
+
+## 박치기 공룡 (구현, 2026-11-07)
+
+기획 권위: [ghost-dino.md](../project/ghost-dino.md). `GhostPrototypeSettings._dinoChargeEnabled`가 켜진 에셋만 동작한다 —
+**`_Default`(Stage1·ProtoTypeGame)를 켰고 `_Tutorial`은 꺼 둔다**(베이스 귀신). 꺼져 있으면 아래 경로는 전부 기존 동작이다.
+F2 튜닝 창에서 즉시 켜고 끌 수 있다(끄면 사이클을 버린다).
+
+| 구성 | 역할 |
+| --- | --- |
+| `GhostDinoCharge` | 순수 C# 상태 기계(추격 8초 → 준비 2초[앞 1.3초 조정·뒤 0.7초 고정] → 돌진 → 스턴 5초 → 추격). 서버만 돌린다. 시간은 틱마다 설정에서 읽는다. `FurnitureDamage` = ⌊거리×계수⌋ 최소 1 |
+| `GhostPrototypeController.Dino.cs` | 컨트롤러 `partial`. `ServerTickAttack` 맨 앞의 `ServerTickDino` 가 준비·돌진·스턴 단계의 이동을 맡으면(true) 기존 추격·포획 틱을 건너뛴다. 추격 단계는 기존 규칙 그대로 |
+| 타깃 | 추격 동안 `_target` 을 `_dinoTarget` 에 기억하고 그 **위치**를 매 틱 갱신한다. 죽거나 접속이 끊겨도 마지막 위치를 쓴다. 타깃이 한 번도 없으면 준비로 넘어가지 않는다 |
+| 준비 | 제자리. 앞 구간엔 타깃 위치로 방향을 갱신하고 `IsDirectionLocked` 부터는 그 값을 굳힌다. 몸은 `DinoTurnSpeedDegrees`(540°/초)로 그 방향으로 돈다(붉은 원뿔도 같이 돈다) |
+| 돌진 | 고정된 수평 방향으로 `DinoChargeSpeed`(7m/s). 한 틱을 0.05초 이하 스텝으로 쪼개 `CharacterController.Move`. 스텝마다 ① 플레이어(`CanChasePlayer` 통과 + 수평 거리 ≤ `DinoHitRadius` 0.7m + 높이 차 ≤ 1.2m) 즉사 ② `OnControllerColliderHit` 로 기록된 옆 접촉(법선 Y 0.5 이내)이 있고 의도한 이동의 80% 미만이면 막힘 ③ 집 경계 밖이면 벽 ④ 부딪힘 보고 없이 0.3초간 20% 미만이면 막힘 ⑤ 8초 상한 |
+| 가구 피해 | 막힌 콜라이더의 `FurnitureNetworkPhysics` 에 `ServerApplyDirectDamage(⌊거리×5⌋, 최소 1)` — 충돌 판정 창·배치 보호·운반 피해 면제를 거치지 않는 서버 전용 직접 피해(FD-7 의 돌진 예외). 시체·벽·닫힌 문은 피해 없이 돌진만 끝난다 |
+| 어택 종료 유예 | `GhostStateMachine.HoldAttackEnd` = 준비·돌진 중. **시간 종료만** 미루고 조기 종료·강제 진정 아이템은 막지 않는다. 스턴 중에는 미루지 않으므로 "시간 종료 시 돌진 중이었으면 스턴 없이 종료" |
+| 초기화 | 어택에 들어갈 때·나갈 때(`_phase` 변경)와 기믹을 끌 때 `DinoReset`. 호스트 이전 스냅샷에는 넣지 않았다(BD-13) |
+| 예고 연출 | `NetworkVariable<byte> _dinoStage` 로 단계를 복제하고 모든 피어가 몸 조명(`_stateLight`)을 바꾼다 — 준비: 노란빛 빠른 깜빡임 / 돌진: 흰빛 강하게 / 스턴: 푸른빛 어둡게. 소리·모델 연출 없음(BD-2) |
+
+설정 필드(`Dino ghost` 헤더): 추격 8초 · 준비 2초 · 방향 고정 0.7초 · 스턴 5초 · 돌진 속도 7m/s · 회전 540°/초 · 충돌 반경 0.7m · 가구 피해 5/m · 돌진 상한 8초.
+귀신-가구 충돌은 2026-11-07 변경(가구 행)으로 켜져 있어야 돌진이 가구에 막힌다 — `CollideWithFurniture` 를 끄면 돌진이 가구를 통과하고 피해도 없다.
+
+검증: EditMode `GhostDinoChargeTests`(사이클 타임라인·방향 고정 구간·타깃 없을 때·충돌 종료·스턴·리셋·피해 공식·어택 종료 유예와 예외 14건),
+PlayMode `GhostDinoChargeFlowTests`(실제 컨트롤러·캐릭터 컨트롤러 — 준비 중 방향 추적과 고정, 준비·돌진 중 종료 유예, 가구 충돌 시 ⌊거리×5⌋ 피해·스턴,
+플레이어 충돌 즉사, 벽 충돌은 피해 없음, 스턴 5초 뒤 추격 복귀, 기믹 끄기 7건).
+**미검증:** 실제 Stage1 에서 귀신이 돌진하는 장면·계단·좁은 복도 체감, 클라이언트 예고 연출, Steam 다인, 난이도별 속도, 호스트 이전 복원.
+
+## 원문 0.3·0.4 어택 규칙 (구현, 2026-11-07)
+
+기획: [ghost-system.md](../project/ghost-system.md) G-9·18·22·23·27④·30. 원문에 없는 부분은 [임시 해석]이고 설정으로 켜고 끈다(F2 → 귀신 → "Attack rules").
+
+| 규칙 | 구현 | 설정 |
+| --- | --- | --- |
+| 청소 40% 일회성 강제 어택 (G-22) | `GhostStateMachine`: 40%를 **처음** 넘는 틱에 대기(pending) → 활동 상태에서 경고(정신력 무관). 어택이 어떤 경로로든 시작되면 그 몫은 끝. 대기·발동 여부는 스냅샷(`CleaningAttackPending/Fired`)에 담아 호스트 이전 뒤 재발동하지 않는다. **정신력 어택의 40% 필수 전제는 유지** | `CleaningForcesAttackOnce` |
+| 0~30 계속 어택 (G-9) | `TickAttack`: 어택 시간(60초·고위험 90초)이 끝나는 때 팀 정신력이 `HighRiskTeamSanity`(30) 이하면 끝내지 않는다. 31 이상이 되면 다음 틱에 종료 | `AttackContinuesWhileCritical` |
+| 난이도 (G-23) | `GhostDifficulty`(쉬움/보통/어려움) — 에셋마다 하나(Default 보통·Tutorial 쉬움). 쉬움: 어택 중 `living < 어택 시작 때 생존자`이면 `ForceSuppression()` → 자연 진정. 박치기 돌진 속도도 난이도별 | `Difficulty` |
+| 고위험 탐지 강화 (G-18) | 수치만 — Default 에셋 고위험 시야 15m/120° → 20m/140°(임시). Tutorial 은 일반과 같게 유지. 이동 소리 탐지 강화는 없다 | `HighRiskVisionDistance/Angle` |
+| 7m 스폰 (G-30) | `GhostPrototypeController.AttackRules.cs` `TrySpawnNearPlayer`: 어택이 시작될 때(`_phase` 가 Attack 으로 바뀐 틱) 가장 가까운 추격 가능 플레이어가 반경(7m) 밖이면, 그 플레이어 둘레 16곳 중 같은 층·집 경계 안·세이프 존/은신처 밖·NavMesh 경로 ≤ 14m 인 지점을 고른다. 어떤 플레이어의 시야에도 안 걸리는 지점을 먼저, 없으면 걸려도 되는 첫 지점. 순간이동은 캐릭터 컨트롤러를 끄고 위치를 바꾼 뒤 `NetworkTransform.Teleport` | `AttackSpawnNearPlayerEnabled`·`AttackSpawnRadius` |
+| 말소리 소음 (G-27④) | `ReportVoiceNoise` — 0.5초 소음 훑기 안, 어택 중 배회할 때만. `PlayerVoiceEmitter.TryGetSpeechLevel`(소유자가 RPC 로 보고한 입력 dBFS)로 반경 8~12m 를 정하고 `CanHearNoiseAt` 통과 시 소음 지점으로 기억(보통/높음) → 기존 소리 조사 경로. 음성 쪽 구조는 [voice-chat.md](voice-chat.md) | `VoiceNoise*` |
+
+`NetProtocolVersion` 10(박치기 단계 복제 + 말소리 보고 RPC). 검증: EditMode `GhostAttackRulesTests`(청소 강제 어택·일회성·대기·스냅샷, 0~30 계속·종료·설정 끔, 난이도별 돌진 속도·에셋 값, 말소리 반경 계산),
+PlayMode `GhostAttackRulesFlowTests`(7m 스폰·시야 밖 우선·갈 수 없으면 제자리·설정 끔, 쉬움 사망 종료·보통/어려움 계속, 말소리 크기·보고 끊김·어택 아님·죽음). 기존 `GhostPrototypeStateMachineTests` 는 새 규칙 두 개를 끄고 기본 메커니즘을 계속 검증한다.
+**미검증:** 실제 Stage1 에서 7m 스폰 연출·0~30 영구 어택의 체감, 실제 마이크로 말하는 클라이언트의 보고 왕복, 난이도 선택 UI(미정).
 
 ## 원문 0.4 소리 조사·층 활동량 (구현, 2026-11-06)
 

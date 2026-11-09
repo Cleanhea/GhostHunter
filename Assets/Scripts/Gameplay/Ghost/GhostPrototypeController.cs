@@ -19,7 +19,7 @@ namespace GhostHunter.Gameplay.Ghost
     [DisallowMultipleComponent]
     [RequireComponent(typeof(NetworkObject))]
     [RequireComponent(typeof(CharacterController))]
-    public sealed class GhostPrototypeController : NetworkBehaviour
+    public sealed partial class GhostPrototypeController : NetworkBehaviour
     {
         private const int MaxTrackedPlayers = 4;
         private const int RoamPickAttempts = 20;
@@ -249,6 +249,8 @@ namespace GhostHunter.Gameplay.Ghost
                 snapshot.AttackStartedBelowRecoveryThreshold =
                     machine.AttackStartedBelowRecoveryThreshold;
                 snapshot.LastTeamSanity = machine.LastTeamSanity;
+                snapshot.CleaningAttackPending = machine.CleaningAttackPending;
+                snapshot.CleaningAttackFired = machine.CleaningAttackFired;
             }
             return snapshot;
         }
@@ -260,7 +262,7 @@ namespace GhostHunter.Gameplay.Ghost
             _machine.RestoreSnapshot(new GhostStateMachine.Snapshot((GhostPhase)snapshot.Phase,
                 snapshot.PhaseElapsed, snapshot.NextRoll, snapshot.CleaningThresholdReached,
                 snapshot.HighRiskAttack, snapshot.AttackStartedBelowRecoveryThreshold,
-                snapshot.LastTeamSanity));
+                snapshot.LastTeamSanity, snapshot.CleaningAttackPending, snapshot.CleaningAttackFired));
             if (_phenomena != null)
                 _phenomena.RestorePool(snapshot.PhenomenaPoolMask);
             _phenomena?.RestoreStageState(snapshot.PhenomenonCooldown,
@@ -398,11 +400,13 @@ namespace GhostHunter.Gameplay.Ghost
         }
 
         /// <summary>
-        /// 귀신은 유령이다 — 플레이어·가구 콜라이더를 밀거나 막지 않는다. 벽·바닥(Default)과는
-        /// 계속 충돌해 이동이 정상적으로 미끄러진다. 레이어 간 무시라 전역 1회면 되고 idempotent 하다.
-        /// (물건 흔들기가 귀신 캡슐에 걸려 이상하게 튀던 문제도 이걸로 사라진다.)
+        /// 귀신 몸은 플레이어 콜라이더를 밀거나 막지 않는다(포획은 거리 판정). 가구(시체 포함)와는
+        /// <see cref="GhostPrototypeSettings.CollideWithFurniture"/> 가 켜져 있으면(기본) 물리 충돌한다 —
+        /// 가구가 귀신을 통과하지 않고, 귀신도 가구를 뚫고 걷지 못한다. 가구는 경로에도 장애물로 반영한다
+        /// (<see cref="FurnitureNavObstacle"/>). 벽·바닥(Default)과는 항상 충돌한다.
+        /// 레이어 간 무시라 전역 설정이고 idempotent 하다.
         /// </summary>
-        private static void IgnoreLevelActorCollisions()
+        private void IgnoreLevelActorCollisions()
         {
             int ghost = GameLayers.GhostPrototype;
             if (ghost < 0)
@@ -411,7 +415,28 @@ namespace GhostHunter.Gameplay.Ghost
             if (GameLayers.Player >= 0)
                 Physics.IgnoreLayerCollision(ghost, GameLayers.Player, true);
             if (GameLayers.Furniture >= 0)
-                Physics.IgnoreLayerCollision(ghost, GameLayers.Furniture, true);
+                Physics.IgnoreLayerCollision(ghost, GameLayers.Furniture, !CollidesWithFurniture);
+        }
+
+        private bool CollidesWithFurniture => _settings == null || _settings.CollideWithFurniture;
+
+        /// <summary>
+        /// 흔들기 대상 가구와 귀신 캡슐의 충돌을 흔드는 동안만 끈다 — 귀신 바로 옆에서 떨리는 가구가 캡슐에 걸려
+        /// 이상하게 튀지 않게 한다. 흔들기가 끝나면(<see cref="ClearShake"/>) 되돌린다.
+        /// </summary>
+        private void SetShakeCollisionIgnored(Rigidbody body, bool ignore)
+        {
+            if (body == null || _controller == null || !CollidesWithFurniture)
+                return;
+
+            foreach (Collider collider in body.GetComponentsInChildren<Collider>())
+            {
+                if (collider != null && !collider.isTrigger && collider.enabled
+                    && collider.gameObject.activeInHierarchy)
+                {
+                    Physics.IgnoreCollision(_controller, collider, ignore);
+                }
+            }
         }
 
         public override void OnNetworkSpawn()
@@ -426,6 +451,7 @@ namespace GhostHunter.Gameplay.Ghost
             _phase.OnValueChanged += HandlePhaseChanged;
             _highRisk.OnValueChanged += HandleHighRiskChanged;
             _debugForceVisible.OnValueChanged += HandleDebugVisibleChanged;
+            DinoSpawn();
             TryBindLocalViewer();
             ApplyPhaseVisual(_phase.Value);
             _gazeReported = false;
@@ -475,6 +501,7 @@ namespace GhostHunter.Gameplay.Ghost
             _phase.OnValueChanged -= HandlePhaseChanged;
             _highRisk.OnValueChanged -= HandleHighRiskChanged;
             _debugForceVisible.OnValueChanged -= HandleDebugVisibleChanged;
+            DinoDespawn();
             if (_localViewer != null)
             {
                 _localViewer.AliveStateChanged -= HandleLocalViewerAliveChanged;
@@ -539,6 +566,8 @@ namespace GhostHunter.Gameplay.Ghost
             {
                 ApplyEnvironmentLights(GhostPhase.Attack);
             }
+
+            TickDinoVisual();
 
             TickLocalGazeReport();
 
@@ -732,6 +761,11 @@ namespace GhostHunter.Gameplay.Ghost
             if (!hasLiving)
                 teamSanity = 100;
 
+            // 쉬움 난이도: 어택 중 누가 죽었으면 이번 틱에 어택을 끝낸다(원문 0.3).
+            if (_phase.Value == GhostPhase.Attack)
+                ServerTickDifficultyRules(living);
+            // 박치기 공룡: 돌진 준비·돌진 중이면 어택 시간이 끝나도 돌진을 마칠 때까지 어택을 끝내지 않는다.
+            _machine.HoldAttackEnd = DinoHoldsAttackEnd;
             GhostPhase previous = _phase.Value;
             GhostPhase current = _machine.Tick(deltaTime, teamSanity, hasLiving, _cleaningProgress);
             if (_highRisk.Value != _machine.IsHighRiskAttack)
@@ -740,6 +774,9 @@ namespace GhostHunter.Gameplay.Ghost
             if (current != previous)
             {
                 _phase.Value = current;
+                DinoReset();
+                if (current == GhostPhase.Attack)
+                    ServerBeginAttackRules(playerCount, living);
                 if (current != GhostPhase.Attack)
                 {
                     _noise.Clear();
@@ -867,6 +904,7 @@ namespace GhostHunter.Gameplay.Ghost
             _isSmallProp ??= IsSmallProp;
             _furnitureNoise.Scan(_sceneFurniture, _settings.LargeFurnitureMoveThreshold,
                 _isSmallProp, _reportFurnitureNoise);
+            ReportVoiceNoise(playerCount);
         }
 
         private void ReportFurnitureNoise(Vector3 position, GhostNoiseLevel level)
@@ -1099,6 +1137,7 @@ namespace GhostHunter.Gameplay.Ghost
                     continue;
 
                 body.WakeUp();
+                SetShakeCollisionIgnored(body, true);
                 // 가구마다 축을 따로 잡아 저마다 부르르 떨게 한다. 대부분 수직이라 넘어가지 않는다.
                 Vector3 axis = new Vector3(
                     Random.Range(-0.5f, 0.5f),
@@ -1179,6 +1218,7 @@ namespace GhostHunter.Gameplay.Ghost
                 Rigidbody body = _shakeTargets[i].Body;
                 if (body == null || body.isKinematic)
                 {
+                    SetShakeCollisionIgnored(body, false);
                     _shakeTargets.RemoveAt(i);
                     continue;
                 }
@@ -1206,6 +1246,7 @@ namespace GhostHunter.Gameplay.Ghost
                 Rigidbody body = _shakeTargets[i].Body;
                 if (body != null && !body.isKinematic)
                     body.angularVelocity = Vector3.zero;
+                SetShakeCollisionIgnored(body, false);
             }
 
             _shakeTargets.Clear();
@@ -1300,6 +1341,10 @@ namespace GhostHunter.Gameplay.Ghost
 
         private void ServerTickAttack(float deltaTime, int playerCount)
         {
+            // 박치기 공룡: 돌진 준비·돌진·스턴 단계는 이동을 직접 맡는다. 추격 단계는 아래 기존 규칙 그대로.
+            if (ServerTickDino(deltaTime, playerCount))
+                return;
+
             EvaluateBedHide(playerCount, deltaTime);
             EvaluateBurrowExposure(playerCount);
             _gaze?.Tick(deltaTime, IsAnyoneGazing(playerCount));

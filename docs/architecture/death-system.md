@@ -56,11 +56,13 @@
 구현은 가구와 같은 모양이되 `PlayerVisuals` 안에 둔다(시체는 별도 NetworkObject가 아니다 → ADR-0016).
 `PlayerVisuals`가 `NetworkVariable<FurnitureState>`·`NetworkVariable<float>`(차지)·`NetworkList<ulong>`(홀더)를 복제하고,
 서버가 `FixedUpdate`에서 차지·이탈 해제·발사 후 안정·2인 운반·열린 문짝 통과(`DoorInteractable`)를 처리한다.
-운반 중 두 홀더의 플레이어 콜라이더와는 모든 피어에서 충돌을 끈다(`FurnitureCollisionIgnoreSet`, 가구 §3.3과 같다).
+운반 중 두 홀더의 플레이어 콜라이더와는 설정 `carryIgnoresHolders` 가 켜져 있을 때만 모든 피어에서 충돌을 끈다(`FurnitureCollisionIgnoreSet`, 가구 §3.3과 같다).
+이 설정은 **2026-11-07부터 기본 끔**이라 시체도 운반 중 홀더 몸과 충돌한다.
 `FurnitureGrabTarget`·`FurnitureHoverMotor`·`FurnitureLauncher`의 상태 기계를 옮겨 온 것이라 두 곳을 같이 고쳐야 한다
 (**공통화 후보**; 시체 쪽에는 끼임 보조 `FurnitureSqueezeAssist`와 heavy 가구 감쇠가 없다).
-시체 콜라이더는 `Furniture` 레이어라 귀신과는 충돌하지 않고(`GhostPrototypeController`가 레이어 충돌을 끈다), 청소·부활 의식
-레이캐스트·음성 가림 마스크에서는 가구처럼 제외된다.
+시체 콜라이더는 `Furniture` 레이어라 귀신과는 **2026-11-07부터 충돌한다**(`GhostPrototypeSettings.CollideWithFurniture`, 이전에는 레이어 충돌을 껐다).
+단 귀신 경로 장애물(`FurnitureNavObstacle`)은 `FurnitureNetworkPhysics` 가구에만 붙으므로 시체는 경로를 막지 않는다 — 시체에 걸리면 기존 걸림 감지가 경로를 다시 만든다.
+청소·부활 의식 레이캐스트·음성 가림 마스크에서는 가구처럼 제외된다.
 
 `GrabController`는 시체를 맞힌 좌클릭을 플레이어 밀치기·가구 입력보다 먼저 처리한다(우선순위 불변). 누르는 즉시
 `RequestCorpseGrabRpc`로 잡기를 요청하고, 서버가 가시선·거리·소유자·생존·시체 상태(상승 연출 중이 아님, `Launched` 아님,

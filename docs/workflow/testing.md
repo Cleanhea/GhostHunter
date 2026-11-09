@@ -261,6 +261,9 @@ Steam 실경로(로비·초대·SDR 연결)는 사람이 2대로 확인한다 �
 상태 전이는 `FurnitureGrabTarget` 안에서 동기적으로 끝나므로 2인 경로의 단언은
 `yield` 없이 같은 프레임에 이어서 한다.
 
+물리 스텝을 지나는 2인 운반을 봐야 하면 `FurnitureVirtualPartner`(가상 파트너, 서버 검사 예외)를 쓴다 —
+에디터 단독 Local Host 에서 혼자 2인 들기를 재현하는 개발자 도구이기도 하다(Tab HUD·F4) → [throw-system.md §3.4](../architecture/throw-system.md).
+
 ### 4.5 여러 프로세스로 입장·이탈 확인 (`LocalSessionAutomation`)
 
 한 프로세스 PlayMode 테스트로는 게스트의 씬 동기화·자발적 이탈·호스트 종료를 볼 수 없다. 개발 빌드와

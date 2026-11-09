@@ -191,11 +191,19 @@ rb.angularVelocity = 같은 방식 (carryRotationResponse, heldMaxAngularSpeed, 
 
 | 대상 | 피어 | 조건 | 이유 |
 | --- | --- | --- | --- |
-| 두 홀더의 플레이어 콜라이더 | **모든 피어**(`FurnitureGrabTarget`) | `Held` 동안. 설정 `carryIgnoresHolders` | 서버에서는 가구가 들고 있는 사람 몸에 막히지 않고, 각 클라이언트에서는 자기 캐릭터가 키네마틱 가구 사본에 막히지 않는다. 상태·홀더 목록이 복제되므로 각 피어가 같은 판단을 한다 |
+| 두 홀더의 플레이어 콜라이더 | **모든 피어**(`FurnitureGrabTarget`) | `Held` 동안. 설정 `carryIgnoresHolders` — **2026-11-07 기본 끔**(아래 변경 메모) | 서버에서는 가구가 들고 있는 사람 몸에 막히지 않고, 각 클라이언트에서는 자기 캐릭터가 키네마틱 가구 사본에 막히지 않는다. 상태·홀더 목록이 복제되므로 각 피어가 같은 판단을 한다 |
 | 근처 **열린** 문짝 | 서버(`FurnitureHoverMotor`, 0.2초마다 주변 검사) | `Held` 동안. 설정 `carryPassesOpenDoors` | 방 안쪽으로 90° 열린 문짝이 출입구 옆 1m를 막는다. **닫힌 문은 그대로 막는다** — 운반 중 닫히면 떨어지는 대로 충돌이 돌아온다 |
 
 클라이언트는 다른 플레이어 오브젝트를 `GetPlayerNetworkObject` 로 얻을 수 없어(NGO 클라이언트-서버 제약) 홀더가 바뀔 때
 스폰 목록에서 찾는다.
+
+> **2026-11-07 변경(사용자 요청 "가구가 몸을 통과한다, 가구랑 몸이 물리 충돌하게"):** `carryIgnoresHolders` 기본값을 **끔**으로 바꿨다
+> (코드 기본값·`FurnitureThrowSettings_Default.asset`). 운반 중에도 가구가 홀더의 몸과 충돌한다 — 시체 2인 운반
+> (`PlayerVisuals`)도 같은 설정이라 함께 바뀐다. 코드 경로(`RefreshHolderCollisionIgnore`)는 그대로라 설정을 켜면 예전 동작이다.
+> **위험(미검증):** 위 표의 이유 그대로다 — ① 각 클라이언트에서는 가구 사본이 키네마틱이라 자기 캐릭터가 사본에 막혀
+> 네트워크 지연만큼 걸려 보일 수 있고 ② 서버에서는 손 목표가 몸에 가까워지면(작은 `carryMinHandDistance` 0.9m·휠 기울이기)
+> 가구가 홀더 몸에 밀려 덜컹일 수 있다. 실제 2인 접속(Host + 빌드 Client 또는 Steam 2PC)으로 운반·문틀 통과·회전 체감을 확인해야 한다.
+> 문제가 크면 설정만 다시 켜면 되돌아간다.
 
 > **검증 상태 (2026-10-04):** EditMode — `FurnitureHeldControlTests` 두 손잡이 자세·위치·가속 제한·평활 9개 추가,
 > `FurnitureSqueezeAssistTests` 6개(후보 순서, 1.0m 문틀 모형에서 옆으로 0.2m 비키기, 도중에 파고드는 회전 거절,
@@ -206,6 +214,25 @@ rb.angularVelocity = 같은 방식 (carryRotationResponse, heldMaxAngularSpeed, 
 > **미검증:** 실제 2인 접속(Host + 빌드 Client 또는 Steam 2PC)의 체감 — 특히 클라이언트에서 보이는 지연(NetworkTransform
 > 보간), 실제 가구 프리팹(복합 콜라이더)과 Stage1 문·계단에서의 동작, 끼임 보조 검사 비용(벽에 대고 미는 동안 0.5초마다
 > 수 ms 예상, 측정 안 함).
+
+### 3.4 혼자 2인 들기 테스트 — 가상 파트너 (개발자 테스트, 2026-11-07)
+
+에디터 단독 Local Host 는 플레이어가 1명이라 2인 잡기를 만들 수 없었다(홀더 하나뿐). `FurnitureVirtualPartner`
+(`Gameplay/Furniture`)가 호스트가 든 가구(없으면 시체)에 **접속하지 않은 가짜 clientId(`9000001`)** 를 두 번째 홀더로 서버에서 붙여
+`ThrowReady` → `Held`(2인 운반)로 만든다. 실제 2인 접속 체감을 대신하는 것이 아니라 **혼자서 운반 규칙·충돌·투척 힘을 반복해 보는 도구**다.
+
+| 항목 | 내용 |
+| --- | --- |
+| 조작 | 접속 HUD(Tab)의 **"가구 2인 들기 (혼자 테스트)"** 섹션 버튼 또는 **F4**. 가구·시체를 든 채로 누르면 붙고, 다시 누르면 떨어진다. 가구를 들기는 F12 입력 고정이 편하다 |
+| 파트너 위치 | 호스트 눈에서 **수평으로 옆(오른쪽 +)·앞(앞쪽 +)** 슬라이더 값만큼 떨어진 눈. 조준 방향은 호스트와 같다. "나란히"(옆 0.9)·"앞뒤로"(앞 1.8) 프리셋. 옆에 서면 가구가 진행 방향과 직각으로, 앞뒤로 서면 손잡이 축이 진행 방향으로 선다(§3). 붙은 뒤에도 바꿀 수 있고 화면에 "가상 파트너" 표시가 뜬다 |
+| 끝나는 조건 | 파트너를 떼면 호스트가 든 채 `ThrowReady`(1인). **호스트가 놓으면** 2인 발사 규칙대로 호스트가 놓은 순간 남은 홀더(파트너) 조준 방향으로 발사되고 파트너는 자동 정리된다 — 2인 투척 힘 확인용 |
+| 서버 예외 | `FurnitureHoverMotor` 는 홀더의 플레이어 오브젝트가 없으면 강제 해제한다(testing.md §4.4). 파트너는 `FurnitureVirtualPartner.IsVirtualHolder` 로 그 검사에서만 뺀다. 시체(`PlayerVisuals`)는 그 검사가 없어 그대로 붙는다 |
+
+**재현하지 못하는 것:** 파트너 **몸**(플레이어 오브젝트·콜라이더)이 없어 파트너 몸과 가구의 충돌, 파트너의 휠 회전 입력·손 연출은 없다.
+호스트 몸 충돌·두 손잡이 추종·문틀 통과·끼임 보조·2인 투척 힘만 본다. 클라이언트 사본이 키네마틱이라 생기는 지연·자기 캐릭터 막힘(§3.3 위험)도 호스트에서는 나오지
+않는다 — 그건 실제 2인 접속으로만 확인한다. 검증: EditMode `FurnitureVirtualPartnerTests`(위치 계산), PlayMode `FurnitureVirtualPartnerFlowTests`
+(붙이면 Held·물리 스텝 뒤에도 유지, 일반 가짜 홀더는 강제 해제되는 대조군, 조준 추종, 떼기, 호스트 놓음 정리, 거절 조건)와
+`CorpsePushInputFlowTests` 의 시체 경로 1건.
 
 ### 4. 차징
 
@@ -388,7 +415,7 @@ rb.AddTorque(random torque * torqueScale, ForceMode.Impulse)
 | `carryFollowMinGripSpan` | 0.35 m | 손잡이 수평 간격이 이보다 짧으면 두 사람 방향을 따르지 않음 |
 | `carryMaxFollowPitch` | 25° | 손 높이 차이로 기울 수 있는 최대 각 |
 | `carryFriction` | 0.05 | 운반 중 콜라이더 마찰(결합 Minimum) |
-| `carryIgnoresHolders` / `carryPassesOpenDoors` | true / true | 운반 중 두 홀더·열린 문짝과 충돌 끄기 |
+| `carryIgnoresHolders` / `carryPassesOpenDoors` | **false**(2026-11-07, 이전 true) / true | 운반 중 두 홀더·열린 문짝과 충돌 끄기 |
 | `squeezeTriggerDistance` | 0.1 m | 끼임 보조 시작 거리. 0이면 끔 |
 | `squeezeMaxYaw` / `squeezeYawStep` | 40° / 10° | 끼임 보조 회전 범위·간격(누적 상한도 40°) |
 | `squeezeMaxLateral` / `squeezeLateralStep` | 0.3 / 0.1 m | 끼임 보조 옆 이동 범위·간격(누적 상한도 0.3 m) |
@@ -430,7 +457,7 @@ rb.AddTorque(random torque * torqueScale, ForceMode.Impulse)
 > **미결정:** 두 홀더의 조준 방향이 정반대일 때 평균 벡터가 0에 가까워진다. 현재 안은 "그 경우 크기를 그대로 쓰되 방향은 첫 홀더 기준"이지만, 각도 차이에 따라 힘을 감쇠시키는 편(협력 보상)이 더 나을 수 있다. 실제로 그런 상황이 자주 나오는지 먼저 확인할 것.
 
 > **미결정:** 홀드 중인 가구가 벽에 끼었을 때의 처리. 2026-10-04부터 문틀 모서리는 낮은 마찰·끼임 보조(§3.2)로 비켜 가고,
-> 들고 있는 두 사람과는 부딪히지 않는다(§3.3). 평평한 벽에 대고 미는 경우는 여전히 속도 서보가 벽을 미는 상태로 남는다
+> 들고 있는 두 사람과는 2026-11-07까지 부딪히지 않았다(§3.3 — 지금은 기본 충돌). 평평한 벽에 대고 미는 경우는 여전히 속도 서보가 벽을 미는 상태로 남는다
 > (가속 제한 덕에 덜컹거리지는 않는다). 실제로 문제가 되면 "일정 시간 목표 도달 실패 시 자동 해제"를 넣는다.
 
 > **미결정:** 플레이어 밀치기(§6)의 연출 — 밀친 쪽 모션, 밀려난 쪽 화면 흔들림·소리, 대상 윤곽선/크로스헤어 색.

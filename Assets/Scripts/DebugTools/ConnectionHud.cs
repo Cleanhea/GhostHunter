@@ -2,6 +2,7 @@ using GhostHunter.Core;
 using GhostHunter.Core.Networking;
 using GhostHunter.Core.Steam;
 using GhostHunter.Gameplay.Ghost;
+using GhostHunter.Gameplay.Interaction;
 using GhostHunter.Gameplay.Player;
 using GhostHunter.Gameplay.Sanity;
 using Unity.Netcode;
@@ -32,6 +33,9 @@ namespace GhostHunter.DebugTools
         [Tooltip("밸런스 튜닝 창(별도)을 켜고 끄는 키.")]
         [SerializeField] private Key _tuningToggleKey = Key.F2;
 
+        [Tooltip("혼자서 2인 들기를 재현하는 가상 파트너를 붙이고 떼는 키(호스트 전용, 가구·시체를 든 채로).")]
+        [SerializeField] private Key _carryPartnerKey = Key.F4;
+
         [Tooltip("HUD가 켜져 있을 때 가구 위에 내구도를 띄우는 최대 거리(m). 벽 뒤 가구도 표시한다.")]
         [SerializeField, Min(1f)] private float _durabilityLabelRange = 20f;
 
@@ -45,6 +49,7 @@ namespace GhostHunter.DebugTools
         private IStageLightingDebug _lighting;
 
         private readonly TuningHud _tuning = new();
+        private readonly FurnitureVirtualPartner _partner = new();
 
         private Vector2 _scroll;
         private bool _showConnection = true;
@@ -55,6 +60,7 @@ namespace GhostHunter.DebugTools
         private bool _showCleaning = true;
         private bool _showFurniture = true;
         private bool _showThrow = true;
+        private bool _showPartner = true;
         private bool _showLighting;
         private bool _showLightingRooms;
         private bool _showLightingValues = true;
@@ -97,11 +103,18 @@ namespace GhostHunter.DebugTools
 
         private void Update()
         {
+            // 가상 파트너 조준은 HUD 가 꺼져 있어도 매 프레임 호스트 시점을 따라가야 한다.
+            if (_partner.IsAttached && TryGetHostAim(out Vector3 eye, out Vector3 forward))
+                _partner.Tick(eye, forward);
+
             // 프로젝트가 신규 Input System 전용(activeInputHandler=1)이라 레거시 Input 클래스는
             // 런타임에 예외를 던진다. Keyboard.current 로 직접 읽는다.
             Keyboard keyboard = Keyboard.current;
             if (keyboard == null)
                 return;
+
+            if (keyboard[_carryPartnerKey].wasPressedThisFrame)
+                TogglePartner();
 
             if (keyboard[_toggleKey].wasPressedThisFrame)
                 _visible = !_visible;
@@ -122,6 +135,7 @@ namespace GhostHunter.DebugTools
             // HUD 창보다 먼저 그려야 창이 라벨 위에 덮인다.
             if (_visible && _showDurabilityLabels)
                 DrawDurabilityLabels();
+            DrawPartnerMarker();
 
             // 튜닝 창은 접속 HUD(Tab)와 독립이다 — HUD가 꺼져 있어도 F2로 열 수 있다.
             _tuning.DrawWindow();
@@ -170,6 +184,12 @@ namespace GhostHunter.DebugTools
             if (_showThrow)
                 DrawThrowBody();
 
+            _showPartner = SectionHeader(
+                $"가구 2인 들기 (혼자 테스트)  {_carryPartnerKey}" + (_partner.IsAttached ? "  ● 붙음" : ""),
+                _showPartner);
+            if (_showPartner)
+                DrawPartnerBody();
+
             _showLighting = SectionHeader(SectionTitle("조명", _lighting != null), _showLighting);
             if (_showLighting)
                 DrawLightingBody();
@@ -206,6 +226,130 @@ namespace GhostHunter.DebugTools
             GUI.enabled = wasEnabled;
             GUILayout.Label("R: 배치 위치로 복귀 + 내구도 복구 · 호스트 전용");
             _showDurabilityLabels = GUILayout.Toggle(_showDurabilityLabels, " 가구 위에 내구도 표시 (HUD 켜진 동안)");
+        }
+
+        /// <summary>호스트 로컬 플레이어의 눈 위치와 시선. 가상 파트너가 이 시점을 따라간다.</summary>
+        private bool TryGetHostAim(out Vector3 eye, out Vector3 forward)
+        {
+            Camera view = _localPlayer?.Targeter != null ? _localPlayer.Targeter.AimCamera : null;
+            if (view == null)
+            {
+                eye = default;
+                forward = default;
+                return false;
+            }
+
+            eye = view.transform.position;
+            forward = view.transform.forward;
+            return true;
+        }
+
+        /// <summary>가구(없으면 시체)를 든 호스트에게 가상 두 번째 홀더를 붙이거나 뗀다.</summary>
+        private void TogglePartner()
+        {
+            if (_partner.IsAttached)
+            {
+                _partner.Detach();
+                _lastStatus = _partner.Message;
+                return;
+            }
+
+            NetworkManager network = NetworkManager.Singleton;
+            GrabController grab = _localPlayer?.GrabController;
+            if (network == null || !network.IsServer || grab == null
+                || !TryGetHostAim(out Vector3 eye, out Vector3 forward))
+            {
+                _lastStatus = "가상 파트너는 스테이지에서 호스트로 가구를 든 채일 때만 붙일 수 있습니다.";
+                return;
+            }
+
+            ulong host = network.LocalClientId;
+            bool attached;
+            if (grab.TryGetHeldTarget(out FurnitureGrabTarget furniture))
+                attached = _partner.TryAttach(furniture, host, eye, forward);
+            else if (grab.TryGetHeldCorpse(out PlayerVisuals corpse))
+                attached = _partner.TryAttach(corpse, host, eye, forward);
+            else
+                attached = _partner.TryAttach((FurnitureGrabTarget)null, host, eye, forward);
+
+            _lastStatus = _partner.Message;
+            if (attached)
+                Debug.Log($"[ConnectionHud] {_partner.Message}", this);
+        }
+
+        private void DrawPartnerBody()
+        {
+            GUILayout.Label("가구(또는 시체)를 든 채로 접속하지 않은 가짜 두 번째 홀더를 붙여 2인 운반을 혼자 시험한다. 호스트 전용.");
+            GUILayout.Label("파트너는 내 시선과 같은 방향을 보고 아래 위치에 선다. 몸·휠 입력은 없다.");
+
+            bool wasEnabled = GUI.enabled;
+            NetworkManager network = NetworkManager.Singleton;
+            GUI.enabled = wasEnabled && network != null && network.IsServer && _localPlayer != null;
+            if (GUILayout.Button(_partner.IsAttached
+                    ? $"파트너 떼기 ({_carryPartnerKey})" : $"파트너 붙이기 ({_carryPartnerKey})"))
+            {
+                TogglePartner();
+            }
+
+            GUI.enabled = wasEnabled;
+
+            DrawPartnerOffset("옆 (오른쪽 +)", _partner.Side, value => _partner.Side = value);
+            DrawPartnerOffset("앞 (앞쪽 +)", _partner.Front, value => _partner.Front = value);
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("나란히 (옆 0.9)"))
+            {
+                _partner.Side = 0.9f;
+                _partner.Front = 0f;
+            }
+
+            if (GUILayout.Button("앞뒤로 (앞 1.8)"))
+            {
+                _partner.Side = 0f;
+                _partner.Front = 1.8f;
+            }
+
+            GUILayout.EndHorizontal();
+            GUILayout.Label(string.IsNullOrEmpty(_partner.Message) ? "대기 중" : _partner.Message);
+            GUILayout.Label("오프셋은 붙은 뒤에도 바꿀 수 있다 · 호스트가 놓으면 파트너도 풀린다.");
+        }
+
+        private static void DrawPartnerOffset(string label, float value, System.Action<float> set)
+        {
+            GUILayout.BeginHorizontal();
+            GUILayout.Label($"{label} {value:+0.0;-0.0;0.0}m", GUILayout.Width(150f));
+            float next = GUILayout.HorizontalSlider(
+                value, -FurnitureVirtualPartner.MaxOffset, FurnitureVirtualPartner.MaxOffset);
+            if (!Mathf.Approximately(next, value))
+                set(Mathf.Round(next * 10f) / 10f);
+            GUILayout.EndHorizontal();
+        }
+
+        /// <summary>붙어 있는 동안 가상 파트너가 서 있는 자리를 화면에 표시한다(몸이 없어서 보이는 것이 없다).</summary>
+        private void DrawPartnerMarker()
+        {
+            if (!_partner.IsAttached || Event.current.type != EventType.Repaint || _localPlayer == null)
+                return;
+
+            Camera view = _localPlayer.Targeter != null ? _localPlayer.Targeter.AimCamera : null;
+            if (view == null)
+                return;
+
+            FurnitureVirtualPartner.ComputePartnerAim(
+                view.transform.position, view.transform.forward, _partner.Front, _partner.Side,
+                out Vector3 origin, out _);
+            Vector3 screen = view.WorldToScreenPoint(origin);
+            if (screen.z <= 0f)
+                return;
+
+            _durabilityLabelStyle ??= new GUIStyle(GUI.skin.box)
+            {
+                alignment = TextAnchor.MiddleCenter,
+                fontStyle = FontStyle.Bold,
+                fontSize = 13,
+            };
+            GUI.Label(
+                new Rect(screen.x - 50f, Screen.height - screen.y - 12f, 100f, 24f),
+                "가상 파트너", _durabilityLabelStyle);
         }
 
         // 미리보기 줄의 누른 시간(초). 0.1초 = 살짝 눌렀다 뗀 탭.

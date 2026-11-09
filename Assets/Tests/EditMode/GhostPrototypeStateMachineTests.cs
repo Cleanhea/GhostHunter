@@ -14,6 +14,12 @@ namespace GhostHunter.Tests.EditMode
         public void SetUp()
         {
             _settings = ScriptableObject.CreateInstance<GhostPrototypeSettings>();
+            // 이 클래스는 상태 전이의 기본 메커니즘(확률 판정·고정 시간 종료)을 검증한다. 원문 0.3 의 "청소 40% 일회성 강제 어택"과
+            // "정신력 0~30 계속 어택"은 이 가정과 겹치므로 여기서는 끄고, 켜진 기본 동작은 GhostAttackRulesTests 가 검증한다.
+            typeof(GhostPrototypeSettings).GetField("_cleaningForcesAttackOnce",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).SetValue(_settings, false);
+            typeof(GhostPrototypeSettings).GetField("_attackContinuesWhileCritical",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).SetValue(_settings, false);
             _roll = 0d;
             _machine = new GhostStateMachine(_settings, () => _roll);
         }

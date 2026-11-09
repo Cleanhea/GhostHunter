@@ -50,6 +50,8 @@ namespace GhostHunter.Gameplay.Furniture
         private double _windowEndsAt;
         private int _windowDamage;
         private Pose _resetPose;
+        private FurnitureNavObstacle _navObstacle;
+        private List<Collider> _navColliders;
 
         public FurnitureDefinition Definition => _definition;
         public Rigidbody Rigidbody => _rigidbody;
@@ -107,6 +109,13 @@ namespace GhostHunter.Gameplay.Furniture
             // 풀 컴포넌트의 Awake가 콜라이더를 끄기 전에 원래 배선을 기억한다.
             for (int i = 0; i < _colliders.Length; i++)
                 _colliderEnabled[i] = _colliders[i].enabled;
+            // 귀신 경로 장애물 크기에는 원래 켜져 있던 실체 콜라이더만 쓴다(트리거·원래 꺼진 것 제외).
+            _navColliders = new List<Collider>(_colliders.Length);
+            for (int i = 0; i < _colliders.Length; i++)
+            {
+                if (_colliderEnabled[i] && !_colliders[i].isTrigger)
+                    _navColliders.Add(_colliders[i]);
+            }
             if (_definition != null)
                 _rigidbody.mass = _definition.Mass;
         }
@@ -116,6 +125,9 @@ namespace GhostHunter.Gameplay.Furniture
             _durability.OnValueChanged += HandleDurabilityChanged;
             _stowed.OnValueChanged += HandleStowedChanged;
             Registry.Add(this);
+            // 귀신 경로에 가구를 반영한다(서버만 — 귀신 NavMesh 는 서버에만 있다).
+            if (IsServer)
+                _navObstacle = FurnitureNavObstacle.Attach(gameObject);
             if (IsServer && !StageRecoveryGate.Restoring)
             {
                 _durability.Value = FullDurability;
@@ -130,6 +142,8 @@ namespace GhostHunter.Gameplay.Furniture
             _durability.OnValueChanged -= HandleDurabilityChanged;
             _stowed.OnValueChanged -= HandleStowedChanged;
             Registry.Remove(this);
+            if (_navObstacle != null)
+                _navObstacle.Refresh(false, _navColliders);
             _windowDamage = 0;
             _windowEndsAt = 0;
             _protectedUntil = 0;
@@ -203,6 +217,25 @@ namespace GhostHunter.Gameplay.Furniture
             _windowDamage = Mathf.Max(_windowDamage, damage);
             if (additionalDamage > 0)
                 SetDurability(Mathf.Max(0, Durability - additionalDamage));
+        }
+
+        /// <summary>
+        /// 서버 전용 — 충돌 속도와 무관하게 내구도를 정해진 양만큼 깎는다(박치기 공룡 귀신의 돌진 피해 등).
+        /// 충돌 판정 창·배치 보호 시간·운반 중 피해 면제를 **거치지 않는다** — 호출한 쪽이 이미 "이번 한 번"을 정했다.
+        /// 사라짐 설정(FD-10)이면 0에서 가구가 사라지는 기존 처리를 그대로 탄다. 실제로 깎인 양을 돌려준다.
+        /// </summary>
+        public int ServerApplyDirectDamage(int damage)
+        {
+            if (!IsServer || !IsAvailable || damage <= 0)
+                return 0;
+
+            int before = Durability;
+            int after = Mathf.Max(0, before - damage);
+            if (after == before)
+                return 0;
+
+            SetDurability(after);
+            return before - after;
         }
 
         /// <summary>
@@ -298,6 +331,8 @@ namespace GhostHunter.Gameplay.Furniture
                 _randomItem.RefreshTargetVisibility();
             if (_poolItem != null)
                 _poolItem.RefreshTargetVisibility();
+            if (_navObstacle != null)
+                _navObstacle.Refresh(available, _navColliders);
         }
 
         private void SetDurability(int durability)

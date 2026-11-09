@@ -15,10 +15,13 @@ namespace GhostHunter.Gameplay.Ghost
             internal readonly bool HighRiskAttack;
             internal readonly bool AttackStartedBelowRecoveryThreshold;
             internal readonly int LastTeamSanity;
+            internal readonly bool CleaningAttackPending;
+            internal readonly bool CleaningAttackFired;
 
             internal Snapshot(GhostPhase phase, float phaseElapsed, float secondsUntilNextRoll,
                 bool cleaningThresholdReached, bool highRiskAttack,
-                bool attackStartedBelowRecoveryThreshold, int lastTeamSanity)
+                bool attackStartedBelowRecoveryThreshold, int lastTeamSanity,
+                bool cleaningAttackPending = false, bool cleaningAttackFired = true)
             {
                 Phase = phase;
                 PhaseElapsed = phaseElapsed;
@@ -27,6 +30,8 @@ namespace GhostHunter.Gameplay.Ghost
                 HighRiskAttack = highRiskAttack;
                 AttackStartedBelowRecoveryThreshold = attackStartedBelowRecoveryThreshold;
                 LastTeamSanity = lastTeamSanity;
+                CleaningAttackPending = cleaningAttackPending;
+                CleaningAttackFired = cleaningAttackFired;
             }
         }
 
@@ -38,6 +43,9 @@ namespace GhostHunter.Gameplay.Ghost
         private bool _highRiskAttack;
         private bool _attackStartedBelowRecoveryThreshold;
         private int _lastTeamSanity = 100;
+        // 청소 40~50% 일회성 강제 어택(원문 0.3): 40%를 처음 넘으면 대기(pending)로 두었다가 활동 상태에서 경고를 시작한다.
+        private bool _cleaningAttackPending;
+        private bool _cleaningAttackFired;
 
         internal GhostStateMachine(GhostPrototypeSettings settings, Func<double> roll = null)
         {
@@ -57,6 +65,12 @@ namespace GhostHunter.Gameplay.Ghost
         internal bool IsAttackSequenceLocked =>
             Phase is GhostPhase.Warning or GhostPhase.Attack or GhostPhase.Calming;
 
+        /// <summary>
+        /// 켜져 있는 동안은 어택 **시간이 다 돼도** 어택을 끝내지 않는다(박치기 공룡: 준비·돌진 중이면 돌진까지 마친 뒤 종료).
+        /// 조기 종료(정신력 회복)·강제 진정 아이템은 막지 않는다. 풀리면 다음 틱에 시간 종료가 적용된다.
+        /// </summary>
+        internal bool HoldAttackEnd { get; set; }
+
         internal void ResetForStage()
         {
             Phase = GhostPhase.Active;
@@ -66,11 +80,20 @@ namespace GhostHunter.Gameplay.Ghost
             _highRiskAttack = false;
             _attackStartedBelowRecoveryThreshold = false;
             _lastTeamSanity = 100;
+            _cleaningAttackPending = false;
+            _cleaningAttackFired = false;
         }
+
+        /// <summary>청소 진행도 40%를 처음 넘어 강제 어택을 기다리는 중인가(활동 상태가 아니라서 아직 못 시작함).</summary>
+        internal bool CleaningAttackPending => _cleaningAttackPending;
+
+        /// <summary>청소 40% 일회성 강제 어택이 이미 쓰였는가.</summary>
+        internal bool CleaningAttackFired => _cleaningAttackFired;
 
         internal Snapshot CaptureSnapshot() => new(Phase, PhaseElapsed, SecondsUntilNextRoll,
             _cleaningThresholdReached, _highRiskAttack,
-            _attackStartedBelowRecoveryThreshold, _lastTeamSanity);
+            _attackStartedBelowRecoveryThreshold, _lastTeamSanity,
+            _cleaningAttackPending, _cleaningAttackFired);
 
         internal void RestoreSnapshot(Snapshot snapshot)
         {
@@ -83,6 +106,8 @@ namespace GhostHunter.Gameplay.Ghost
             _highRiskAttack = snapshot.HighRiskAttack;
             _attackStartedBelowRecoveryThreshold = snapshot.AttackStartedBelowRecoveryThreshold;
             _lastTeamSanity = snapshot.LastTeamSanity;
+            _cleaningAttackPending = snapshot.CleaningAttackPending;
+            _cleaningAttackFired = snapshot.CleaningAttackFired;
         }
 
         /// <summary>귀신별 특수 조건에서 즉시 경고를 시작한다.</summary>
@@ -111,8 +136,13 @@ namespace GhostHunter.Gameplay.Ghost
             deltaTime = Mathf.Max(0f, deltaTime);
             PhaseElapsed += deltaTime;
             _lastTeamSanity = teamSanity;
-            if (cleaningProgress >= _settings.CleaningActivateProgress)
+            if (cleaningProgress >= _settings.CleaningActivateProgress && !_cleaningThresholdReached)
+            {
                 _cleaningThresholdReached = true;
+                // 40%를 처음 넘는 순간 한 번만. 어택·자연 진정 중이면 활동으로 돌아올 때까지 기다린다(G-22 임시 해석).
+                if (_settings.CleaningForcesAttackOnce && !_cleaningAttackFired)
+                    _cleaningAttackPending = true;
+            }
 
             switch (Phase)
             {
@@ -148,6 +178,14 @@ namespace GhostHunter.Gameplay.Ghost
             if (!hasLivingPlayers || !_cleaningThresholdReached)
                 return;
 
+            // 청소 진행도 40%를 처음 넘으면 정신력과 상관없이 무조건 한 번 어택한다(원문 0.3).
+            if (_cleaningAttackPending)
+            {
+                _highRiskAttack = teamSanity <= _settings.HighRiskTeamSanity;
+                EnterPhase(GhostPhase.Warning);
+                return;
+            }
+
             // 0~30은 확률 판정 없이 즉시 경고를 시작한다.
             if (teamSanity <= _settings.HighRiskTeamSanity)
             {
@@ -182,7 +220,9 @@ namespace GhostHunter.Gameplay.Ghost
             float duration = _highRiskAttack
                 ? _settings.HighRiskAttackDuration
                 : _settings.AttackMaxDuration;
-            if (PhaseElapsed >= duration)
+            // 팀 정신력이 0~30이면 시간이 지나도 계속 어택한다(원문 0.3). 고위험 90초도 이 구간에서는 끝나지 않는다.
+            bool critical = _settings.AttackContinuesWhileCritical && teamSanity <= _settings.HighRiskTeamSanity;
+            if (PhaseElapsed >= duration && !HoldAttackEnd && !critical)
                 EnterPhase(GhostPhase.Calming);
         }
 
@@ -207,6 +247,13 @@ namespace GhostHunter.Gameplay.Ghost
 
         private void EnterPhase(GhostPhase phase)
         {
+            // 어택이 시작되면(어떤 경로든) 청소 40% 강제 어택의 몫은 끝난 것으로 본다.
+            if (phase == GhostPhase.Warning && _cleaningThresholdReached)
+            {
+                _cleaningAttackPending = false;
+                _cleaningAttackFired = true;
+            }
+
             Phase = phase;
             PhaseElapsed = 0f;
             SecondsUntilNextRoll = phase == GhostPhase.Active

@@ -99,7 +99,9 @@ namespace GhostHunter.Gameplay.Furniture
             for (int i = 0; i < snapshotCount; i++)
             {
                 ulong clientId = _holderBuffer[i];
-                if (!TryGetPlayerPosition(clientId, out _))
+                // 개발자 테스트용 가상 파트너는 플레이어 오브젝트가 없다(FurnitureVirtualPartner).
+                if (!FurnitureVirtualPartner.IsVirtualHolder(clientId)
+                    && !TryGetPlayerPosition(clientId, out _))
                 {
                     _target.ServerForceRelease(clientId);
                     continue;

@@ -28,8 +28,8 @@ MonoBehaviour:
   _cleaningActivateProgress: 40
   _visionDistance: 15
   _visionAngle: 120
-  _highRiskVisionDistance: 15
-  _highRiskVisionAngle: 120
+  _highRiskVisionDistance: 20
+  _highRiskVisionAngle: 140
   _visionConeDisplayDistance: 3
   _nearDetectRadius: 3
   _ghostEyeHeight: 1.6
@@ -49,6 +49,7 @@ MonoBehaviour:
   _catchCooldown: 4
   _gravity: 12
   _doorOpenRange: 2.2
+  _dinoChargeEnabled: 1
   _aiExperimentsEnabled: 1
   _evidenceTrackingEnabled: 1
   _utilitySearchEnabled: 1
