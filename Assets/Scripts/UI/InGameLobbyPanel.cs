@@ -114,7 +114,7 @@ namespace GhostHunter.UI
             if (ShopAvailable)
             {
                 GUILayout.Label($"공동 잔액 ${_shop.Balance}  (한 판마다 +${StageShopRules.StageReward})");
-                GUILayout.Label($"촛불 {_shop.CandleCount}개  (부활 1회에 {StageShopRules.CandlesPerSet}개)");
+                GUILayout.Label($"드릴카 선반  {_shop.Shelf}");
                 MemberGear mine = _shop.GetMemberGear(_shop.LocalMemberKey);
                 GUILayout.Label($"내 장비  {GearSummary(mine)}");
             }
@@ -172,19 +172,25 @@ namespace GhostHunter.UI
             GUILayout.EndArea();
         }
 
-        /// <summary>공동 품목 한 줄 + 플레이어마다 드라이버·라이터·수리 한 줄(stage-system.md §2.2).</summary>
+        /// <summary>
+        /// 품목마다 한 줄(산 아이템은 드릴카 선반에 쌓인다 — 스테이지에서 E 로 꺼낸 사람이 갖는다) + 플레이어마다 장비·수리 한 줄
+        /// (stage-system.md §2.2).
+        /// </summary>
         private void DrawShop(bool isHost)
         {
             List<ShopMember> members = CaptureShopMembers();
+            ShelfStock shelf = _shop.Shelf;
             GUILayout.Label($"공동 잔액 ${_shop.Balance}");
 
-            GUILayout.Label("— 공동 —");
-            GUILayout.BeginHorizontal();
-            GUILayout.Label($"{StageShopRules.NameOf(ShopItem.CandleSet)}  ${StageShopRules.PriceOf(ShopItem.CandleSet)}" +
-                $"  |  촛불 {_shop.CandleCount}개");
-            if (isHost)
-                BuyButton(ShopItem.CandleSet, 0, MemberGear.Starting, $"구매");
-            GUILayout.EndHorizontal();
+            GUILayout.Label("— 구매 → 드릴카 선반 (스테이지에서 선반에 E 로 꺼냄) —");
+            foreach (ShopItem item in StageShopRules.Items)
+            {
+                GUILayout.BeginHorizontal();
+                GUILayout.Label($"{StageShopRules.NameOf(item)}  ${StageShopRules.PriceOf(item)}  |  선반 {shelf.CountOf(item)}개");
+                if (isHost)
+                    BuyButton(item);
+                GUILayout.EndHorizontal();
+            }
 
             GUILayout.Space(6f);
             GUILayout.Label("— 플레이어별 —");
@@ -196,11 +202,6 @@ namespace GhostHunter.UI
                     continue;
 
                 GUILayout.BeginHorizontal();
-                BuyButton(ShopItem.IronDriver, member.Key, gear,
-                    gear.Driver == DriverTier.Iron ? "철제 드라이버 보유" : $"철제 드라이버 ${StageShopRules.PriceOf(ShopItem.IronDriver)}");
-                BuyButton(ShopItem.IronLighter, member.Key, gear,
-                    gear.HasLighter ? "라이터 보유" : $"철제 라이터 ${StageShopRules.PriceOf(ShopItem.IronLighter)}");
-
                 int cost = StageShopRules.RepairCost(gear.DriverDurability);
                 GUI.enabled = CanShopNow && StageShopRules.CanRepair(_shop.CanManage, _sceneFlow.Current,
                     _sceneFlow.IsLoading, _shop.Balance, gear);
@@ -227,19 +228,19 @@ namespace GhostHunter.UI
 
         private bool CanShopNow => _sceneFlow != null && ShopAvailable;
 
-        private void BuyButton(ShopItem item, ulong memberKey, MemberGear gear, string label)
+        private void BuyButton(ShopItem item)
         {
             GUI.enabled = CanShopNow && StageShopRules.CanPurchase(_shop.CanManage, _sceneFlow.Current,
-                _sceneFlow.IsLoading, _shop.Balance, item, gear);
-            if (GUILayout.Button(label, GUILayout.Width(150f)) && !_shop.TryPurchase(item, memberKey))
-                _status = "구매하지 못했습니다(잔액 부족·이미 보유 또는 전환 중).";
+                _sceneFlow.IsLoading, _shop.Balance, item);
+            if (GUILayout.Button("구매", GUILayout.Width(80f)) && !_shop.TryPurchase(item))
+                _status = "구매하지 못했습니다(잔액 부족 또는 전환 중).";
             GUI.enabled = true;
         }
 
         private static string GearSummary(MemberGear gear)
         {
             string driver = gear.Driver == DriverTier.Iron ? "철제" : "나무";
-            return $"드라이버({driver}) {gear.DriverDurability}% · 라이터 {(gear.HasLighter ? "있음" : "없음")}";
+            return $"드라이버({driver}) {gear.DriverDurability}% · 라이터 {(gear.HasLighter ? "있음" : "없음")} · 촛불 {gear.Candles}개";
         }
     }
 }

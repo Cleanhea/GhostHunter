@@ -61,6 +61,18 @@ namespace GhostHunter.Tests.EditMode
         }
 
         [Test]
+        public void Tutorial_귀신은_뒤돌아보지마_대신_박치기를_쓴다()
+        {
+            var tutorial = UnityEditor.AssetDatabase.LoadAssetAtPath<GhostPrototypeSettings>(
+                "Assets/Settings/Gameplay/GhostPrototypeSettings_Tutorial.asset");
+            var stage = UnityEditor.AssetDatabase.LoadAssetAtPath<GhostPrototypeSettings>(
+                "Assets/Settings/Gameplay/GhostPrototypeSettings_Default.asset");
+            Assert.IsInstanceOf<GhostDinoSettings>(tutorial, "2026-11-09 사용자 결정 — Tutorial 귀신을 박치기 귀신으로");
+            Assert.IsFalse(tutorial.GazeFreezeEnabled, "두 기믹을 같이 켜지 않는다");
+            Assert.IsNotInstanceOf<GhostDinoSettings>(stage, "기본 귀신 설정(Default)은 박치기가 아니다 — ADR-0024");
+        }
+
+        [Test]
         public void 준비는_2초이고_앞_1_3초는_방향을_조정하고_뒤_0_7초는_고정한다()
         {
             GhostDinoCharge dino = Create();

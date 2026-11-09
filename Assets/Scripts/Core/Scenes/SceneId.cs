@@ -31,6 +31,12 @@ namespace GhostHunter.Core.Scenes
 
         /// <summary>새 세션의 첫 스테이지. 모텔 맵을 플레이한 뒤 정산하면 다음 출발은 Stage1 이다.</summary>
         Tutorial = 7,
+
+        /// <summary>
+        /// 박치기 공룡 귀신 시험장(개발 전용, 2026-11-09) — 정면 벽·비스듬한 벽·의자·낮은 상자·식탁·좁은 복도와 닫힌 문을 둘러
+        /// 돌진 충돌을 경우별로 재현한다. F1 접속 HUD 의 "Host → 박치기 시험장"으로만 들어간다(인게임 로비 출발 대상 아님).
+        /// </summary>
+        DinoTest = 8,
     }
 
     public static class SceneIdExtensions
@@ -39,6 +45,7 @@ namespace GhostHunter.Core.Scenes
         /// 플레이어가 스테이지를 진행하는 씬인가 — 정신력·사망·정산·호스트 이전·음성 그룹 분리가 켜진다.
         /// 스테이지를 새로 추가하면 여기에 넣는다.
         /// </summary>
-        public static bool IsStage(this SceneId id) => id is SceneId.ProtoTypeGame or SceneId.Stage1 or SceneId.Tutorial;
+        public static bool IsStage(this SceneId id) =>
+            id is SceneId.ProtoTypeGame or SceneId.Stage1 or SceneId.Tutorial or SceneId.DinoTest;
     }
 }

@@ -240,7 +240,7 @@ GhostPrototypeSpawner._restrictRoamHeight를 Tutorial에서만 켜서 202호 아
 ## 베이스 귀신 — 뒤돌아보지마 (구현, Tutorial 한정, 2026-11-01)
 
 기획 권위: [ghost-base.md](../project/ghost-base.md). `GhostPrototypeSettings._gazeFreezeEnabled`가 켜진 에셋만 동작한다 —
-`_Tutorial` 에셋만 켜고 `_Default`(Stage1·ProtoTypeGame)는 꺼 둔다. 꺼져 있으면 아래 경로는 전부 기존 동작이다.
+**2026-11-09부터 어느 에셋도 켜지 않는다** — Tutorial 귀신이 박치기로 바뀌었다(이전: `_Tutorial` 만 켬). 꺼져 있으면 아래 경로는 전부 기존 동작이다.
 
 | 구성 | 역할 |
 | --- | --- |
@@ -259,9 +259,9 @@ GhostPrototypeSpawner._restrictRoamHeight를 Tutorial에서만 켜서 202호 아
 
 ## 박치기 공룡 (구현, 2026-11-07)
 
-기획 권위: [ghost-dino.md](../project/ghost-dino.md). `GhostPrototypeSettings._dinoChargeEnabled`가 켜진 에셋만 동작한다 —
-**`_Default`(Stage1·ProtoTypeGame)를 켰고 `_Tutorial`은 꺼 둔다**(베이스 귀신). 꺼져 있으면 아래 경로는 전부 기존 동작이다.
-F2 튜닝 창에서 즉시 켜고 끌 수 있다(끄면 사이클을 버린다).
+기획 권위: [ghost-dino.md](../project/ghost-dino.md). **설정 에셋이 `GhostDinoSettings`(기본 귀신 설정 `GhostPrototypeSettings` 를 상속, 박치기 값만 추가)일 때만 동작한다**
+— 2026-11-09 설계 고정([ADR-0024](decisions/ADR-0024-ghost-type-settings-inheritance.md)). 지금 `GhostPrototypeSettings_Tutorial`(Tutorial·DinoTest 의 `Ghost_Tutorial`)만 이 타입이고,
+`_Default`(Stage1·ProtoTypeGame)는 기본 귀신이다. 켜고 끄는 스위치는 없다(이전: `_dinoChargeEnabled`, Default 에서 켬). 기본 설정이면 아래 경로는 전부 기존 동작이다.
 
 | 구성 | 역할 |
 | --- | --- |

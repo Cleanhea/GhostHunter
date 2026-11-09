@@ -29,6 +29,9 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/Tutorial.unity
     guid: 36255a66f013e564eb60e3d9791837d7
+  - enabled: 1
+    path: Assets/Scenes/DinoTest.unity
+    guid: 5e7e8fdb07a97aa4e8b4905a244dc759
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   m_UseUCBPForAssetBundles: 0

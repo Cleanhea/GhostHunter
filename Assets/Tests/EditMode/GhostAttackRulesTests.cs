@@ -173,9 +173,13 @@ namespace GhostHunter.Tests.EditMode
         [TestCase(GhostDifficulty.Hard, 9f)]
         public void 돌진_속도는_난이도별이다(GhostDifficulty difficulty, float expected)
         {
-            Set(_settings, "_difficulty", difficulty);
+            // 박치기 설정은 기본 귀신 설정의 난이도를 상속해 쓴다(ADR-0024).
+            GhostDinoSettings dino = ScriptableObject.CreateInstance<GhostDinoSettings>();
+            typeof(GhostPrototypeSettings).GetField("_difficulty", BindingFlags.Instance | BindingFlags.NonPublic)
+                .SetValue(dino, difficulty);
 
-            Assert.AreEqual(expected, _settings.DinoChargeSpeed);
+            Assert.AreEqual(expected, dino.DinoChargeSpeed);
+            Object.DestroyImmediate(dino);
         }
 
         [Test]

@@ -346,7 +346,7 @@ namespace GhostHunter.DebugTools
                 current = new List<Row>();
             }
 
-            foreach (FieldInfo field in type.GetFields(FieldFlags))
+            foreach (FieldInfo field in SettingsFields(type))
             {
                 if (field.IsLiteral || field.IsInitOnly)
                     continue;
@@ -401,13 +401,40 @@ namespace GhostHunter.DebugTools
                 Groups = groups.ToArray(),
                 Rows = rows.ToArray(),
                 Snapshot = new object[rows.Count],
-                OnValidate = type.GetMethod("OnValidate", BindingFlags.Instance | BindingFlags.NonPublic),
+                OnValidate = FindOnValidate(type),
             };
 
             for (int i = 0; i < rows.Count; i++)
                 target.Snapshot[i] = rows[i].Field.GetValue(so);
 
             return target;
+        }
+
+        /// <summary>
+        /// 설정 SO 의 필드를 부모 타입부터 차례로 모은다 — 귀신 종류별 설정은 기본 설정을 상속하고(ADR-0024),
+        /// 부모의 private 직렬화 필드는 자식 타입의 <see cref="Type.GetFields(BindingFlags)"/> 로는 안 보인다.
+        /// </summary>
+        private static IEnumerable<FieldInfo> SettingsFields(Type type)
+        {
+            var chain = new Stack<Type>();
+            for (Type t = type; t != null && t != typeof(ScriptableObject); t = t.BaseType)
+                chain.Push(t);
+            foreach (Type t in chain)
+                foreach (FieldInfo field in t.GetFields(FieldFlags | BindingFlags.DeclaredOnly))
+                    yield return field;
+        }
+
+        private static MethodInfo FindOnValidate(Type type)
+        {
+            for (Type t = type; t != null && t != typeof(ScriptableObject); t = t.BaseType)
+            {
+                MethodInfo method = t.GetMethod("OnValidate",
+                    BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
+                if (method != null)
+                    return method;
+            }
+
+            return null;
         }
 
         private void DrawRow(Target t, Row row, float labelWidth = 190f)

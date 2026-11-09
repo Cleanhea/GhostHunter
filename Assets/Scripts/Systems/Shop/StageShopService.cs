@@ -34,7 +34,7 @@ namespace GhostHunter.Systems.Shop
 
         // 로컬 세션 상태 — 호스트가 원본, 클라이언트는 받은 사본.
         private int _localBalance = StageShopRules.StartingBalance;
-        private int _localCandles;
+        private ShelfStock _localShelf;
         private readonly Dictionary<ulong, MemberGear> _localGear = new();
         private readonly List<ShopMember> _localMembers = new();
         private readonly List<ShopMember> _memberBuffer = new();
@@ -68,7 +68,7 @@ namespace GhostHunter.Systems.Shop
 
         public int Balance => InSteamRoom ? _lobby.ShopBalance : _localBalance;
 
-        public int CandleCount => InSteamRoom ? _lobby.CandleCount : _localCandles;
+        public ShelfStock Shelf => InSteamRoom ? _lobby.Shelf : _localShelf;
 
         public ulong LocalMemberKey => InSteamRoom ? _lobby.LocalSteamId
             : _network != null ? _network.LocalClientId : 0UL;
@@ -109,22 +109,27 @@ namespace GhostHunter.Systems.Shop
             return true;
         }
 
-        public bool TryPurchase(ShopItem item, ulong memberKey)
+        public bool TryPurchase(ShopItem item)
         {
             if (InSteamRoom)
-                return _lobby.TryPurchase(item, memberKey);
-            if (!IsLocalHost || !TryGetShopScene(out SceneId scene, out bool loading))
+                return _lobby.TryPurchase(item);
+            if (!IsLocalHost || !TryGetShopScene(out SceneId scene, out bool loading)
+                || !StageShopRules.TryPurchase(true, scene, loading, item, ref _localBalance, ref _localShelf))
                 return false;
+            LocalStateChanged();
+            return true;
+        }
 
-            bool personal = StageShopRules.IsPersonal(item);
-            if (personal && !_localGear.ContainsKey(memberKey) && !IsLocalMember(memberKey))
+        public bool TryTakeShelfItem(ulong memberKey, ShopItem item)
+        {
+            if (InSteamRoom)
+                return _lobby.TryTakeShelfItem(memberKey, item);
+            if (!IsLocalHost || !IsLocalMember(memberKey))
                 return false;
-            MemberGear gear = personal ? GetMemberGear(memberKey) : MemberGear.Starting;
-            if (!StageShopRules.TryPurchase(true, scene, loading, item,
-                    ref _localBalance, ref _localCandles, ref gear))
+            MemberGear gear = GetMemberGear(memberKey);
+            if (!StageShopRules.TryTakeFromShelf(item, ref _localShelf, ref gear))
                 return false;
-            if (personal)
-                _localGear[memberKey] = gear;
+            _localGear[memberKey] = gear;
             LocalStateChanged();
             return true;
         }
@@ -169,13 +174,16 @@ namespace GhostHunter.Systems.Shop
             return true;
         }
 
-        public bool TryConsumeCandle()
+        public bool TryConsumeCandle(ulong memberKey)
         {
             if (InSteamRoom)
-                return _lobby.TryConsumeCandle();
-            if (!IsLocalHost || _localCandles <= 0)
+                return _lobby.TryConsumeCandle(memberKey);
+            if (!IsLocalHost)
                 return false;
-            _localCandles--;
+            MemberGear gear = GetMemberGear(memberKey);
+            if (!StageShopRules.TryConsumeCandle(ref gear))
+                return false;
+            _localGear[memberKey] = gear;
             LocalStateChanged();
             return true;
         }
@@ -243,7 +251,7 @@ namespace GhostHunter.Systems.Shop
             {
                 // 호스트가 세션을 새로 열었다 — 시작 자금으로 초기화한다.
                 _localBalance = StageShopRules.StartingBalance;
-                _localCandles = 0;
+                _localShelf = default;
                 _localGear.Clear();
                 _lastSentState = string.Empty;
                 RefreshLocalMembers();
@@ -289,11 +297,11 @@ namespace GhostHunter.Systems.Shop
             return clientId == NetworkManager.ServerClientId ? "호스트" : $"플레이어 {clientId}";
         }
 
-        /// <summary>"잔액|촛불|키,등급,내구도,라이터,이름|…" 한 줄로 보낸다. 이름의 구분자는 지운다.</summary>
+        /// <summary>"잔액|드라이버,라이터,촛대|키,등급,내구도,라이터,촛불,이름|…" 한 줄로 보낸다. 이름의 구분자는 지운다.</summary>
         private string SerializeLocalState()
         {
             var builder = new StringBuilder();
-            builder.Append(_localBalance).Append('|').Append(_localCandles);
+            builder.Append(_localBalance).Append('|').Append(_localShelf.ToData());
             foreach (ShopMember member in _localMembers)
             {
                 MemberGear gear = GetMemberGear(member.Key);
@@ -331,21 +339,22 @@ namespace GhostHunter.Systems.Shop
         internal void ApplyLocalState(string state)
         {
             string[] parts = (state ?? string.Empty).Split('|');
-            if (parts.Length < 2 || !int.TryParse(parts[0], out int balance) || !int.TryParse(parts[1], out int candles))
+            if (parts.Length < 2 || !int.TryParse(parts[0], out int balance)
+                || !ShelfStock.TryParse(parts[1].Split(','), 0, out ShelfStock shelf))
                 return;
 
             _localBalance = balance;
-            _localCandles = candles;
+            _localShelf = shelf;
             _localGear.Clear();
             _localMembers.Clear();
             for (int i = 2; i < parts.Length; i++)
             {
                 string[] fields = parts[i].Split(',');
-                if (fields.Length < 5 || !ulong.TryParse(fields[0], out ulong key)
-                    || !MemberGear.TryFromLobbyData($"{fields[1]},{fields[2]},{fields[3]}", out MemberGear gear))
+                if (fields.Length < 6 || !ulong.TryParse(fields[0], out ulong key)
+                    || !MemberGear.TryFromLobbyData($"{fields[1]},{fields[2]},{fields[3]},{fields[4]}", out MemberGear gear))
                     continue;
                 _localGear[key] = gear;
-                _localMembers.Add(new ShopMember(key, fields[4]));
+                _localMembers.Add(new ShopMember(key, fields[5]));
             }
         }
 

@@ -36,3 +36,6 @@ MonoBehaviour:
   _tutorial:
     _sceneAsset: {fileID: 102900000, guid: 36255a66f013e564eb60e3d9791837d7, type: 3}
     _sceneName: Tutorial
+  _dinoTest:
+    _sceneAsset: {fileID: 102900000, guid: 5e7e8fdb07a97aa4e8b4905a244dc759, type: 3}
+    _sceneName: DinoTest

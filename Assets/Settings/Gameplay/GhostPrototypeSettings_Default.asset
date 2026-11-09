@@ -49,7 +49,6 @@ MonoBehaviour:
   _catchCooldown: 4
   _gravity: 12
   _doorOpenRange: 2.2
-  _dinoChargeEnabled: 1
   _aiExperimentsEnabled: 1
   _evidenceTrackingEnabled: 1
   _utilitySearchEnabled: 1

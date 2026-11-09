@@ -40,7 +40,6 @@ namespace GhostHunter.Tests.PlayMode
         {
             _settings = ScriptableObject.CreateInstance<GhostPrototypeSettings>();
             _sanitySettings = ScriptableObject.CreateInstance<SanitySystemSettings>();
-            Set(_settings, "_dinoChargeEnabled", false);
             _team = Create("RulesTestTeam").AddComponent<SanityTeamService>();
             Services.Bind<ISanityTeamService>(_team);
             _localPlayer = new LocalPlayerContext();

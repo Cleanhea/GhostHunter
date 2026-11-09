@@ -367,7 +367,12 @@ namespace GhostHunter.Gameplay.Ghost
             _summaryBuilder.AppendLine();
 
             if (_active != null && _active.IsSpawned && _active.Phase == GhostPhase.Attack)
+            {
                 _summaryBuilder.Append("Pursuit          : ").AppendLine(_active.PursuitSummary);
+                string dino = _active.DinoSummary;
+                if (dino != "-")
+                    _summaryBuilder.Append("Dino Charge      : ").AppendLine(dino);
+            }
 
             if (_active != null && _active.IsSpawned
                 && _active.Phase is GhostPhase.Idle or GhostPhase.Active)

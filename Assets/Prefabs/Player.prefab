@@ -580,6 +580,7 @@ GameObject:
   - component: {fileID: 7400000000000000001}
   - component: {fileID: 7400000000000000002}
   - component: {fileID: 7400000000000000003}
+  - component: {fileID: 7400000000000000004}
   m_Layer: 8
   m_Name: Player
   m_TagString: Untagged
@@ -1372,3 +1373,22 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier: GhostHunter.UI::GhostHunter.UI.StaminaHud
   _stamina: {fileID: 7400000000000000002}
+--- !u!114 &7400000000000000004
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6853845278674404290}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dee6d9dbabb749b0b0099e0f36a8d472, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: GhostHunter.Gameplay::GhostHunter.Gameplay.Player.PlayerGrabToolVisuals
+  _toolPrefab: {fileID: 1002, guid: f3cf4a1bf63b4c5e97c4ba9a52306a42, type: 3}
+  _settings: {fileID: 11400000, guid: 14a2e7c4cbbf42788f2af134e19558cd, type: 2}
+  _grab: {fileID: 2281164775239638963}
+  _look: {fileID: 8710244623731354882}
+  _motor: {fileID: 4683534020677742345}
+  _sanity: {fileID: 648880312144743003}
+  _animator: {fileID: 7602586239894021403}

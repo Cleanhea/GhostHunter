@@ -158,26 +158,27 @@ namespace GhostHunter.Tests.PlayMode
             Assert.IsTrue(shop.CanManage, "로컬 호스트는 상점을 쓴다");
             Assert.AreEqual(StageShopRules.StartingBalance, shop.Balance, "시작 자금");
             ulong me = shop.LocalMemberKey;
-            Assert.IsFalse(shop.GetMemberGear(me).HasLighter, "라이터는 사야 생긴다");
-            Assert.IsTrue(shop.TryPurchase(ShopItem.IronLighter, me), "철제 라이터 구매");
+            Assert.IsFalse(shop.GetMemberGear(me).HasLighter, "라이터는 선반에서 꺼내야 생긴다");
+            Assert.IsTrue(shop.TryPurchase(ShopItem.IronLighter), "철제 라이터 구매");
             Assert.AreEqual(StageShopRules.StartingBalance - StageShopRules.PriceOf(ShopItem.IronLighter), shop.Balance);
-            Assert.IsTrue(shop.GetMemberGear(me).HasLighter);
-            Assert.IsFalse(shop.TryPurchase(ShopItem.IronDriver, me), "잔액이 모자라면 못 산다");
+            Assert.AreEqual(1, shop.Shelf.CountOf(ShopItem.IronLighter), "산 라이터는 드릴카 선반에 쌓인다");
+            Assert.IsFalse(shop.GetMemberGear(me).HasLighter, "사기만 해서는 누구의 장비도 아니다");
+            Assert.IsFalse(shop.TryPurchase(ShopItem.IronDriver), "잔액이 모자라면 못 산다");
 
             int balanceBeforeTuning = shop.Balance;
             Assert.IsFalse(shop.TrySetBalanceForDebug(-1), "음수 잔액은 거절한다");
             Assert.AreEqual(balanceBeforeTuning, shop.Balance);
             Assert.IsTrue(shop.TrySetBalanceForDebug(100), "호스트가 현재 돈을 튜닝한다");
             Assert.AreEqual(100, shop.Balance);
-            Assert.IsTrue(shop.GetMemberGear(me).HasLighter, "잔액 튜닝으로 보유 장비가 바뀌면 안 된다");
-            Assert.IsTrue(shop.TryPurchase(ShopItem.CandleSet, me), "튜닝한 잔액으로 실제 상점 구매가 가능하다");
+            Assert.AreEqual(1, shop.Shelf.CountOf(ShopItem.IronLighter), "잔액 튜닝으로 선반 재고가 바뀌면 안 된다");
+            Assert.IsTrue(shop.TryPurchase(ShopItem.CandleSet), "튜닝한 잔액으로 실제 상점 구매가 가능하다");
             Assert.AreEqual(100 - StageShopRules.PriceOf(ShopItem.CandleSet), shop.Balance);
-            Assert.AreEqual(StageShopRules.CandlesPerSet, shop.CandleCount);
+            Assert.AreEqual(new ShelfStock(0, 1, 1), shop.Shelf);
             Assert.IsTrue(shop.TrySetBalanceForDebug(int.MaxValue));
             shop.ServerGrantStageReward();
             Assert.AreEqual(int.MaxValue, shop.Balance, "최대 정수 잔액의 보상이 음수로 오버플로하면 안 된다");
             Assert.IsTrue(shop.TrySetBalanceForDebug(balanceBeforeTuning));
-            Assert.AreEqual(StageShopRules.CandlesPerSet, shop.CandleCount, "잔액 튜닝은 촛불 재고를 보존한다");
+            Assert.AreEqual(new ShelfStock(0, 1, 1), shop.Shelf, "잔액 튜닝은 선반 재고를 보존한다");
 
             Assert.IsTrue(stageFlow.StartStage());
             yield return WaitForPlayerIn(sceneFlow, stageFlow, SceneId.Tutorial);
@@ -185,8 +186,22 @@ namespace GhostHunter.Tests.PlayMode
             Assert.AreNotEqual(lobbyPlayerId, stagePlayer.NetworkObjectId, "스테이지 씬에서 플레이어를 새로 스폰한다");
             Assert.AreEqual("Tutorial", stagePlayer.gameObject.scene.name, "첫 출발은 Tutorial 을 올린다");
             AssertTutorialContents(stagePlayer);
-            yield return WaitUntil(() => stagePlayer.GetComponent<GhostHunter.Gameplay.Player.PlayerLighter>().IsOwned,
-                "산 라이터가 스테이지 플레이어에게 오지 않았다");
+
+            // 드릴카 선반(2026-11-09) — 산 아이템이 쌓여 있고, 선반에서 E(서버 RPC)로 꺼낸 사람이 갖는다.
+            var lighter = stagePlayer.GetComponent<GhostHunter.Gameplay.Player.PlayerLighter>();
+            Assert.IsFalse(lighter.IsOwned, "선반에서 꺼내기 전에는 라이터가 없다");
+            yield return WaitUntil(() => ShelfItemCount() == 2, "산 아이템 2개가 드릴카 선반에 쌓이지 않았다");
+            AssertShelfItemsCenteredOnShelf();
+            yield return TakeFromShelf(stagePlayer, ShopItem.IronLighter);
+            yield return WaitUntil(() => lighter.IsOwned, "선반에서 꺼낸 라이터가 지금 판에 오지 않았다");
+            Assert.IsTrue(shop.GetMemberGear(me).HasLighter, "꺼낸 라이터는 판 사이에도 유지된다");
+            Assert.AreEqual(new ShelfStock(0, 0, 1), shop.Shelf);
+            yield return TakeFromShelf(stagePlayer, ShopItem.CandleSet);
+            Assert.AreEqual(StageShopRules.CandlesPerSet, shop.GetMemberGear(me).Candles, "촛대 세트를 꺼내면 촛불 5개");
+            Assert.AreEqual(default(ShelfStock), shop.Shelf);
+            yield return WaitUntil(() => ShelfItemCount() == 0, "꺼낸 아이템이 선반에 남았다");
+            yield return TakeFromShelf(stagePlayer, ShopItem.CandleSet);
+            Assert.AreEqual(StageShopRules.CandlesPerSet, shop.GetMemberGear(me).Candles, "빈 선반에서는 꺼내지 못한다");
             Assert.IsTrue(connection.IsRunning, "스테이지로 넘어가도 세션은 유지된다");
             Assert.IsFalse(SceneManager.GetSceneByName("InGameLobby").isLoaded, "인게임 로비는 내려간다");
 
@@ -260,8 +275,10 @@ namespace GhostHunter.Tests.PlayMode
             foreach (ShopMember member in members)
             {
                 Assert.AreEqual(shop.LocalMemberKey, member.Key);
-                Assert.IsTrue(shop.TryPurchase(ShopItem.IronDriver, member.Key));
-                Assert.IsTrue(shop.TryPurchase(ShopItem.IronLighter, member.Key));
+                Assert.IsTrue(shop.TryPurchase(ShopItem.IronDriver));
+                Assert.IsTrue(shop.TryPurchase(ShopItem.IronLighter));
+                Assert.IsTrue(shop.TryTakeShelfItem(member.Key, ShopItem.IronDriver));
+                Assert.IsTrue(shop.TryTakeShelfItem(member.Key, ShopItem.IronLighter));
                 Assert.IsTrue(shop.TrySaveDriverDurability(member.Key, 90));
                 Assert.IsTrue(shop.TryRepairDriver(member.Key));
                 Assert.AreEqual(1, shop.GetMembers().Count, "서비스 목록을 다시 조회해도 UI 순회는 유지된다");
@@ -296,35 +313,46 @@ namespace GhostHunter.Tests.PlayMode
             shop.Changed += changed;
             try
             {
-                Assert.IsFalse(shop.TryPurchase(ShopItem.IronLighter, ulong.MaxValue), "참가자가 아닌 개인 장비 대상은 거절");
-                Assert.IsFalse(shop.TryPurchase(ShopItem.None, me));
-                Assert.IsFalse(shop.TryPurchase((ShopItem)999, me));
+                Assert.IsFalse(shop.TryPurchase(ShopItem.None));
+                Assert.IsFalse(shop.TryPurchase((ShopItem)999));
                 Assert.IsFalse(shop.TryRepairDriver(me), "나무 드라이버 수리 거절");
+                Assert.IsFalse(shop.TryTakeShelfItem(me, ShopItem.IronLighter), "빈 선반에서는 꺼내지 못한다");
+                Assert.IsFalse(shop.TryConsumeCandle(me), "촛불이 없으면 쓰지 못한다");
                 Assert.AreEqual(100, shop.Balance);
-                Assert.AreEqual(0, shop.CandleCount);
+                Assert.AreEqual(default(ShelfStock), shop.Shelf);
                 Assert.AreEqual(MemberGear.Starting, shop.GetMemberGear(me));
                 Assert.AreEqual(0, changes, "거절된 거래는 변경 알림을 내지 않는다");
 
                 Assert.IsTrue(shop.TrySaveDriverDurability(me, 73));
-                Assert.IsTrue(shop.TryPurchase(ShopItem.IronLighter, me));
-                Assert.AreEqual(73, shop.GetMemberGear(me).DriverDurability, "라이터 구매는 드라이버 내구도를 보존");
-                Assert.IsTrue(shop.TryPurchase(ShopItem.IronDriver, me));
+                Assert.IsTrue(shop.TryPurchase(ShopItem.IronLighter));
+                Assert.IsTrue(shop.TryPurchase(ShopItem.IronDriver));
+                Assert.IsTrue(shop.TryPurchase(ShopItem.CandleSet));
+                Assert.IsTrue(shop.TryPurchase(ShopItem.CandleSet));
+                Assert.AreEqual(5, shop.Balance);
+                Assert.AreEqual(new ShelfStock(1, 1, 2), shop.Shelf);
+                Assert.AreEqual(new MemberGear(DriverTier.Wood, 73, false), shop.GetMemberGear(me),
+                    "사기만 해서는 장비가 바뀌지 않는다");
+
+                Assert.IsFalse(shop.TryTakeShelfItem(ulong.MaxValue, ShopItem.IronLighter), "참가자가 아니면 꺼내지 못한다");
+                Assert.IsTrue(shop.TryTakeShelfItem(me, ShopItem.IronLighter));
+                Assert.AreEqual(73, shop.GetMemberGear(me).DriverDurability, "라이터는 드라이버 내구도를 보존");
+                Assert.IsTrue(shop.TryTakeShelfItem(me, ShopItem.IronDriver));
                 Assert.AreEqual(new MemberGear(DriverTier.Iron, 100, true), shop.GetMemberGear(me),
                     "드라이버 교체는 기존 라이터를 보존");
                 Assert.IsTrue(shop.TrySaveDriverDurability(me, 99));
                 Assert.IsTrue(shop.TryRepairDriver(me));
-                Assert.IsTrue(shop.TryPurchase(ShopItem.CandleSet, me));
-                Assert.IsTrue(shop.TryPurchase(ShopItem.CandleSet, ulong.MaxValue), "공동 품목은 개인 대상 키를 쓰지 않는다");
+                Assert.IsTrue(shop.TryTakeShelfItem(me, ShopItem.CandleSet));
+                Assert.IsTrue(shop.TryConsumeCandle(me));
                 Assert.AreEqual(4, shop.Balance);
-                Assert.AreEqual(10, shop.CandleCount);
+                Assert.AreEqual(new ShelfStock(0, 0, 1), shop.Shelf);
+                Assert.AreEqual(new MemberGear(DriverTier.Iron, 100, true, 4), shop.GetMemberGear(me));
 
                 int beforeRejected = changes;
-                Assert.IsFalse(shop.TryPurchase(ShopItem.CandleSet, me), "잔액 부족");
-                Assert.IsFalse(shop.TryPurchase(ShopItem.IronDriver, me), "개인 장비 재구매");
-                Assert.IsFalse(shop.TryPurchase(ShopItem.IronLighter, me));
+                Assert.IsFalse(shop.TryPurchase(ShopItem.CandleSet), "잔액 부족");
+                Assert.IsFalse(shop.TryTakeShelfItem(me, ShopItem.IronDriver), "선반에 없는 품목");
                 Assert.AreEqual(4, shop.Balance);
-                Assert.AreEqual(10, shop.CandleCount);
-                Assert.AreEqual(new MemberGear(DriverTier.Iron, 100, true), shop.GetMemberGear(me));
+                Assert.AreEqual(new ShelfStock(0, 0, 1), shop.Shelf);
+                Assert.AreEqual(new MemberGear(DriverTier.Iron, 100, true, 4), shop.GetMemberGear(me));
                 Assert.AreEqual(beforeRejected, changes);
             }
             finally
@@ -688,6 +716,73 @@ namespace GhostHunter.Tests.PlayMode
 
         private static NetworkObject LocalPlayer() => NetworkManager.Singleton.LocalClient.PlayerObject;
 
+        /// <summary>상자 묶음이 실제 선반 면 가운데에 놓이고, 맨 아래 상자마다 바로 밑에 선반 면이 있는가.</summary>
+        private static void AssertShelfItemsCenteredOnShelf()
+        {
+            var shelf = Object.FindFirstObjectByType<GhostHunter.Gameplay.Map.DrillCarItemShelf>();
+            Assert.IsNotNull(shelf);
+            Assert.IsTrue(shelf.FoundShelfSurface, "드릴카 선반 앵커 아래에서 선반 면을 찾지 못했다");
+            // 드릴카 선반은 칸 윗면이 다섯 개(바닥에서 2.05·1.62·1.14·0.66·0.18m) — 높이로 가운데 칸(1.14m)에 올린다.
+            IReadOnlyList<float> tiers = shelf.TierHeights;
+            Assert.GreaterOrEqual(tiers.Count, 3, "선반 칸을 여러 개 찾아야 한다");
+            Assert.AreEqual(tiers[(tiers.Count - 1) / 2], shelf.StackBaseHeight, 0.001f, "높이로 가운데 칸에 쌓는다");
+            Assert.Less(shelf.StackBaseHeight, tiers[0] - 0.1f, "선반 맨 윗면(천장 쪽)에 올리지 않는다");
+
+            float min = float.MaxValue;
+            float max = float.MinValue;
+            int mask = GameLayers.Player >= 0 ? ~(1 << GameLayers.Player) : ~0;
+            foreach (var item in Object.FindObjectsByType<GhostHunter.Gameplay.Map.DrillCarShelfItem>(FindObjectsSortMode.None))
+            {
+                var box = item.GetComponent<BoxCollider>();
+                Vector3 local = shelf.StackRoot.InverseTransformPoint(item.transform.position);
+                min = Mathf.Min(min, local.x - box.size.x * 0.5f);
+                max = Mathf.Max(max, local.x + box.size.x * 0.5f);
+
+                // 상자 안 바닥 바로 위에서 아래로 — 시작점이 든 자기 충돌체는 맞지 않는다.
+                Vector3 origin = item.transform.position - shelf.StackRoot.up * (box.size.y * 0.5f - 0.01f);
+                Assert.IsTrue(Physics.Raycast(origin, -shelf.StackRoot.up, 0.06f, mask, QueryTriggerInteraction.Ignore),
+                    $"{item.name} 아래에 선반 면이 없다");
+            }
+            Assert.AreEqual(shelf.StackCenterX, (min + max) * 0.5f, 0.001f, "상자 묶음의 가운데가 선반 면 가운데다");
+            Debug.Log($"[ShelfTest] 칸 {string.Join(", ", tiers)} 중 {shelf.StackBaseHeight:F2}, " +
+                      $"가운데 앵커 로컬 X {shelf.StackCenterX:F2}m, 상자 묶음 {min:F2}~{max:F2}m");
+        }
+
+        private static int ShelfItemCount() =>
+            Object.FindObjectsByType<GhostHunter.Gameplay.Map.DrillCarShelfItem>(FindObjectsSortMode.None).Length;
+
+        /// <summary>
+        /// 플레이어를 드릴카 안 선반 앞 바닥에 세우고, 선반 상자에서 E 를 누른 것처럼 소유자 RPC 로 <paramref name="item"/> 을 꺼낸다
+        /// (서버의 생존·드릴카 안·거리·재고 검사를 그대로 거친다).
+        /// </summary>
+        private static IEnumerator TakeFromShelf(NetworkObject player, ShopItem item)
+        {
+            var shelf = Object.FindFirstObjectByType<GhostHunter.Gameplay.Map.DrillCarItemShelf>();
+            DrillCarSafeZone zone = Object.FindFirstObjectByType<DrillCarSafeZone>();
+            Assert.IsNotNull(shelf, "스테이지에 드릴카 선반이 있다");
+            Assert.IsNotNull(zone);
+
+            Vector3 toCenter = zone.transform.position - shelf.Anchor;
+            toCenter.y = 0f;
+            Vector3 stand = shelf.Anchor + toCenter.normalized * 0.8f;
+            int mask = GameLayers.Player >= 0 ? ~(1 << GameLayers.Player) : ~0;
+            stand.y = Physics.Raycast(stand, Vector3.down, out RaycastHit floor, 3f, mask, QueryTriggerInteraction.Ignore)
+                ? floor.point.y + 0.05f
+                : shelf.Anchor.y - 1.1f;
+            player.GetComponent<GhostHunter.Gameplay.Player.PlayerMotor>().Teleport(stand, player.transform.rotation);
+            for (int i = 0; i < 5; i++)
+                yield return null;
+            Assert.IsTrue(DrillCarSafeZone.Contains(player.transform.position),
+                $"선반 앞({player.transform.position})이 드릴카 안이어야 한다");
+
+            MethodInfo rpc = typeof(PlayerInteractor).GetMethod("RequestTakeShelfItemRpc",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.IsNotNull(rpc);
+            rpc.Invoke(player.GetComponent<PlayerInteractor>(), new object[] { item });
+            for (int i = 0; i < 3; i++)
+                yield return null;
+        }
+
         /// <summary>Stage1 에 옮긴 B안·드릴카·조립 영역·정신력 UI 가 살아 있고 서로 이어졌는가.</summary>
         private static void AssertStage1Contents(NetworkObject stagePlayer)
         {
@@ -762,8 +857,9 @@ namespace GhostHunter.Tests.PlayMode
             Vector3 center = ritual.Center;
             Assert.That(center.x > 52.67f && center.x < 82.67f && center.z > -12f && center.z < 12f,
                 $"소환진은 B안 집 안에 선다 — {center}");
-            Assert.AreEqual(Services.Get<IStageShopService>().CandleCount, ritual.CandleStock,
-                "로컬 세션도 상점의 촛불 재고를 쓴다");
+            IStageShopService shop = Services.Get<IStageShopService>();
+            Assert.AreEqual(shop.GetMemberGear(shop.LocalMemberKey).Candles, ritual.LocalCandleCount,
+                "로컬 세션도 선반에서 꺼낸 내 촛불을 쓴다");
             for (int i = 0; i < GhostHunter.Gameplay.Revival.RevivalRules.CandleCount; i++)
                 Assert.AreEqual(GhostHunter.Gameplay.Revival.CandleSlotState.Empty, ritual.GetSlot(i));
 

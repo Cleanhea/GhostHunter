@@ -174,6 +174,15 @@ namespace GhostHunter.Gameplay.Player
             _itemDurability.Value = _settings != null ? _settings.StartingItemDurability : 100;
         }
 
+        /// <summary>
+        /// 드릴카 선반에서 철제 드라이버를 꺼냈다 — 상점 서비스에는 이미 새 장비가 적혀 있고, 지금 판의 내구도만 최대로 맞춘다.
+        /// </summary>
+        public void ServerReplaceDriver()
+        {
+            if (IsServer && IsSpawned)
+                _itemDurability.Value = StageShopRules.MaxDriverDurability;
+        }
+
         private void ServerConsumeDurability()
         {
             _itemDurability.Value = FurnitureDurability.ApplyItemUse(

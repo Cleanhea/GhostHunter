@@ -1,5 +1,6 @@
 using GhostHunter.Core;
 using GhostHunter.Core.Networking;
+using GhostHunter.Core.Scenes;
 using GhostHunter.Core.Steam;
 using GhostHunter.Gameplay.Ghost;
 using GhostHunter.Gameplay.Interaction;
@@ -554,6 +555,11 @@ namespace GhostHunter.DebugTools
             if (GUILayout.Button("Join (로컬)"))
                 _connection.StartLocalClient();
             GUILayout.EndHorizontal();
+
+            // 박치기 공룡 시험장(개발 전용) — 로컬 모드에서만. 인게임 로비를 거치지 않고 그 씬에서 바로 세션을 연다.
+            GUI.enabled = !running && _connection.Mode == TransportMode.Local;
+            if (GUILayout.Button("Host → 박치기 시험장 (Local)"))
+                _connection.StartHostInGameScene(SceneId.DinoTest);
             GUI.enabled = true;
 
             GUILayout.BeginHorizontal();

@@ -355,6 +355,15 @@ rb.AddTorque(random torque * torqueScale, ForceMode.Impulse)
 본체 Rigidbody는 `FreezeRotation`(회전 전부 고정)·선형 감쇠 1.2, 하부 콜라이더에 마찰 0.1(결합 최소값, `LiftSettings.WheelFriction`)이라 밀면 평행으로 굴러가다 선다.
 승강 발판·버튼·플레이어 탑승은 [lift-system.md](lift-system.md).
 
+## 잡은 플레이어 표시 (2026-11-09)
+
+플레이어의 흡착 장비는 기본 소등 상태이며, 서버가 승인한 `GrabController.HeldObjectId`가 있는 동안
+1인칭 화면 장비와 3인칭 오른손 장비의 연두색 링이 켜진다. 1인 `ThrowReady`부터 표시하므로
+아직 부양하지 않은 가구도 누가 차징 중인지 볼 수 있다. 2인 `Held`에서는 양쪽 장비가 각각 켜진다.
+해제·발사·강제 해제·사망 시 소등하며, 거절된 요청만으로는 켜지지 않는다.
+기존 가구 상태·홀더 복제를 재사용하며 별도 권위나 잡기 규칙을 추가하지 않는다.
+표현·제한·설정은 [player-controller.md "가구 흡착 장비 표현"](player-controller.md)를 따른다.
+
 ## 2인 흡착 규칙
 
 > 원문: "혼자 던지기, 2명 흡착 (단, 한명이 흡착을 안하면 던져지게 만들어주세요)"

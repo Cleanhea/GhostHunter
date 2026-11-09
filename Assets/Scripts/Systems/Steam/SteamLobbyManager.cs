@@ -72,7 +72,7 @@ namespace GhostHunter.Systems.Steam
         /// 네트워크 직렬화에 영향을 주는 변경(NGO 업그레이드, 토폴로지 변경, 트랜스포트 패치 등)을
         /// 할 때 수동으로 올린다. 호스트와 값이 다르면 로비 참가 단계에서 걸러진다.
         /// </summary>
-        public const int NetProtocolVersion = 10;
+        public const int NetProtocolVersion = 11;
 
         /// <summary>0/O, 1/I 처럼 눈으로 헷갈리는 글자를 뺀 방 코드 문자셋.</summary>
         private const string RoomCodeAlphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -145,28 +145,43 @@ namespace GhostHunter.Systems.Steam
                     CurrentLobby.Value.GetData(SettlementKeyPrefix + index), out record);
         }
 
-        public int CandleCount
+        public ShelfStock Shelf
         {
-            get { ReadShopState(out _, out int candles); return candles; }
+            get { ReadShopState(out _, out ShelfStock shelf); return shelf; }
         }
 
         public bool TryGrantStageReward()
         {
             if (!CurrentLobby.HasValue || !IsLobbyOwner)
                 return false;
-            ReadShopState(out int balance, out int candles);
-            if (!WriteShopState((int)Math.Min((long)balance + StageShopRules.StageReward, int.MaxValue), candles))
+            ReadShopState(out int balance, out ShelfStock shelf);
+            if (!WriteShopState((int)Math.Min((long)balance + StageShopRules.StageReward, int.MaxValue), shelf))
                 return false;
             LobbyUpdated?.Invoke();
             return true;
         }
 
-        public bool TryConsumeCandle()
+        public bool TryTakeShelfItem(ulong steamId, ShopItem item)
         {
-            if (!CurrentLobby.HasValue || !IsLobbyOwner)
+            if (!CurrentLobby.HasValue || !IsLobbyOwner || !IsMember(steamId))
                 return false;
-            ReadShopState(out int balance, out int candles);
-            if (candles <= 0 || !WriteShopState(balance, candles - 1))
+            MemberGear gear = GetMemberGear(steamId);
+            ReadShopState(out int balance, out ShelfStock shelf);
+            if (!StageShopRules.TryTakeFromShelf(item, ref shelf, ref gear))
+                return false;
+            // 선반을 먼저 줄인다 — 장비 쓰기가 실패해도 아이템이 두 번 나오지 않는다.
+            if (!WriteShopState(balance, shelf) || !WriteMemberGear(steamId, gear))
+                return false;
+            LobbyUpdated?.Invoke();
+            return true;
+        }
+
+        public bool TryConsumeCandle(ulong steamId)
+        {
+            if (!CurrentLobby.HasValue || !IsLobbyOwner || !IsMember(steamId))
+                return false;
+            MemberGear gear = GetMemberGear(steamId);
+            if (!StageShopRules.TryConsumeCandle(ref gear) || !WriteMemberGear(steamId, gear))
                 return false;
             LobbyUpdated?.Invoke();
             return true;
@@ -176,8 +191,8 @@ namespace GhostHunter.Systems.Steam
         {
             if (balance < 0 || !CurrentLobby.HasValue || !IsLobbyOwner)
                 return false;
-            ReadShopState(out _, out int candles);
-            if (!WriteShopState(balance, candles))
+            ReadShopState(out _, out ShelfStock shelf);
+            if (!WriteShopState(balance, shelf))
                 return false;
             LobbyUpdated?.Invoke();
             return true;
@@ -195,21 +210,14 @@ namespace GhostHunter.Systems.Steam
         /// 상점은 <b>인게임 로비에서 방장만</b> 산다(2026-09-28, <see cref="StageShopRules"/>). 게스트는 잔액·보유만 본다.
         /// 예전에는 일반 로비에서 누구나 샀고 게스트 요청을 P2P 로 방장에게 보냈다.
         /// </summary>
-        public bool TryPurchase(ShopItem item, ulong forSteamId)
+        public bool TryPurchase(ShopItem item)
         {
             if (!CurrentLobby.HasValue || !TryGetShopScene(out SceneId scene, out bool loading))
                 return false;
 
-            bool personal = StageShopRules.IsPersonal(item);
-            if (personal && !IsMember(forSteamId))
-                return false;
-
-            MemberGear gear = personal ? GetMemberGear(forSteamId) : MemberGear.Starting;
-            ReadShopState(out int balance, out int candles);
-            if (!StageShopRules.TryPurchase(IsLobbyOwner, scene, loading, item,
-                    ref balance, ref candles, ref gear))
-                return false;
-            if ((personal && !WriteMemberGear(forSteamId, gear)) || !WriteShopState(balance, candles))
+            ReadShopState(out int balance, out ShelfStock shelf);
+            if (!StageShopRules.TryPurchase(IsLobbyOwner, scene, loading, item, ref balance, ref shelf)
+                || !WriteShopState(balance, shelf))
                 return false;
             LobbyUpdated?.Invoke();
             return true;
@@ -222,10 +230,10 @@ namespace GhostHunter.Systems.Steam
                 return false;
 
             MemberGear gear = GetMemberGear(steamId);
-            ReadShopState(out int balance, out int candles);
+            ReadShopState(out int balance, out ShelfStock shelf);
             if (!StageShopRules.TryRepair(IsLobbyOwner, scene, loading, ref balance, ref gear))
                 return false;
-            if (!WriteMemberGear(steamId, gear) || !WriteShopState(balance, candles))
+            if (!WriteMemberGear(steamId, gear) || !WriteShopState(balance, shelf))
                 return false;
             LobbyUpdated?.Invoke();
             return true;
@@ -266,24 +274,24 @@ namespace GhostHunter.Systems.Steam
             CurrentLobby.HasValue && IsLobbyOwner
             && CurrentLobby.Value.SetData(MemberGearKeyPrefix + steamId, gear.ToLobbyData());
 
-        private bool WriteShopState(int balance, int candles) =>
+        private bool WriteShopState(int balance, ShelfStock shelf) =>
             CurrentLobby.HasValue && IsLobbyOwner
-            && CurrentLobby.Value.SetData(ShopStateKey, $"{balance},{candles}");
+            && CurrentLobby.Value.SetData(ShopStateKey, $"{balance},{shelf.ToData()}");
 
-        /// <summary>공동 상점 상태 "잔액,촛불개수". 기록이 없거나 옛 형식이면 시작 자금.</summary>
-        private void ReadShopState(out int balance, out int candles)
+        /// <summary>공동 상점 상태 "잔액,드라이버,라이터,촛대"(선반 재고). 기록이 없거나 옛 형식이면 시작 자금·빈 선반.</summary>
+        private void ReadShopState(out int balance, out ShelfStock shelf)
         {
             balance = StageShopRules.StartingBalance;
-            candles = 0;
+            shelf = default;
             if (!CurrentLobby.HasValue)
                 return;
             string[] fields = CurrentLobby.Value.GetData(ShopStateKey)?.Split(',');
-            if (fields == null || fields.Length != 2
+            if (fields == null || fields.Length != 4
                 || !int.TryParse(fields[0], out int parsedBalance)
-                || !int.TryParse(fields[1], out int parsedCandles))
+                || !ShelfStock.TryParse(fields, 1, out ShelfStock parsedShelf))
                 return;
             balance = parsedBalance;
-            candles = parsedCandles;
+            shelf = parsedShelf;
         }
 
         private void HandleShopSessionRequest(SteamId sender)
@@ -866,7 +874,7 @@ namespace GhostHunter.Systems.Steam
 
             // 480 공용 로비 목록에서 우리 방만 걸러 내는 1차 필터.
             lobby.SetData(GameKey, GameKeyValue);
-            lobby.SetData(ShopStateKey, $"{StageShopRules.StartingBalance},0");
+            lobby.SetData(ShopStateKey, $"{StageShopRules.StartingBalance},{default(ShelfStock).ToData()}");
             lobby.SetData(SettlementCountKey, "0");
 
             // 참가자가 검색으로 이 로비를 찾을 수 있게 방 코드를 심는다.

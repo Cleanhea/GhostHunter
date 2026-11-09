@@ -1,7 +1,9 @@
 using GhostHunter.Core;
+using GhostHunter.Core.Steam;
 using GhostHunter.Gameplay.Player;
 using GhostHunter.Gameplay.Ghost;
 using GhostHunter.Gameplay.Lift;
+using GhostHunter.Gameplay.Map;
 using GhostHunter.Gameplay.Revival;
 using GhostHunter.Gameplay.Sanity;
 using Unity.Netcode;
@@ -38,6 +40,9 @@ namespace GhostHunter.Gameplay.Interaction
         private StageExitInteractable _currentStageExit;
         private StageLobbyTerminal _currentLobbyTerminal;
         private RevivalCandleSlot _currentCandleSlot;
+        private DrillCarShelfItem _currentShelfItem;
+        private string _shelfMessage = string.Empty;
+        private float _shelfMessageUntil;
         private bool _confirmStageExit;
         private int _pressedStageExitButton;
         private CursorLockMode _previousCursorLock;
@@ -111,6 +116,11 @@ namespace GhostHunter.Gameplay.Interaction
             if (_currentCandleSlot != null && _input.InteractPressedThisFrame
                 && !_input.IsDeathInputLocked && !_input.IsGameplayInputLocked)
                 _currentCandleSlot.RequestInteract();
+
+            // 드릴카 선반 — 조준한 상자의 품목을 하나 꺼내 내 장비로 받는다. 서버가 생존·거리·재고를 다시 검사한다.
+            if (_currentShelfItem != null && _input.InteractPressedThisFrame
+                && !_input.IsDeathInputLocked && !_input.IsGameplayInputLocked)
+                RequestTakeShelfItemRpc(_currentShelfItem.Item);
         }
 
         private void FindTargets()
@@ -123,6 +133,7 @@ namespace GhostHunter.Gameplay.Interaction
                 _currentStageExit = null;
                 _currentLobbyTerminal = null;
                 _currentCandleSlot = null;
+                _currentShelfItem = null;
                 CurrentBatteryPack = null;
                 CurrentLiftButton = null;
                 return;
@@ -133,6 +144,7 @@ namespace GhostHunter.Gameplay.Interaction
             _currentStageExit = hit.collider.GetComponentInParent<StageExitInteractable>();
             _currentLobbyTerminal = hit.collider.GetComponentInParent<StageLobbyTerminal>();
             _currentCandleSlot = hit.collider.GetComponent<RevivalCandleSlot>();
+            _currentShelfItem = hit.collider.GetComponent<DrillCarShelfItem>();
             CurrentBatteryPack = hit.collider.GetComponentInParent<BatteryPack>();
         }
 
@@ -216,6 +228,14 @@ namespace GhostHunter.Gameplay.Interaction
                     && !string.IsNullOrEmpty(CurrentLiftButton.Prompt))
                     GUI.Label(new Rect((Screen.width - 300f) * 0.5f,
                         Screen.height * 0.62f, 300f, 28f), CurrentLiftButton.Prompt);
+                else if (_currentShelfItem != null && _input != null
+                    && !_input.IsDeathInputLocked && !_input.IsGameplayInputLocked)
+                    GUI.Label(new Rect((Screen.width - 360f) * 0.5f,
+                        Screen.height * 0.62f, 360f, 28f), _currentShelfItem.Prompt);
+
+                if (Time.time < _shelfMessageUntil)
+                    GUI.Label(new Rect((Screen.width - 360f) * 0.5f,
+                        Screen.height * 0.66f, 360f, 28f), _shelfMessage);
                 return;
             }
 
@@ -244,6 +264,49 @@ namespace GhostHunter.Gameplay.Interaction
 
             if (Services.TryGet(out ISanityTeamService team))
                 team.ServerEndStageByExit();
+        }
+
+        /// <summary>
+        /// 드릴카 선반에서 하나를 꺼낸다(2026-11-09). 살아 있고 드릴카 안 선반 가까이 있어야 한다. 상점 서비스가 선반 재고를
+        /// 줄이고 장비를 적으면(판 사이 유지), 지금 판의 드라이버 내구도·라이터 보유도 바로 바꾼다. 촛불은 의식이 장비에서 읽는다.
+        /// </summary>
+        [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
+        private void RequestTakeShelfItemRpc(ShopItem item)
+        {
+            DrillCarItemShelf shelf = FindFirstObjectByType<DrillCarItemShelf>();
+            SanityNetworkState sanity = GetComponent<SanityNetworkState>();
+            if (shelf == null || sanity == null || !sanity.HasSanity
+                || Vector3.Distance(transform.position, shelf.Anchor) > DrillCarItemShelf.InteractDistance
+                || !DrillCarSafeZone.Contains(transform.position))
+                return;
+
+            if (!Services.TryGet(out IStageShopService shop) || !shop.IsAvailable
+                || !shop.TryGetMemberKey(OwnerClientId, out ulong memberKey)
+                || !shop.TryTakeShelfItem(memberKey, item))
+            {
+                ShelfResultRpc(item, false);
+                return;
+            }
+
+            switch (item)
+            {
+                case ShopItem.IronDriver:
+                    GetComponent<PlayerFurnitureDriverController>()?.ServerReplaceDriver();
+                    break;
+                case ShopItem.IronLighter:
+                    GetComponent<PlayerLighter>()?.ServerGrantNew();
+                    break;
+            }
+            ShelfResultRpc(item, true);
+        }
+
+        [Rpc(SendTo.Owner)]
+        private void ShelfResultRpc(ShopItem item, bool taken)
+        {
+            _shelfMessage = taken
+                ? $"{StageShopRules.NameOf(item)}을(를) 꺼냈습니다."
+                : "선반에서 꺼내지 못했습니다.";
+            _shelfMessageUntil = Time.time + 3f;
         }
 
     }

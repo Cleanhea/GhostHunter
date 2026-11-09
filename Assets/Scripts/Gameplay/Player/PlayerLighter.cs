@@ -105,6 +105,18 @@ namespace GhostHunter.Gameplay.Player
             Publish(force: true);
         }
 
+        /// <summary>
+        /// 드릴카 선반에서 라이터를 꺼냈다 — 지금 판부터 쓸 수 있게 하고 연료를 가득 채운다(이미 가졌어도 새것으로).
+        /// 판 사이 보유는 상점 서비스에 이미 적혀 있다.
+        /// </summary>
+        public void ServerGrantNew()
+        {
+            if (!IsServer || !IsSpawned)
+                return;
+            _owned.Value = true;
+            RestoreStageStateRpc(0f);
+        }
+
         private void Awake()
         {
             if (_settings == null)

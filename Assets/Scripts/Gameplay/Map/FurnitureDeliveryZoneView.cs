@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -8,7 +9,8 @@ namespace GhostHunter.Gameplay.Map
     /// 요청(2026-11-03)으로 <b>바닥에 칠한 페인트 + 빛나는 외곽선</b>으로 다시 만들었고, 같은 날 색을 지정받았다 —
     /// 영역 내부 <c>#C65A20</c>, 테두리 선 <c>#FFFFFF</c>. 가장자리 띠·틈·안쪽 칠에 롤러 자국과 벗겨진 곳이 있는 페인트 질감
     /// (<see cref="FurnitureDeliveryZonePaint"/>), 그 테두리를 따라 도는 흰 선 + 바닥으로 번지는 부드러운 흰 빛무리,
-    /// 구역 위의 은은한 주황 조명이다. 외곽선·빛무리만 숨 쉬듯 맥동한다.
+    /// 구역 위의 은은한 주황 조명이다. 중앙에는 가구를 내려놓는 뜻의 흰 소파·아래 화살표·받침선 심볼을 그린다.
+    /// 외곽선·빛무리만 숨 쉬듯 맥동한다.
     ///
     /// <para>로컬 표시 전용(복제 없음)이고 <see cref="FurnitureDeliveryZone"/> 이 만든다. 머티리얼 에셋 없이 항상 포함
     /// 셰이더(<c>Sprites/Default</c>)로 런타임 생성 — 벽에 가려지고 뒷면도 보이며 조명 영향을 받지 않아 어둠 속에서도 보인다.
@@ -40,18 +42,23 @@ namespace GhostHunter.Gameplay.Map
         private const float GlowIntensity = 0.6f;
         private const float GlowHeight = 1f;
         private const float GlowRangeScale = 1.4f;
+        private const float SymbolSizeRatio = 0.62f;
+        private const float SymbolFloorLift = 0.005f;
 
-        // 투명 도형끼리 겹치는 순서(깊이 기록이 없어 정렬 순서로 결정된다): 칠 → 빛무리 → 외곽선.
+        // 투명 도형끼리 겹치는 순서(깊이 기록이 없어 정렬 순서로 결정된다): 칠 → 빛무리 → 외곽선 → 심볼.
         private const int PaintOrder = 0;
         private const int HaloOrder = 1;
         private const int EdgeOrder = 2;
+        private const int SymbolOrder = 3;
 
         private FurnitureDeliveryZone _zone;
         private Material _paintMaterial;
         private Material _glowMaterial;
+        private Material _symbolMaterial;
         private Texture2D _paintTexture;
         private Mesh _paintMesh;
         private Mesh _haloMesh;
+        private Mesh _symbolMesh;
         private Light _glow;
         private GameObject _root;
 
@@ -81,9 +88,11 @@ namespace GhostHunter.Gameplay.Map
         {
             DestroyRuntimeObject(_paintMaterial);
             DestroyRuntimeObject(_glowMaterial);
+            DestroyRuntimeObject(_symbolMaterial);
             DestroyRuntimeObject(_paintTexture);
             DestroyRuntimeObject(_paintMesh);
             DestroyRuntimeObject(_haloMesh);
+            DestroyRuntimeObject(_symbolMesh);
         }
 
         // 에디터 모드 테스트에서는 Destroy 를 부를 수 없다.
@@ -115,6 +124,8 @@ namespace GhostHunter.Gameplay.Map
                 _glowMaterial = new Material(shader) { name = "FurnitureDeliveryZoneGlowRuntime" };
             if (_paintMaterial == null)
                 _paintMaterial = new Material(shader) { name = "FurnitureDeliveryZonePaintRuntime" };
+            if (_symbolMaterial == null)
+                _symbolMaterial = new Material(shader) { name = "FurnitureDeliveryZoneSymbolRuntime" };
 
             _root = new GameObject("DeliveryZoneView");
             _root.transform.SetParent(transform, false);
@@ -131,6 +142,7 @@ namespace GhostHunter.Gameplay.Map
             BuildPaint(size, halfX, halfZ, y);
             BuildHalo(lineHalfX, lineHalfZ, y);
             BuildLoop("OuterEdge", lineHalfX, lineHalfZ, y, EdgeLineWidth, EdgeColor, EdgeOrder);
+            BuildSymbol(size, y + SymbolFloorLift);
             BuildGlow(floorY + GlowHeight, Mathf.Max(size.x, size.z) * GlowRangeScale);
         }
 
@@ -165,6 +177,62 @@ namespace GhostHunter.Gameplay.Map
             _paintMesh.triangles = new[] { 0, 1, 2, 0, 2, 3 };
             _paintMesh.RecalculateBounds();
             AddMesh("Paint", _paintMesh, _paintMaterial, PaintOrder);
+        }
+
+        /// <summary>가구를 내려놓는 위치를 설명하는 바닥 스텐실. 메시 좌표로 크기를 맞춰 트랜스폼 스케일은 1을 유지한다.</summary>
+        private void BuildSymbol(Vector3 size, float y)
+        {
+            float shortSide = Mathf.Min(size.x, size.z);
+            float fillSize = shortSide - 2f * (FurnitureDeliveryZonePaint.BandWidth + FurnitureDeliveryZonePaint.GapWidth);
+            float symbolSize = Mathf.Min(shortSide * SymbolSizeRatio, fillSize);
+            if (symbolSize <= 0f)
+                return;
+
+            var vertices = new List<Vector3>();
+            var triangles = new List<int>();
+
+            // 소파: 등받이, 좌우 팔걸이, 좌석, 두 다리. 틈을 남겨 멀리서도 가구 형태가 읽히게 한다.
+            AddPolygon(new(-0.31f, 0.28f), new(-0.31f, 0.43f), new(-0.27f, 0.47f),
+                new(0.27f, 0.47f), new(0.31f, 0.43f), new(0.31f, 0.28f));
+            AddPolygon(new(-0.46f, 0.08f), new(-0.46f, 0.30f), new(-0.43f, 0.33f),
+                new(-0.37f, 0.33f), new(-0.34f, 0.30f), new(-0.34f, 0.08f));
+            AddPolygon(new(0.34f, 0.08f), new(0.34f, 0.30f), new(0.37f, 0.33f),
+                new(0.43f, 0.33f), new(0.46f, 0.30f), new(0.46f, 0.08f));
+            AddPolygon(new(-0.31f, 0.08f), new(-0.31f, 0.24f), new(0.31f, 0.24f), new(0.31f, 0.08f));
+            AddPolygon(new(-0.39f, 0.01f), new(-0.39f, 0.08f), new(-0.30f, 0.08f), new(-0.30f, 0.01f));
+            AddPolygon(new(0.30f, 0.01f), new(0.30f, 0.08f), new(0.39f, 0.08f), new(0.39f, 0.01f));
+
+            // 아래 화살표와 받침선으로 내려놓을 위치임을 나타낸다.
+            AddPolygon(new(-0.055f, -0.19f), new(-0.055f, -0.05f), new(0.055f, -0.05f), new(0.055f, -0.19f));
+            AddPolygon(new(-0.18f, -0.18f), new(0.18f, -0.18f), new(0f, -0.35f));
+            AddPolygon(new(-0.34f, -0.47f), new(-0.34f, -0.40f), new(0.34f, -0.40f), new(0.34f, -0.47f));
+            AddPolygon(new(-0.34f, -0.40f), new(-0.34f, -0.32f), new(-0.27f, -0.32f), new(-0.27f, -0.40f));
+            AddPolygon(new(0.27f, -0.40f), new(0.27f, -0.32f), new(0.34f, -0.32f), new(0.34f, -0.40f));
+
+            if (_symbolMesh == null)
+                _symbolMesh = new Mesh { name = "DeliveryZoneSymbol" };
+            _symbolMesh.Clear();
+            _symbolMesh.SetVertices(vertices);
+            var colors = new Color[vertices.Count];
+            for (int i = 0; i < colors.Length; i++)
+                colors[i] = Color.white;
+            _symbolMesh.colors = colors;
+            _symbolMesh.SetTriangles(triangles, 0);
+            _symbolMesh.RecalculateBounds();
+            AddMesh("FurnitureDropSymbol", _symbolMesh, _symbolMaterial, SymbolOrder);
+
+            void AddPolygon(params Vector2[] points)
+            {
+                int first = vertices.Count;
+                foreach (Vector2 point in points)
+                    vertices.Add(new Vector3(point.x * symbolSize, y, point.y * symbolSize));
+                for (int i = 1; i < points.Length - 1; i++)
+                {
+                    triangles.Add(first);
+                    triangles.Add(first + i);
+                    triangles.Add(first + i + 1);
+                }
+            }
         }
 
         /// <summary>

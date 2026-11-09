@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: MoleBurrowSettings_Default
   m_EditorClassIdentifier: GhostHunter.Gameplay::GhostHunter.Gameplay.Player.MoleBurrowSettings
   _enterCastSeconds: 0.5
-  _maxBurrowDuration: 5
+  _maxBurrowDuration: 7
   _cooldownSeconds: 10
   _burrowedMoveSpeedMultiplier: 2
   _burrowedCameraHeight: 0.15

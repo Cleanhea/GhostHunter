@@ -30,7 +30,8 @@ namespace GhostHunter.Gameplay.Revival
     /// 각 피어는 복제된 위치·촛불 상태로 로컬 표시물을 만든다.
     ///
     /// <list type="number">
-    /// <item>빈 촛대에서 E — 팀 촛불 재고에서 1개를 꺼내 꽂는다(꽂는 순간 소모).</item>
+    /// <item>빈 촛대에서 E — 누른 사람이 든 촛불에서 1개를 꽂는다(꽂는 순간 소모). 촛불은 드릴카 선반에서 촛대 세트를
+    /// 꺼내 받는다(2026-11-09).</item>
     /// <item>다섯 자리가 다 차고 시체 1구가 소환진 가운데 있으면, 놓인 촛불에서 E 로 점화 미니게임을 연다.
     /// 커서가 바를 한 번 지나가고 랜덤 초록 구간에서 E 를 다시 누르면 성공, 지나서 누르거나 안 누르면 실패.
     /// 실패도 똑같이 켜진다 — 결과는 다섯 개가 다 켜진 뒤 공개한다.</item>
@@ -61,6 +62,7 @@ namespace GhostHunter.Gameplay.Revival
         private readonly NetworkVariable<int> _roomIndex = new(-1);
         private readonly NetworkVariable<Vector3> _center = new(Vector3.zero);
         private readonly NetworkVariable<int> _slots = new(0);
+        // 상점 서비스가 없을 때(테스트 픽스처)만 쓰는 공용 개발 재고. 상점이 있으면 각자 든 촛불(MemberGear.Candles)을 쓴다.
         private readonly NetworkVariable<int> _candleStock = new(0);
         private readonly NetworkVariable<bool> _judging = new(false);
 
@@ -110,7 +112,10 @@ namespace GhostHunter.Gameplay.Revival
 
         public bool IsPlaced => _roomIndex.Value >= 0;
         public Vector3 Center => _center.Value;
-        public int CandleStock => _candleStock.Value;
+        /// <summary>이 피어의 플레이어가 든 촛불 수. 상점 서비스가 없으면 공용 개발 재고.</summary>
+        public int LocalCandleCount => _shop != null && _shop.IsAvailable
+            ? _shop.GetMemberGear(_shop.LocalMemberKey).Candles
+            : _candleStock.Value;
         public bool IsJudging => _judging.Value;
 
         /// <summary>소환진이 놓인 방 이름. 없으면 빈 문자열.</summary>
@@ -195,13 +200,13 @@ namespace GhostHunter.Gameplay.Revival
             _slots.OnValueChanged += HandleSlotsChanged;
             Services.TryGet(out _localPlayer);
             Services.TryGet(out _audio);
+            Services.TryGet(out _shop);
 
             if (IsServer)
             {
                 Services.TryGet(out _team);
-                Services.TryGet(out _shop);
                 _devStock = _settings != null ? _settings.DevCandleStock : 0;
-                RefreshStock();
+                _candleStock.Value = _devStock;
                 DoorInteractable.ServerOpenedByGhost += HandleGhostOpenedDoor;
                 if (!IsPlaced)
                 {
@@ -388,10 +393,10 @@ namespace GhostHunter.Gameplay.Revival
             switch (GetSlot(slot))
             {
                 case CandleSlotState.Empty:
-                    if (ServerConsumeCandle())
+                    if (ServerConsumeCandle(sender))
                         SetSlot(slot, CandleSlotState.Placed);
                     else
-                        NotifyRpc("촛불이 없습니다 — 인게임 로비 상점에서 촛대 세트를 사세요.", Target(sender));
+                        NotifyRpc("촛불이 없습니다 — 드릴카 선반에서 촛대 세트를 꺼내세요.", Target(sender));
                     break;
 
                 case CandleSlotState.Placed:
@@ -556,26 +561,16 @@ namespace GhostHunter.Gameplay.Revival
                 ServerResetProgress("귀신이 소환진 방의 문을 열어 촛불이 모두 꺼졌습니다.");
         }
 
-        private bool ServerConsumeCandle()
+        private bool ServerConsumeCandle(ulong sender)
         {
-            bool consumed;
             if (_shop != null && _shop.IsAvailable)
-            {
-                consumed = _shop.TryConsumeCandle();
-            }
-            else
-            {
-                consumed = _devStock > 0;
-                if (consumed)
-                    _devStock--;
-            }
-            RefreshStock();
-            return consumed;
-        }
+                return _shop.TryGetMemberKey(sender, out ulong memberKey) && _shop.TryConsumeCandle(memberKey);
 
-        private void RefreshStock()
-        {
-            _candleStock.Value = _shop != null && _shop.IsAvailable ? _shop.CandleCount : _devStock;
+            if (_devStock <= 0)
+                return false;
+            _devStock--;
+            _candleStock.Value = _devStock;
+            return true;
         }
 
         private int CountCorpsesInCircle(out SanityNetworkState single)
@@ -707,9 +702,9 @@ namespace GhostHunter.Gameplay.Revival
                 return string.Empty;
             return GetSlot(index) switch
             {
-                CandleSlotState.Empty => _candleStock.Value > 0
-                    ? $"E: 촛대에 촛불 꽂기 (남은 촛불 {_candleStock.Value}개)"
-                    : "촛불이 없습니다",
+                CandleSlotState.Empty => LocalCandleCount > 0
+                    ? $"E: 촛대에 촛불 꽂기 (내 촛불 {LocalCandleCount}개)"
+                    : "촛불이 없습니다 — 드릴카 선반에서 촛대 세트를 꺼내세요",
                 CandleSlotState.Placed => "E: 촛불 점화",
                 _ => string.Empty,
             };
@@ -975,7 +970,7 @@ namespace GhostHunter.Gameplay.Revival
 
             string text = _judging.Value
                 ? "부활 의식 — 판정 중…"
-                : $"부활 의식 — 촛불 {placed}/{RevivalRules.CandleCount} 놓음 · {lit} 켜짐 · 남은 촛불 {_candleStock.Value}개";
+                : $"부활 의식 — 촛불 {placed}/{RevivalRules.CandleCount} 놓음 · {lit} 켜짐 · 내 촛불 {LocalCandleCount}개";
             GUI.Label(new Rect((Screen.width - 520f) * 0.5f, Screen.height * 0.15f, 520f, 24f), text, CenteredStyle());
         }
 

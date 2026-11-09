@@ -207,6 +207,164 @@ namespace GhostHunter.Tests.PlayMode
             Assert.IsNull(Get<FurnitureGrabTarget>(_targeter, "_holdTarget"));
         }
 
+        [UnityTest]
+        public IEnumerator 장비는_서버가_잡기를_승인한_동안만_빛나고_해제와_사망에_꺼진다()
+        {
+            PlayerGrabToolVisuals presentation = CreateToolPresentation();
+            yield return null;
+            AssertToolLit(presentation, false);
+            Aim(_crate.transform.position);
+            yield return null;
+            Press();
+            yield return Wait(0.4f);
+            Assert.AreEqual(1, _crate.HolderCount);
+            AssertToolLit(presentation, true);
+
+            _crate.ServerForceRelease(_network.LocalClientId);
+            yield return null;
+            yield return null;
+            AssertToolLit(presentation, false);
+            Release();
+            yield return null;
+            Press();
+            yield return Wait(0.4f);
+            AssertToolLit(presentation, true);
+            Assert.IsTrue(_host.GetComponent<SanityNetworkState>().ServerMarkDead());
+            yield return null;
+            yield return null;
+            AssertToolLit(presentation, false);
+            foreach (Renderer part in Get<GrabToolView>(presentation, "_thirdPerson").GetComponentsInChildren<Renderer>())
+                Assert.IsTrue(part.forceRenderingOff, "사망 시 장비 메시도 숨긴다.");
+        }
+
+        [UnityTest]
+        public IEnumerator 서버가_잡기를_거절하면_장비가_빛나지_않는다()
+        {
+            PlayerGrabToolVisuals presentation = CreateToolPresentation();
+            _camera.transform.SetParent(null);
+            _camera.transform.position = new Vector3(-1f, 1.2f, 3f);
+            Aim(_crate.transform.position);
+            yield return null;
+            Press();
+            yield return Wait(0.4f);
+            Assert.AreEqual(0, _crate.HolderCount);
+            AssertToolLit(presentation, false);
+            Release();
+        }
+
+        [UnityTest]
+        public IEnumerator 소유자_카메라는_화면_장비만_다른_카메라는_손_장비만_그린다()
+        {
+            PlayerGrabToolVisuals presentation = CreateToolPresentation();
+            GrabToolView first = Get<GrabToolView>(presentation, "_firstPerson");
+            GrabToolView third = Get<GrabToolView>(presentation, "_thirdPerson");
+            Camera ownerCamera = Get<Camera>(presentation, "_ownerCamera");
+            Camera observer = Create("GrabToolObserver").AddComponent<Camera>();
+            observer.transform.position = presentation.transform.position + new Vector3(1.6f, 1.1f, 1.5f);
+            observer.transform.LookAt(presentation.transform.position + Vector3.up * 0.65f);
+            observer.fieldOfView = 45f;
+            var firstTarget = new RenderTexture(960, 540, 24);
+            var thirdTarget = new RenderTexture(960, 540, 24);
+            ownerCamera.targetTexture = firstTarget;
+            observer.targetTexture = thirdTarget;
+            ownerCamera.enabled = true;
+            ownerCamera.clearFlags = observer.clearFlags = CameraClearFlags.SolidColor;
+            ownerCamera.backgroundColor = observer.backgroundColor = new Color(0.085f, 0.10f, 0.13f);
+            Light key = Create("GrabToolPreviewLight").AddComponent<Light>();
+            key.type = LightType.Directional;
+            key.intensity = 2f;
+            key.transform.rotation = Quaternion.Euler(35f, -30f, 0f);
+            Renderer[] firstParts = first.GetComponentsInChildren<Renderer>();
+            Renderer[] thirdParts = third.GetComponentsInChildren<Renderer>();
+            SkinnedMeshRenderer body = presentation.GetComponentInChildren<SkinnedMeshRenderer>();
+            bool ownerSeen = false;
+            bool observerSeen = false;
+            void OnRender(UnityEngine.Rendering.ScriptableRenderContext context, Camera camera)
+            {
+                if (camera != ownerCamera && camera != observer)
+                    return;
+                bool own = camera == ownerCamera;
+                foreach (Renderer part in firstParts)
+                    Assert.AreEqual(!own, part.forceRenderingOff);
+                foreach (Renderer part in thirdParts)
+                    Assert.AreEqual(own, part.forceRenderingOff);
+                // 생존 몸 숨김은 PlayerVisuals가 담당하므로 이 표현 전용 픽스처에서만 대신한다.
+                body.forceRenderingOff = own;
+                if (own) ownerSeen = true;
+                else observerSeen = true;
+            }
+            UnityEngine.Rendering.RenderPipelineManager.beginCameraRendering += OnRender;
+            try
+            {
+                yield return Wait(0.3f);
+                Assert.IsTrue(ownerSeen && observerSeen, "실제 두 카메라 렌더를 거쳐야 한다.");
+                SaveToolPreview(firstTarget, "FirstPerson_Idle");
+                SaveToolPreview(thirdTarget, "ThirdPerson_Idle");
+                Aim(_crate.transform.position);
+                yield return null;
+                Press();
+                yield return Wait(0.4f);
+                AssertToolLit(presentation, true);
+                SaveToolPreview(firstTarget, "FirstPerson_Grab");
+                SaveToolPreview(thirdTarget, "ThirdPerson_Grab");
+                Release();
+            }
+            finally
+            {
+                UnityEngine.Rendering.RenderPipelineManager.beginCameraRendering -= OnRender;
+                ownerCamera.targetTexture = null;
+                observer.targetTexture = null;
+                Object.DestroyImmediate(firstTarget);
+                Object.DestroyImmediate(thirdTarget);
+            }
+        }
+
+        private static void SaveToolPreview(RenderTexture source, string name)
+        {
+            RenderTexture previous = RenderTexture.active;
+            RenderTexture.active = source;
+            var texture = new Texture2D(source.width, source.height, TextureFormat.RGB24, false);
+            texture.ReadPixels(new Rect(0, 0, source.width, source.height), 0, 0);
+            texture.Apply();
+            RenderTexture.active = previous;
+            string directory = System.IO.Path.Combine(Application.dataPath, "../Logs/GrabToolPreview");
+            System.IO.Directory.CreateDirectory(directory);
+            System.IO.File.WriteAllBytes(System.IO.Path.Combine(directory, name + ".png"), texture.EncodeToPNG());
+            Object.DestroyImmediate(texture);
+        }
+
+        private PlayerGrabToolVisuals CreateToolPresentation()
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Player.prefab");
+            GameObject player = Object.Instantiate(prefab, new Vector3(20f, 0f, 20f), Quaternion.identity);
+            _objects.Add(player);
+            var presentation = player.GetComponent<PlayerGrabToolVisuals>();
+            Assert.IsNotNull(presentation, "실제 Player 프리팹에 장비가 배선돼 있어야 한다.");
+            // 표현 프리팹에는 이 픽스처의 실제 Host 상태를 주입한다.
+            foreach (MonoBehaviour behaviour in player.GetComponents<MonoBehaviour>())
+                if (behaviour != presentation)
+                    behaviour.enabled = false;
+            Set(presentation, "_grab", _host.GetComponent<GrabController>());
+            Set(presentation, "_sanity", _host.GetComponent<SanityNetworkState>());
+            return presentation;
+        }
+
+        private static void AssertToolLit(PlayerGrabToolVisuals presentation, bool expected)
+        {
+            foreach (string field in new[] { "_firstPerson", "_thirdPerson" })
+            {
+                GrabToolView view = Get<GrabToolView>(presentation, field);
+                Renderer emitter = Get<Renderer>(view, "_emitter");
+                var block = new MaterialPropertyBlock();
+                emitter.GetPropertyBlock(block);
+                Color emission = block.GetColor("_EmissionColor");
+                Assert.AreEqual(expected, emission.maxColorComponent > 0.01f, field);
+                Assert.AreEqual(Color.black, emitter.sharedMaterial.GetColor("_EmissionColor"),
+                    "다른 플레이어와 공유하는 머티리얼은 바꾸지 않는다.");
+            }
+            Assert.AreEqual(expected, Get<Light>(Get<GrabToolView>(presentation, "_thirdPerson"), "_grabLight").enabled);
+        }
+
         private void Aim(Vector3 worldPoint) => _camera.transform.LookAt(worldPoint);
 
         private static IEnumerator Wait(float seconds)
@@ -248,7 +406,7 @@ namespace GhostHunter.Tests.PlayMode
             Set(grab, "_targeter", _targeter);
 
             _host.SetActive(true);
-            _host.GetComponent<NetworkObject>().SpawnWithOwnership(ownerId);
+            _host.GetComponent<NetworkObject>().SpawnAsPlayerObject(ownerId);
             foreach (InputActionMap map in Get<InputActionAsset>(input, "_runtimeActions").actionMaps)
                 map.devices = new InputDevice[] { _mouse };
         }

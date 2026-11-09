@@ -32,6 +32,9 @@ namespace GhostHunter.Data.Scenes
         [Tooltip("새 세션의 첫 스테이지 — 모텔 맵.")]
         [SerializeField] private SceneReference _tutorial = new();
 
+        [Tooltip("박치기 공룡 귀신 시험장(개발 전용). F1 접속 HUD 로만 들어간다.")]
+        [SerializeField] private SceneReference _dinoTest = new();
+
         /// <summary>지정되지 않았으면 빈 문자열. 호출부가 검사한다.</summary>
         public string GetSceneName(SceneId id)
         {
@@ -62,7 +65,7 @@ namespace GhostHunter.Data.Scenes
         private static readonly SceneId[] AllIds =
         {
             SceneId.Bootstrap, SceneId.Title, SceneId.Lobby, SceneId.ProtoTypeGame, SceneId.Result,
-            SceneId.InGameLobby, SceneId.Stage1, SceneId.Tutorial,
+            SceneId.InGameLobby, SceneId.Stage1, SceneId.Tutorial, SceneId.DinoTest,
         };
 
         private SceneReference Resolve(SceneId id)
@@ -77,6 +80,7 @@ namespace GhostHunter.Data.Scenes
                 case SceneId.InGameLobby: return _inGameLobby;
                 case SceneId.Stage1: return _stage1;
                 case SceneId.Tutorial: return _tutorial;
+                case SceneId.DinoTest: return _dinoTest;
                 default:
                     Debug.LogError($"{nameof(SceneNameSO)}: 알 수 없는 SceneId {id}", this);
                     return _title;
@@ -89,7 +93,7 @@ namespace GhostHunter.Data.Scenes
             bool changed = false;
 
             foreach (SceneReference reference in
-                     new[] { _bootstrap, _title, _lobby, _protoTypeGame, _result, _inGameLobby, _stage1, _tutorial })
+                     new[] { _bootstrap, _title, _lobby, _protoTypeGame, _result, _inGameLobby, _stage1, _tutorial, _dinoTest })
                 changed |= reference.BakeName();
 
             if (changed)

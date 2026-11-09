@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d3f17c244aaa4c768e79f743f247720d, type: 3}
+  m_Name: GrabToolVisualSettings_Default
+  m_EditorClassIdentifier: GhostHunter.Gameplay::GhostHunter.Gameplay.Player.GrabToolVisualSettings
+  _firstPersonPosition: {x: 0.34, y: -0.4, z: 0.42}
+  _firstPersonEuler: {x: 0, y: -10, z: 0}
+  _handOffset: {x: 0, y: 0, z: 0.02}
+  _fallbackPosition: {x: 0.3, y: 0.72, z: 0.15}
+  _idleColor: {r: 0.04, g: 0.06, b: 0.015, a: 1}
+  _grabEmission: {r: 0.45, g: 2, b: 0.04, a: 1}
+  _lightIntensity: 0.5
+  _lightRange: 0.45

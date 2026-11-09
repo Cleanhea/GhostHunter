@@ -63,8 +63,8 @@ namespace GhostHunter.Systems.Installers
             if (GetComponent<FurnitureDeliveryTracker>() == null)
                 gameObject.AddComponent<FurnitureDeliveryTracker>();
             FurnitureDeliveryZone.CreateBesideDrillCar();
-            if (GetComponent<TemporaryShopShelf>() == null)
-                gameObject.AddComponent<TemporaryShopShelf>();
+            if (GetComponent<DrillCarItemShelf>() == null)
+                gameObject.AddComponent<DrillCarItemShelf>();
             StageExitInteractable.CreateInDrillCar();
             if (_voiceSettings != null)
             {

@@ -15,8 +15,11 @@ namespace GhostHunter.Gameplay.Ghost
     {
         // 한 번에 이만큼(초)보다 길게 이동하지 않는다 — 프레임이 길어져도 플레이어·얇은 벽을 건너뛰지 않게 쪼갠다.
         private const float DinoMaxSubStep = 0.05f;
-        // 부딪힘이 기록됐고 의도한 이동의 이 비율보다 못 갔으면 막힌 것이다(계단 모서리를 올라타는 경우는 거의 다 간다).
+        // 부딪힘이 기록됐고 돌진 방향으로 의도한 이동의 이 비율보다 못 갔으면 막힌 것이다(계단 모서리를 올라타는 경우는 거의 다 간다).
         private const float DinoBlockedRatio = 0.8f;
+        // 부딪힘이 기록됐고 돌진 방향 옆으로 의도한 이동의 이 비율보다 밀렸으면 벽을 스친 것이다 — 미끄러져 꺾이지 않고 거기서 끝낸다
+        // (2026-11-09 사용자 보고 "직선이 아니다": 25° 벽을 스치면 앞으로는 82% 가서 위 비율을 통과하고 벽을 타고 휘었다).
+        private const float DinoDeflectRatio = 0.15f;
         // 부딪힘 보고 없이도 의도한 이동의 이 비율보다 못 가는 상태가 이 시간(초) 이어지면 알 수 없는 장애물에 막힌 것이다.
         private const float DinoStuckRatio = 0.2f;
         private const float DinoStuckSeconds = 0.3f;
@@ -41,8 +44,31 @@ namespace GhostHunter.Gameplay.Ghost
         private Collider _dinoHitCollider;
         private int _dinoPlayerCount;
 
+        /// <summary>박치기 귀신 설정 — 설정이 <see cref="GhostDinoSettings"/>(기본 귀신 설정을 상속)일 때만 박치기를 돈다(ADR-0024).</summary>
+        private GhostDinoSettings DinoSettings => _settings as GhostDinoSettings;
+
         /// <summary>준비·돌진 중이면 어택 시간이 끝나도 어택을 끝내지 않는다(돌진까지 마친 뒤 종료).</summary>
         private bool DinoHoldsAttackEnd => _dino != null && _dino.IsCommitted;
+
+        /// <summary>F1 접속 HUD(서버) — 박치기 단계와 경과. 기믹이 꺼졌거나 어택이 아니면 "-".</summary>
+        public string DinoSummary
+        {
+            get
+            {
+                if (_dino == null || _phase.Value != GhostPhase.Attack)
+                    return "-";
+                return _dino.Current switch
+                {
+                    GhostDinoCharge.Stage.Chase => $"추격 {_dino.Elapsed:F1}/{_dino.ChaseSeconds:F0}s"
+                        + (_dinoHasTarget ? string.Empty : " · 타깃 없음(찾을 때까지 준비 대기)"),
+                    GhostDinoCharge.Stage.Prepare => $"준비 {_dino.Elapsed:F1}/{_dino.PrepareSeconds:F0}s"
+                        + (_dino.IsDirectionLocked ? " · 방향 고정" : " · 방향 조정"),
+                    GhostDinoCharge.Stage.Charge => $"돌진 {_dinoChargeDistance:F1}m",
+                    GhostDinoCharge.Stage.Stun => $"스턴 {_dino.Elapsed:F1}/{_dino.StunSeconds:F0}s",
+                    _ => "-",
+                };
+            }
+        }
 
         private void DinoSpawn()
         {
@@ -82,7 +108,8 @@ namespace GhostHunter.Gameplay.Ghost
         /// <returns>준비·돌진·스턴 단계가 이번 틱의 움직임을 맡았으면 true — 기존 어택 틱을 건너뛴다.</returns>
         private bool ServerTickDino(float deltaTime, int playerCount)
         {
-            if (!_settings.DinoChargeEnabled)
+            GhostDinoSettings settings = DinoSettings;
+            if (settings == null)
             {
                 if (_dino != null)
                 {
@@ -95,10 +122,10 @@ namespace GhostHunter.Gameplay.Ghost
 
             _dinoPlayerCount = playerCount;
             _dino ??= new GhostDinoCharge();
-            _dino.ChaseSeconds = _settings.DinoChaseSeconds;
-            _dino.PrepareSeconds = _settings.DinoPrepareSeconds;
-            _dino.DirectionLockSeconds = _settings.DinoDirectionLockSeconds;
-            _dino.StunSeconds = _settings.DinoStunSeconds;
+            _dino.ChaseSeconds = settings.DinoChaseSeconds;
+            _dino.PrepareSeconds = settings.DinoPrepareSeconds;
+            _dino.DirectionLockSeconds = settings.DinoDirectionLockSeconds;
+            _dino.StunSeconds = settings.DinoStunSeconds;
 
             RememberDinoTarget();
             GhostDinoCharge.Stage before = _dino.Current;
@@ -180,7 +207,7 @@ namespace GhostHunter.Gameplay.Ghost
             transform.rotation = Quaternion.RotateTowards(
                 transform.rotation,
                 Quaternion.LookRotation(_dinoDirection, Vector3.up),
-                _settings.DinoTurnSpeedDegrees * deltaTime);
+                DinoSettings.DinoTurnSpeedDegrees * deltaTime);
             DinoGroundStep(deltaTime);
         }
 
@@ -218,7 +245,7 @@ namespace GhostHunter.Gameplay.Ghost
         {
             _dinoChargeElapsed += step;
             Vector3 before = transform.position;
-            float intended = _settings.DinoChargeSpeed * step;
+            float intended = DinoSettings.DinoChargeSpeed * step;
 
             _dinoHitRecorded = false;
             _dinoHitCollider = null;
@@ -228,8 +255,10 @@ namespace GhostHunter.Gameplay.Ghost
 
             Vector3 delta = transform.position - before;
             delta.y = 0f;
-            float moved = delta.magnitude;
-            _dinoChargeDistance += moved;
+            _dinoChargeDistance += delta.magnitude;
+            // 앞으로 간 양과 옆으로 밀린 양을 나눠 본다 — 벽을 따라 미끄러지면 전체 이동은 커도 옆으로 밀린다.
+            float moved = Vector3.Dot(delta, _dinoDirection);
+            float deflected = (delta - _dinoDirection * moved).magnitude;
 
             // 플레이어는 귀신과 충돌 레이어가 꺼져 있으므로 거리로 판정한다. 가구·벽보다 먼저 본다.
             if (TryDinoHitPlayers())
@@ -238,7 +267,8 @@ namespace GhostHunter.Gameplay.Ghost
                 return true;
             }
 
-            bool blocked = _dinoHitRecorded && moved < intended * DinoBlockedRatio;
+            bool blocked = _dinoHitRecorded
+                && (moved < intended * DinoBlockedRatio || deflected > intended * DinoDeflectRatio);
             if (!blocked)
             {
                 if (moved < intended * DinoStuckRatio)
@@ -268,7 +298,7 @@ namespace GhostHunter.Gameplay.Ghost
                 return true;
             }
 
-            if (_dinoChargeElapsed >= _settings.DinoMaxChargeSeconds)
+            if (_dinoChargeElapsed >= DinoSettings.DinoMaxChargeSeconds)
             {
                 EndDinoCharge(null);
                 return true;
@@ -281,7 +311,7 @@ namespace GhostHunter.Gameplay.Ghost
         private bool TryDinoHitPlayers()
         {
             bool hit = false;
-            float radius = _settings.DinoHitRadius;
+            float radius = DinoSettings.DinoHitRadius;
             for (int i = 0; i < _dinoPlayerCount; i++)
             {
                 SanityNetworkState player = _players[i];
@@ -312,7 +342,7 @@ namespace GhostHunter.Gameplay.Ghost
         {
             if (furniture != null)
             {
-                int damage = GhostDinoCharge.FurnitureDamage(_dinoChargeDistance, _settings.DinoDamagePerMeter);
+                int damage = GhostDinoCharge.FurnitureDamage(_dinoChargeDistance, DinoSettings.DinoDamagePerMeter);
                 int applied = furniture.ServerApplyDirectDamage(damage);
                 Debug.Log(
                     $"[GhostPrototype] 박치기 돌진이 {furniture.name} 와 충돌 — {_dinoChargeDistance:F1}m, 내구도 -{applied}.",

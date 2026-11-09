@@ -23,26 +23,26 @@ namespace GhostHunter.Core.Steam
         /// <summary>공동 잔액($). 로비에 없으면 시작 자금.</summary>
         int ShopBalance { get; }
 
-        /// <summary>팀 촛불 재고(개). 촛대 세트 하나 = <see cref="StageShopRules.CandlesPerSet"/>개.</summary>
-        int CandleCount { get; }
+        /// <summary>드릴카 선반에 쌓인 팀 공동 아이템. 로비에 없으면 비어 있다.</summary>
+        ShelfStock Shelf { get; }
 
-        /// <summary>스테이지 서버(방장)가 부활 의식에 촛불 하나를 놓을 때 재고에서 뺀다.</summary>
-        bool TryConsumeCandle();
+        /// <summary>스테이지 서버(방장)가 선반에서 하나를 꺼내 그 플레이어 장비에 넣는다.</summary>
+        bool TryTakeShelfItem(ulong steamId, ShopItem item);
+
+        /// <summary>스테이지 서버(방장)가 부활 의식에 촛불 하나를 놓을 때 그 플레이어가 든 촛불에서 뺀다.</summary>
+        bool TryConsumeCandle(ulong steamId);
 
         /// <summary>방장이 한 판 보상(<see cref="StageShopRules.StageReward"/>)을 공동 잔액에 더한다.</summary>
         bool TryGrantStageReward();
 
-        /// <summary>개발 튜닝 — 방장이 공동 잔액을 바꾼다. 촛불 재고와 장비는 보존한다.</summary>
+        /// <summary>개발 튜닝 — 방장이 공동 잔액을 바꾼다. 선반 재고와 장비는 보존한다.</summary>
         bool TrySetShopBalanceForDebug(int balance);
 
         /// <summary>플레이어 한 명의 장비. 기록이 없으면 <see cref="MemberGear.Starting"/>.</summary>
         MemberGear GetMemberGear(ulong steamId);
 
-        /// <summary>
-        /// 방장이 산다. 개인 품목은 <paramref name="forSteamId"/> 에게, 공동 품목은 무시한다.
-        /// 규칙은 <see cref="StageShopRules.CanPurchase"/>.
-        /// </summary>
-        bool TryPurchase(ShopItem item, ulong forSteamId);
+        /// <summary>방장이 산다. 산 아이템은 드릴카 선반에 쌓인다. 규칙은 <see cref="StageShopRules.CanPurchase"/>.</summary>
+        bool TryPurchase(ShopItem item);
 
         /// <summary>방장이 그 플레이어의 철제 드라이버를 최대 내구도까지 수리한다.</summary>
         bool TryRepairDriver(ulong steamId);

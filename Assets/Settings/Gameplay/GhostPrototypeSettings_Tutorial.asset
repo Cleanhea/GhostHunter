@@ -9,9 +9,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 929a6f2932ae2cd4cb19b1f5690cd099, type: 3}
+  m_Script: {fileID: 11500000, guid: 5b76639080374a23af3df3c4b68686aa, type: 3}
   m_Name: GhostPrototypeSettings_Tutorial
-  m_EditorClassIdentifier: GhostHunter.Gameplay::GhostHunter.Gameplay.Ghost.GhostPrototypeSettings
+  m_EditorClassIdentifier: GhostHunter.Gameplay::GhostHunter.Gameplay.Ghost.GhostDinoSettings
   _attackTeamSanity: 60
   _highRiskTeamSanity: 30
   _warningDuration: 5
@@ -30,7 +30,6 @@ MonoBehaviour:
   _visionAngle: 120
   _highRiskVisionDistance: 7.5
   _highRiskVisionAngle: 120
-  _difficulty: 0
   _visionConeDisplayDistance: 3
   _nearDetectRadius: 3
   _ghostEyeHeight: 1.6
@@ -50,7 +49,18 @@ MonoBehaviour:
   _catchCooldown: 4
   _gravity: 12
   _doorOpenRange: 2.2
-  _gazeFreezeEnabled: 1
+  _difficulty: 0
+  _attackContinuesWhileCritical: 1
+  _cleaningForcesAttackOnce: 1
+  _attackSpawnNearPlayerEnabled: 1
+  _attackSpawnRadius: 7
+  _voiceNoiseEnabled: 1
+  _voiceNoiseQuietDb: -40
+  _voiceNoiseLoudDb: -15
+  _voiceNoiseMinRadius: 8
+  _voiceNoiseMaxRadius: 12
+  _collideWithFurniture: 1
+  _gazeFreezeEnabled: 0
   _gazeFreezeMaxSeconds: 5
   _gazeImmunitySeconds: 5
   _gazeSpeedMultiplier: 1.5
@@ -63,6 +73,7 @@ MonoBehaviour:
   _predictiveChaseEnabled: 1
   _impactInvestigationEnabled: 1
   _tensionPacingEnabled: 1
+  _noiseReactionEnabled: 1
   _evidenceMemorySeconds: 8
   _predictionSeconds: 0.6
   _predictionMaxDistance: 2.5
@@ -78,6 +89,17 @@ MonoBehaviour:
   _impactInvestigateCooldown: 1
   _tensionReleaseSeconds: 15
   _tensionIntervalMultiplier: 2
+  _noiseScanInterval: 0.5
+  _smallPropNoiseRadius: 8
+  _largeFurnitureNoiseRadius: 12
+  _largeFurnitureMoveThreshold: 0.5
+  _activityHalfLifeSeconds: 20
+  _activityBonusSeconds: 30
+  _activityMinimumPeak: 2
+  _activityIdleWeight: 0.25
+  _activityWalkWeight: 1
+  _activityRunWeight: 1.5
+  _activityCarryWeight: 2
   _navAgentRadius: 0.25
   _roamMinDistance: 6
   _searchWanderRadius: 4
@@ -99,6 +121,7 @@ MonoBehaviour:
   _lightFlickerSeconds: 1.6
   _soundPhenomenaEnabled: 0
   _phenomenaPoolSize: 3
+  _phenomenaCandidateMask: 294
   _phenomenonWitnessDistance: 12
   _phenomenonWitnessAngle: 70
   _phenomenonWitnessEyeHeight: 1.2
@@ -109,4 +132,14 @@ MonoBehaviour:
   _attackLightIntensity: 1.2
   _bodyAlphaAtFullSanity: 0.3
   _bodyAlphaAtZeroSanity: 0.9
-  _phenomenaCandidateMask: 294
+  _dinoChaseSeconds: 8
+  _dinoPrepareSeconds: 2
+  _dinoDirectionLockSeconds: 0.7
+  _dinoStunSeconds: 5
+  _dinoChargeSpeedEasy: 11
+  _dinoChargeSpeedNormal: 11
+  _dinoChargeSpeedHard: 11
+  _dinoTurnSpeedDegrees: 540
+  _dinoHitRadius: 0.7
+  _dinoDamagePerMeter: 5
+  _dinoMaxChargeSeconds: 8

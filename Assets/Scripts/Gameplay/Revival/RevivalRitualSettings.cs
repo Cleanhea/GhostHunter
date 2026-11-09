@@ -54,7 +54,7 @@ namespace GhostHunter.Gameplay.Revival
         [SerializeField] private SoundCue _igniteFinishCue;
 
         [Header("개발 [TEMP]")]
-        [Tooltip("상점 서비스가 없는 경우(부트스트랩 없이 도는 테스트)에만 쓰는 촛불 재고. 로컬 세션도 상점 재고를 쓴다.")]
+        [Tooltip("상점 서비스가 없는 경우(부트스트랩 없이 도는 테스트)에만 쓰는 공용 촛불 재고. 상점이 있으면 각자 선반에서 꺼낸 촛불을 쓴다.")]
         [SerializeField, Min(0)] private int _devCandleStock = 10;
 
         public float CorpseRadius => _corpseRadius;

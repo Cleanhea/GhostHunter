@@ -7,7 +7,7 @@
 | 문서명 | 베이스 귀신 개별 기획서 |
 | 출처 | 사용자가 제공한 원문 "1. 베이직 귀신 / 1.1 뒤돌아보지마 기믹" (Notion 기획서 발췌) |
 | 이름 | 원문 제목은 "베이직 귀신". 사용자 결정(2026-11-01)으로 **베이스 귀신**을 임시 이름으로 쓴다 → BG-9 |
-| 사용 위치 | **Tutorial** — `Ghost_Tutorial` 프리팹 ([tutorial-stage.md](tutorial-stage.md)) |
+| 사용 위치 | **없음(2026-11-09)** — 사용자 결정으로 Tutorial 귀신(`Ghost_Tutorial`)을 박치기 공룡으로 바꾸고 '뒤돌아보지마'(`_gazeFreezeEnabled`)를 껐다 → [ghost-dino.md](ghost-dino.md). 기믹 코드·설정 값은 남아 있어 다시 켤 수 있다. 이전: **Tutorial** ([tutorial-stage.md](tutorial-stage.md)) |
 | 저장소 반영일 | 2026-11-01 |
 | 구현 | **Tutorial 한정 구현(2026-11-01)** — 컴파일·EditMode 통과, 실제 플레이·다인 미검증 → §6 |
 

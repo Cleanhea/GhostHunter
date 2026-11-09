@@ -38,10 +38,10 @@ namespace GhostHunter.Tests.PlayMode
         public IEnumerator SetUp()
         {
             _previousGhostFurniture = Physics.GetIgnoreLayerCollision(GameLayers.GhostPrototype, GameLayers.Furniture);
-            _settings = ScriptableObject.CreateInstance<GhostPrototypeSettings>();
+            // 박치기는 기본 귀신 설정을 상속한 박치기 설정 타입일 때만 돈다(ADR-0024).
+            _settings = ScriptableObject.CreateInstance<GhostDinoSettings>();
             _sanitySettings = ScriptableObject.CreateInstance<SanitySystemSettings>();
             // 첫 틱에 곧바로 준비로, 준비는 1초(앞 0.6초 조정 / 뒤 0.4초 고정). 이동·피해 수치는 기본값.
-            Set(_settings, "_dinoChargeEnabled", true);
             Set(_settings, "_dinoChaseSeconds", 0f);
             Set(_settings, "_dinoPrepareSeconds", 1f);
             Set(_settings, "_dinoDirectionLockSeconds", 0.4f);
@@ -203,6 +203,25 @@ namespace GhostHunter.Tests.PlayMode
         }
 
         [Test]
+        public void 돌진은_비스듬한_벽을_스쳐도_미끄러져_꺾이지_않고_거기서_끝난다()
+        {
+            // 돌진(+Z)과 25° 로 만나는 벽. x=0 줄과는 z≈1.7 에서 만난다. 2026-11-09 사용자 보고 "돌진이 직선이 아니다"의 재현.
+            GameObject wall = Create("DinoTestGlancingWall");
+            wall.transform.SetPositionAndRotation(new Vector3(0.6f, 1f, 3f), Quaternion.Euler(0f, -65f, 0f));
+            wall.AddComponent<BoxCollider>().size = new Vector3(10f, 4f, 0.1f);
+            Physics.SyncTransforms();
+            SanityNetworkState player = SpawnPlayer(new Vector3(0f, 0f, 6f), 999);
+            Set(_ghost, "_target", player);
+
+            TickUntilStage(GhostDinoCharge.Stage.Stun);
+
+            Vector3 end = _ghost.transform.position;
+            Assert.Less(Mathf.Abs(end.x), 0.3f, $"벽을 따라 옆으로 미끄러지지 않는다 — 끝 {end}");
+            Assert.Less(end.z, 1.7f, "벽에 닿은 자리에서 끝난다");
+            Assert.IsTrue(player.HasSanity);
+        }
+
+        [Test]
         public void 스턴은_5초_뒤_풀리고_추격에서_다시_시작한다()
         {
             SanityNetworkState player = SpawnPlayer(new Vector3(0f, 0f, 4.8f), 999);
@@ -223,15 +242,17 @@ namespace GhostHunter.Tests.PlayMode
         }
 
         [Test]
-        public void 설정을_끄면_사이클을_버리고_기존_어택_틱만_돈다()
+        public void 기본_귀신_설정으로_바뀌면_사이클을_버리고_기존_어택_틱만_돈다()
         {
             SanityNetworkState player = SpawnPlayer(new Vector3(0f, 0f, 4f), 999);
             Set(_ghost, "_target", player);
             TickFor(0.1f);
             Assert.AreEqual(GhostDinoCharge.Stage.Prepare, Dino.Current);
 
-            Set(_settings, "_dinoChargeEnabled", false);
+            GhostPrototypeSettings basic = ScriptableObject.CreateInstance<GhostPrototypeSettings>();
+            Set(_ghost, "_settings", basic);
             TickFor(0.1f);
+            Object.DestroyImmediate(basic);
 
             Assert.IsNull(Get(_ghost, "_dino"));
             Assert.IsFalse(HoldsAttackEnd);
