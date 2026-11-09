@@ -1372,6 +1372,14 @@ B안 랜덤 방/가구 생성과는 별도다. 배치·흐름·검증: [Tutorial
 
 `Stage1StructureTests`의 외벽 윗면 높이 검사는 새 조각 이름(`Outer_*`)에도 그대로 통한다(상인방 윗면 = 슬래브 + 3.0m).
 
+#### 10.1.9 Stage2 원본 OBJ 맵 (2026-11-09)
+
+사용자 요청으로 `Assets/Mesh/Stage2`를 `Stage2.unity`에 구성했다. OBJ는 0.01 배율로 미터 단위로 임포트하고
+정적 구조는 `Stage2Map.prefab`, 이동 가구는 `Prefabs/Furniture/Stage2/`의 18개 프리팹으로 분리한다.
+Stage1 뒤 출발 연결·드릴카 실내 4인 스폰·부활 방·문·귀신 NavMesh·청소·반출 배선과 검증은
+[stage2.md](../project/stage2.md), 진행 상태 결정은 [ADR-0025](decisions/ADR-0025-stage2-progression.md).
+설정과 원본 배치 후보를 저장하며 상시 맵 생성 도구는 추가하지 않는다.
+
 ### 10.2 프로토타입에서 확인해야 할 것
 
 #### A. 맵 생성 로직

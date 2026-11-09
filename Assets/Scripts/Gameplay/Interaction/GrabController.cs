@@ -135,57 +135,118 @@ namespace GhostHunter.Gameplay.Interaction
                 target.ServerForceRelease(OwnerClientId);
         }
 
+        // 아래 단계의 호출 순서는 동작의 일부다 — 같은 프레임의 탭(눌림+뗌)은 잡기 요청 직후 바로 놓는 순서로 처리된다.
         private void Update()
         {
-            if (!IsOwner || _input == null || _camera == null
-                || _corpseInteraction == null || _shoveInteraction == null)
+            if (!CanProcessInput)
                 return;
 
-            if ((_cleaning != null && _cleaning.IsMopEquipped)
-                || (_driver != null && _driver.IsDriverEquipped))
+            if (IsBlockedByEquipment)
             {
-                _corpseInteraction.Cancel(IsSpawned);
-                _corpseInteraction.UpdateHover(false);
-                _shoveInteraction.Cancel();
+                CancelNonFurnitureInteractions();
                 return;
             }
 
+            PollTestHoldToggle();
+            UpdateCorpseHover();
+            HandlePrimaryActionPressed();
+            UpdateCorpseCarry();
+            HandlePrimaryActionReleased();
+            SendHeldAim();
+            UpdateHeldRotation();
+            ExpireStaleGrabRequest();
+        }
+
+        private bool CanProcessInput =>
+            IsOwner && _input != null && _camera != null
+            && _corpseInteraction != null && _shoveInteraction != null;
+
+        private bool IsBlockedByEquipment =>
+            (_cleaning != null && _cleaning.IsMopEquipped)
+            || (_driver != null && _driver.IsDriverEquipped);
+
+        /// <summary>가구를 잡고 있거나, 잡기를 요청하고 서버 응답을 기다리는 중인가.</summary>
+        private bool HasFurnitureGrab => IsHolding || _requestedObjectId != NoObjectId;
+
+        /// <summary>정신력 추적이 없거나(null) 정신력이 남아 있으면 시체·밀치기를 시작할 수 있다.</summary>
+        private bool SanityAllowsInteraction => _sanity == null || _sanity.HasSanity;
+
+        /// <summary>장비(걸레·드라이버)를 든 동안은 시체·밀치기를 모두 중단한다. 가구 잡기는 건드리지 않는다.</summary>
+        private void CancelNonFurnitureInteractions()
+        {
+            _corpseInteraction.Cancel(IsSpawned);
+            _corpseInteraction.UpdateHover(false);
+            _shoveInteraction.Cancel();
+        }
+
+        private void PollTestHoldToggle()
+        {
             Keyboard keyboard = Keyboard.current;
             if (keyboard != null && keyboard[_testHoldToggleKey].wasPressedThisFrame)
                 ToggleTestHold();
+        }
 
-            bool furnitureHeld = IsHolding || _requestedObjectId != NoObjectId;
+        private void UpdateCorpseHover()
+        {
             _corpseInteraction.UpdateHover(
-                !furnitureHeld && !IsChargingShove && (_sanity == null || _sanity.HasSanity));
+                !HasFurnitureGrab && !IsChargingShove && SanityAllowsInteraction);
+        }
 
-            if (_input.AttackPressedThisFrame)
-            {
-                bool furnitureBusy = furnitureHeld;
-                if (!_corpseInteraction.TryBegin(furnitureBusy)
-                    && !_shoveInteraction.TryBegin(furnitureBusy || _corpseInteraction.IsActive,
-                        _sanity == null || _sanity.HasSanity))
-                    BeginGrab();
-            }
+        /// <summary>
+        /// 주 행동 버튼(마우스 좌클릭)을 누르면 시체 → 밀치기 → 가구 순으로 시도하고, 앞선 행동이 시작되면 뒤는 시도하지 않는다.
+        /// 입력 액션·프로퍼티 이름은 Unity 템플릿에서 온 <c>Attack</c>이지만 플레이어가 공격하는 기능은 없다 — 여기서는 잡기·던지기·밀치기 버튼이다.
+        /// </summary>
+        private void HandlePrimaryActionPressed()
+        {
+            if (!_input.AttackPressedThisFrame)
+                return;
 
+            bool furnitureBusy = HasFurnitureGrab;
+            if (_corpseInteraction.TryBegin(furnitureBusy))
+                return;
+
+            if (_shoveInteraction.TryBegin(
+                    furnitureBusy || _corpseInteraction.IsActive, SanityAllowsInteraction))
+                return;
+
+            BeginGrab();
+        }
+
+        /// <summary>시체 잡기 진행 중이면 매 프레임 틱한다(조준 RPC 전송 포함). 틱 뒤 활성 여부가 아래 놓기 판정에 쓰인다.</summary>
+        private void UpdateCorpseCarry()
+        {
             if (_corpseInteraction.IsActive)
                 _corpseInteraction.Tick(_input.AttackReleasedThisFrame, _aimSendInterval, ref _nextAimSendAt);
+        }
 
-            if (_shoveInteraction.IsActive && _input.AttackReleasedThisFrame)
+        /// <summary>주 행동 버튼을 떼면 밀치기를 내보내고, 가구를 놓는다(테스트 홀드 래치·시체 잡기 중에는 놓지 않는다).</summary>
+        private void HandlePrimaryActionReleased()
+        {
+            if (!_input.AttackReleasedThisFrame)
+                return;
+
+            if (_shoveInteraction.IsActive)
                 _shoveInteraction.Release(IsSpawned);
 
-            if (_input.AttackReleasedThisFrame && !_testHoldLatched
-                && !_corpseInteraction.IsActive)
+            if (!_testHoldLatched && !_corpseInteraction.IsActive)
                 ReleaseGrab();
+        }
 
-            if (IsHolding && Time.unscaledTime >= _nextAimSendAt)
-            {
-                _nextAimSendAt = Time.unscaledTime + _aimSendInterval;
-                UpdateAimRpc(
-                    _heldObjectId.Value,
-                    _camera.transform.position,
-                    _camera.transform.forward);
-            }
+        private void SendHeldAim()
+        {
+            if (!IsHolding || Time.unscaledTime < _nextAimSendAt)
+                return;
 
+            _nextAimSendAt = Time.unscaledTime + _aimSendInterval;
+            UpdateAimRpc(
+                _heldObjectId.Value,
+                _camera.transform.position,
+                _camera.transform.forward);
+        }
+
+        /// <summary>가구나 시체를 들고 있으면 휠 입력을 처리하고, 아무것도 들지 않았으면 휠 모드를 회전으로 되돌린다.</summary>
+        private void UpdateHeldRotation()
+        {
             bool corpseHeld = _corpseInteraction.IsActive
                 && _corpseInteraction.Target.GrabState == FurnitureState.Held
                 && _corpseInteraction.Target.ContainsHolder(OwnerClientId);
@@ -193,14 +254,18 @@ namespace GhostHunter.Gameplay.Interaction
                 HandleHeldRotationInput(corpseHeld);
             else if (!_corpseInteraction.IsActive)
                 _rotateMode = FurnitureRotateMode.Rotate;
+        }
 
-            if (!IsHolding
-                && _requestedObjectId != NoObjectId
-                && Time.unscaledTime - _requestSentAt > 0.5f)
-            {
-                _requestedObjectId = NoObjectId;
-                _targeter?.SetHoldTarget(null);
-            }
+        /// <summary>잡기 요청에 0.5초 안에 서버 응답(홀더 복제)이 없으면 요청 상태와 조준 고정을 푼다.</summary>
+        private void ExpireStaleGrabRequest()
+        {
+            if (IsHolding
+                || _requestedObjectId == NoObjectId
+                || Time.unscaledTime - _requestSentAt <= 0.5f)
+                return;
+
+            _requestedObjectId = NoObjectId;
+            _targeter?.SetHoldTarget(null);
         }
 
         private void ToggleTestHold()

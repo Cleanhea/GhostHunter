@@ -18,8 +18,8 @@ using UnityEngine;
 namespace GhostHunter.Systems.Installers
 {
     /// <summary>
-    /// 스테이지 씬(Tutorial·ProtoTypeGame·Stage1)의 스폰 위치와 로컬 플레이어 컴포넌트 접근을 등록한다.
-    /// 귀신·청소는 선택 배선이다. Tutorial·Stage1 은 조명 설정을 공유한다.
+    /// 스테이지 씬의 스폰 위치와 로컬 플레이어 컴포넌트 접근을 등록한다.
+    /// 귀신·청소·조명은 선택 배선이다.
     /// </summary>
     [DefaultExecutionOrder(SceneInstaller.ExecutionOrder)]
     [DisallowMultipleComponent]

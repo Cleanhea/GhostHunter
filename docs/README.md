@@ -33,6 +33,7 @@ docs/
 │   ├── death-system.md           죽음 판정·연출·시체·사망 상태·치료비·전멸 — 기획 0.1
 │   ├── revival-system.md         부활 의식 — 소환진·촛불 5개·타이밍 점화·폐급 두더지
 │   ├── stage-system.md           스테이지 시작·종료·정산·호스트 이전 — 기획 1.0과 2026-09-27 확정 사항
+│   ├── stage2.md                 Stage1 다음 씬 — 원본 OBJ 맵·물리 가구·필수 배선·검증
 │   ├── spectator-system.md         사망 후 능력 제한·자유시점·생존자 관전 — 코드 구현, Play 검증 대기
 │   ├── voice-chat-system.md        근접 음성 채팅(마이크) — 25m XZ 역거리 감쇠·벽 가림·층 차단, 기획 0.5 (선행 결정 4건 확정)
 │   ├── roadmap.md                  마일스톤 & 태스크 보드
@@ -88,6 +89,7 @@ docs/
 | [project/death-system.md](project/death-system.md) | 언제 사망하고 시체·사망 상태·치료비·전멸을 어떻게 처리하는가 | 사망·시체·전멸·치료비 규칙 변경 |
 | [project/revival-system.md](project/revival-system.md) | 시체를 소환진에 놓고 촛불 5개를 점화해 어떻게 부활하고 폐급이 되는가 | 부활 의식·촛불·폐급 규칙 변경 |
 | [project/stage-system.md](project/stage-system.md) | 한 판을 어떻게 시작·종료·정산하고 호스트 이탈 후 이어 가는가 | 시작·종료·정산·세션 이전 규칙 변경 |
+| [project/stage2.md](project/stage2.md) | Stage2 원본 맵·가구·드릴카·청소·귀신·부활의 배선과 검증 | Stage2 씬·가구 배치 변경 |
 | [architecture/death-system.md](architecture/death-system.md) | 임시 시체와 전멸 결과를 어떻게 동기화하는가 | 죽음 구현·검증 변경 |
 | [project/spectator-system.md](project/spectator-system.md) | 사망 후 무엇을 할 수 있고 두 관전 모드는 어떻게 전환하는가 | 사망·관전 규칙 확정 및 구현 |
 | [project/voice-chat-system.md](project/voice-chat-system.md) | 마이크 음성이 거리·벽·층에 따라 어떻게 들리는가 | 음성 감쇠·가림·전송 규칙(VC-1~20) 확정 및 구현 |

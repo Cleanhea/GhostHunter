@@ -10,7 +10,7 @@ GhostHunter — 1인칭 멀티플레이 "가구 던지기" 게임. 규칙은 [gd
 Unity **6000.3.20f1** · URP 17.3 · Input System 1.19(신규 전용) · NGO **2.13.1**(서버 권위) ·
 Steam 트랜스포트 facepunch(임베드+패치) · 로컬 UTP 2.7.3(개발 전용, [ADR-0011](docs/architecture/decisions/ADR-0011-local-transport-path.md)) ·
 Facepunch.Steamworks 2.5.2 · UniTask 2.5.11 · PhysX · Force Text 직렬화.
-씬: Bootstrap(상주) → Title → Lobby(일반 로비) → Tutorial → Result → InGameLobby ⇄ Stage1 → Result → InGameLobby …
+씬: Bootstrap(상주) → Title → Lobby(일반 로비) → InGameLobby → Tutorial → Result → InGameLobby → Stage1 → Result → InGameLobby → Stage2 → Result → InGameLobby …
 (첫 스테이지 [ADR-0021](docs/architecture/decisions/ADR-0021-tutorial-first-stage.md), additive, 세션은 스테이지 사이에도 유지 — [ADR-0018](docs/architecture/decisions/ADR-0018-persistent-session-in-game-lobby.md)).
 구 Game 씬은 프로토타입 검증용 **ProtoTypeGame**, 스테이지 판정은 `SceneId.IsStage()`([ADR-0019](docs/architecture/decisions/ADR-0019-stage1-scene-split.md)). 구조: [overview.md](docs/architecture/overview.md)
 
@@ -25,7 +25,7 @@ Facepunch.Steamworks 2.5.2 · UniTask 2.5.11 · PhysX · Force Text 직렬화.
 | 시스템·폴더·어셈블리·씬 구조 | `architecture/overview.md`, `architecture/decisions/` |
 | 네트워크(RPC·NetworkVariable) | `architecture/networking.md` |
 | Steam·빠른 실행 절차 | `architecture/steam.md` |
-| 일반 로비·인게임 로비·상점·스테이지 전환·Stage1 씬 | `project/stage-system.md` §1.1, ADR-0018·ADR-0019 |
+| 일반 로비·인게임 로비·상점·스테이지 전환·Stage1 씬 | `project/stage-system.md` §1.1~1.3, `project/stage2.md`, ADR-0018·ADR-0019·ADR-0025 |
 | Tutorial 모텔·첫 스테이지 흐름 | `project/tutorial-stage.md`, ADR-0021 · 에셋 규약 `conventions/unity-assets.md` |
 | 스테이지 시작·종료·정산·호스트 이전 | `project/stage-system.md`, 구현 시 `architecture/networking.md`·ADR-0017 |
 | 플레이어 이동·시점·입력·캐릭터 모델 | `architecture/player-controller.md` |

@@ -19,7 +19,7 @@ Gameplay·테스트에 기존 Unity.Collections 참조를 추가했다 → [voic
 
 ```
 Assets/
-├── Scenes/            Bootstrap, Title, Lobby(일반 로비), InGameLobby(세션 유지 — ADR-0018), Tutorial(첫 스테이지 — ADR-0021), Stage1(스테이지 — ADR-0019),
+├── Scenes/            Bootstrap, Title, Lobby(일반 로비), InGameLobby(세션 유지 — ADR-0018), Tutorial(첫 스테이지 — ADR-0021), Stage1(스테이지 — ADR-0019), Stage2(Stage1 다음 — ADR-0025),
 │                      ProtoTypeGame(구 Game — 프로토타입 검증), Result
 ├── Scripts/           런타임 C# (§2)
 ├── Prefabs/           Player, Furniture_*, Ghost/Ghost_Prototype, UI_*
@@ -166,11 +166,12 @@ additive로 얹었다 내린다 → [ADR-0004](decisions/ADR-0004-multi-scene-ad
 | `InGameLobby` | 세션을 연 채 스테이지 사이에 머무는 방 — 상점·정산 이력·스테이지 출발([ADR-0018](decisions/ADR-0018-persistent-session-in-game-lobby.md)) | Additive — `NetworkManager.SceneManager` |
 | `Tutorial` | 첫 스테이지 원룸(202호)·청소/반출·귀신·튜토리얼 UI·앞마당 드릴카·정신력·종료 단말기. 정산 후 다음 출발은 Stage1([ADR-0021](decisions/ADR-0021-tutorial-first-stage.md)) | Additive — `NetworkManager.SceneManager` |
 | `Stage1` | 스테이지. B안 집·드릴카(모델 프리팹 `Prefabs/Map/DrillCar` — 실내 안전 구역·정신력 UI, 차체 오른쪽 옆 반출 구역 내장 배치)·같은 오른쪽 옆 가구 조립 영역. 귀신·청소·부활 의식 포함([ADR-0019](decisions/ADR-0019-stage1-scene-split.md)). ProtoTypeGame 에서 복사해 만들었다 | Additive — `NetworkManager.SceneManager` |
+| `Stage2` | Stage1 정산 뒤 출발하는 원본 OBJ 맵. 드릴카 실내 4인 스폰·가구 잡기/반출·청소·기본 귀신·부활·상태 HUD. [구성/검증](../project/stage2.md), [ADR-0025](decisions/ADR-0025-stage2-progression.md) | Additive — `NetworkManager.SceneManager` |
 | `ProtoTypeGame` | 프로토타입 검증 씬(구 `Game`). 비교용 집·테스트베드·귀신·청소까지 전부. 자동 검증 대상 | Additive — `NetworkManager.SceneManager` |
 | `Result` | 결과 정산 | Additive |
 | `DinoTest` | **개발 전용** 박치기 공룡 귀신 시험장(2026-11-09). 24×24m 평지에 정면 벽·25° 비스듬한 벽·의자·낮은 상자(0.25·0.22m)·식탁·소파·좁은 복도+닫힌 문, 바닥 글씨 A~D. 귀신은 `Ghost_Tutorial`(박치기 설정 `GhostDinoSettings` — Tutorial 과 같은 귀신, 쉬움이라 돌진 5m/s. Default 는 기본 귀신이라 쓰지 않는다, ADR-0024). 드릴카·청소·반출 없음. F1 접속 HUD "Host → 박치기 시험장 (Local)"로만 들어간다. Tutorial 을 복사해 시스템(설치기·정신력·UI·일시정지·조명)을 두고 지형을 바꿨다 | Additive — `NetworkManager.SceneManager` |
 
-"스테이지인가"는 `SceneIdExtensions.IsStage()`(ProtoTypeGame·Stage1·Tutorial·DinoTest) 한 곳에서 판정한다 — 정신력·사망·정산·호스트 이전·음성 그룹이
+"스테이지인가"는 `SceneIdExtensions.IsStage()`(ProtoTypeGame·Stage1·Stage2·Tutorial·DinoTest) 한 곳에서 판정한다 — 정신력·사망·정산·호스트 이전·음성 그룹이
 이 판정을 쓴다. 2026-09-28 이전 문서의 "Game 씬"은 지금의 ProtoTypeGame 이다.
 
 **규칙**

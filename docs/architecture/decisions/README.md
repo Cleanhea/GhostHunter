@@ -59,6 +59,7 @@
 | [0022](ADR-0022-unity-microphone-opus-voice.md) | 음성 캡처를 Unity Microphone + Opus(Concentus)로 바꾼다 | Accepted | 2026-10-03 |
 | [0023](ADR-0023-server-notified-3d-sound.md) | 서버가 소리를 알리고 각 접속자가 3D 로 재생한다(객체별 NetworkSoundEmitter) | Accepted | 2026-10-29 |
 | [0024](ADR-0024-ghost-type-settings-inheritance.md) | 귀신 종류 설정은 기본 귀신 설정을 상속한다(박치기 = `GhostDinoSettings`, Default 는 기본 귀신) | Accepted | 2026-11-09 |
+| [0025](ADR-0025-stage2-progression.md) | Stage1 정산 뒤 다음 출발을 Stage2로 연결한다 | Accepted | 2026-11-09 |
 
 ## 5. 작성 대기
 

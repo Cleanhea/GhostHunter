@@ -22,7 +22,7 @@ namespace GhostHunter.Core.Scenes
 
         /// <summary>
         /// 인게임 로비 — 세션을 연 채 스테이지 사이를 잇는 공간(상점·다음 스테이지 시작).
-        /// 첫 게임은 Tutorial, 이후에는 인게임 로비 → Stage1 → Result → 인게임 로비로 돈다.
+        /// Tutorial → Stage1 → Stage2 순서로 출발하며 스테이지 사이에는 Result·인게임 로비를 거친다.
         /// </summary>
         InGameLobby = 5,
 
@@ -37,6 +37,9 @@ namespace GhostHunter.Core.Scenes
         /// 돌진 충돌을 경우별로 재현한다. F1 접속 HUD 의 "Host → 박치기 시험장"으로만 들어간다(인게임 로비 출발 대상 아님).
         /// </summary>
         DinoTest = 8,
+
+        /// <summary>Stage1 정산 후 인게임 로비에서 출발하는 두 번째 본 스테이지.</summary>
+        Stage2 = 9,
     }
 
     public static class SceneIdExtensions
@@ -46,6 +49,6 @@ namespace GhostHunter.Core.Scenes
         /// 스테이지를 새로 추가하면 여기에 넣는다.
         /// </summary>
         public static bool IsStage(this SceneId id) =>
-            id is SceneId.ProtoTypeGame or SceneId.Stage1 or SceneId.Tutorial or SceneId.DinoTest;
+            id is SceneId.ProtoTypeGame or SceneId.Stage1 or SceneId.Stage2 or SceneId.Tutorial or SceneId.DinoTest;
     }
 }

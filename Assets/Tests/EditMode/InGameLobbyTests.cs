@@ -236,6 +236,9 @@ namespace GhostHunter.Tests.EditMode
             // 두 씬 모두 플레이어 서비스를 등록하므로 겹치면 두 번째 등록이 충돌한다.
             Assert.IsTrue(SceneFlowController.UnloadsBeforeLoad(SceneId.InGameLobby, SceneId.Stage1));
             Assert.IsTrue(SceneFlowController.UnloadsBeforeLoad(SceneId.Stage1, SceneId.InGameLobby));
+            Assert.IsTrue(SceneFlowController.UnloadsBeforeLoad(SceneId.InGameLobby, SceneId.Stage2));
+            Assert.IsTrue(SceneFlowController.UnloadsBeforeLoad(SceneId.Stage2, SceneId.InGameLobby));
+            Assert.IsFalse(SceneFlowController.UnloadsBeforeLoad(SceneId.Stage2, SceneId.Result));
             Assert.IsTrue(SceneFlowController.UnloadsBeforeLoad(SceneId.ProtoTypeGame, SceneId.InGameLobby));
             Assert.IsFalse(SceneFlowController.UnloadsBeforeLoad(SceneId.Stage1, SceneId.Result),
                 "정산 화면은 스테이지 플레이어를 옮겨 받는다 — 겹쳐 올린다");
@@ -244,9 +247,12 @@ namespace GhostHunter.Tests.EditMode
         }
 
         [Test]
-        public void 스테이지는_Stage1과_ProtoTypeGame이다()
+        public void 플레이_스테이지는_정신력과_정산_흐름에_참여한다()
         {
             Assert.IsTrue(SceneId.Stage1.IsStage());
+            Assert.IsTrue(SceneId.Stage2.IsStage());
+            Assert.IsTrue(SceneId.Tutorial.IsStage());
+            Assert.IsTrue(SceneId.DinoTest.IsStage());
             Assert.IsTrue(SceneId.ProtoTypeGame.IsStage(), "프로토타입 씬도 정신력·정산·음성 그룹이 켜지는 스테이지다");
             foreach (SceneId id in new[] { SceneId.Bootstrap, SceneId.Title, SceneId.Lobby, SceneId.Result, SceneId.InGameLobby })
                 Assert.IsFalse(id.IsStage(), $"{id} 는 스테이지가 아니다");

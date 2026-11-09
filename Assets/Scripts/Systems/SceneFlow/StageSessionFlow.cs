@@ -10,7 +10,7 @@ namespace GhostHunter.Systems.SceneFlow
 {
     /// <summary>
     /// 세션을 유지한 채 인게임 로비 ⇄ 스테이지를 전환한다(ADR-0018). 서버(호스트)만 시작한다.
-    /// 첫 출발은 Tutorial, 정상 종료·전멸 정산 이후 출발은 Stage1 이다.
+    /// 정산을 거쳐 Tutorial → Stage1 → Stage2 순서로 출발한다.
     ///
     /// <para>순서: 플레이어 디스폰(이전 씬 서비스가 살아 있을 때 정리) → <see cref="ISceneFlow.Load"/>(세션 중이라
     /// NGO 씬 로드·이전 씬 언로드) → 새 씬 서비스가 등록된 뒤 접속자마다 플레이어 재스폰. 재스폰한 플레이어는
@@ -23,7 +23,7 @@ namespace GhostHunter.Systems.SceneFlow
     {
         private ISceneFlow _sceneFlow;
         private bool _transitioning;
-        private bool _tutorialCompleted;
+        private SceneId _nextStage = SceneId.Tutorial;
         private SceneId _previousScene;
 
         public bool IsTransitioning => _transitioning;
@@ -63,15 +63,20 @@ namespace GhostHunter.Systems.SceneFlow
         private void HandleSceneChanged(SceneId scene)
         {
             if (scene is SceneId.Title or SceneId.Lobby)
-                _tutorialCompleted = false;
-            else if (_previousScene == SceneId.Tutorial && scene == SceneId.Result)
-                _tutorialCompleted = true;
+                _nextStage = SceneId.Tutorial;
+            else if (scene == SceneId.Result)
+            {
+                if (_previousScene == SceneId.Tutorial)
+                    _nextStage = SceneId.Stage1;
+                else if (_previousScene is SceneId.Stage1 or SceneId.Stage2)
+                    _nextStage = SceneId.Stage2;
+            }
             _previousScene = scene;
         }
 
         public bool StartStage() =>
             CanControl && _sceneFlow.Current == SceneId.InGameLobby
-            && Begin(_tutorialCompleted ? SceneId.Stage1 : SceneId.Tutorial);
+            && Begin(_nextStage);
 
         public bool ReturnToInGameLobby() =>
             CanControl && (_sceneFlow.Current.IsStage() || _sceneFlow.Current == SceneId.Result)

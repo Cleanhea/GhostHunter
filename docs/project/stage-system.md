@@ -39,6 +39,14 @@
 기존 종료 단말기·정산·세션 유지 규칙을 사용한다. 전용 과제나 자동 클리어 조건은 추가하지 않았다.
 맵 재질·현재 크기·앞쪽 드릴카·Stage1 조명 참조 배치와 검증은 [tutorial-stage.md](tutorial-stage.md)에 기록한다.
 
+### 1.3 Stage1 다음 출발은 Stage2 (2026-11-09)
+
+Stage1 정상 종료 또는 전멸 → Result → InGameLobby → 다음 출발 **Stage2**.
+정산 없이 인게임 로비로 나오면 Stage1을 재시도하고, Stage2에서도 정산 없는 복귀는 Stage2 재시도다.
+Title/Lobby 복귀 시 첫 출발은 Tutorial로 초기화한다. 마지막으로 정의된 Stage2 이후에는 출발 대상을 유지한다.
+`Assets/Mesh/Stage2`의 원본 가구를 잡기·반출 가능한 씬 프리팹으로 구성하며, 드릴카 실내에서 4명이 시작한다.
+필수 오브젝트·좌표·검증·미확정 수량은 [stage2.md](stage2.md), 흐름 결정은 [ADR-0025](../architecture/decisions/ADR-0025-stage2-progression.md).
+
 ## 2. 로비와 시작
 
 - 한 방의 최대 인원은 4명이다. **2명 이상** 참가하고 방장 외 전원이 준비했을 때만 방장의 시작 버튼을 활성화한다.

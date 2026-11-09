@@ -374,6 +374,130 @@ namespace GhostHunter.Tests.PlayMode
             yield return VerifyTutorialEnd(true);
         }
 
+        [UnityTest, Timeout(400000)]
+        public IEnumerator Stage1은_정산_없이_재시도하고_정상_종료하면_Stage2로_진행한다()
+        {
+            yield return VerifyStage2Progression(false);
+        }
+
+        [UnityTest, Timeout(400000)]
+        public IEnumerator Stage1에서_전멸해도_정산_뒤_Stage2의_서비스와_플레이어를_올린다()
+        {
+            yield return VerifyStage2Progression(true);
+        }
+
+        private IEnumerator VerifyStage2Progression(bool teamWiped)
+        {
+            yield return VerifyTutorialEnd(teamWiped);
+            ISceneFlow flow = Services.Get<ISceneFlow>();
+            IStageSessionFlow stages = Services.Get<IStageSessionFlow>();
+            if (!teamWiped)
+            {
+                Assert.IsTrue(stages.ReturnToInGameLobby());
+                yield return WaitForPlayerIn(flow, stages, SceneId.InGameLobby);
+                Assert.IsTrue(stages.StartStage());
+                yield return WaitForPlayerIn(flow, stages, SceneId.Stage1);
+            }
+            yield return WaitUntil(() => Services.Get<ICleaningService>().DirtyCount > 0, "Stage1 초기화 대기");
+            ulong oldPlayerId = LocalPlayer().NetworkObjectId;
+            if (teamWiped)
+                Assert.IsTrue(LocalPlayer().GetComponent<SanityNetworkState>().ServerMarkDead());
+            else
+                yield return EndStageThroughTerminal();
+            yield return WaitUntil(() => flow.Current == SceneId.Result && !flow.IsLoading, "Stage1 정산");
+            yield return ClickResultReturn();
+            yield return WaitForPlayerIn(flow, stages, SceneId.InGameLobby);
+            Assert.IsTrue(stages.StartStage());
+            yield return WaitForPlayerIn(flow, stages, SceneId.Stage2);
+            Assert.AreNotEqual(oldPlayerId, LocalPlayer().NetworkObjectId);
+            Assert.IsFalse(SceneManager.GetSceneByName("Stage1").isLoaded);
+            Assert.IsNotNull(FindRoot(LocalPlayer().gameObject.scene, "Stage2Navigation"));
+            Assert.IsTrue(LocalPlayer().GetComponent<SanityNetworkState>().HasSanity);
+            Assert.IsNotNull(Object.FindFirstObjectByType<StageExitInteractable>());
+            Assert.IsNotNull(Object.FindFirstObjectByType<BatteryPack>());
+            Assert.IsTrue(DrillCarSafeZone.Contains(LocalPlayer().transform.position), "Stage2 드릴카 내부 스폰");
+            ICleaningService cleaning = Services.Get<ICleaningService>();
+            yield return WaitUntil(() => cleaning.DirtyCount > 0, "Stage2 청소 배치");
+            var furniture = Object.FindFirstObjectByType<GhostHunter.Gameplay.Map.FurnitureSpawnController>();
+            yield return WaitUntil(() => furniture.IsReady, "Stage2 가구 배치");
+            Assert.AreEqual(18, Array.FindAll(furniture.Items, item => item.IsPresent).Length);
+            Assert.AreEqual(18, cleaning.TaskProgress.TotalFurniture, "원본 이동 가구 전부를 반출 목표로 집계한다");
+            foreach (var item in furniture.Items)
+            {
+                var grab = item.GetComponent<GhostHunter.Gameplay.Furniture.FurnitureGrabTarget>();
+                Assert.IsTrue(grab.ServerTryAddHolder(NetworkManager.Singleton.LocalClientId,
+                    item.transform.position + Vector3.up, Vector3.forward), item.name);
+                Assert.AreEqual(GhostHunter.Gameplay.Furniture.FurnitureState.ThrowReady, grab.State);
+                grab.ServerForceRelease(NetworkManager.Singleton.LocalClientId);
+                Assert.AreEqual(0, grab.HolderCount);
+            }
+            yield return WalkStage2Passages();
+            var target = Array.Find(furniture.Items, item => item.IsWorkTarget);
+            var delivery = GhostHunter.Gameplay.Map.FurnitureDeliveryZone.Current;
+            Vector3 deliveryPosition = delivery.transform.position;
+            deliveryPosition.y = 0.03f;
+            Assert.IsTrue(target.ServerPlace(new Pose(deliveryPosition, Quaternion.identity), true));
+            target.GetComponent<Rigidbody>().linearVelocity = Vector3.zero;
+            yield return WaitUntil(() => target.IsDelivered, "Stage2 실제 반출 구역에서 포장 완료");
+            Assert.AreEqual(1, cleaning.TaskProgress.DeliveredFurniture);
+            var spawner = Object.FindFirstObjectByType<GhostPrototypeSpawner>();
+            yield return WaitUntil(() => spawner.ActiveGhost != null, "Stage2 귀신 스폰");
+            Assert.IsTrue(NavMesh.SamplePosition(spawner.ActiveGhost.transform.position, out _, 1f, NavMesh.AllAreas));
+            var ritual = Object.FindFirstObjectByType<GhostHunter.Gameplay.Revival.RevivalRitual>();
+            yield return WaitUntil(() => ritual.IsPlaced, "Stage2 부활 의식 배치");
+            Assert.AreEqual("Stage2RitualRoom", ritual.RoomName);
+            if (!teamWiped)
+            {
+                yield return EndStageThroughTerminal();
+                yield return WaitUntil(() => flow.Current == SceneId.Result && !flow.IsLoading, "Stage2 종료 단말기 정산");
+                Assert.AreEqual(1, flow.SettlementHistory[flow.SettlementHistory.Count - 1].DeliveredFurniture);
+                Assert.AreEqual(18, flow.SettlementHistory[flow.SettlementHistory.Count - 1].TargetFurniture);
+                yield return ClickResultReturn();
+            }
+            else
+                Assert.IsTrue(stages.ReturnToInGameLobby());
+            yield return WaitForPlayerIn(flow, stages, SceneId.InGameLobby);
+            Assert.IsTrue(stages.StartStage());
+            yield return WaitForPlayerIn(flow, stages, SceneId.Stage2);
+            Assert.IsEmpty(_exceptions, "예외:\n" + string.Join("\n---\n", _exceptions));
+        }
+
+        private static IEnumerator WalkStage2Passages()
+        {
+            NetworkObject player = LocalPlayer();
+            player.GetComponent<SanityNetworkState>().ServerGrantProtection(SceneTimeoutSeconds);
+            var motor = player.GetComponent<GhostHunter.Gameplay.Player.PlayerMotor>();
+            motor.enabled = false;
+            CharacterController body = player.GetComponent<CharacterController>();
+            var entrance = Array.Find(Object.FindObjectsByType<GhostHunter.Gameplay.Interaction.DoorInteractable>(
+                FindObjectsSortMode.None), door => door.name == "Stage2EntranceDoor");
+            Assert.IsNotNull(entrance);
+            entrance.ServerForceOpen();
+            for (int i = 0; i < 30; i++) yield return null;
+            Vector3[][] routes =
+            {
+                new[] { new Vector3(1.4f, 0.03f, 12f), new Vector3(-1f, 0.03f, 12f) },
+                new[] { new Vector3(-10.3f, 0.03f, 0.7f), new Vector3(-10.3f, 0.03f, -1f) },
+                new[] { new Vector3(-5.2f, 0.03f, 2.7f), new Vector3(-6.7f, 0.03f, 2.7f) },
+            };
+            foreach (Vector3[] route in routes)
+            {
+                motor.Teleport(route[0], Quaternion.identity);
+                for (int step = 0; step < 120; step++)
+                {
+                    Vector3 delta = route[1] - player.transform.position;
+                    delta.y = 0f;
+                    if (delta.magnitude < 0.08f) break;
+                    body.Move(delta.normalized * Mathf.Min(0.05f, delta.magnitude) + Vector3.down * 0.02f);
+                    yield return null;
+                }
+                Vector3 remaining = route[1] - player.transform.position;
+                remaining.y = 0f;
+                Assert.Less(remaining.magnitude, 0.13f, "Stage2 출입 통로 막힘 " + player.transform.position);
+            }
+            motor.enabled = true;
+        }
+
         private IEnumerator VerifyTutorialEnd(bool teamWiped)
         {
             LogAssert.ignoreFailingMessages = true;
@@ -462,6 +586,7 @@ namespace GhostHunter.Tests.PlayMode
 
         private static IEnumerator EndStageThroughTerminal()
         {
+            SceneId currentStage = Services.Get<ISceneFlow>().Current;
             StageExitInteractable terminal = Object.FindFirstObjectByType<StageExitInteractable>();
             DrillCarSafeZone zone = terminal.GetComponentInParent<DrillCarSafeZone>();
             Vector3 probe = terminal.transform.position - zone.transform.forward * 0.8f;
@@ -502,7 +627,7 @@ namespace GhostHunter.Tests.PlayMode
                 Assert.IsTrue((bool)confirmation.GetValue(interactor), "버튼 밖에서 눌러 안에서 놓는 드래그는 클릭이 아니다");
                 yield return Click(mouse, cancel);
                 Assert.IsFalse((bool)confirmation.GetValue(interactor), "새 Input System 클릭으로 취소창이 닫혀야 한다");
-                Assert.AreEqual(SceneId.Tutorial, Services.Get<ISceneFlow>().Current);
+                Assert.AreEqual(currentStage, Services.Get<ISceneFlow>().Current);
 
                 typeof(PlayerInteractor).GetField("_currentStageExit", flags).SetValue(interactor, terminal);
                 open.Invoke(interactor, null);
