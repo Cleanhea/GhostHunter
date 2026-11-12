@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using GhostHunter.Core;
 using GhostHunter.Gameplay.Cleaning;
 using GhostHunter.Gameplay.Ghost;
 using GhostHunter.Gameplay.FurnitureDriver;
@@ -7,6 +8,7 @@ using GhostHunter.Gameplay.Map;
 using GhostHunter.Gameplay.Player;
 using GhostHunter.Gameplay.Recovery;
 using GhostHunter.Gameplay.Sanity;
+using GhostHunter.Gameplay.Theft;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -101,6 +103,14 @@ namespace GhostHunter.Systems.Steam
             if (pack != null && pack.IsSpawned)
                 pack.CaptureStageState(snapshot);
 
+            if (Services.TryGet(out IStageTheftService theft))
+            {
+                snapshot.StolenValuables = new int[theft.StolenIds.Count];
+                for (int i = 0; i < snapshot.StolenValuables.Length; i++)
+                    snapshot.StolenValuables[i] = theft.StolenIds[i];
+                snapshot.StolenMoney = theft.StolenMoney;
+            }
+
             DoorInteractable[] doors = Object.FindObjectsByType<DoorInteractable>(FindObjectsSortMode.None);
             snapshot.Doors = new StageRecoverySnapshot.DoorState[doors.Length];
             for (int i = 0; i < doors.Length; i++)
@@ -140,6 +150,13 @@ namespace GhostHunter.Systems.Steam
             foreach (FurnitureAssemblyZone zone in FurnitureAssemblyZone.All)
                 zone.ServerRefreshCandidates();
             Object.FindFirstObjectByType<BatteryPack>()?.ServerRestoreStageState(snapshot);
+            if (Services.TryGet(out IStageTheftService theft))
+            {
+                theft.ServerRestore(snapshot.StolenValuables, snapshot.StolenMoney);
+                foreach (PlayerTheft player in Object.FindObjectsByType<PlayerTheft>(FindObjectsSortMode.None))
+                    if (player.IsSpawned)
+                        player.ServerSyncOwner();
+            }
 
             DoorInteractable[] doors = Object.FindObjectsByType<DoorInteractable>(FindObjectsSortMode.None);
             var doorByPath = new Dictionary<string, DoorInteractable>(doors.Length);

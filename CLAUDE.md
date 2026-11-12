@@ -38,6 +38,7 @@ Facepunch.Steamworks 2.5.2 · UniTask 2.5.11 · PhysX · Force Text 직렬화.
 | 플레이어 스킬 | `project/mole-skill-system.md` |
 | 헤드라이트(손전등)·배터리·충전 UI | `project/headlamp-system.md`, `architecture/headlamp.md` |
 | 리프트(승강 발판)·리프트 본체 밀기·버튼 | `project/lift-system.md`, `architecture/lift-system.md` |
+| 도둑질(귀중품 훔치기)·+n$ 표시·정신력 회복 테두리 | `project/theft-system.md`, `architecture/theft-system.md` |
 | 일시정지·나가기·끊김 / 퀵슬롯 | `architecture/pause-menu.md` / `architecture/quick-slot.md` (기획은 `project/` 같은 이름) |
 | 음성 채팅 | `project/voice-chat-system.md`, `architecture/voice-chat.md` |
 | 효과음·환경음(3D 사운드)·큐·충돌음 | `architecture/audio-system.md`, ADR-0023 |

@@ -1,0 +1,34 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a8a938f12ff344799506c7e9ea639e43, type: 3}
+  m_Name: TheftSettings_Default
+  m_EditorClassIdentifier: GhostHunter.Gameplay::GhostHunter.Gameplay.Theft.TheftSettings
+  _serverReachDistance: 3.5
+  _eyeHeight: 1.2
+  _referenceResolution: {x: 1920, y: 1080}
+  _promptRightMargin: 378
+  _promptBottomMargin: 161
+  _promptSize: {x: 132, y: 50}
+  _promptFontSize: 20
+  _priceColor: {r: 0.32941177, g: 0.8392157, b: 0.6784314, a: 1}
+  _priceOffsetBelowCenter: 61
+  _priceFontSize: 40
+  _priceShowSeconds: 1.2
+  _priceFadeSeconds: 0.6
+  _pricePopSeconds: 0.18
+  _pricePopScale: 1.3
+  _priceRisePixels: 28
+  _glowColor: {r: 0.7607843, g: 0.9882353, b: 0.9529412, a: 1}
+  _glowSeconds: 2
+  _glowFillSeconds: 0.5
+  _glowEdgeWidth: 0.62
+  _glowStrength: 0.75

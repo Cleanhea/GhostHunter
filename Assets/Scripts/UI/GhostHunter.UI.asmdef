@@ -9,6 +9,7 @@
         "Unity.InputSystem",
         "UnityEngine.UI",
         "Unity.RenderPipelines.Core.Runtime",
+        "Unity.RenderPipelines.Universal.Runtime",
         "UniTask"
     ],
     "includePlatforms": [],

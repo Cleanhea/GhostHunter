@@ -6,6 +6,7 @@ using GhostHunter.Gameplay.Lift;
 using GhostHunter.Gameplay.Map;
 using GhostHunter.Gameplay.Revival;
 using GhostHunter.Gameplay.Sanity;
+using GhostHunter.Gameplay.Theft;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -37,6 +38,13 @@ namespace GhostHunter.Gameplay.Interaction
 
         /// <summary>지금 조준 중인 리프트 버튼. 우클릭으로 누르고 프롬프트가 읽는다(lift-system.md).</summary>
         public LiftButton CurrentLiftButton { get; private set; }
+
+        /// <summary>
+        /// 지금 조준 중인 아직 안 훔친 귀중품(theft-system.md). 죽었거나 입력이 잠겼으면 null — "E 훔치기" HUD 가 읽는다.
+        /// </summary>
+        public Valuable CurrentValuable { get; private set; }
+
+        private PlayerTheft _theft;
         private StageExitInteractable _currentStageExit;
         private StageLobbyTerminal _currentLobbyTerminal;
         private RevivalCandleSlot _currentCandleSlot;
@@ -53,6 +61,7 @@ namespace GhostHunter.Gameplay.Interaction
         private void Awake()
         {
             _blockingMask = GameLayers.Player >= 0 ? ~(1 << GameLayers.Player) : ~0;
+            _theft = GetComponent<PlayerTheft>();
         }
 
         public override void OnNetworkSpawn()
@@ -76,6 +85,7 @@ namespace GhostHunter.Gameplay.Interaction
             CurrentDoor = null;
             CurrentBatteryPack = null;
             CurrentLiftButton = null;
+            CurrentValuable = null;
         }
 
         private void Update()
@@ -121,6 +131,10 @@ namespace GhostHunter.Gameplay.Interaction
             if (_currentShelfItem != null && _input.InteractPressedThisFrame
                 && !_input.IsDeathInputLocked && !_input.IsGameplayInputLocked)
                 RequestTakeShelfItemRpc(_currentShelfItem.Item);
+
+            // 귀중품 — 번호만 보내고 서버가 생존·거리·이미 훔쳐졌는지를 다시 검사한다(동시 입력은 서버가 판단).
+            if (CurrentValuable != null && _theft != null && _input.InteractPressedThisFrame)
+                _theft.RequestSteal(CurrentValuable);
         }
 
         private void FindTargets()
@@ -136,6 +150,7 @@ namespace GhostHunter.Gameplay.Interaction
                 _currentShelfItem = null;
                 CurrentBatteryPack = null;
                 CurrentLiftButton = null;
+                CurrentValuable = null;
                 return;
             }
 
@@ -146,6 +161,9 @@ namespace GhostHunter.Gameplay.Interaction
             _currentCandleSlot = hit.collider.GetComponent<RevivalCandleSlot>();
             _currentShelfItem = hit.collider.GetComponent<DrillCarShelfItem>();
             CurrentBatteryPack = hit.collider.GetComponentInParent<BatteryPack>();
+            Valuable valuable = hit.collider.GetComponentInParent<Valuable>();
+            CurrentValuable = valuable != null && !valuable.IsStolen
+                && !_input.IsDeathInputLocked && !_input.IsGameplayInputLocked ? valuable : null;
         }
 
         private void OpenStageExitConfirmation()

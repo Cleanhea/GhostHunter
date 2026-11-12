@@ -25,6 +25,7 @@ docs/
 │   ├── mole-skill-system.md        두더지 스킬(탐지·굴착) 공통 규칙·판정·쿨타임·UI — 저장소 반영 1.2
 │   ├── headlamp-system.md          기본 장착 헤드라이트(원문 "손전등" 0.1) — F키·배터리·드릴카 충전·충전 UI·효과음
 │   ├── lift-system.md              리프트(승강 발판) — 상승·하강 버튼·정지 포인트·막힘·본체 밀기, 원문 1.0(2026-11-02)·Tutorial/Stage1 배치
+│   ├── theft-system.md             도둑질(귀중품 훔치기) — E 훔치기·+n$ 표시·정신력 회복 테두리, 원문 1.0(2026-11-02)·구현(2026-11-12)
 │   ├── pause-menu-system.md        일시정지 메뉴·호스트 연결 끊김 규칙 — 구현됨, 수동 검증 대기
 │   ├── quick-slot-system.md        퀵슬롯 규칙·대걸레/맨손 장착
 │   ├── cleaning-system.md          대걸레·랜덤 얼룩·HUD 초기화, 상세 룰·진행도 미정
@@ -53,6 +54,7 @@ docs/
 │   ├── quick-slot.md                퀵슬롯 휠 구현 — 입력 잠금·선택 계산·장착 전달
 │   ├── headlamp.md                  헤드라이트 권위·복제·땅굴/은신 판정·조명 배치
 │   ├── lift-system.md               리프트 구현 — 발판 분리 구동·막힘 판정·플레이어 탑승·본체 밀기(가구 정의 확장)·씬 배치 기록
+│   ├── theft-system.md              도둑질 구현 — 귀중품 번호·서버 판정 RPC·공동 잔액·정산 칸·회복 테두리 렌더러 피처·임시 배치
 │   ├── cleaning-system.md           서버 얼룩 상태·청소 검증·씬 풀·설치/검증
 │   ├── furniture-multidriver.md     분해(짐더미 형태 전환 `FurnitureBundle`·코드 생성 메시)·조립 서버 판정·씬 풀 재배치·행동 시간 HUD — 손목 애니메이션·실루엣 렌더링 미구현
 │   ├── death-system.md              사망 연출·시체 물리·전멸 결과 데이터 흐름
@@ -82,6 +84,7 @@ docs/
 | [project/mole-skill-system.md](project/mole-skill-system.md) | 플레이어는 어떤 스킬을 언제 쓰고 어떻게 끝나는가 | 스킬 규칙·수치·연출 변경 |
 | [project/headlamp-system.md](project/headlamp-system.md) | 헤드라이트는 언제 켜지고 배터리는 어떻게 줄고 차는가 | 헤드라이트 규칙·수치·UI·효과음 변경 |
 | [project/lift-system.md](project/lift-system.md) | 리프트는 어떻게 오르내리고, 막히면 어디서 서며, 본체는 어떻게 미는가 | 리프트 규칙·치수·배치·버튼 입력(LF-Q1) 변경 |
+| [project/theft-system.md](project/theft-system.md) | 귀중품은 어떻게 훔치고, 훔치면 어떤 UI·돈·정신력 변화가 생기는가 | 도둑질 규칙·UI 규격·미결정(TH-Q1~9) 변경, 구현 시작 |
 | [project/pause-menu-system.md](project/pause-menu-system.md) | 매치를 어떻게 떠나고, 끊기면 무엇을 보는가 | 일시정지 메뉴·나가기·끊김 규칙 변경 |
 | [project/quick-slot-system.md](project/quick-slot-system.md) | 퀵슬롯 휠은 언제 열리고 무엇을 담는가 | 퀵슬롯 규칙·슬롯 구성 변경 |
 | [project/furniture-multidriver-system.md](project/furniture-multidriver-system.md) | 큰 가구를 어떻게 분해해서 옮기고 다시 조립하는가 | 분해(짐더미)·조립 규칙, 아이템 내구도 |
@@ -108,6 +111,7 @@ docs/
 | [architecture/quick-slot.md](architecture/quick-slot.md) | 퀵슬롯 휠의 입력 잠금·선택 계산·UI는 어떻게 구성되는가 | 퀵슬롯 배선·잠금 규칙 변경 |
 | [architecture/headlamp.md](architecture/headlamp.md) | 헤드라이트 상태는 누가 정하고 귀신 판정에 어떻게 들어가는가 | 헤드라이트 코드·배선·판정 변경 |
 | [architecture/lift-system.md](architecture/lift-system.md) | 리프트 상태는 누가 정하고, 발판·탑승·막힘은 어떻게 구현되며, 씬 어디에 놓였는가 | 리프트 코드·프리팹·배치·검증 변경 |
+| [architecture/theft-system.md](architecture/theft-system.md) | 귀중품은 어떻게 가리키고, 도둑질은 누가 확정하며, 돈·정신력·정산·테두리는 어떻게 연결되는가 | 도둑질 코드·프리팹·렌더러·배치 변경 |
 | [architecture/decisions/](architecture/decisions/README.md) | 왜 이렇게 골랐는가 | 되돌리기 비싼 선택 발생 시 |
 | [conventions/code-style.md](conventions/code-style.md) | C# 코드를 어떻게 쓰는가 | 규약 합의 변경 |
 | [conventions/unity-assets.md](conventions/unity-assets.md) | 에셋 이름·구조·설정은 | 에셋 파이프라인 변경 |
@@ -140,6 +144,7 @@ docs/
 | project/ghost-dino.md | 🟡 **구현(2026-11-07, Stage1·ProtoTypeGame `_Default` 에셋에 켬)** — 사이클 상태 기계 EditMode 14건·실제 컨트롤러 PlayMode 7건 통과. 실제 Stage1 돌진 장면·예고 연출(몸 조명만)·다인·난이도별 속도 미검증, 임시 해석·미결정 BD-1~15 확인 대기 |
 | project/ghost-base.md | 🟡 **Tutorial 한정 구현(2026-11-01)** — 컴파일·상태 기계 EditMode 통과, 실플레이·다인·정지 연출 미검증. 정지 유발 범위·속도 대상·해제 사유 등 임시 해석 BG-2·5·6·7·8 확인 대기 |
 | project/mole-skill-system.md | 🟢 **굴착: 기획서 1.0 규칙 구현 완료** (2026-09-05) — 키 T · 유지 5초 · 쿨타임 10초 · 조작 전부 잠금 · 감지 상태 매몰 시 은신 무효. 🟡 **탐지·공통 UI 코드 스캐폴드 + 시전 파란빛 오버레이 부분 구현** — Q·활성 판정·5초·10초·색상별 활성 마커·탐지/굴착 동시 게이지. **벽 투시는 없다**(시야에 보이는 표면만, 2026-09-05 확정). `Game` 씬·`Player` 프리팹·아이콘 배선은 정적 확인됐고 수동 Play 검증 대기, 손·레이저 포인터 애니메이션과 작업 시스템의 실제 대상 정의는 MS-14·MS-5. 마지막 완료 복제 batchmode EditMode **165/172**(탐지 신규 전부 통과 — 상태 머신 float 오차 버그 1건을 잡아 수정), 최신 재시도는 Licensing/오프라인 Git 패키지 단계에서 테스트 XML 전에 차단. 실패 1·skip 6은 복제 환경의 에셋 임포트 문제 |
+| project/theft-system.md | 🟡 **원문 1.0 반영·구현(2026-11-12).** 가격·돈·소멸·동시 입력 확정. 배치(TH-Q4)·애니메이션·폰트 등 TH-Q4~9 대기, Tutorial·Stage1 임시 배치. 실기·Steam 2인 미검증 |
 | project/lift-system.md | 🟡 **원문 1.0 반영·구현(2026-11-06).** 버튼 입력 원문 불일치 LF-Q1은 우클릭 임시, 속도·밀기 세기 등 LF-6~12 임시값. Tutorial·Stage1 임시 개구부(LF-Q2) 레벨 확정 대기 |
 | project/pause-menu-system.md | 🟢 **규칙 확정 + 구현 완료.** PM-1~15 전부 확정. 설정 화면 **내용**(PM-6)만 설정 시스템 기획서로 이월 / 수동 검증 대기 |
 | project/quick-slot-system.md | 🟡 **대걸레·맨손 장착 연결(2026-09-12).** 일반 인벤토리·정식 아이콘은 별도 작업 |
@@ -159,6 +164,7 @@ docs/
 | architecture/sanity-system.md | 🟢 코어 P1·World Space 4인 숫자 모니터 구현 / 실제 연출·콘텐츠 연결 TBD |
 | architecture/map-generation.md | 🟡 **B안 선택 + 가구 랜덤 배치 1차 구현(2026-09-12, MAP-19).** 임시 4종 16개 설정·서버 재배치·대상 복제·B안 앞마당 시작 위치를 설치했다. 풀 16개·안전 후보 91개 저장 및 설치 내부 seed 0~15 검증 완료. C# 빌드 경고 0·오류 0, 순수 계획 테스트 13/13 통과. **Unity Test Runner·Host/Client Play 검증 대기**. 정식 작업량·운반 완료·계단 세부·열쇠는 TBD → [설치 절차 §10.1.3](architecture/map-generation.md), [ADR-0013](architecture/decisions/ADR-0013-plan-b-random-furniture.md) |
 | architecture/lift-system.md | 🟡 **코드·프리팹·Tutorial/Stage1 배치 구현(2026-11-06).** EditMode·PlayMode 자동 검증 통과(§7). **화면 배치·조작감·클라이언트·호스트 이전 미검증** |
+| architecture/theft-system.md | 🟡 **구현(2026-11-12).** EditMode·PlayMode(실제 Tutorial 세션·렌더) 자동 검증 통과. 외형·폰트·배치 임시, 실기·Steam 2인 미검증 |
 | architecture/pause-menu.md | 🟢 **구현됨.** EditMode 141/142·PlayMode 12/12 통과 / **수동 검증(§10.4~10.6)과 선행 검증 D-1(클라이언트 씬 동기화 모드) 미수행** |
 | architecture/quick-slot.md | 🟡 **대걸레 장착 전달 연결.** 사망 게이팅 구현됨, 일반 인벤토리 대기 |
 | architecture/cleaning-system.md | 🟡 **씬·프리팹 설치/저장 및 Local Host 입력 검증 완료.** 자동 검증 결과·Steam 2PC 잔여 기록 |

@@ -187,6 +187,17 @@ namespace GhostHunter.Systems.Steam
             return true;
         }
 
+        public bool TryAddShopBalance(int amount)
+        {
+            if (amount <= 0 || !CurrentLobby.HasValue || !IsLobbyOwner)
+                return false;
+            ReadShopState(out int balance, out ShelfStock shelf);
+            if (!WriteShopState((int)Math.Min((long)balance + amount, int.MaxValue), shelf))
+                return false;
+            LobbyUpdated?.Invoke();
+            return true;
+        }
+
         public bool TrySetShopBalanceForDebug(int balance)
         {
             if (balance < 0 || !CurrentLobby.HasValue || !IsLobbyOwner)

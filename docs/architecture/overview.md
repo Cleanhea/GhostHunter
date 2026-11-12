@@ -58,6 +58,7 @@ Assets/Scripts/
 │   ├── Sanity/        개인 정신력·팀 평균·감소 누적·디버프 상태
 │   ├── Lighting/      스테이지 집 천장등·해·환경광 (로컬 연출, HUD 조절)
 │   ├── Lift/          리프트 — 서버 승강 발판·정지 포인트 규칙·버튼·설정 (lift-system.md)
+│   ├── Theft/         도둑질 — 귀중품(씬 컴포넌트)·스테이지 귀중품 상태 서비스·플레이어 서버 판정 RPC·설정 (theft-system.md)
 │   └── Map/           방 슬롯·프리셋·랜덤 가구 설정/후보/서버 배치
 ├── Networking/    연결·세션 관리 (트랜스포트 구현은 모른다)
 ├── UI/            뷰·프리젠터. Gameplay를 참조하되 그 반대는 금지
@@ -106,7 +107,7 @@ DebugTools ──▶ 전부 (개발 전용, 아무도 DebugTools를 참조하지
 | `GhostHunter.Data` | `Scripts/Data` | Core |
 | `GhostHunter.Gameplay` | `Scripts/Gameplay` | Core, Data, Unity.Netcode.Runtime, Unity.InputSystem, UniTask |
 | `GhostHunter.Networking` | `Scripts/Networking` | Core, Data, Gameplay, Unity.Netcode.Runtime, UniTask |
-| `GhostHunter.UI` | `Scripts/UI` | Core, Data, Gameplay, Unity.Netcode.Runtime, **Unity.InputSystem**, UnityEngine.UI, Unity.RenderPipelines.Core.Runtime, UniTask |
+| `GhostHunter.UI` | `Scripts/UI` | Core, Data, Gameplay, Unity.Netcode.Runtime, **Unity.InputSystem**, UnityEngine.UI, Unity.RenderPipelines.Core.Runtime, **Unity.RenderPipelines.Universal.Runtime**(2026-11-12 — 도둑질 회복 테두리 렌더러 피처 `TheftRecoveryGlowFeature`), UniTask |
 | `GhostHunter.Systems` | `Scripts/Systems` | Core, Data, Gameplay, Networking, Unity.Netcode.Runtime, UnityEngine.UI, FacepunchTransport, UniTask |
 | `GhostHunter.DebugTools` | `Scripts/DebugTools` | Core, Gameplay, Unity.Netcode.Runtime, Unity.InputSystem |
 | `GhostHunter.Editor` | `Scripts/Editor` | 런타임 7개 + 에디터/패키지 참조 (Editor 플랫폼 한정) |
@@ -401,7 +402,7 @@ NGO 로드와 언로드는 한 실행 루프를 사용하되 시작 거절·완�
 
 관련: [networking.md](networking.md) · [steam.md](steam.md) · [decisions/](decisions/README.md)
 
-최종 갱신: 2026-11-06 (리프트 `Gameplay/Lift`·프리팹·`LiftSettings` 추가 — 어셈블리 경계 변경 없음). 이전: 2026-09-28 (일회성 에디터 설치·생성 도구 삭제 — ADR-0020, 어셈블리 경계 변경 없음. 씬 구성: `Game` → `ProtoTypeGame` 이름 변경, 스테이지 씬 `Stage1` 추가, `SceneId.IsStage()` 판정 — ADR-0019.
+최종 갱신: 2026-11-12 (도둑질 `Gameplay/Theft` 추가, `GhostHunter.UI` 에 URP 런타임 참조 추가 — 새 어셈블리 경계 없음). 이전: 2026-11-06 (리프트 `Gameplay/Lift`·프리팹·`LiftSettings` 추가 — 어셈블리 경계 변경 없음). 이전: 2026-09-28 (일회성 에디터 설치·생성 도구 삭제 — ADR-0020, 어셈블리 경계 변경 없음. 씬 구성: `Game` → `ProtoTypeGame` 이름 변경, 스테이지 씬 `Stage1` 추가, `SceneId.IsStage()` 판정 — ADR-0019.
 어셈블리 경계 변경 없음. 이전: 2026-09-27 Player 프리팹에 머리 위 닉네임 `PlayerNameTag`·`PlayerNameTagView`와 설정 에셋 추가 —
 어셈블리 경계 변경 없음 → [player-controller.md](player-controller.md) "머리 위 닉네임". 이전: 2026-09-12 B안 랜덤 가구
 설정·후보·서버 배치 구조와 Game 씬 배선 반영. 풀 16개·후보 91개 저장, 기존 어셈블리 경계 유지.)

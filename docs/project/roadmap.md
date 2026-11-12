@@ -7,6 +7,8 @@
 
 ## 0. 시스템별 현재 상태
 
+**도둑질 시스템 구현(2026-11-12, 구현·자동 검증, 실기 미검증):** 「도둑질 시스템 기획서」 1.0을 [theft-system.md](theft-system.md)로 옮기고 구현했다 — 귀중품 조준 → 우하단 "E 훔치기" → 서버 판정(생존·거리·소멸, 동시 입력은 먼저 온 쪽) → 공동 잔액 즉시 가산(사망·실종에도 유지)·정신력 금액표 회복·"+ n$"(`#54d6ad`)·회복 테두리 2초(`#c2fcf3`, URP 전용 패스) → Result에 훔친 금액 별도 표시. 가격은 $2·3·5·10(사용자 확정). 배치 미정이라 Tutorial·Stage1에 [TEMP] 4개씩, 외형·폰트·애니메이션 임시 → [architecture/theft-system.md](../architecture/theft-system.md), §1.9.
+
 **Stage2 씬 연결(2026-11-09, 구현·자동 검증 완료):** Stage1 정산 → 인게임 로비 → Stage2. 원본 OBJ 맵·드릴카 실내 4인 스폰·청소·기본 귀신·부활·배터리·HUD를 구성하고 원본 이동 가구 **18개 모두를 반출 목표**로 연결했다(사용자 확정). 스케일 1 문·실내 출입·잡기·포장·정산 1/18 보존 확인. 컴파일 성공, 전체 EditMode 735/735·최종 관련 72/72·PlayMode 10/10 및 정산 추가 2/2 통과. 기존 obsolete 경고 1종·NGO 씬 핸들 오류와 실제 화면/Steam 다인 확인은 남아 있다 → [stage2.md](stage2.md).
 
 **반출 구역 중앙 심볼(2026-11-09, 구현·자동 렌더 검증):** 주황 페인트 중앙에 흰 **소파·아래 화살표·받침선**을 추가해 가구를 내려놓는 위치를 표시한다.
@@ -450,6 +452,21 @@ B안(`PlanBFurnitureSpawnSetup` — 가구 풀·후보·서버 생성기·앞마
 | LF-TEST | EditMode(정지 규칙·이동 계산·배선)·PlayMode(승강·막힘·짐·검증·실제 프리팹) | LF-IMPL-1 | **완료 (2026-11-06)** → [architecture/lift-system.md §7](../architecture/lift-system.md) |
 | LF-검증 | 에디터에서 화면·조작감 확인, Host+Client 2인, 호스트 이전, 귀신 NavMesh | LF-MAP | **대기** |
 | LF-DECIDE | LF-Q1(버튼 입력)·LF-Q2(개구부)·LF-Q3~5 기획자 확정 | — | **대기** |
+
+### 1.9 TH 도둑질(귀중품 훔치기) TODO
+
+> 2026-11-12 사용자 요청: 「도둑질 시스템 기획서」 1.0(최유민, 2026-11-02)과 UI 예시 이미지 4장 문서화. 규칙은 [theft-system.md](theft-system.md).
+> 정신력 쪽 §1.1 M8-GS-3의 "귀중품 발견" 연결이 이 시스템을 기다린다.
+
+| # | TODO | 선행 조건 | 상태 |
+| --- | --- | --- | --- |
+| TH-DOC | 기획서·예시 이미지·인덱스·라우팅·정신력 문서 링크 | — | **완료 (2026-11-12)** |
+| TH-DECIDE | TH-Q1(가격 체계)·TH-Q2(돈의 행방)·TH-Q3(훔친 뒤 상태)·TH-Q4(숨김 기믹·배치, 레벨 디자인 문서)·TH-Q5~9 기획자 확정 | — | **부분 (2026-11-12)** — Q1 확정($2·3·5·10만), Q2 확정(즉시 가산·사망/실종에도 유지·Result 별도 표시), Q3 확정(소멸·동시 입력 서버 판단), Q4 배치 아직. Q5~9 대기 |
+| TH-IMPL | 귀중품(`Valuable`)·스테이지 상태(`StageTheftService`)·서버 판정(`PlayerTheft`, 소멸·동시 입력·거리·생존)·`ServerApplyValuableFound` 호출·공동 잔액 즉시 가산(`ServerAddStolenMoney`)·정산 `StolenMoney`·호스트 이전 스냅샷 | TH-Q1 | **완료 (2026-11-12)** — EditMode `TheftSystemTests`·PlayMode `TheftFlowTests`(실제 Tutorial 세션) 통과 |
+| TH-UI | "E 훔치기" 우측 하단 안내·"+ n$"(`#54d6ad`) — `TheftHud` | TH-IMPL | **구현 (2026-11-12)** — 원문 치수·색. Noto Sans KR Bold 폰트 에셋·글자 크기·표시 시간은 [TEMP](TH-Q5·Q7) |
+| TH-FX | 정신력 회복 테두리 2초(`#c2fcf3`) — URP 전용 포스트프로세싱 패스 `TheftRecoveryGlowFeature`(PC·Mobile 렌더러) | — | **구현 (2026-11-12)** — 렌더 테스트 통과. 밝기 곡선·폭·세기 [TEMP](TH-Q6) |
+| TH-MAP | 귀중품 숨김 기믹·가구·배치 | TH-Q4(레벨 디자인 문서) | **임시 배치 (2026-11-12)** — Tutorial·Stage1 `Valuables_TEMP` 4개씩(사용자 요청). 정식 배치 대기 |
+| TH-검증 | 에디터 화면(안내·가격·테두리 체감), Host+Client 2인, Steam 방 잔액 반영, 호스트 이전 | — | **대기** |
 
 ## 2. 현재 스프린트 — MIG: 아키텍처 정비
 

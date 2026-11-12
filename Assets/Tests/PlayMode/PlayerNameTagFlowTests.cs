@@ -296,6 +296,7 @@ namespace GhostHunter.Tests.PlayMode
             public bool TryTakeShelfItem(ulong steamId, ShopItem item) => false;
             public bool TryConsumeCandle(ulong steamId) => false;
             public bool TryGrantStageReward() => false;
+            public bool TryAddShopBalance(int amount) => false;
             public bool TrySetShopBalanceForDebug(int balance) => false;
             public MemberGear GetMemberGear(ulong steamId) => MemberGear.Starting;
             public bool TryPurchase(ShopItem item) => false;

@@ -20,6 +20,9 @@ namespace GhostHunter.Gameplay.Recovery
         public GhostState Ghost;
         public int FurnitureSeed;
         public bool HasBatteryPack;
+        /// <summary>훔쳐진 귀중품 번호(theft-system.md). 옛 스냅샷이면 비어 있다.</summary>
+        public int[] StolenValuables = Array.Empty<int>();
+        public int StolenMoney;
         public float BatteryPackRemaining;
         public bool FurnitureReady;
         public uint StainRevision;

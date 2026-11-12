@@ -202,6 +202,24 @@ namespace GhostHunter.Systems.Shop
             LocalStateChanged();
         }
 
+        public bool ServerAddStolenMoney(int amount)
+        {
+            if (amount <= 0)
+                return false;
+            if (InSteamRoom)
+            {
+                if (_lobby.IsLobbyOwner && _lobby.TryAddShopBalance(amount))
+                    return true;
+                Debug.LogWarning($"훔친 금액 ${amount} 를 Steam 로비 공동 잔액에 적지 못했습니다.", this);
+                return false;
+            }
+            if (!IsLocalHost)
+                return false;
+            _localBalance = (int)Math.Min((long)_localBalance + amount, int.MaxValue);
+            LocalStateChanged();
+            return true;
+        }
+
         private bool TryGetShopScene(out SceneId scene, out bool loading)
         {
             scene = _sceneFlow != null ? _sceneFlow.Current : SceneId.Bootstrap;

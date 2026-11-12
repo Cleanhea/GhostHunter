@@ -581,6 +581,8 @@ GameObject:
   - component: {fileID: 7400000000000000002}
   - component: {fileID: 7400000000000000003}
   - component: {fileID: 7400000000000000004}
+  - component: {fileID: 7400000000000000011}
+  - component: {fileID: 7400000000000000012}
   m_Layer: 8
   m_Name: Player
   m_TagString: Untagged
@@ -1392,3 +1394,32 @@ MonoBehaviour:
   _motor: {fileID: 4683534020677742345}
   _sanity: {fileID: 648880312144743003}
   _animator: {fileID: 7602586239894021403}
+--- !u!114 &7400000000000000011
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6853845278674404290}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f99dbdd32824422b8477380e8d07532a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: GhostHunter.Gameplay::GhostHunter.Gameplay.Theft.PlayerTheft
+  ShowTopMostFoldoutHeaderGroup: 1
+  _settings: {fileID: 11400000, guid: 68f0bb3be2714c51a6cd256cc568a28e, type: 2}
+  _sanity: {fileID: 648880312144743003}
+--- !u!114 &7400000000000000012
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6853845278674404290}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 75a1883858e84f90bf43e859cc1a15e5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: GhostHunter.UI::GhostHunter.UI.TheftHud
+  _theft: {fileID: 7400000000000000011}
+  _interactor: {fileID: 6650919084466105846}

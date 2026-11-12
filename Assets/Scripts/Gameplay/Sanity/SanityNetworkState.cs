@@ -258,16 +258,16 @@ namespace GhostHunter.Gameplay.Sanity
             if (IsSpawned && IsServer)
                 RecordStageSettlementRpc(record.DeliveredFurniture, record.TargetFurniture,
                     record.CleaningPercent, record.Survivors, record.Missing, record.Dead,
-                    record.TeamWiped);
+                    record.TeamWiped, record.StolenMoney);
         }
 
         [Rpc(SendTo.Everyone)]
         private void RecordStageSettlementRpc(int deliveredFurniture, int targetFurniture,
-            int cleaningPercent, int survivors, int missing, int dead, bool teamWiped)
+            int cleaningPercent, int survivors, int missing, int dead, bool teamWiped, int stolenMoney)
         {
             if (Services.TryGet(out ISceneFlow sceneFlow))
                 sceneFlow.RecordStageSettlement(new StageSettlementRecord(deliveredFurniture,
-                    targetFurniture, cleaningPercent, survivors, missing, dead, teamWiped));
+                    targetFurniture, cleaningPercent, survivors, missing, dead, teamWiped, stolenMoney));
         }
 
         [Rpc(SendTo.Everyone)]
