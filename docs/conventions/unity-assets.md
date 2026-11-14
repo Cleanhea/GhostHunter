@@ -135,6 +135,11 @@ public sealed class PlayerMoveSettings : ScriptableObject
 `m_InScenePlaced`가 true로 박힌다. 저장 후 `ImportAsset(ForceUpdate)`로 재계산시키고, 프리팹을 다시 더럽혀 저장해
 디스크까지 내려보낸 뒤 네트워크 프리팹마다 해시가 0/중복이 아니고 `m_InScenePlaced`가 거짓인지 검사한다.
 
+**프리팹을 텍스트로 복사할 때(에디터 없이).** 새 `.meta` GUID 를 주고 해시를 직접 계산해 넣는다. 프리팹 에셋의 해시는
+`XXHash32("GlobalObjectId_V1-1-{프리팹 GUID}-{NetworkObject 컴포넌트 fileID}-0")`(UTF-8, seed 0)이다 — NGO `NetworkObject.OnValidate` 와 같은 값이고,
+기존 `Ghost_Prototype`·`Ghost_Tutorial` 저장값으로 확인했다(2026-11-14, `Ghost_Inker` 생성). 넣은 뒤 `DefaultNetworkPrefabs` 에 등록하고
+위 검사(0/중복 아님, `m_InScenePlaced` 거짓)를 EditMode 테스트로 둔다.
+
 ## 6. 씬
 
 - 씬 계층 최상단은 카테고리 빈 오브젝트로 정리한다: `--- Environment ---`, `--- Lighting ---`, `--- Systems ---`, `--- UI ---`.

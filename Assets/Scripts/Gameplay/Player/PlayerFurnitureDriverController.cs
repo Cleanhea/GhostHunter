@@ -441,6 +441,8 @@ namespace GhostHunter.Gameplay.Player
                 return;
             }
 
+            // 분해도 가구를 만진 것이다 — 인커 'DON'T TOUCH THE FURNITURE'(사용자 요청 2026-11-15).
+            GhostHunter.Gameplay.Furniture.FurnitureGrabTarget.ServerNotifyTouched(large.gameObject, OwnerClientId);
             ServerConsumeDurability();
         }
 

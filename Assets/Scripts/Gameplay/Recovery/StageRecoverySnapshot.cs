@@ -100,6 +100,8 @@ namespace GhostHunter.Gameplay.Recovery
         public struct GhostState
         {
             public bool Exists;
+            // 스포너 귀신 종류 목록의 인덱스(Stage1 은 시작할 때 무작위로 고른다). 예전 스냅샷에는 없어 0 으로 읽힌다.
+            public int TypeIndex;
             public Vector3 Position;
             public Quaternion Rotation;
             public int Phase;

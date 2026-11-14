@@ -19,6 +19,12 @@
 기존 홀더 복제를 읽는 표현 전용 컴포넌트라 잡기 규칙·네트워크 프로토콜 변경 없음.
 컴파일 성공·관련 PlayMode 9/9 통과, 자동 렌더 캡처 확인. Steam 2인 접속과 실기 조작감은 확인 필요 → [player-controller.md](../architecture/player-controller.md).
 
+**명령(인커) 귀신 — "말을 거는 귀신"(2026-11-14, 구현·자동 검증, 화면 미검증):** 원문 0.1을 [ghost-inker.md](ghost-inker.md)에 올리고 구현했다.
+`GhostInkerSettings : GhostPrototypeSettings`·`Ghost_Inker` — 어택이 아닐 때 10초마다 현상 1(문틈 응시 20%·최대 3회: 문이 20° 열리고 인형이 내밀어 보다가 눈 맞춤 −5, 문 쾅, 문에 "I SEE YOU" 발견 −3)·
+현상 2(벽 글씨 30%·최대 2회: 벽에 "DON'T TURN AROUND"/"DON'T JUMP" 를 4초 쓰고 목을 돌려 응시) 확률 판정. 글씨를 본 사람이 닦기 전에 어기면 −10·갑툭튀·글씨 삭제, 대걸레 6번이면 해제.
+**Stage1 은 시작 때 기본·인커 무작위**, Hub(Tab) 귀신 섹션에서 종류를 골라 **교체**(기존 귀신 제거 후 스폰)·인커 현상 즉시 실행. 원문에 없는 IK-1~18 은 임시 해석(§8) — 결정 대기.
+`NetProtocolVersion` 11→12. 새 EditMode `GhostInkerTests` 20건·PlayMode `GhostInkerFlowTests` 7건 → [ghost-prototype.md](../architecture/ghost-prototype.md) "명령(인커) 귀신".
+
 **박치기 돌진 벽 스침 수정(2026-11-09, 구현·자동 검증, 화면 미검증):** 사용자 보고("돌진이 직선이 아니다")를 시험장에서 재현 — 비스듬한 벽을 스치면 앞으로 82% 가서
 막힘 판정(80%)을 통과하고 벽을 타고 휘었다. "옆으로 15% 넘게 밀리면 충돌"을 더해 그 자리에서 끝낸다(수정 전 회귀 테스트 실패 확인: 옆 2.18m).
 F1 HUD 귀신 상태에 `Dino Charge` 줄(단계·경과) 추가. 같은 날 사용자 결정으로 **Tutorial 귀신을 '뒤돌아보지마'에서 박치기로** 바꾸고(추격 규칙은 원래대로, 추격을 돌진 거리 잡기로 바꾸는 안은 되돌림)

@@ -89295,6 +89295,17 @@ MonoBehaviour:
   m_EditorClassIdentifier: GhostHunter.Gameplay::GhostHunter.Gameplay.Ghost.GhostPrototypeSpawner
   _ghostPrefab: {fileID: 1906515041025333186, guid: 7efa914893cb6cf44b12e0858dbecd05, type: 3}
   _spawnPoint: {fileID: 617619177}
+  _ghostTypes:
+  - Label: "\uae30\ubcf8"
+    Prefab: {fileID: 1906515041025333186, guid: 7efa914893cb6cf44b12e0858dbecd05, type: 3}
+    InRandomPool: 1
+  - Label: "\uc778\ucee4(\ub9d0\uc744 \uac70\ub294 \uadc0\uc2e0)"
+    Prefab: {fileID: 1906515041025333186, guid: c1d2598c80594647a15fdbadd95515d4, type: 3}
+    InRandomPool: 1
+  - Label: "\ubc15\uce58\uae30(\ud29c\ud1a0\ub9ac\uc5bc \uc124\uc815)"
+    Prefab: {fileID: 5216358597840329784, guid: f5d30db20efabf34e9b46a66f904d9db, type: 3}
+    InRandomPool: 0
+  _randomizeInitialType: 1
   _navigationRoot: {fileID: 166072613}
   _roamCenter: {x: 67.67, y: 0, z: 0}
   _roamSize: {x: 29.6, y: 1, z: 23.6}

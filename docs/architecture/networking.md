@@ -319,6 +319,10 @@ Facepunch 고유 `targetSteamId` 설정은 `ISteamLobbyService.TrySetConnectionT
 최종 갱신: 2026-09-13 (Local 3프로세스 실측 — §3.5 서버 측 씬 검증이 게스트 `Game` 동기화를 막던 결함 수정·확인,
 §3.6.1 자발적 종료 뒤 늦게 오는 자기 끊김 처리. 이전: 2026-09-04 §3.6.1 세션 종료 순서 신설)
 
+2026-11-15 인커 피 글씨·명령 추가: `InkerWritingState` 에 글자 높이·줄바꿈 폭(`LetterHeight`·`WrapWidth`)을 더하고 `InkerCommand` 에 문 열지 마·가구 만지지 마 값을 더했다. 문 열기·가구 만지기는 새 RPC 없이 기존 서버 경로(문 여닫기 RPC·`ServerTryAddHolder`·드라이버 분해 RPC)에서 서버 정적 이벤트로 판정한다. 화면 분위기는 복제된 현상 단계로 각 피어가 로컬로 만든다. `NetProtocolVersion` 12→13 → [ghost-prototype.md](ghost-prototype.md) "명령(인커) 귀신".
+
+2026-11-14 명령(인커) 귀신: `GhostPrototypeController`에 글씨 목록(`NetworkList<InkerWritingState>`)·현상 진행(`NetworkVariable<InkerSequenceState>`)·갑툭튀 대상 지정 RPC, `DoorInteractable`에 귀신 잡기 상태(`NetworkVariable<GhostHold>` — 잡힌 동안 여닫기 RPC 거절), `PlayerMotor`에 점프 횟수(소유자 쓰기 `NetworkVariable<int>`), `PlayerCleaningController`에 글씨 닦기 서버 RPC(`RequestWipeWritingRpc` — 대걸레·간격·조준·벽 너머 금지를 서버가 검사)를 추가했다. 판정(발동·눈 맞춤·발견·위반·닦기)은 전부 서버다. `NetProtocolVersion` 11→12 → [ghost-prototype.md](ghost-prototype.md) "명령(인커) 귀신".
+
 2026-11-09 드릴카 선반: `PlayerInteractor`에 선반 꺼내기 서버 RPC(`RequestTakeShelfItemRpc` — 생존·드릴카 안·선반 3m·재고를 서버가 검사)와 결과 알림 소유자 RPC를 추가하고, 상점 로비 데이터·로컬 상점 메시지 형식에 선반 재고·촛불 수를 넣었다. `NetProtocolVersion` 10→11 → [stage-system.md §2.2](../project/stage-system.md).
 
 2026-11-03 시체 잡기: `PlayerVisuals`에 잡기 상태·차지·홀더(`NetworkVariable<FurnitureState>`·`NetworkVariable<float>`·`NetworkList<ulong>`)를 추가하고 시체 RPC 서명을 바꿨다(잡기·조준·놓기·휠 회전). 직렬화 변경에 맞춰 `NetProtocolVersion`을 8→9로 올렸다 → [death-system.md](death-system.md).

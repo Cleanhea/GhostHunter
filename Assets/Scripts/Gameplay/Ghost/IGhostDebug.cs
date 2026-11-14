@@ -31,6 +31,9 @@ namespace GhostHunter.Gameplay.Ghost
         /// <summary>강제 종료 — 진행 중인 어택을 끊고 30초 자연 진정에 들어간다.</summary>
         void ForceSuppression();
 
+        /// <summary>지금 귀신이 기존 공통 초자연현상을 쓰는가(지금은 박치기만 [임시], 사용자 결정 2026-11-15).</summary>
+        bool HasClassicPhenomena { get; }
+
         /// <summary>초자연현상 강제 — 주기를 무시하고 Pool에서 현상 하나를 랜덤으로 즉시 실행한다(§6).</summary>
         void ForcePhenomenon();
 
@@ -47,5 +50,33 @@ namespace GhostHunter.Gameplay.Ghost
         void AddCleaningProgress(int delta);
 
         void ResetCleaningProgress();
+
+        /// <summary>Hub 에서 고를 수 있는 귀신 종류 수(스포너의 종류 목록).</summary>
+        int GhostTypeCount { get; }
+
+        string GetGhostTypeLabel(int index);
+
+        /// <summary>지금 스폰된 귀신의 종류. 없으면 -1.</summary>
+        int ActiveGhostTypeIndex { get; }
+
+        /// <summary>스폰·교체 버튼이 쓸 종류.</summary>
+        int SelectedGhostTypeIndex { get; set; }
+
+        /// <summary>기존 귀신을 지우고 고른 종류로 다시 스폰한다(스폰 지점 또는 내 위치).</summary>
+        void ReplaceGhostWithSelected(bool atPlayer);
+
+        /// <summary>지금 귀신이 인커(명령 글씨 귀신)인가.</summary>
+        bool HasInkerGhost { get; }
+
+        /// <summary>Hub 에서 인커 현상을 시험할 수 있는가 — 지금 귀신이 인커이거나 종류 목록에 인커가 있다.</summary>
+        bool CanTestInker { get; }
+
+        /// <summary>
+        /// 인커 현상 하나를 확률·횟수·주기와 무관하게 바로 시작한다. 지금 귀신이 인커가 아니면 인커로 교체(스폰 지점)한 뒤 시작한다.
+        /// </summary>
+        void ForceInkerPhenomenon(InkerPhenomenon kind);
+
+        /// <summary>인커 글씨를 모두 지운다.</summary>
+        void ClearInkerWritings();
     }
 }

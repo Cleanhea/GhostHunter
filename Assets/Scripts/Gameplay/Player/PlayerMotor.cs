@@ -38,6 +38,13 @@ namespace GhostHunter.Gameplay.Player
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Owner);
 
+        // 점프할 때마다 소유자가 1씩 올린다(ADR-0008 이동 예외의 연장). 서버(인커 귀신의 "DON'T JUMP" 명령,
+        // project/ghost-inker.md)가 값이 바뀐 것으로 점프를 안다 — 위치 표본으로 추정하면 계단·리프트와 헷갈린다.
+        private readonly NetworkVariable<int> _jumpCount = new(
+            0,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Owner);
+
         private readonly Collider[] _standOverlapResults = new Collider[StandOverlapCapacity];
         private readonly MoveSpeedModifierStack _speedModifiers = new();
 
@@ -55,6 +62,9 @@ namespace GhostHunter.Gameplay.Player
         private Vector3 _standingBodyScale;
 
         public bool IsCrouching => _isCrouching.Value;
+
+        /// <summary>이번 세션에서 점프한 횟수(소유자 권위, 복제). 서버는 값이 바뀌면 점프로 본다.</summary>
+        public int JumpCount => _jumpCount.Value;
 
         /// <summary>엎드려 있는가. 귀신의 소리 탐지와 침대 밑 은신 판정이 읽는다.</summary>
         public bool IsProne => _isProne.Value;
@@ -301,7 +311,11 @@ namespace GhostHunter.Gameplay.Player
 
             // 엎드린 채로는 점프하지 않는다 — 입력은 소모해 일어선 직후 튀지 않게 한다.
             if (grounded && _input.ConsumeJump() && !IsProne)
+            {
                 _verticalVelocity = Mathf.Sqrt(_settings.JumpHeight * -2f * _settings.Gravity);
+                if (IsSpawned && IsOwner)
+                    _jumpCount.Value++;
+            }
 
             _verticalVelocity += _settings.Gravity * deltaTime;
 

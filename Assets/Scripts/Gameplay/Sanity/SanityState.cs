@@ -87,6 +87,12 @@ namespace GhostHunter.Gameplay.Sanity
             return IsAlive && amount > 0 && SetValue(Value + amount);
         }
 
+        /// <summary>개별 귀신 기획서가 정한 양만큼 깎는다(인커 명령 위반·눈 맞춤 등 — 공통 감소량 표 밖의 값).</summary>
+        public bool Decrease(int amount)
+        {
+            return IsAlive && amount > 0 && SetValue(Value - amount);
+        }
+
         /// <summary>디버그 HUD 전용: 개인 정신력을 지정 값으로 즉시 맞춘다. 사망 상태에서는 무시한다.</summary>
         public bool SetTo(int value)
         {

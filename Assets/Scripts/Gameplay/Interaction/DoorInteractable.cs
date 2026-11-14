@@ -29,16 +29,87 @@ namespace GhostHunter.Gameplay.Interaction
         [Tooltip("서버가 다시 검사하는 상호작용 최대 거리. 조준 거리 + 문짝 폭보다 넉넉해야 한다.")]
         [SerializeField, Min(1f)] private float _maxInteractDistance = 4f;
 
+        /// <summary>
+        /// 귀신 연출이 문을 잡고 있는 상태(인커 '문틈으로 지켜보는 귀신', project/ghost-inker.md §4). 잡혀 있는 동안
+        /// 플레이어·귀신 AI 가 여닫지 못한다. <see cref="Degrees"/> 가 0 보다 크면 닫힌 각도에서 그만큼만, 정해진 속도로 연다.
+        /// </summary>
+        private struct GhostHold : INetworkSerializable, IEquatable<GhostHold>
+        {
+            public bool Locked;
+            public float Degrees;
+            public float Speed;
+
+            public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
+            {
+                serializer.SerializeValue(ref Locked);
+                serializer.SerializeValue(ref Degrees);
+                serializer.SerializeValue(ref Speed);
+            }
+
+            public bool Equals(GhostHold other) => Locked == other.Locked
+                && Degrees == other.Degrees && Speed == other.Speed;
+        }
+
         private readonly NetworkVariable<bool> _isOpen = new();
+        private readonly NetworkVariable<GhostHold> _ghostHold = new();
         private float _yaw;
 
         public bool IsOpen => _isOpen.Value;
+
+        /// <summary>귀신 연출이 문을 잡고 있다 — 여닫기 상호작용 불가.</summary>
+        public bool IsGhostHeld => _ghostHold.Value.Locked;
+
+        /// <summary>닫힌 상태의 월드 회전(부모 기준 닫힌 각도). 인커가 문짝 모양을 계산할 때 쓴다.</summary>
+        public Quaternion ClosedWorldRotation =>
+            (transform.parent != null ? transform.parent.rotation : Quaternion.identity)
+            * Quaternion.Euler(0f, _closedYaw, 0f);
+
+        /// <summary>서버 전용 — 문을 닫고 잡은 뒤 <paramref name="degrees"/> 만큼 <paramref name="seconds"/> 동안 천천히 연다.</summary>
+        public void ServerBeginGhostPeek(float degrees, float seconds)
+        {
+            if (!IsSpawned || !IsServer)
+                return;
+            _isOpen.Value = false;
+            _ghostHold.Value = new GhostHold
+            {
+                Locked = true,
+                Degrees = Mathf.Max(0f, degrees),
+                Speed = Mathf.Max(1f, degrees / Mathf.Max(0.05f, seconds)),
+            };
+        }
+
+        /// <summary>서버 전용 — 잡은 채로 닫는다(원래 여닫는 속도라 세게 닫힌다). 닫는 동안에도 상호작용은 막는다.</summary>
+        public void ServerGhostSlam()
+        {
+            if (!IsSpawned || !IsServer)
+                return;
+            _isOpen.Value = false;
+            _ghostHold.Value = new GhostHold { Locked = true };
+        }
+
+        /// <summary>서버 전용 — 연출을 끝내고 문을 놓는다. 문은 닫힌 상태로 남는다.</summary>
+        public void ServerReleaseGhostHold()
+        {
+            if (!IsSpawned || !IsServer)
+                return;
+            _ghostHold.Value = default;
+        }
 
         /// <summary>
         /// 서버 전용 — 귀신이 닫힌 문을 열었다(<see cref="ServerForceOpen"/>·<see cref="ServerForceToggle"/> 는 귀신만 부른다).
         /// 부활 의식이 소환진 방의 문을 보고 진행도를 초기화한다(revival-system.md §7).
         /// </summary>
         public static event Action<DoorInteractable> ServerOpenedByGhost;
+
+        /// <summary>
+        /// 서버 전용 — 플레이어(client id)가 닫힌 문을 열었다. 인커 명령 'DON'T OPEN THE DOOR' 위반 판정이 듣는다
+        /// (사용자 요청 2026-11-15). 닫는 것은 알리지 않는다.
+        /// </summary>
+        public static event Action<DoorInteractable, ulong> ServerOpenedByPlayer;
+
+        /// <summary>테스트·내부 — 플레이어가 문을 연 것으로 알린다.</summary>
+        internal static void ServerNotifyOpenedByPlayer(DoorInteractable door, ulong clientId)
+            => ServerOpenedByPlayer?.Invoke(door, clientId);
 
         public override void OnNetworkSpawn()
         {
@@ -56,11 +127,16 @@ namespace GhostHunter.Gameplay.Interaction
             if (!IsSpawned)
                 return;
 
-            float target = _isOpen.Value ? _openYaw : _closedYaw;
+            GhostHold hold = _ghostHold.Value;
+            bool peeking = hold.Locked && hold.Degrees > 0f;
+            float target = peeking
+                ? _closedYaw + Mathf.Sign(Mathf.DeltaAngle(_closedYaw, _openYaw)) * hold.Degrees
+                : _isOpen.Value ? _openYaw : _closedYaw;
             if (Mathf.Approximately(_yaw, target))
                 return;
 
-            _yaw = Mathf.MoveTowardsAngle(_yaw, target, _swingSpeed * Time.deltaTime);
+            float speed = peeking ? hold.Speed : _swingSpeed;
+            _yaw = Mathf.MoveTowardsAngle(_yaw, target, speed * Time.deltaTime);
             ApplyYaw();
         }
 
@@ -79,7 +155,7 @@ namespace GhostHunter.Gameplay.Interaction
         /// </summary>
         public void ServerForceOpen()
         {
-            if (!IsSpawned || !IsServer || _isOpen.Value)
+            if (!IsSpawned || !IsServer || _isOpen.Value || IsGhostHeld)
                 return;
             _isOpen.Value = true;
             ServerOpenedByGhost?.Invoke(this);
@@ -101,7 +177,7 @@ namespace GhostHunter.Gameplay.Interaction
         /// <summary>서버가 문 상태를 뒤집는다. 귀신 초자연현상 '문 열고 닫기'(§6.5 #4) 용도.</summary>
         public void ServerForceToggle()
         {
-            if (!IsSpawned || !IsServer)
+            if (!IsSpawned || !IsServer || IsGhostHeld)
                 return;
             _isOpen.Value = !_isOpen.Value;
             if (_isOpen.Value)
@@ -118,10 +194,12 @@ namespace GhostHunter.Gameplay.Interaction
         private void RequestToggleServerRpc(RpcParams rpcParams = default)
         {
             ulong sender = rpcParams.Receive.SenderClientId;
-            if (!ServerIsSenderInRange(sender) || !ServerIsSenderAlive(sender))
+            if (IsGhostHeld || !ServerIsSenderInRange(sender) || !ServerIsSenderAlive(sender))
                 return;
 
             _isOpen.Value = !_isOpen.Value;
+            if (_isOpen.Value)
+                ServerNotifyOpenedByPlayer(this, sender);
         }
 
         private bool ServerIsSenderInRange(ulong senderClientId)

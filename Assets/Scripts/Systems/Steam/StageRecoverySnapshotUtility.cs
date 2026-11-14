@@ -35,6 +35,7 @@ namespace GhostHunter.Systems.Steam
                 StainRevision = cleaning.Revision,
                 Ghost = ghostSpawner.ActiveGhost.CaptureStageState(),
             };
+            snapshot.Ghost.TypeIndex = ghostSpawner.ActiveGhostTypeIndex;
 
             RandomFurnitureItem[] items = furniture.Items;
             snapshot.Furniture = new StageRecoverySnapshot.FurnitureState[items.Length];

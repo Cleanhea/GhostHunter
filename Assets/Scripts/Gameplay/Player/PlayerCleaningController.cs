@@ -1,5 +1,6 @@
 using GhostHunter.Core;
 using GhostHunter.Gameplay.Cleaning;
+using GhostHunter.Gameplay.Ghost;
 using GhostHunter.Gameplay.Interaction;
 using GhostHunter.Gameplay.Sanity;
 using Unity.Netcode;
@@ -95,6 +96,13 @@ namespace GhostHunter.Gameplay.Player
                 RequestCleanRpc(stain.NetworkObjectId, stain.Revision,
                     _camera.transform.position, _camera.transform.forward);
             }
+            else if (_camera != null && Services.TryGet(out ICommandWritingService writings)
+                && writings.TryRaycast(_camera.transform.position, _camera.transform.forward,
+                    _settings.CleanDistance, transform, out int writingId))
+            {
+                // 인커 귀신의 명령 글씨(project/ghost-inker.md §3) — 얼룩과 같은 대걸레 좌클릭으로 닦는다.
+                RequestWipeWritingRpc(writingId, _camera.transform.position, _camera.transform.forward);
+            }
         }
 
         /// <summary>퀵슬롯 선택을 로컬에 표시하고 서버에서 장착 가능 여부를 확인한다.</summary>
@@ -140,6 +148,23 @@ namespace GhostHunter.Gameplay.Player
             if (_cleaning.TryRaycast(origin, direction.normalized, _settings.CleanDistance,
                 out CleaningStain stain, transform) && stain.NetworkObjectId == objectId)
                 stain.ServerClean(revision);
+        }
+
+        [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
+        private void RequestWipeWritingRpc(int writingId, Vector3 origin, Vector3 direction,
+            RpcParams rpcParams = default)
+        {
+            if (!IsServer || rpcParams.Receive.SenderClientId != OwnerClientId || !ServerHasMop
+                || _settings == null || !CanUseOnServer()
+                || Time.unscaledTime < _nextServerClickAt
+                || !IsValidAim(transform.position, origin, direction)
+                || !Services.TryGet(out ICommandWritingService writings))
+                return;
+            _nextServerClickAt = Time.unscaledTime + _settings.RequestInterval;
+            Vector3 bodyCenter = transform.position + Vector3.up * 0.5f;
+            if (_cleaning != null && _cleaning.IsObstructed(bodyCenter, origin, transform))
+                return;
+            writings.ServerTryWipe(writingId, origin, direction.normalized, _settings.CleanDistance, transform);
         }
 
         /// <summary>비정상 벡터 및 플레이어에서 벗어난 조준 원점을 차단한다.</summary>

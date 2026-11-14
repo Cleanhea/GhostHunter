@@ -56,7 +56,10 @@ namespace GhostHunter.DebugTools
         private bool _showConnection = true;
         private bool _showSanity;
         private bool _showGhost = true;
-        private bool _showPhenomena;
+        private bool _showPhenomena = true;
+        private bool _phenomenaViewInker;
+        private bool _phenomenaViewClassic;
+        private bool _phenomenaViewCanTestInker;
         private bool _showSkill;
         private bool _showCleaning = true;
         private bool _showFurniture = true;
@@ -764,6 +767,8 @@ namespace GhostHunter.DebugTools
 
             GUI.enabled = _ghostDebug.CanControl;
 
+            DrawGhostTypeSelector();
+
             GUILayout.BeginHorizontal();
             if (GUILayout.Button(_ghostDebug.HasGhost ? "귀신 제거" : "귀신 스폰"))
             {
@@ -801,13 +806,96 @@ namespace GhostHunter.DebugTools
                 _ghostDebug.ResetCleaningProgress();
             GUILayout.EndHorizontal();
 
-            _showPhenomena = SectionHeader("초자연현상 (§6)", _showPhenomena);
+            // 이상현상은 귀신마다 다르다(사용자 결정 2026-11-15). 섹션은 늘 보이고 지금 귀신에 맞는 버튼을 보여 준다.
+            _showPhenomena = SectionHeader("이상현상", _showPhenomena);
             if (_showPhenomena)
-                DrawPhenomenonButtons();
+                DrawPhenomenaSection();
 
             GUI.enabled = true;
 
             GUILayout.Label(_ghostDebug.LastStatus, GUI.skin.label);
+        }
+
+        /// <summary>귀신 종류 고르기 → 기존 귀신을 지우고 고른 종류로 스폰(교체). 스폰 버튼도 고른 종류를 쓴다.</summary>
+        private void DrawGhostTypeSelector()
+        {
+            int count = _ghostDebug.GhostTypeCount;
+            if (count <= 0)
+                return;
+
+            int selected = _ghostDebug.SelectedGhostTypeIndex;
+            int active = _ghostDebug.ActiveGhostTypeIndex;
+            GUILayout.Label("귀신 종류 — 고른 뒤 '교체'로 기존 귀신을 지우고 스폰", GUI.skin.label);
+
+            const int perRow = 3;
+            for (int i = 0; i < count; i++)
+            {
+                if (i % perRow == 0)
+                    GUILayout.BeginHorizontal();
+
+                string label = _ghostDebug.GetGhostTypeLabel(i) + (i == active ? "  ●" : string.Empty);
+                bool on = GUILayout.Toggle(i == selected, label, GUI.skin.button);
+                if (on && i != selected)
+                    _ghostDebug.SelectedGhostTypeIndex = i;
+
+                if (i % perRow == perRow - 1 || i == count - 1)
+                    GUILayout.EndHorizontal();
+            }
+
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("교체 (스폰 지점)"))
+                _ghostDebug.ReplaceGhostWithSelected(false);
+            if (GUILayout.Button("교체 (내 위치)"))
+                _ghostDebug.ReplaceGhostWithSelected(true);
+            GUILayout.EndHorizontal();
+        }
+
+        /// <summary>
+        /// 이상현상 섹션 — 귀신별 현상(사용자 결정 2026-11-15). 인커 버튼은 씬에 인커 종류가 있으면 늘 보이고,
+        /// 지금 귀신이 인커가 아니면 누를 때 인커로 교체한 뒤 시작한다. 기존 공통 현상 버튼은 박치기 [임시]일 때만.
+        /// </summary>
+        private void DrawPhenomenaSection()
+        {
+            // 버튼 구성은 Layout 이벤트에서만 정한다 — 같은 프레임의 클릭(교체)으로 종류가 바뀌어도 컨트롤 수가 어긋나지 않게.
+            if (Event.current.type == EventType.Layout)
+            {
+                _phenomenaViewInker = _ghostDebug.HasInkerGhost;
+                _phenomenaViewClassic = _ghostDebug.HasClassicPhenomena;
+                _phenomenaViewCanTestInker = _ghostDebug.CanTestInker;
+            }
+
+            string current = _ghostDebug.HasGhost
+                ? _ghostDebug.GetGhostTypeLabel(_ghostDebug.ActiveGhostTypeIndex)
+                : "없음";
+            string own = _phenomenaViewInker ? "문틈 응시 · 벽 글씨"
+                : _phenomenaViewClassic ? "기존 공통 현상 [임시]"
+                : _ghostDebug.HasGhost ? "없음" : "-";
+            GUILayout.Label($"지금 귀신: {current}  ·  이 귀신의 이상현상: {own}", GUI.skin.label);
+
+            if (_phenomenaViewCanTestInker)
+                DrawInkerButtons();
+
+            if (_phenomenaViewClassic)
+                DrawPhenomenonButtons();
+        }
+
+        private void DrawInkerButtons()
+        {
+            GUILayout.Label(_phenomenaViewInker
+                    ? "인커 — 확률·횟수·주기 무관 즉시 시작 · 열린 문도 닫고 시작 · 어택 중엔 안 나옴"
+                    : "인커 — 누르면 인커로 교체(스폰 지점)한 뒤 바로 시작 · 어택 중엔 안 나옴",
+                GUI.skin.label);
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("1 문틈 응시"))
+                _ghostDebug.ForceInkerPhenomenon(InkerPhenomenon.DoorPeek);
+            if (GUILayout.Button("2 벽 글씨"))
+                _ghostDebug.ForceInkerPhenomenon(InkerPhenomenon.WallWriting);
+            bool wasEnabled = GUI.enabled;
+            GUI.enabled = wasEnabled && _phenomenaViewInker;
+            if (GUILayout.Button("글씨 모두 지우기"))
+                _ghostDebug.ClearInkerWritings();
+            GUI.enabled = wasEnabled;
+            GUILayout.EndHorizontal();
         }
 
         private static readonly (GhostPhenomenonKind Kind, string Label)[] PhenomenonButtons =
@@ -824,7 +912,7 @@ namespace GhostHunter.DebugTools
 
         private void DrawPhenomenonButtons()
         {
-            GUILayout.Label("상태·주기 무관 즉시 실행 · 귀신 반경 6m · 6·7 무음(오디오 대기)",
+            GUILayout.Label("기존 공통 현상(박치기 임시) — 상태·주기 무관 즉시 실행 · 귀신 반경 6m · 6·7 무음(오디오 대기)",
                 GUI.skin.label);
 
             if (GUILayout.Button("랜덤 (직전 제외 Pool)"))

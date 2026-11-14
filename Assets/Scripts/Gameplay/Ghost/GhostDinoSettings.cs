@@ -36,6 +36,12 @@ namespace GhostHunter.Gameplay.Ghost
         [Tooltip("돌진이 이 시간(초)을 넘기면 충돌이 없어도 끝낸다. 보이지 않는 장애물에 끼어 영원히 도는 것을 막는 안전장치.")]
         [SerializeField, Min(1f)] private float _dinoMaxChargeSeconds = 8f;
 
+        /// <summary>
+        /// [임시] 박치기 고유 현상이 정해질 때까지 기존 공통 초자연현상을 그대로 쓴다(사용자 결정 2026-11-15).
+        /// 후보·개수는 에셋의 PhenomenaCandidateMask·PhenomenaPoolSize 를 따른다.
+        /// </summary>
+        public override bool UsesClassicPhenomena => true;
+
         public float DinoChaseSeconds => _dinoChaseSeconds;
         public float DinoPrepareSeconds => _dinoPrepareSeconds;
         public float DinoDirectionLockSeconds => _dinoDirectionLockSeconds;

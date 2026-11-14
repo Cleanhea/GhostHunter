@@ -166,8 +166,9 @@ namespace GhostHunter.Gameplay.Lighting
                     continue;
 
                 light.Apply(_settings, _settings.RoomLightsOn, out float intensity, out Color color);
+                // 켜짐 상태(기본 꺼짐)도 넘긴다 — 어택 깜빡임이 꺼진 등을 잠시 켰다가 끝나면 이 상태로 돌린다.
                 if (light.TryGetComponent(out GhostAmbientLight ghostLight))
-                    ghostLight.SetBase(intensity, color);
+                    ghostLight.SetBase(intensity, color, light.Light.enabled);
             }
 
             if (_sun != null)

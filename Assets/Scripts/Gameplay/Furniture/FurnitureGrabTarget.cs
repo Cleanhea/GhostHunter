@@ -77,6 +77,16 @@ namespace GhostHunter.Gameplay.Furniture
         public Quaternion HeldRotation => _heldRotation;
         public event Action<FurnitureState, FurnitureState> StateChanged;
 
+        /// <summary>
+        /// 서버 전용 — 플레이어(client id)가 가구를 만졌다: 잡기 시작(<see cref="ServerTryAddHolder"/>) 또는 드라이버 분해.
+        /// 인커 명령 'DON'T TOUCH THE FURNITURE' 위반 판정이 듣는다(사용자 요청 2026-11-15).
+        /// </summary>
+        public static event Action<GameObject, ulong> ServerTouchedByPlayer;
+
+        /// <summary>서버 — 플레이어가 가구를 만진 것으로 알린다(잡기 외의 경로·테스트).</summary>
+        internal static void ServerNotifyTouched(GameObject furniture, ulong clientId)
+            => ServerTouchedByPlayer?.Invoke(furniture, clientId);
+
         private void Awake()
         {
             _rigidbody = GetComponent<Rigidbody>();
@@ -223,6 +233,7 @@ namespace GhostHunter.Gameplay.Furniture
             bool firstHolder = _holders.Count == 0;
             _holders.Add(clientId);
             _aims[clientId] = aim;
+            ServerNotifyTouched(gameObject, clientId);
             // 새로 잡거나 다시 둘이 되면 이전 '같이 내려놓기' 대기는 끝난다.
             _jointPutDownUntil = float.NegativeInfinity;
 

@@ -59,6 +59,9 @@ namespace GhostHunter.DebugTools
             public string Title;
             public string ShortTitle;
             public ScriptableObject So;
+
+            /// <summary>SO 를 들고 있던 컴포넌트. 사라지면(Hub 귀신 교체·씬 전환) 대상을 다시 찾는다.</summary>
+            public Object Owner;
             public Group[] Groups;
             public Row[] Rows;
             public object[] Snapshot;
@@ -306,6 +309,8 @@ namespace GhostHunter.DebugTools
 
         private void ResolveTargets()
         {
+            // 귀신을 다른 종류로 교체하면 설정 에셋도 바뀐다 — 주인이 사라진 대상은 버리고 다시 찾는다.
+            _targets.RemoveAll(t => t.Owner == null);
             if (_targets.Count == Sources.Length || Time.unscaledTime < _nextResolveAt)
                 return;
 
@@ -325,7 +330,9 @@ namespace GhostHunter.DebugTools
                 if (so == null)
                     continue;
 
-                _targets.Add(BuildTarget(title, shortTitle, so));
+                Target target = BuildTarget(title, shortTitle, so);
+                target.Owner = component;
+                _targets.Add(target);
             }
         }
 

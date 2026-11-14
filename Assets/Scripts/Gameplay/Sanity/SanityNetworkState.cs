@@ -155,6 +155,15 @@ namespace GhostHunter.Gameplay.Sanity
                 _serverState != null && _serverState.WitnessCorpse(corpseNetworkObjectId));
         }
 
+        /// <summary>
+        /// 개별 귀신 기획서가 정한 양만큼 개인 정신력을 깎는다 — 인커 귀신의 명령 위반(10)·눈 맞춤(5)·글씨 발견(3)
+        /// (project/ghost-inker.md). 공통 감소(목격·본체·시체)는 각자의 메서드를 쓴다.
+        /// </summary>
+        public bool ServerApplyDecrease(int amount)
+        {
+            return ApplyServerMutation(_serverState != null && _serverState.Decrease(amount));
+        }
+
         /// <summary>정신력 증가 아이템이 확정한 양만큼 개인 정신력을 회복한다.</summary>
         public bool ServerRestoreSanity(int amount)
         {

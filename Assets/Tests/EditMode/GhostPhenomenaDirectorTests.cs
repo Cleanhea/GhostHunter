@@ -162,6 +162,33 @@ namespace GhostHunter.Tests.EditMode
         }
 
         [Test]
+        public void 공통_현상은_박치기_설정만_쓰고_기본과_인커는_쓰지_않는다()
+        {
+            // 사용자 결정(2026-11-15): 공통 현상은 모든 귀신에서 빼고, 인커는 자기 현상만, 박치기만 [임시]로 유지한다.
+            var dino = ScriptableObject.CreateInstance<GhostDinoSettings>();
+            var inker = ScriptableObject.CreateInstance<GhostInkerSettings>();
+            try
+            {
+                Assert.IsFalse(_settings.UsesClassicPhenomena, "기본 귀신 설정");
+                Assert.IsFalse(inker.UsesClassicPhenomena, "인커 설정");
+                Assert.IsTrue(dino.UsesClassicPhenomena, "박치기 설정");
+            }
+            finally
+            {
+                Object.DestroyImmediate(dino);
+                Object.DestroyImmediate(inker);
+            }
+
+            const string folder = "Assets/Settings/Gameplay/";
+            Assert.IsFalse(AssetDatabase.LoadAssetAtPath<GhostPrototypeSettings>(
+                folder + "GhostPrototypeSettings_Default.asset").UsesClassicPhenomena, "Ghost_Prototype 에셋");
+            Assert.IsFalse(AssetDatabase.LoadAssetAtPath<GhostPrototypeSettings>(
+                folder + "GhostPrototypeSettings_Inker.asset").UsesClassicPhenomena, "Ghost_Inker 에셋");
+            Assert.IsTrue(AssetDatabase.LoadAssetAtPath<GhostPrototypeSettings>(
+                folder + "GhostPrototypeSettings_Tutorial.asset").UsesClassicPhenomena, "Ghost_Tutorial(박치기) 에셋");
+        }
+
+        [Test]
         public void 강제_실행은_주기를_무시하고_현상을_뽑는다()
         {
             GhostPhenomenonKind fired = _director.ForceNext(GhostPhase.Idle, 100, false);

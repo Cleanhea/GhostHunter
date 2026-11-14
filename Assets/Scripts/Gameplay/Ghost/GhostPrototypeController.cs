@@ -363,10 +363,18 @@ namespace GhostHunter.Gameplay.Ghost
         public float SecondsUntilNextPhenomenon => _phenomena != null ? _phenomena.SecondsUntilNext : 0f;
         public bool DebugForceVisible => _debugForceVisible.Value;
 
-        public string PhenomenonSummary => _serverReady && _phase.Value is GhostPhase.Idle or GhostPhase.Active
-            ? $"{(_lastPhenomenon == GhostPhenomenonKind.None ? "-" : _lastPhenomenon.ToString())}" +
-              $"  (다음 {SecondsUntilNextPhenomenon:0.0}s)"
-            : "-";
+        /// <summary>이 귀신(또는 프리팹)의 설정 — 종류는 설정 타입이 정한다(ADR-0024). 스포너가 종류 목록에서 인커를 찾는 데 쓴다.</summary>
+        public GhostPrototypeSettings Settings => _settings;
+
+        /// <summary>이 귀신이 기존 공통 초자연현상을 쓰는가(<see cref="GhostPrototypeSettings.UsesClassicPhenomena"/>).</summary>
+        public bool HasClassicPhenomena => _settings != null && _settings.UsesClassicPhenomena;
+
+        public string PhenomenonSummary => !HasClassicPhenomena
+            ? "없음 (이 귀신은 공통 현상 없음)"
+            : _serverReady && _phase.Value is GhostPhase.Idle or GhostPhase.Active
+                ? $"{(_lastPhenomenon == GhostPhenomenonKind.None ? "-" : _lastPhenomenon.ToString())}" +
+                  $"  (다음 {SecondsUntilNextPhenomenon:0.0}s)"
+                : "-";
 
         public string PursuitSummary => _serverReady && _phase.Value == GhostPhase.Attack
             ? _pursuit.ToString().ToUpperInvariant()
@@ -380,6 +388,8 @@ namespace GhostHunter.Gameplay.Ghost
 
         private void Awake()
         {
+            // 인커 글씨 목록(NetworkList)은 설정과 무관하게 스폰 전에 있어야 한다.
+            InkerAwake();
             _controller = GetComponent<CharacterController>();
             _warningAudio = GetComponent<AudioSource>();
             if (_warningAudio == null)
@@ -452,6 +462,7 @@ namespace GhostHunter.Gameplay.Ghost
             _highRisk.OnValueChanged += HandleHighRiskChanged;
             _debugForceVisible.OnValueChanged += HandleDebugVisibleChanged;
             DinoSpawn();
+            InkerSpawn();
             TryBindLocalViewer();
             ApplyPhaseVisual(_phase.Value);
             _gazeReported = false;
@@ -471,7 +482,8 @@ namespace GhostHunter.Gameplay.Ghost
             }
 
             _machine = new GhostStateMachine(_settings);
-            _phenomena = new GhostPhenomenaDirector(_settings);
+            // 공통 초자연현상은 그 현상을 가진 귀신 종류(지금은 박치기 [임시])에만 만든다 — 사용자 결정 2026-11-15.
+            _phenomena = _settings.UsesClassicPhenomena ? new GhostPhenomenaDirector(_settings) : null;
             _roamMemory = new GhostRoamMemory(_settings.RoamCellSize, _settings.RoamMemorySeconds);
             _roamCenter = transform.position;
             _roamDestination = transform.position;
@@ -502,6 +514,7 @@ namespace GhostHunter.Gameplay.Ghost
             _highRisk.OnValueChanged -= HandleHighRiskChanged;
             _debugForceVisible.OnValueChanged -= HandleDebugVisibleChanged;
             DinoDespawn();
+            InkerDespawn();
             if (_localViewer != null)
             {
                 _localViewer.AliveStateChanged -= HandleLocalViewerAliveChanged;
@@ -549,6 +562,9 @@ namespace GhostHunter.Gameplay.Ghost
             FurnitureNetworkPhysics.ServerImpactReported -= HandleServerImpact;
             // NavMesh 데이터는 씬과 무관하게 전역에 남으므로 despawn 없이 파괴되는 경우도 치운다.
             _navigation?.Dispose();
+            // 인커 글씨·인형은 씬 루트에 만든 연출 오브젝트라 귀신과 함께 치운다.
+            InkerUnbindService();
+            InkerDestroyViews();
             base.OnDestroy();
         }
 
@@ -568,6 +584,7 @@ namespace GhostHunter.Gameplay.Ghost
             }
 
             TickDinoVisual();
+            TickInkerVisual();
 
             TickLocalGazeReport();
 
@@ -800,6 +817,8 @@ namespace GhostHunter.Gameplay.Ghost
             UpdateTension(deltaTime, current, playerCount);
             ServerTickPhenomena(deltaTime, current, teamSanity);
             ServerTickShake(deltaTime);
+            // 인커: 명령 글씨 현상·발견·위반(설정이 GhostInkerSettings 일 때만, project/ghost-inker.md).
+            ServerTickInker(deltaTime, current, playerCount);
         }
 
         private void RefreshAiFeatures()
@@ -931,7 +950,7 @@ namespace GhostHunter.Gameplay.Ghost
             if (!_settings.TensionPacingEnabled)
             {
                 _tension = 0f;
-                _phenomena.SetTension(0f);
+                _phenomena?.SetTension(0f);
                 return;
             }
             bool pressure = phase is GhostPhase.Warning or GhostPhase.Attack;
@@ -952,11 +971,15 @@ namespace GhostHunter.Gameplay.Ghost
             }
             _tension = pressure ? 1f : Mathf.MoveTowards(_tension, 0f,
                 deltaTime / Mathf.Max(0.1f, _settings.TensionReleaseSeconds));
-            _phenomena.SetTension(_tension);
+            _phenomena?.SetTension(_tension);
         }
 
         private void ServerTickPhenomena(float deltaTime, GhostPhase phase, int teamSanity)
         {
+            // 공통 현상이 없는 귀신(기본·인커)은 아무것도 하지 않는다 — 인커 현상은 ServerTickInker 가 따로 돈다.
+            if (_phenomena == null)
+                return;
+
             // 디렉터가 상태를 스스로 걸러 낸다 — 평상시·활동에서만 현상이 나온다(§4.1·§6.1).
             GhostPhenomenonKind fired = _phenomena.Tick(
                 deltaTime,
@@ -1004,7 +1027,7 @@ namespace GhostHunter.Gameplay.Ghost
         /// <summary>F1 디버그 — 주기를 무시하고 현상 하나를 즉시 실행한다.</summary>
         public GhostPhenomenonKind ServerForcePhenomenon()
         {
-            if (!IsServer || !_serverReady)
+            if (!IsServer || !_serverReady || _phenomena == null)
                 return GhostPhenomenonKind.None;
 
             GhostPhenomenonKind kind = _phenomena.ForceNext(
@@ -1021,7 +1044,7 @@ namespace GhostHunter.Gameplay.Ghost
         /// <summary>F1 디버그 — 지정한 현상 하나를 상태·주기와 무관하게 즉시 실행한다(기능별 패턴 시험).</summary>
         public GhostPhenomenonKind ServerRunPhenomenon(GhostPhenomenonKind kind)
         {
-            if (!IsServer || !_serverReady || kind == GhostPhenomenonKind.None)
+            if (!IsServer || !_serverReady || kind == GhostPhenomenonKind.None || _phenomena == null)
                 return GhostPhenomenonKind.None;
 
             if (!ServerExecutePhenomenon(kind))
@@ -1074,7 +1097,7 @@ namespace GhostHunter.Gameplay.Ghost
             if (_settings.TensionPacingEnabled && kind == GhostPhenomenonKind.Apparition)
             {
                 _tension = 1f;
-                _phenomena.SetTension(_tension);
+                _phenomena?.SetTension(_tension);
             }
             return affected;
         }
@@ -2264,6 +2287,8 @@ namespace GhostHunter.Gameplay.Ghost
         {
             IReadOnlyList<GhostAmbientLight> lights = GhostAmbientLight.Registry;
             bool warningOn = Mathf.PingPong(Time.time * 2.4f, 1f) >= 0.5f;
+            bool attackFlicker = _settings != null && _settings.AttackRoomLightFlicker;
+            float time = Time.time;
             for (int i = 0; i < lights.Count; i++)
             {
                 GhostAmbientLight ambient = lights[i];
@@ -2274,14 +2299,30 @@ namespace GhostHunter.Gameplay.Ghost
                 switch (phase)
                 {
                     case GhostPhase.Warning:
+                        ambient.ApplyEnabled(ambient.BaseEnabled);
                         light.color = ambient.BaseColor;
                         light.intensity = warningOn ? ambient.BaseIntensity : 0f;
                         break;
                     case GhostPhase.Attack:
                         light.color = Color.red;
-                        light.intensity = ambient.BaseIntensity;
+                        if (attackFlicker)
+                        {
+                            // 어택 동안 천장등이 빨갛게 불규칙하게 깜빡인다(사용자 요청 2026-11-14) — 꺼 둔 천장등도 켠다.
+                            ambient.ApplyEnabled(true);
+                            light.intensity = ambient.BaseIntensity * GhostAmbientLight.FlickerLevel(time,
+                                ambient.FlickerSeed, _settings.AttackFlickerStepsPerSecond,
+                                _settings.AttackFlickerOnChance, _settings.AttackFlickerMinLevel);
+                        }
+                        else
+                        {
+                            ambient.ApplyEnabled(ambient.BaseEnabled);
+                            light.intensity = ambient.BaseIntensity;
+                        }
+
                         break;
                     default:
+                        // 어택이 끝나면 원래 켜짐 상태(Stage1 천장등은 기본 꺼짐)·색·밝기로 돌린다.
+                        ambient.ApplyEnabled(ambient.BaseEnabled);
                         light.color = ambient.BaseColor;
                         light.intensity = ambient.BaseIntensity;
                         break;

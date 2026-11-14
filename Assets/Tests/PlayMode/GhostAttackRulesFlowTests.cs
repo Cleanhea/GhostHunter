@@ -197,6 +197,57 @@ namespace GhostHunter.Tests.PlayMode
             Assert.AreEqual(before, _ghost.transform.position, "벽 너머 방에 떨어뜨리지 않는다");
         }
 
+        // ---- 어택 천장등 깜빡임 (사용자 요청 2026-11-14) ----
+
+        [UnityTest]
+        public IEnumerator 어택_중에는_꺼진_천장등도_빨갛게_깜빡이고_끝나면_꺼진_채로_돌아온다()
+        {
+            GhostAmbientLight ceiling = CreateAmbientLight("TestCeilingLight", new Vector3(3f, 2.8f, 0f));
+            // 스테이지 조명 컨트롤러처럼 기본 꺼짐을 알려 준다(Stage1 천장등).
+            ceiling.Light.enabled = false;
+            ceiling.SetBase(0.3f, Color.white, false);
+            // 다른 코드가 켜고 끄는 조명(풀에 숨은 가구 램프)은 켜짐을 건드리지 않는다.
+            GhostAmbientLight lamp = CreateAmbientLight("TestHiddenLamp", new Vector3(-3f, 1f, 0f));
+            lamp.Light.enabled = false;
+
+            var phase = (NetworkVariable<GhostPhase>)Get(_ghost, "_phase");
+            phase.Value = GhostPhase.Attack;
+            int on = 0;
+            int dark = 0;
+            // 프레임 속도와 무관하게 실제 시간으로 본다(깜빡임 단계는 1/9초).
+            float until = Time.time + 3f;
+            while (Time.time < until && (on < 3 || dark < 3))
+            {
+                yield return null;
+                Assert.IsTrue(ceiling.Light.enabled, "어택 동안 꺼 둔 천장등도 켠다");
+                Assert.AreEqual(Color.red, ceiling.Light.color);
+                Assert.LessOrEqual(ceiling.Light.intensity, 0.3f + 1e-4f);
+                if (ceiling.Light.intensity > 0.01f)
+                    on++;
+                else
+                    dark++;
+                Assert.IsFalse(lamp.Light.enabled, "숨은 가구 램프는 켜지 않는다");
+            }
+
+            Assert.Greater(on, 0, "켜지는 순간이 있다");
+            Assert.Greater(dark, 0, "꺼지는 순간이 있다 — 깜빡인다");
+
+            phase.Value = GhostPhase.Calming;
+            yield return null;
+            Assert.IsFalse(ceiling.Light.enabled, "어택이 끝나면 기본 꺼짐으로 돌아온다");
+            Assert.AreEqual(Color.white, ceiling.Light.color);
+            Assert.AreEqual(0.3f, ceiling.Light.intensity, 1e-4f);
+            Assert.IsFalse(lamp.Light.enabled);
+        }
+
+        private GhostAmbientLight CreateAmbientLight(string name, Vector3 position)
+        {
+            GameObject go = Create(name);
+            go.transform.position = position;
+            go.AddComponent<Light>().type = LightType.Point;
+            return go.AddComponent<GhostAmbientLight>();
+        }
+
         // ---- 쉬움 난이도 ----
 
         [Test]

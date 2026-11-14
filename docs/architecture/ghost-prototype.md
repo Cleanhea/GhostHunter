@@ -16,7 +16,7 @@
 | `GhostPerception` | 시야·시야선·근거리 감지·이동 소리·본체 목격 판정, 플레이어 속도 표본/평활화 |
 | `GhostNavigation` | 런타임 NavMesh·배회 삼각형·경로 코너·이동·걸림 감지·해제 |
 | `GhostPrototypeSettings` | 지속시간·탐지·추격·초자연현상 수치의 ScriptableObject |
-| `GhostPhenomenaDirector` / `GhostPhenomenaPlayer` | 별도 기획 대기 중인 기존 초자연현상 프로토타입 |
+| `GhostPhenomenaDirector` / `GhostPhenomenaPlayer` | 기존 초자연현상 프로토타입 — 2026-11-15부터 박치기 전용 [임시](§5) |
 
 귀신은 소유자가 없는 `NetworkObject`다. 상태와 위치는 서버가 정하고
 `NetworkVariable<GhostPhase>` 및 `NetworkTransform`으로 복제한다. 클라이언트는 복제 상태로
@@ -147,7 +147,15 @@ GhostPrototypeSettings의 전체 토글과 5개 개별 토글은 F2 → 귀신 �
 정신력 0 관전자는 예외). 활동 중 본체 목격 −5는 보이지 않아도 판정이 그대로라 "안 보이는 목격"이 생긴다(G-17 대기).
 경고에는 `GhostAmbientLight`로 표시된 방 조명을
 5초간 점멸시키고, 각 피어의 귀신 `AudioSource`에서 임시 합성 심장 박동음을 반복한다.
-어택에는 방 조명을 빨간색으로 바꾸며 종료 후 원래 색·밝기로 복구한다. "원래 값"은
+어택에는 방 조명을 빨간색으로 바꾸며 종료 후 원래 색·밝기로 복구한다.
+**어택 천장등 깜빡임(2026-11-14 사용자 요청 "어택 시작하면 천장 라이트 깜빡깜빡, 디폴트는 꺼져 있는 게 맞다").** 그전에는 Stage1 천장등이
+기본 꺼짐(`Light.enabled = false`)이라 경고 점멸·어택 빨간색이 밝기·색만 바꿔 **아무것도 보이지 않았다.** 이제 어택 동안 `GhostAmbientLight.FlickerLevel`
+(1/9초 단계마다 55% 확률로 켜짐, 켜지면 기준 밝기 × 0.5~1, 조명 위치로 정한 씨앗이라 방마다 박자가 다르다)로 빨갛게 깜빡이고, 꺼 둔 천장등도 켠다.
+어택이 끝나면 평소 켜짐 상태로 돌린다. 켜고 끄기는 **스테이지 조명 컨트롤러가 켜짐 상태를 알려 준 천장등**(`SetBase(밝기, 색, 켜짐)` → `StageManaged`)에만 한다 —
+`Tutorial_Lamp` 처럼 가구 풀(`RandomFurnitureItem`)이 켜고 끄는 조명은 숨은 가구를 밝히지 않도록 밝기만 바꾼다. 천장 패널 발광은 `StageRoomLight` 가 조명 밝기를 따라가므로 같이 깜빡인다.
+설정(`Room lights in attack` 헤더): 켜기/끄기 · 초당 단계 9 · 켜질 확률 0.55 · 밝기 하한 0.5 [TEMP]. 끄면 예전처럼 켜진 등만 빨갛게 바뀐다.
+경고 5초 점멸은 그대로라 Stage1 처럼 천장등이 꺼진 방에서는 여전히 보이지 않는다.
+"원래 값"은
 `GhostAmbientLight.SetBase` 로 바뀔 수 있다 — Stage1 천장등 36개는 `StageLightingController`가
 HUD 밝기를 기준값으로 넘긴다([map-generation.md §10.1.6](map-generation.md)). 빨간 원뿔 시야
 표시는 기존 프로토타입 연출이다. 아트 음원이 들어오면 `_warningHeartbeatClip`에 연결해
@@ -196,6 +204,24 @@ HUD 밝기를 기준값으로 넘긴다([map-generation.md §10.1.6](map-generat
 공통 규칙이 아니라 별도 기획 대기 중인 프로토타입이다(G-13). 은신처·본체 목격의 새 규칙과
 같은 프레임에 적용될 수 있으며 최종 중복 정책은 G-17에 따른다.
 
+**귀신별 현상 (2026-11-15 사용자 결정 — "기존 이상현상 싹 삭제, 인커는 인커 현상, 박치기는 임시로 지금 현상").**
+기존 현상은 설정 타입이 정한다(ADR-0024): `GhostPrototypeSettings.UsesClassicPhenomena`(virtual, 기본 false)를
+`GhostDinoSettings`만 true 로 덮어쓴다 [임시]. false 인 귀신(기본 `Ghost_Prototype`·인커)은 `OnNetworkSpawn`에서
+`GhostPhenomenaDirector`를 만들지 않는다 — 현상 틱·긴장도 감속·현상 목격 −5가 모두 없고, Hub 강제 실행
+(`ServerForcePhenomenon`/`ServerRunPhenomenon`)도 `None`을 돌려준다. 상태 요약 `Phenomena` 줄은 "없음"으로 나온다.
+Tab Hub는 귀신 섹션에 **"이상현상"** 섹션 하나를 늘 펼쳐 둔다 — 지금 귀신과 그 귀신의 현상을 한 줄로 보이고,
+인커 버튼(1 문틈 응시·2 벽 글씨·글씨 모두 지우기)은 씬 종류 목록에 인커가 있으면(`IGhostDebug.CanTestInker`) 늘 보인다.
+지금 귀신이 인커가 아니면 누를 때 `GhostPrototypeSpawner.ForceInkerPhenomenon`이 종류 목록에서 설정이 `GhostInkerSettings`인
+프리팹(`GhostPrototypeController.Settings`)을 찾아 스폰 지점에 교체한 뒤 바로 시작한다(인커 현상은 귀신 위치가 아니라 대상 플레이어 기준).
+기존 공통 현상 버튼은 `HasClassicPhenomena`(박치기)일 때만 같은 섹션에 붙는다. 버튼 구성은 IMGUI Layout 이벤트에서만 정해
+같은 프레임의 교체 클릭으로 컨트롤 수가 어긋나지 않게 한다. 인커 현상은 원래부터
+이 디렉터와 따로 도는 `ServerTickInker`라 그대로다. 코드는 지우지 않았다 — 박치기가 쓰므로, 박치기 고유 현상이 정해지면
+(ghost-dino.md BD-16) 디렉터·플레이어·관련 설정 필드를 함께 걷어 낸다. 현상 설정 필드는 기본 설정에 남아 있지만
+`PhenomenonWitness*`는 본체 목격(`GhostPerception.CanWitnessBody`)도 쓴다.
+알려진 문제: 박치기의 "조명 깜빡임"은 밝기만 바꿔, 천장등이 기본으로 꺼진 Stage1에서는 보이지 않는데 목격 −5는 적용된다(그대로 둠).
+검증: EditMode `GhostPhenomenaDirectorTests.공통_현상은_박치기_설정만_쓰고_기본과_인커는_쓰지_않는다`(타입·실제 에셋 3종),
+PlayMode `GhostInkerFlowTests.인커는_기존_공통_초자연현상이_없다`.
+
 ## 6. 검증과 남은 결정
 
 - 2026-11-02 리팩토링 5단계: 컴파일 오류·경고 0, 전체 EditMode **588/588**·PlayMode **167/167**,
@@ -232,6 +258,7 @@ HUD 밝기를 기준값으로 넘긴다([map-generation.md §10.1.6](map-generat
 Ghost_Tutorial은 기존 모델/AI와 Tutorial 전용 GhostPrototypeSettings를 사용한다(베이스 귀신 — '뒤돌아보지마' 기믹은 `_Tutorial` 에셋에서만 켠다, 아래 절).
 PhenomenaPoolSize=3으로 매 스테이지 3종을 고르고, PhenomenaCandidateMask로 원룸에서 연출 가능한 흔들기·소품 떨어뜨리기·조명 이상·환영만 후보에 둔다.
 기본 설정의 두 값은 0이므로 다른 스테이지는 기존 전체 후보를 쓴다. 주기·정신력 피해·어택 수치는 바꾸지 않았다.
+(2026-11-15부터 기존 현상은 박치기 설정 타입에서만 돈다 — §5. 이 에셋이 박치기라 원룸 3종 선택은 그대로이고, Hub 로 Stage1 에 박치기를 불러도 이 3종 규칙을 쓴다.)
 선택 종류의 비트 마스크를 GhostState 스냅샷에 저장하여 호스트 이전 후 재선정하지 않는다.
 GhostPrototypeSpawner._restrictRoamHeight를 Tutorial에서만 켜서 202호 아래층/지붕을 배회·탐지 후보에서 제외한다.
 모텔 FBX는 런타임 NavMesh의 읽기 요구에 맞춰 Read/Write를 켰다.
@@ -282,6 +309,60 @@ GhostPrototypeSpawner._restrictRoamHeight를 Tutorial에서만 켜서 202호 아
 PlayMode `GhostDinoChargeFlowTests`(실제 컨트롤러·캐릭터 컨트롤러 — 준비 중 방향 추적과 고정, 준비·돌진 중 종료 유예, 가구 충돌 시 ⌊거리×5⌋ 피해·스턴,
 플레이어 충돌 즉사, 벽 충돌은 피해 없음, 스턴 5초 뒤 추격 복귀, 기믹 끄기 7건).
 **미검증:** 실제 Stage1 에서 귀신이 돌진하는 장면·계단·좁은 복도 체감, 클라이언트 예고 연출, Steam 다인, 난이도별 속도, 호스트 이전 복원.
+
+## 명령(인커) 귀신 (구현, 2026-11-14)
+
+기획 권위: [ghost-inker.md](../project/ghost-inker.md) — 임시 해석 IK-1~18 은 그 문서 §8. **설정 에셋이 `GhostInkerSettings`(기본 설정 상속, ADR-0024)일 때만 동작한다.**
+에셋 `GhostPrototypeSettings_Inker`(공통 수치는 `_Default` 와 같다 — EditMode 가 필드마다 비교), 프리팹 `Ghost_Inker`(`Ghost_Prototype` 복사본, 컨트롤러 `_settings` 만 다름,
+`GlobalObjectIdHash` 633779966 = NGO 와 같은 `GlobalObjectId_V1-1-{guid}-{fileId}-0` 의 XXHash32 로 계산해 저장, `DefaultNetworkPrefabs` 등록).
+
+| 구성 | 역할 |
+| --- | --- |
+| `GhostPrototypeController.Inker.cs` | 컨트롤러 `partial`. `ServerTick` 끝의 `ServerTickInker` 가 발동 판정·진행·발견·위반을, `Update` 의 `TickInkerVisual` 이 피어 연출을 맡는다. `ICommandWritingService`(대걸레 닦기)를 구현해 인커가 스폰된 동안 `Services` 에 등록한다 |
+| `GhostInkerSequence` | 현상 진행표 순수 상태 기계(문틈: 열림 2 → 내밀기 1 → 대기 ≤5 → [눈 맞춤] 기울이기 0.5 → 쾅 0.5 → 긁기 2 / 벽: 쓰기 4[2m 접근 시 즉시 완성] → 목 1 → 응시 3 → 소멸 1). 남은 시간을 다음 단계로 넘긴다 |
+| `InkerTurnAroundDetector` | 1초 창 안 어느 표본과 비교해 몸 방향이 135° 이상 달라지면 뒤돈 것. 플레이어마다 하나, 매 서버 틱 복제된 몸 요를 넣는다 |
+| 복제 | `NetworkList<InkerWritingState>`(글씨: 명령·출처·문 앵커 ID·앵커 기준 위치/회전·폭/높이·쓰기 시작 서버 시각/시간·완성·닦기 남은/필요) + `NetworkVariable<InkerSequenceState>`(종류·단계·단계 시작 서버 시각·인형 자리·몸/얼굴 방향·문틈 이동량·문 ID). 단계가 바뀔 때만 쓴다. NetworkList 는 모든 귀신 프리팹이 `Awake` 에서 만든다(인커가 아니면 비어 있음) |
+| 발동 | 활동·자연 진정에서 `InkerCheckInterval`(10초)마다 두 현상 순서를 섞어 확률(20%/30%)·남은 횟수(3/2)를 본다. 후보 플레이어 = `CanChasePlayer` 통과 |
+| 문틈 후보 | 플레이어(평면 2~6m) × 씬 문: 닫힘·잡히지 않음·집 경계 안·문 1m 안에 사람 없음·카메라 정면 50°·문짝을 뺀 시야선. 정면에 가까운 문. 문짝 모양 = 문 루트 기준 비트리거 충돌체 경계(문이 돌아도 불변), 위치는 **닫힌 자세**(`DoorInteractable.ClosedWorldRotation`)로 계산 |
+| 문틈 연출 | 인형은 플레이어 반대편, 손잡이 쪽 끝 뒤 0.6m 에 숨었다가 문틈 쪽으로 0.45m 내민다. 문은 `ServerBeginGhostPeek`(닫고 잠근 뒤 20° 를 2초에) → `ServerGhostSlam`(잠근 채 원래 속도로 닫음) → `ServerReleaseGhostHold`. 글씨는 ⑥에서 플레이어 쪽 면에 붙인다(문 앵커) |
+| 눈 맞춤 | ③ 대기 중 서버가 플레이어 카메라(몸 요 + 복제 피치, 복제 카메라 높이)에서 얼굴(내민 자리 + 1.45m)까지 15° 안·15m 안·문짝 제외 시야선을 0.3초 유지하면 맞춤. 맞춘 사람마다 한 번 `ServerApplyDecrease(5)` |
+| 벽 후보 | 플레이어 정면 ±45° 11갈래 수평 레이(높이 1.45m, 가구·플레이어·귀신 제외): 2~7m, 문·움직이는 물체 아님, 법선 수평·플레이어 쪽, 집 경계 안, 기존 글씨 1.2m 밖, 벽 앞 0.5m 바닥(같은 층)과 빈 캡슐. 정면에 가까운 곳 |
+| 발견·위반 | 0.1초마다 다 쓴 글씨를 처음 본 플레이어 기록(8m·35°·앞면·시야선). 명령 글씨를 새로 본 틱에는 그 틱의 행동을 세지 않는다. 행동은 `InkerActions` 플래그로 모은다 — 뒤돌기(`InkerTurnAroundDetector`)·점프(`PlayerMotor.JumpCount` 변화)는 매 틱 보고, **문 열기**(`DoorInteractable.ServerOpenedByPlayer` — 플레이어 여닫기 RPC 가 문을 열 때만)·**가구 만지기**(`FurnitureGrabTarget.ServerTouchedByPlayer` — `ServerTryAddHolder` 성공·드라이버 분해 성공)는 서버 정적 이벤트로 플레이어별로 쌓였다가 다음 틱에 판정한다(2026-11-15). 명령 ↔ 금지 행동은 `InkerCommandRules`. 기록된 플레이어가 어기면 그 글씨들 제거 + `ServerApplyDecrease(10)` + 위반자에게만 `InkerJumpScareRpc`(`RpcTarget.Single`). 문 글씨 발견은 `ServerApplyDecrease(3)` |
+| 닦기 | `PlayerCleaningController` 가 얼룩을 못 맞히면 `ICommandWritingService.TryRaycast`(다 쓴 글씨 앞면 사각형 + 앞을 가리는 물체 검사) → `RequestWipeWritingRpc` → 서버가 같은 조건(대걸레·간격·조준·벽 너머 금지)으로 `ServerTryWipe`. 6번이면 제거 |
+| 어택 시작 | 문틈: 글씨·인형 제거, 문 놓고 닫음. 벽: 다 쓰기 전이면 글씨 제거, 다 썼으면 유지 |
+| 피어 연출 | `InkerWritingView`(**피 글씨** — 아래 2026-11-15 절, 앵커 따라감) · `InkerPuppetView`(귀신 `_body` 복제, 충돌 없음, `_BaseColor` 알파로 나타남·사라짐) · `InkerSounds`(임시 합성음, 막 시작한 단계만 재생) · `InkerAtmosphere`(현상 중 화면 포스트프로세싱) |
+
+**연출 다시 만듦 (2026-11-15, 사용자 "지금 연출 너무 거지같아. 피로 쓰이는 느낌으로…").**
+
+| 구성 | 역할 |
+| --- | --- |
+| `InkerStrokeFont` | 손글씨 **획** 글꼴(대문자·`'`·`.`·`!`·`?`, 글자 높이 = 1). 낱말 단위 줄바꿈 `Layout(text, wrapWidth)` 과 서버 크기 계산 `Size(text, letterHeight, maxWidth, …)` — 줄이 최대 폭을 넘으면 줄을 바꾸고 한 낱말도 넓으면 글자를 줄인다(문짝). 서버·피어가 같은 계산을 쓴다 |
+| `InkerBloodMesh` | 획을 손가락으로 긋듯 **진행도만큼** 리본 메시로 그린다: 획 시작에 고인 피(폭 1.4배), 압력 떨림, 끝으로 갈수록 가늘어지고 말라 갈라짐(정점 젖음 값), 날카로운 모서리에서 리본을 끊고 둥근 원판으로 잇기, 글자마다 회전 ±8°·크기·기준선 흔들림, 지금 쓰는 손끝 방울. 쓴 자리에서 **흘러내림**(획의 낮은 점·시작·끝, 글자당 ≤3, 길이는 지연 뒤 지수적으로 늘다 멈춤, 끝에 방울)과 **튄 방울**. 씨앗 = 글씨 Id → 모든 피어가 같은 모양. `IsSettled` 뒤로는 메시를 다시 짓지 않는다 |
+| `InkerWritingView` | `InkerBloodMesh` 를 `MeshRenderer` 로 그린다. 머티리얼은 `GhostInkerSettings.WritingMaterial`(`M_InkerBlood`), 없으면 `Shader.Find`. 닦기 진행을 `_Alpha`(1 → 0.22)·`_Smear`(갈색으로 번짐)로. `TryGetTipWorld` — 현상 2 인형 몸이 손끝을 따라 옆으로 옮겨 간다 |
+| 셰이더 `GhostHunter/InkerBlood` | URP 투명·조명 없음(어두운 집에서도 읽혀야 한다). 획 가장자리 들쭉날쭉(노이즈 문턱), 얇게 묻은 자국, 마른 끝 붓결 끊김, 젖은 광택 줄, 원판은 가운데 반짝임. 정점색은 sRGB 로 받아 선형으로 바꾼다 |
+| `InkerAtmosphere` | 각 피어가 로컬로 만드는 **런타임 Volume 2개**(프로필 에셋 없음). 분위기(우선순위 60): 검붉은 비네트(심장 박동처럼 조임)·채도 −60·대비·노출 −0.4·약간 차가운 필터·필름 그레인·색수차. 충격(61): 렌즈 왜곡·강한 색수차·붉은 필터·노출 −0.6 — 지수적으로 사라진다. 세기 = 현상 단계별 값(`InkerStepMood`: 문 열림 0.35→0.6 … 눈 맞춤·쾅·응시 1) × 카메라~현상 거리(6m 이내 최대, 16m 밖 0). 충격: 고개 기울임(눈 맞춤) 0.45·문 쾅 0.85·목 꺾임 0.7·갑툭튀 1(위반자만). 늦게 들어온 피어는 지난 충격을 받지 않는다. Gameplay 어셈블리에 `Unity.RenderPipelines.Core/Universal.Runtime` 참조를 더했다 |
+| 명령 2종 추가 | `DontOpenDoor`("DON'T OPEN THE DOOR")·`DontTouchFurniture`("DON'T TOUCH THE FURNITURE"). `PickWallCommand` 는 켜진 명령 중 고르게. 벽 글씨 한 줄 최대 2.4m(`WritingMaxLineWidth`) — 긴 명령은 2~3줄 |
+| 기타 | `InkerWritingState` 에 `LetterHeight`·`WrapWidth`(피어가 서버와 같은 줄바꿈으로 그린다). 글씨 쓰는 소리를 젖은 문지름(저역 잡음 + 획마다 질척임 + 방울)으로 교체. 목 꺾임은 7단으로 끊기며 돈다. `NetProtocolVersion` 12 → 13 |
+
+검증: EditMode 새 `InkerBloodWritingTests` 10건(모든 명령 획 존재·줄바꿈·문짝 축소·진행도별 메시·씨앗 일치·흘러내림이 늘다 멈춤·손끝 방향·뷰 쓰기 방향·명령 규칙·명령 고르기·단계별 분위기), PlayMode 새 `GhostInkerFlowTests` 3건(문 열지 마 위반·다른 행동 무시 / 가구 만지지 마 위반 / 보기 전 행동 무시)과
+`InkerPresentationRenderTests` 2건 — 그래픽이 켜진 PlayMode 에서 실제로 렌더해 피 글씨가 분홍 오류 없이 검붉게 보이는지·쓰는 중엔 일부만·닦으면 흐려지는지, 분위기가 모서리를 어둡게·채도를 빼고 충격이 금방 사라지는지 본다
+(`GH_INKER_RENDER_DIR` 를 주면 장면 PNG 저장). **미검증:** 실제 Stage1 조명·벽 재질 위에서의 모습, 다인에서 각 피어 분위기.
+
+**스포너 귀신 종류 (같은 날).** `GhostPrototypeSpawner._ghostTypes`(`GhostTypeOption`: 이름·프리팹·`InRandomPool`)와 `_randomizeInitialType`. 비어 있으면 `_ghostPrefab` 하나.
+Stage1: 기본(랜덤)·인커(랜덤)·박치기(`Ghost_Tutorial`, Hub 전용). `IGhostDebug` 에 종류 목록·선택·`ReplaceGhostWithSelected`(기존 귀신 despawn → 고른 종류 spawn)·인커 강제 실행/지우기를 더했고 Hub 귀신 섹션에 버튼을 붙였다.
+호스트 이전 스냅샷 `GhostState.TypeIndex` 로 같은 종류를 다시 스폰한다(인커 글씨·현상·횟수는 미포함). `NetProtocolVersion` 11 → 12.
+F2 튜닝 창(`TuningHud`)은 설정을 들고 있던 컴포넌트가 사라지면(귀신 교체) 대상을 다시 찾는다 — 전에는 처음 찾은 귀신의 설정 에셋을 계속 보여 줬다.
+종류 목록이 없는 씬(Tutorial·DinoTest 등)은 그 씬의 귀신 프리팹 하나가 프리팹 이름으로 보인다.
+
+**검증 (2026-11-14, 검증 복제본).** 컴파일 경고 신규 0. 전체 EditMode **755/755** — 새 `GhostInkerTests` 20건(진행표·눈 맞춤 구간·즉시 완성·남은 시간 이월,
+뒤돌기 판정 경계·창·초기화·360° 경계, 글씨 앞면 판정·문 앵커, TextMesh 읽는 방향, 종류 고르기, 인커 에셋 원문 수치·Default 공통 수치 필드별 일치,
+`Ghost_Inker` 설정 타입·고유 해시·레이어·등록, Stage1 스포너 종류 목록). PlayMode 새 `GhostInkerFlowTests` **7/7**(벽 글씨 → 발견 → 뒤돌기 −10·삭제 / 보기 전 동작 무시 /
+대걸레 6번 해제 / 문틈 눈 맞춤 −5·글씨 발견 −3·문 잠금·닫힌 채 해제 / 어택 시 정리 2건 / 확률 발동·횟수 제한·어택 중 미발동). 전체 PlayMode 256건 중 255 통과 —
+실패 1건은 `DinoTestSceneFlowTests` "원으로 도망치는 플레이어"(추격 중 플레이어가 잡혀 돌진 단계에 못 감)로, 변경 전 커밋 9ac1d56 에서도 8회 중 2회 같은 방식으로 실패하는
+선재 불안정이다(7m 스폰 각도·배회가 `Random`). 변경 전 커밋은 단독 8회 중 2회·전체 실행 2회 중 1회 실패. 이 브랜치에서는 9회 중 7회 실패해 비율이 더 높게 나왔지만
+박치기 경로는 인커 코드를 첫 줄에서 빠져나가고 추가 `Random` 호출도 없어 인과를 찾지 못했다 — 표본이 작다.
+같은 날 어택 천장등 깜빡임을 더한 뒤 전체 EditMode **759/759**(새 `GhostAttackLightTests` 4건), PlayMode 257건 중 256(새 천장등 흐름 1건 포함 — 실패는 같은 박치기 시험장 1건).
+**미검증:** 실제 Stage1 화면(인형 자세·문틈 위치·글씨 크기·읽는 방향), 다인 클라이언트 연출·RPC, 실제 마우스 회전 체감, 합성음.
 
 ## 원문 0.3·0.4 어택 규칙 (구현, 2026-11-07)
 

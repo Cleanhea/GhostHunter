@@ -210,8 +210,9 @@ namespace GhostHunter.Gameplay.Ghost
 
         [SerializeField, Min(0f)] private float _roamLookAroundMax = 3.5f;
 
-        [Header("Paranormal phenomena (§6 · [TBD] G-13)")]
-        [Tooltip("평상시 초자연현상 발생 주기(초). 활동보다 드물다 (§6.1).")]
+        [Header("Classic phenomena (§6 · 박치기 전용 [임시] — 사용자 결정 2026-11-15)")]
+        [Tooltip("평상시 초자연현상 발생 주기(초). 활동보다 드물다 (§6.1). " +
+            "공통 현상은 설정 타입이 UsesClassicPhenomena 일 때만(지금은 박치기) 돈다.")]
         [SerializeField] private float _phenomenaIdleInterval = 24f;
 
         [Tooltip("활동 상태 초자연현상 발생 주기(초).")]
@@ -281,6 +282,19 @@ namespace GhostHunter.Gameplay.Ghost
 
         [Tooltip("어택 중 빨간 몸 조명 밝기.")]
         [SerializeField, Min(0f)] private float _attackLightIntensity = 1.2f;
+
+        [Header("Room lights in attack (§10.4 · 사용자 요청 2026-11-14)")]
+        [Tooltip("어택 동안 방 천장등을 빨갛게 깜빡인다 — 꺼 둔 등(Stage1 기본 꺼짐)도 켜서 깜빡이고, 어택이 끝나면 원래 켜짐 상태로 돌린다. 끄면 예전처럼 켜진 등만 빨갛게.")]
+        [SerializeField] private bool _attackRoomLightFlicker = true;
+
+        [Tooltip("[TEMP] 깜빡임 단계 수(초당). 단계마다 켜질지 새로 정한다.")]
+        [SerializeField, Min(0.5f)] private float _attackFlickerStepsPerSecond = 9f;
+
+        [Tooltip("[TEMP] 단계마다 켜질 확률. 낮을수록 어두운 시간이 길다.")]
+        [SerializeField, Range(0.05f, 1f)] private float _attackFlickerOnChance = 0.55f;
+
+        [Tooltip("[TEMP] 켜진 단계의 밝기 하한(기준 밝기 배율). 단계마다 이 값~1 사이.")]
+        [SerializeField, Range(0f, 1f)] private float _attackFlickerMinLevel = 0.5f;
 
         [Header("Body clarity by viewer sanity ([TEMP] 사용자 요청 2026-09-30)")]
         [Tooltip("보는 사람 정신력이 최대일 때 귀신 본체의 불투명도(알파). 정신력이 낮을수록 아래 값 쪽으로 선명해진다.")]
@@ -385,6 +399,14 @@ namespace GhostHunter.Gameplay.Ghost
         public int RoamCandidateCount => _roamCandidateCount;
         public float RoamLookAroundMin => _roamLookAroundMin;
         public float RoamLookAroundMax => Mathf.Max(_roamLookAroundMin, _roamLookAroundMax);
+        /// <summary>
+        /// 기존 공통 초자연현상(흔들기·소품·문·서랍·조명·출현, <see cref="GhostPhenomenonKind"/>)을 쓰는가.
+        /// 사용자 결정(2026-11-15): 공통 현상은 모든 귀신에서 빼고 귀신마다 자기 현상을 갖는다 — 기본 귀신은 없음,
+        /// 인커는 자기 현상(문틈 응시·벽 글씨)만, 박치기만 [임시]로 지금 공통 현상을 유지한다.
+        /// 귀신 종류는 설정 타입이 정한다(ADR-0024)라서 값이 아니라 타입이 덮어쓴다.
+        /// </summary>
+        public virtual bool UsesClassicPhenomena => false;
+
         public float PhenomenaIdleInterval => _phenomenaIdleInterval;
         public float PhenomenaActiveInterval => _phenomenaActiveInterval;
         public float PhenomenaHighRiskInterval => _phenomenaHighRiskInterval;
@@ -407,6 +429,10 @@ namespace GhostHunter.Gameplay.Ghost
         public float WarningLightMin => _warningLightMin;
         public float WarningLightMax => _warningLightMax;
         public float AttackLightIntensity => _attackLightIntensity;
+        public bool AttackRoomLightFlicker => _attackRoomLightFlicker;
+        public float AttackFlickerStepsPerSecond => _attackFlickerStepsPerSecond;
+        public float AttackFlickerOnChance => _attackFlickerOnChance;
+        public float AttackFlickerMinLevel => _attackFlickerMinLevel;
         public float BodyAlphaAtFullSanity => _bodyAlphaAtFullSanity;
         public float BodyAlphaAtZeroSanity => _bodyAlphaAtZeroSanity;
 
