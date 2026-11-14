@@ -35,6 +35,9 @@ namespace GhostHunter.Core.Steam
         /// <summary>방장이 한 판 보상(<see cref="StageShopRules.StageReward"/>)을 공동 잔액에 더한다.</summary>
         bool TryGrantStageReward();
 
+        /// <summary>방장이 공동 잔액에 양수 금액을 더한다 — 귀중품을 훔친 순간(theft-system.md). 선반 재고와 장비는 보존한다.</summary>
+        bool TryAddShopBalance(int amount);
+
         /// <summary>개발 튜닝 — 방장이 공동 잔액을 바꾼다. 선반 재고와 장비는 보존한다.</summary>
         bool TrySetShopBalanceForDebug(int balance);
 

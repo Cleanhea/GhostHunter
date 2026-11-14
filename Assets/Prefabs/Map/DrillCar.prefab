@@ -421,6 +421,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Model
       objectReference: {fileID: 0}
+    - target: {fileID: -5782385800321293004, guid: 47565c8d8507ce04486a14f88aac8673, type: 3}
+      propertyPath: m_Convex
+      value: 1
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects:
     - {fileID: 7224192787271168774, guid: 47565c8d8507ce04486a14f88aac8673, type: 3}

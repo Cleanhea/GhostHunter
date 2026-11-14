@@ -311,7 +311,7 @@ namespace GhostHunter.Systems.SceneFlow
                 {
                     StageSettlementRecord history = SettlementHistory[i];
                     GUILayout.Label($"{i + 1}판: 가구 {history.DeliveredFurniture}/{history.TargetFurniture}, " +
-                        $"청소 {history.CleaningPercent}%, 생존 {history.Survivors}명");
+                        $"청소 {history.CleaningPercent}%, 생존 {history.Survivors}명, 훔친 금액 ${history.StolenMoney}");
                 }
                 GUILayout.EndArea();
                 return;
@@ -338,6 +338,8 @@ namespace GhostHunter.Systems.SceneFlow
                 GUILayout.Label($"목표 가구 반출 완료 {record.DeliveredFurniture}/{record.TargetFurniture}", GUI.skin.label);
                 GUILayout.Label($"청소 완료 {record.CleaningPercent}%", GUI.skin.label);
                 GUILayout.Label($"생존 {record.Survivors}명 / 실종 {record.Missing}명 / 사망 {record.Dead}명", GUI.skin.label);
+                // 훔친 금액은 훔친 순간 공동 잔액에 이미 더했다 — 여기서는 따로 보여 주기만 한다(theft-system.md TH-Q2).
+                GUILayout.Label($"훔친 금액 ${record.StolenMoney} (공동 잔액에 반영됨)", GUI.skin.label);
                 GUILayout.Label("추가 보상과 치료비는 단가 확정 후 적용됩니다.", GUI.skin.label);
             }
             else

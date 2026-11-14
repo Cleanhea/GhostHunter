@@ -13,6 +13,7 @@ using GhostHunter.Gameplay.Lighting;
 using GhostHunter.Gameplay.Map;
 using GhostHunter.Gameplay.Player;
 using GhostHunter.Gameplay.Sanity;
+using GhostHunter.Gameplay.Theft;
 using UnityEngine;
 
 namespace GhostHunter.Systems.Installers
@@ -66,6 +67,11 @@ namespace GhostHunter.Systems.Installers
             if (GetComponent<DrillCarItemShelf>() == null)
                 gameObject.AddComponent<DrillCarItemShelf>();
             StageExitInteractable.CreateInDrillCar();
+            // 귀중품 상태(theft-system.md) — 씬과 함께 사라지므로 판마다 새로 시작한다.
+            StageTheftService theft = GetComponent<StageTheftService>();
+            if (theft == null)
+                theft = gameObject.AddComponent<StageTheftService>();
+            Bind<IStageTheftService>(theft);
             if (_voiceSettings != null)
             {
                 Services.TryGet(out IUserSettings userSettings);

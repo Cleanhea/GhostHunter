@@ -57,6 +57,12 @@ namespace GhostHunter.Core.Steam
         /// <summary>서버 전용 — 한 판이 끝났다(전멸 포함). <see cref="StageShopRules.StageReward"/> 를 더한다.</summary>
         void ServerGrantStageReward();
 
+        /// <summary>
+        /// 서버 전용 — 훔친 귀중품 금액을 공동 잔액에 <b>즉시</b> 더한다(theft-system.md TH-5, 사용자 확정 2026-11-12).
+        /// 훔친 사람이 나중에 죽거나 실종돼도 되돌리지 않는다. 0 이하·세션 밖이면 거짓.
+        /// </summary>
+        bool ServerAddStolenMoney(int amount);
+
         /// <summary>개발 튜닝 — 호스트가 현재 공동 잔액을 0 이상의 정수로 바꾼다. 세션 상태에만 반영한다.</summary>
         bool TrySetBalanceForDebug(int balance);
 

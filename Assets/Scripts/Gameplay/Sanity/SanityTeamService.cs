@@ -9,6 +9,7 @@ using GhostHunter.Gameplay.Ghost;
 using GhostHunter.Gameplay.Map;
 using GhostHunter.Gameplay.Player;
 using GhostHunter.Gameplay.Recovery;
+using GhostHunter.Gameplay.Theft;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -198,8 +199,10 @@ namespace GhostHunter.Gameplay.Sanity
 
             CleaningController cleaning = FindFirstObjectByType<CleaningController>();
             int cleaned = cleaning != null ? cleaning.ProgressPercent : 0;
+            // 훔친 금액은 이미 공동 잔액에 들어갔다 — 정산은 따로 보여 주기만 한다(theft-system.md TH-Q2).
+            int stolen = Services.TryGet(out IStageTheftService theft) ? theft.StolenMoney : 0;
             return new StageSettlementRecord(delivered, targets, cleaned,
-                survivors, missing, dead, wiped);
+                survivors, missing, dead, wiped, stolen);
         }
 
         private async UniTaskVoid LoadFailureResultAsync(ISceneFlow sceneFlow, float delaySeconds)
