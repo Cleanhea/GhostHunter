@@ -64,6 +64,8 @@ namespace GhostHunter.Gameplay.Map
         [SerializeField] private int _seed = 1;
         [Tooltip("배치 탐색 연산의 상한이다. 초과 시 부분 배치 없이 실패한다.")]
         [SerializeField, Min(1)] private int _searchBudget = 20000;
+        [Tooltip("원본에 저장된 후보 배치를 사용한다. 선반 안 소품 등 의도된 중첩을 허용하며, 장애물/후보 간 AABB 겹침 검사를 생략한다.")]
+        [SerializeField] private bool _useAuthoredLayout;
         [SerializeField] private LayerMask _obstacleMask = ~0;
 
         [Header("B안 후보 지점 설치용 [TEMP]")]
@@ -85,6 +87,7 @@ namespace GhostHunter.Gameplay.Map
         public bool UseFixedSeed => _useFixedSeed;
         public int Seed => _seed;
         public int SearchBudget => _searchBudget;
+        public bool UseAuthoredLayout => _useAuthoredLayout;
         public int ObstacleMask => _obstacleMask.value;
         public int FloorCandidatesPerRoom => _floorCandidatesPerRoom;
         public float CandidateSpacing => _candidateSpacing;

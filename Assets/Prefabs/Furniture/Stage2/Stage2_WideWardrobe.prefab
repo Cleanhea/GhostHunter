@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 8460961264961798942}
   - component: {fileID: 6519375611959252440}
   m_Layer: 9
-  m_Name: 507
+  m_Name: 1644
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -27,7 +27,7 @@ Transform:
   m_GameObject: {fileID: 323596438896527341}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 15.740638, y: 0, z: 1.214575}
+  m_LocalPosition: {x: 15.7243123, y: -0, z: 1.37117546}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -41,7 +41,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 323596438896527341}
-  m_Mesh: {fileID: -6026849744443765409, guid: e16a2b160e273ad488c786eee9330ddd, type: 3}
+  m_Mesh: {fileID: 6029707674530581662, guid: 5b19f566f873a6d4093b37c66300ff6c, type: 3}
 --- !u!23 &6519375611959252440
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -67,7 +67,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 1b26be4d4fb924742b4f2ba0d0c7f8ae, type: 2}
+  - {fileID: 2100000, guid: 1971f5e21fee4ea3a8206cf6b2b91353, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -103,7 +103,7 @@ GameObject:
   - component: {fileID: 6654431244712262445}
   - component: {fileID: 1719996851464374986}
   m_Layer: 9
-  m_Name: Wardrobe_168_505
+  m_Name: Wardrobe_168_1642
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -118,7 +118,7 @@ Transform:
   m_GameObject: {fileID: 973016458547853857}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 15.740638, y: 0, z: 1.214575}
+  m_LocalPosition: {x: 15.7243123, y: -0, z: 1.37117546}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -132,7 +132,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 973016458547853857}
-  m_Mesh: {fileID: 2294839866325259411, guid: e16a2b160e273ad488c786eee9330ddd, type: 3}
+  m_Mesh: {fileID: 8555188412020978953, guid: 5b19f566f873a6d4093b37c66300ff6c, type: 3}
 --- !u!23 &1719996851464374986
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -158,7 +158,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 930bd5d367f5fa44abb003dba2b3b2a2, type: 2}
+  - {fileID: 2100000, guid: 077f08c767b84ce0bf9f5deaedecc47b, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -194,7 +194,7 @@ GameObject:
   - component: {fileID: 4614585007218691419}
   - component: {fileID: 1802328408744294185}
   m_Layer: 9
-  m_Name: sweethome3d_opening_on_hinge_2_door_516_Outline
+  m_Name: sweethome3d_opening_on_hinge_2_door_1653_Outline
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -222,7 +222,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1051212839666570164}
-  m_Mesh: {fileID: 4751629865659784099, guid: e16a2b160e273ad488c786eee9330ddd, type: 3}
+  m_Mesh: {fileID: 8763558842484012158, guid: 5b19f566f873a6d4093b37c66300ff6c, type: 3}
 --- !u!23 &1802328408744294185
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -284,7 +284,7 @@ GameObject:
   - component: {fileID: 2157442057836414400}
   - component: {fileID: 6894942901737733414}
   m_Layer: 9
-  m_Name: sweethome3d_hinge_1_509_Outline
+  m_Name: sweethome3d_hinge_1_1646_Outline
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -312,7 +312,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1450736168369382966}
-  m_Mesh: {fileID: -5088482472446140664, guid: e16a2b160e273ad488c786eee9330ddd, type: 3}
+  m_Mesh: {fileID: -2844810061984394223, guid: 5b19f566f873a6d4093b37c66300ff6c, type: 3}
 --- !u!23 &6894942901737733414
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -374,7 +374,7 @@ GameObject:
   - component: {fileID: 1296619021054970078}
   - component: {fileID: 1393575842419634558}
   m_Layer: 9
-  m_Name: Wardrobe_168_505_Outline
+  m_Name: Wardrobe_168_1642_Outline
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -402,7 +402,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1500821916735877360}
-  m_Mesh: {fileID: 2294839866325259411, guid: e16a2b160e273ad488c786eee9330ddd, type: 3}
+  m_Mesh: {fileID: 8555188412020978953, guid: 5b19f566f873a6d4093b37c66300ff6c, type: 3}
 --- !u!23 &1393575842419634558
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -464,7 +464,7 @@ GameObject:
   - component: {fileID: 5637156605454221700}
   - component: {fileID: 6763875250990767860}
   m_Layer: 9
-  m_Name: sweethome3d_opening_on_hinge_2_door_2214_515_Outline
+  m_Name: sweethome3d_opening_on_hinge_2_door_2214_1652_Outline
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -492,7 +492,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1867489674456386065}
-  m_Mesh: {fileID: -7287450961670294116, guid: e16a2b160e273ad488c786eee9330ddd, type: 3}
+  m_Mesh: {fileID: -4992085545767442527, guid: 5b19f566f873a6d4093b37c66300ff6c, type: 3}
 --- !u!23 &6763875250990767860
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -554,7 +554,7 @@ GameObject:
   - component: {fileID: 1714685335101444941}
   - component: {fileID: 221321773344752247}
   m_Layer: 9
-  m_Name: sweethome3d_opening_on_hinge_2_door_4562_514_Outline
+  m_Name: sweethome3d_opening_on_hinge_2_door_4562_1651_Outline
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -582,7 +582,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2850391678562372461}
-  m_Mesh: {fileID: 8856121432635744974, guid: e16a2b160e273ad488c786eee9330ddd, type: 3}
+  m_Mesh: {fileID: 3632466504729070361, guid: 5b19f566f873a6d4093b37c66300ff6c, type: 3}
 --- !u!23 &221321773344752247
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -644,7 +644,7 @@ GameObject:
   - component: {fileID: 281599941343195504}
   - component: {fileID: 2026535650112957450}
   m_Layer: 9
-  m_Name: Wardrobe_168_182_506_Outline
+  m_Name: Wardrobe_168_182_1643_Outline
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -672,7 +672,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2990068096638858001}
-  m_Mesh: {fileID: -4314258912570593791, guid: e16a2b160e273ad488c786eee9330ddd, type: 3}
+  m_Mesh: {fileID: 5691053447371863756, guid: 5b19f566f873a6d4093b37c66300ff6c, type: 3}
 --- !u!23 &2026535650112957450
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -734,7 +734,7 @@ GameObject:
   - component: {fileID: 118942567073961506}
   - component: {fileID: 252783258289837520}
   m_Layer: 9
-  m_Name: sweethome3d_opening_on_hinge_2_door_516
+  m_Name: sweethome3d_opening_on_hinge_2_door_1653
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -749,7 +749,7 @@ Transform:
   m_GameObject: {fileID: 3460846515058662970}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 15.740638, y: 0, z: 1.214575}
+  m_LocalPosition: {x: 15.7243123, y: -0, z: 1.37117546}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -763,7 +763,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 3460846515058662970}
-  m_Mesh: {fileID: 4751629865659784099, guid: e16a2b160e273ad488c786eee9330ddd, type: 3}
+  m_Mesh: {fileID: 8763558842484012158, guid: 5b19f566f873a6d4093b37c66300ff6c, type: 3}
 --- !u!23 &252783258289837520
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -789,7 +789,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 930bd5d367f5fa44abb003dba2b3b2a2, type: 2}
+  - {fileID: 2100000, guid: 077f08c767b84ce0bf9f5deaedecc47b, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -825,7 +825,7 @@ GameObject:
   - component: {fileID: 6384512560052161394}
   - component: {fileID: 8060973212913897378}
   m_Layer: 9
-  m_Name: Wardrobe_168_182_506
+  m_Name: Wardrobe_168_182_1643
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -840,7 +840,7 @@ Transform:
   m_GameObject: {fileID: 4039033409022470731}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 15.740638, y: 0, z: 1.214575}
+  m_LocalPosition: {x: 15.7243123, y: -0, z: 1.37117546}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -854,7 +854,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 4039033409022470731}
-  m_Mesh: {fileID: -4314258912570593791, guid: e16a2b160e273ad488c786eee9330ddd, type: 3}
+  m_Mesh: {fileID: 5691053447371863756, guid: 5b19f566f873a6d4093b37c66300ff6c, type: 3}
 --- !u!23 &8060973212913897378
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -880,7 +880,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 1b26be4d4fb924742b4f2ba0d0c7f8ae, type: 2}
+  - {fileID: 2100000, guid: 1971f5e21fee4ea3a8206cf6b2b91353, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -916,7 +916,7 @@ GameObject:
   - component: {fileID: 1845369061735541676}
   - component: {fileID: 6292686502656484227}
   m_Layer: 9
-  m_Name: sweethome3d_opening_on_hinge_1_door_2214_511
+  m_Name: sweethome3d_opening_on_hinge_1_door_2214_1648
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -931,7 +931,7 @@ Transform:
   m_GameObject: {fileID: 4295643443815999107}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 15.740638, y: 0, z: 1.214575}
+  m_LocalPosition: {x: 15.7243123, y: -0, z: 1.37117546}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -945,7 +945,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 4295643443815999107}
-  m_Mesh: {fileID: 3033089333050171748, guid: e16a2b160e273ad488c786eee9330ddd, type: 3}
+  m_Mesh: {fileID: 3480445782058410321, guid: 5b19f566f873a6d4093b37c66300ff6c, type: 3}
 --- !u!23 &6292686502656484227
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -1007,7 +1007,7 @@ GameObject:
   - component: {fileID: 2524890123540815161}
   - component: {fileID: 846191957030563397}
   m_Layer: 9
-  m_Name: sweethome3d_opening_on_hinge_1_door_2214_511_Outline
+  m_Name: sweethome3d_opening_on_hinge_1_door_2214_1648_Outline
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1035,7 +1035,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 4670834071913108010}
-  m_Mesh: {fileID: 3033089333050171748, guid: e16a2b160e273ad488c786eee9330ddd, type: 3}
+  m_Mesh: {fileID: 3480445782058410321, guid: 5b19f566f873a6d4093b37c66300ff6c, type: 3}
 --- !u!23 &846191957030563397
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -1369,8 +1369,8 @@ MonoBehaviour:
   ShowTopMostFoldoutHeaderGroup: 1
   _poolId: Stage2WideWardrobe
   _localBounds:
-    m_Center: {x: 0, y: 1.05, z: 0}
-    m_Extent: {x: 0.31299958, y: 1.048, z: 0.89800006}
+    m_Center: {x: 0, y: 1.04799995, z: 0}
+    m_Extent: {x: 0.313000534, y: 1.04799995, z: 0.897999924}
   _detectionMarker: {fileID: 8154365973369863851}
 --- !u!114 &2589037770185876882
 MonoBehaviour:
@@ -1417,8 +1417,8 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 0.62599915, y: 2.096, z: 1.7960001}
-  m_Center: {x: 0, y: 1.05, z: 0}
+  m_Size: {x: 0.626001068, y: 2.0959999, z: 1.79599985}
+  m_Center: {x: 0, y: 1.04999995, z: 0}
 --- !u!1 &6253696609058025504
 GameObject:
   m_ObjectHideFlags: 0
@@ -1431,7 +1431,7 @@ GameObject:
   - component: {fileID: 2072279462417314425}
   - component: {fileID: 5008334508356530848}
   m_Layer: 9
-  m_Name: sweethome3d_opening_on_hinge_1_door_512_Outline
+  m_Name: sweethome3d_opening_on_hinge_1_door_1649_Outline
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1459,7 +1459,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 6253696609058025504}
-  m_Mesh: {fileID: 6816472647834787375, guid: e16a2b160e273ad488c786eee9330ddd, type: 3}
+  m_Mesh: {fileID: 5354766657206343721, guid: 5b19f566f873a6d4093b37c66300ff6c, type: 3}
 --- !u!23 &5008334508356530848
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -1521,7 +1521,7 @@ GameObject:
   - component: {fileID: 8289800874194127251}
   - component: {fileID: 3044268184905090154}
   m_Layer: 9
-  m_Name: sweethome3d_hinge_2_513_Outline
+  m_Name: sweethome3d_hinge_2_1650_Outline
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1549,7 +1549,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 6533163455748783024}
-  m_Mesh: {fileID: 2099133512898202844, guid: e16a2b160e273ad488c786eee9330ddd, type: 3}
+  m_Mesh: {fileID: -3884354351211730251, guid: 5b19f566f873a6d4093b37c66300ff6c, type: 3}
 --- !u!23 &3044268184905090154
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -1611,7 +1611,7 @@ GameObject:
   - component: {fileID: 4986891620552217276}
   - component: {fileID: 8539280141752866003}
   m_Layer: 9
-  m_Name: 507_Outline
+  m_Name: 1644_Outline
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1639,7 +1639,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 6598421047147732772}
-  m_Mesh: {fileID: -6026849744443765409, guid: e16a2b160e273ad488c786eee9330ddd, type: 3}
+  m_Mesh: {fileID: 6029707674530581662, guid: 5b19f566f873a6d4093b37c66300ff6c, type: 3}
 --- !u!23 &8539280141752866003
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -1701,7 +1701,7 @@ GameObject:
   - component: {fileID: 209382959317954097}
   - component: {fileID: 5892933715194413141}
   m_Layer: 9
-  m_Name: sweethome3d_opening_on_hinge_1_door_512
+  m_Name: sweethome3d_opening_on_hinge_1_door_1649
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1716,7 +1716,7 @@ Transform:
   m_GameObject: {fileID: 6604352225495275885}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 15.740638, y: 0, z: 1.214575}
+  m_LocalPosition: {x: 15.7243123, y: -0, z: 1.37117546}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -1730,7 +1730,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 6604352225495275885}
-  m_Mesh: {fileID: 6816472647834787375, guid: e16a2b160e273ad488c786eee9330ddd, type: 3}
+  m_Mesh: {fileID: 5354766657206343721, guid: 5b19f566f873a6d4093b37c66300ff6c, type: 3}
 --- !u!23 &5892933715194413141
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -1756,7 +1756,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 930bd5d367f5fa44abb003dba2b3b2a2, type: 2}
+  - {fileID: 2100000, guid: 077f08c767b84ce0bf9f5deaedecc47b, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -1792,7 +1792,7 @@ GameObject:
   - component: {fileID: 6192825213401937771}
   - component: {fileID: 8250319293733629166}
   m_Layer: 9
-  m_Name: 508
+  m_Name: 1645
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1807,7 +1807,7 @@ Transform:
   m_GameObject: {fileID: 6633868711912940478}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 15.740638, y: 0, z: 1.214575}
+  m_LocalPosition: {x: 15.7243123, y: -0, z: 1.37117546}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -1821,7 +1821,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 6633868711912940478}
-  m_Mesh: {fileID: 5642519213394286235, guid: e16a2b160e273ad488c786eee9330ddd, type: 3}
+  m_Mesh: {fileID: 4887374419778304011, guid: 5b19f566f873a6d4093b37c66300ff6c, type: 3}
 --- !u!23 &8250319293733629166
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -1847,7 +1847,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 1b26be4d4fb924742b4f2ba0d0c7f8ae, type: 2}
+  - {fileID: 2100000, guid: 1971f5e21fee4ea3a8206cf6b2b91353, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -1883,7 +1883,7 @@ GameObject:
   - component: {fileID: 5998877187492317294}
   - component: {fileID: 1780412127911741724}
   m_Layer: 9
-  m_Name: 508_Outline
+  m_Name: 1645_Outline
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1911,7 +1911,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 6703807684414606775}
-  m_Mesh: {fileID: 5642519213394286235, guid: e16a2b160e273ad488c786eee9330ddd, type: 3}
+  m_Mesh: {fileID: 4887374419778304011, guid: 5b19f566f873a6d4093b37c66300ff6c, type: 3}
 --- !u!23 &1780412127911741724
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -1973,7 +1973,7 @@ GameObject:
   - component: {fileID: 1426086575493212660}
   - component: {fileID: 771620174587864566}
   m_Layer: 9
-  m_Name: sweethome3d_opening_on_hinge_2_door_4562_514
+  m_Name: sweethome3d_opening_on_hinge_2_door_4562_1651
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1988,7 +1988,7 @@ Transform:
   m_GameObject: {fileID: 6868121767334090388}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 15.740638, y: 0, z: 1.214575}
+  m_LocalPosition: {x: 15.7243123, y: -0, z: 1.37117546}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -2002,7 +2002,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 6868121767334090388}
-  m_Mesh: {fileID: 8856121432635744974, guid: e16a2b160e273ad488c786eee9330ddd, type: 3}
+  m_Mesh: {fileID: 3632466504729070361, guid: 5b19f566f873a6d4093b37c66300ff6c, type: 3}
 --- !u!23 &771620174587864566
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -2028,7 +2028,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 4801692aa0681364297c6f08894c8099, type: 2}
+  - {fileID: 2100000, guid: b4b365eac65847abac43c6d86d2bc0f5, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -2064,7 +2064,7 @@ GameObject:
   - component: {fileID: 6636598620817029707}
   - component: {fileID: 883458088069935168}
   m_Layer: 9
-  m_Name: sweethome3d_hinge_2_513
+  m_Name: sweethome3d_hinge_2_1650
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -2079,7 +2079,7 @@ Transform:
   m_GameObject: {fileID: 6878777409159393392}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 15.740638, y: 0, z: 1.214575}
+  m_LocalPosition: {x: 15.7243123, y: -0, z: 1.37117546}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -2093,7 +2093,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 6878777409159393392}
-  m_Mesh: {fileID: 2099133512898202844, guid: e16a2b160e273ad488c786eee9330ddd, type: 3}
+  m_Mesh: {fileID: -3884354351211730251, guid: 5b19f566f873a6d4093b37c66300ff6c, type: 3}
 --- !u!23 &883458088069935168
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -2119,7 +2119,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: d771c75aa29925641b7bb55684728deb, type: 2}
+  - {fileID: 2100000, guid: 62c85c6904914cdf8437ee7ec3a8f5e3, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -2155,7 +2155,7 @@ GameObject:
   - component: {fileID: 7771643105283388298}
   - component: {fileID: 4466239346141372105}
   m_Layer: 9
-  m_Name: sweethome3d_hinge_1_509
+  m_Name: sweethome3d_hinge_1_1646
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -2170,7 +2170,7 @@ Transform:
   m_GameObject: {fileID: 7256263049193678796}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 15.740638, y: 0, z: 1.214575}
+  m_LocalPosition: {x: 15.7243123, y: -0, z: 1.37117546}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -2184,7 +2184,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 7256263049193678796}
-  m_Mesh: {fileID: -5088482472446140664, guid: e16a2b160e273ad488c786eee9330ddd, type: 3}
+  m_Mesh: {fileID: -2844810061984394223, guid: 5b19f566f873a6d4093b37c66300ff6c, type: 3}
 --- !u!23 &4466239346141372105
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -2210,7 +2210,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: d771c75aa29925641b7bb55684728deb, type: 2}
+  - {fileID: 2100000, guid: 62c85c6904914cdf8437ee7ec3a8f5e3, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -2246,7 +2246,7 @@ GameObject:
   - component: {fileID: 1775230529830049938}
   - component: {fileID: 833012431454335756}
   m_Layer: 9
-  m_Name: sweethome3d_opening_on_hinge_2_door_2214_515
+  m_Name: sweethome3d_opening_on_hinge_2_door_2214_1652
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -2261,7 +2261,7 @@ Transform:
   m_GameObject: {fileID: 7615783137888574929}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 15.740638, y: 0, z: 1.214575}
+  m_LocalPosition: {x: 15.7243123, y: -0, z: 1.37117546}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -2275,7 +2275,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 7615783137888574929}
-  m_Mesh: {fileID: -7287450961670294116, guid: e16a2b160e273ad488c786eee9330ddd, type: 3}
+  m_Mesh: {fileID: -4992085545767442527, guid: 5b19f566f873a6d4093b37c66300ff6c, type: 3}
 --- !u!23 &833012431454335756
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -2337,7 +2337,7 @@ GameObject:
   - component: {fileID: 3307444986104957481}
   - component: {fileID: 3109067461320924190}
   m_Layer: 9
-  m_Name: sweethome3d_opening_on_hinge_1_door_4562_510_Outline
+  m_Name: sweethome3d_opening_on_hinge_1_door_4562_1647_Outline
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -2365,7 +2365,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 8076373217382075230}
-  m_Mesh: {fileID: -7741004633295494571, guid: e16a2b160e273ad488c786eee9330ddd, type: 3}
+  m_Mesh: {fileID: 8072348923238236602, guid: 5b19f566f873a6d4093b37c66300ff6c, type: 3}
 --- !u!23 &3109067461320924190
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -2427,7 +2427,7 @@ GameObject:
   - component: {fileID: 8906297556303058078}
   - component: {fileID: 8814485568009842225}
   m_Layer: 9
-  m_Name: sweethome3d_opening_on_hinge_1_door_4562_510
+  m_Name: sweethome3d_opening_on_hinge_1_door_4562_1647
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -2442,7 +2442,7 @@ Transform:
   m_GameObject: {fileID: 8129106798477773734}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 15.740638, y: 0, z: 1.214575}
+  m_LocalPosition: {x: 15.7243123, y: -0, z: 1.37117546}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -2456,7 +2456,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 8129106798477773734}
-  m_Mesh: {fileID: -7741004633295494571, guid: e16a2b160e273ad488c786eee9330ddd, type: 3}
+  m_Mesh: {fileID: 8072348923238236602, guid: 5b19f566f873a6d4093b37c66300ff6c, type: 3}
 --- !u!23 &8814485568009842225
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -2482,7 +2482,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 4801692aa0681364297c6f08894c8099, type: 2}
+  - {fileID: 2100000, guid: b4b365eac65847abac43c6d86d2bc0f5, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0

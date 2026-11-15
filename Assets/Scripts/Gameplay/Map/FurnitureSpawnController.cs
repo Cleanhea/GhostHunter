@@ -192,14 +192,15 @@ namespace GhostHunter.Gameplay.Map
                         || !point.Accepts(item.PoolId, rules[poolIndex].SpawnType, item.LocalBounds.size))
                         continue;
                     item.GetPlacement(point, out _, out Bounds bounds);
-                    if (HasObstacle(bounds, poolColliders, _settings.ObstacleMask,
+                    if (!_settings.UseAuthoredLayout && HasObstacle(bounds, poolColliders, _settings.ObstacleMask,
                         point.transform.position.y))
                         continue;
                     Vector3 min = bounds.min;
                     Vector3 max = bounds.max;
                     candidates.Add(new FurniturePlacementPlanner.Candidate(poolIndex, itemIndex, pointIndex,
                         point.RoomId, new FurniturePlacementPlanner.Box(min.x, min.y, min.z, max.x, max.y, max.z),
-                        point.SupportItem != null ? Array.IndexOf(_items, point.SupportItem) : -1));
+                        point.SupportItem != null ? Array.IndexOf(_items, point.SupportItem) : -1,
+                        _settings.UseAuthoredLayout));
                 }
             }
             return FurniturePlacementPlanner.TryPlan(_items.Length, _points.Length, requests,

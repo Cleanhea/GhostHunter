@@ -145,6 +145,34 @@ namespace GhostHunter.Tests.EditMode
                 0, 100, new Random(1), out _, out _));
         }
 
+        [TestCase(true, true, true)]
+        [TestCase(true, false, false)]
+        [TestCase(false, true, false)]
+        public void 계획_원본배치끼리만_의도된_중첩을_허용한다(bool firstAuthored, bool secondAuthored, bool succeeds)
+        {
+            var bounds = new Box(0, 0, 0, 1, 1, 1);
+            Candidate[] candidates =
+            {
+                new(0, 0, 0, 0, bounds, isAuthored: firstAuthored),
+                new(1, 1, 1, 0, bounds, isAuthored: secondAuthored),
+            };
+            Assert.AreEqual(succeeds, TryPlan(2, 2, new[] { new Request(0), new Request(1) },
+                candidates, 0, 100, new Random(1), out _, out _));
+        }
+
+        [Test]
+        public void 계획_원본배치도_같은_지점을_중복_사용하지_않는다()
+        {
+            var bounds = new Box(0, 0, 0, 1, 1, 1);
+            Candidate[] candidates =
+            {
+                new(0, 0, 0, 0, bounds, isAuthored: true),
+                new(1, 1, 0, 0, bounds, isAuthored: true),
+            };
+            Assert.IsFalse(TryPlan(2, 2, new[] { new Request(0), new Request(1) },
+                candidates, 0, 100, new Random(1), out _, out _));
+        }
+
         private static Candidate At(int pool, int item, int point, int room = 0)
         {
             return new Candidate(pool, item, point, room, new Box(point * 3, 0, 0, point * 3 + 1, 1, 1));
