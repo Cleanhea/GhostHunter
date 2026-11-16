@@ -24,6 +24,8 @@ namespace GhostHunter.Tests.EditMode
         private const string TutorialSettingsPath = "Assets/Settings/Gameplay/LiftSettings_Tutorial.asset";
         private const string TutorialScene = "Assets/Scenes/Tutorial.unity";
         private const string Stage1Scene = "Assets/Scenes/Stage1.unity";
+        private const string Stage2SettingsPath = "Assets/Settings/Gameplay/LiftSettings_Stage2.asset";
+        private const string Stage2Scene = "Assets/Scenes/Stage2.unity";
 
         private static GameObject LoadPrefab()
         {
@@ -170,8 +172,19 @@ namespace GhostHunter.Tests.EditMode
             Assert.AreEqual(2, tutorial.StopCount);
         }
 
+        [Test]
+        public void Stage2_설정은_발판_맨_위가_2층_바닥_2_8m와_같은_높이다()
+        {
+            var stage2 = AssetDatabase.LoadAssetAtPath<LiftSettings>(Stage2SettingsPath);
+            Assert.IsNotNull(stage2, Stage2SettingsPath);
+            // 발판 윗면은 맨 아래에서 0.24m — 2.56m 올라가면 2층 바닥(2.8m)과 같아져 가구를 밀어 싣는다.
+            Assert.AreEqual(2.56f, stage2.FloorHeight, 0.0001f);
+            Assert.AreEqual(2, stage2.StopCount);
+        }
+
         [TestCase(TutorialScene, "LiftSettings_Tutorial")]
         [TestCase(Stage1Scene, "LiftSettings_Default")]
+        [TestCase(Stage2Scene, "LiftSettings_Stage2")]
         public void 씬에_리프트가_한_대_배치되고_설정이_맞다(string scenePath, string expectedSettings)
         {
             Scene scene = SceneManager.GetSceneByPath(scenePath);

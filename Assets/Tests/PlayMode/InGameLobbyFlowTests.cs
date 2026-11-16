@@ -442,7 +442,14 @@ namespace GhostHunter.Tests.PlayMode
             Assert.AreEqual(1, cleaning.TaskProgress.DeliveredFurniture);
             var spawner = Object.FindFirstObjectByType<GhostPrototypeSpawner>();
             yield return WaitUntil(() => spawner.ActiveGhost != null, "Stage2 귀신 스폰");
-            Assert.IsTrue(NavMesh.SamplePosition(spawner.ActiveGhost.transform.position, out _, 1f, NavMesh.AllAreas));
+            Assert.IsTrue(NavMesh.SamplePosition(spawner.ActiveGhost.transform.position, out NavMeshHit ghostOnMesh, 1f, NavMesh.AllAreas));
+            // 2층 바닥은 귀신 NavMesh에 들어가 계단으로 이어지고, 지붕은 걸어 다니는 곳이 아니다(2026-11-16).
+            Assert.IsTrue(NavMesh.SamplePosition(new Vector3(-4.4f, 2.85f, 4.2f), out NavMeshHit upperFloor, 0.6f, NavMesh.AllAreas), "2층 NavMesh");
+            Assert.AreEqual(2.8f, upperFloor.position.y, 0.15f);
+            var upperPath = new NavMeshPath();
+            Assert.IsTrue(NavMesh.CalculatePath(ghostOnMesh.position, upperFloor.position, NavMesh.AllAreas, upperPath));
+            Assert.AreEqual(NavMeshPathStatus.PathComplete, upperPath.status, "귀신이 계단으로 2층에 간다");
+            Assert.IsFalse(NavMesh.SamplePosition(new Vector3(-12f, 2.85f, 15f), out _, 0.3f, NavMesh.AllAreas), "1층 지붕은 NavMesh가 아니다");
             var ritual = Object.FindFirstObjectByType<GhostHunter.Gameplay.Revival.RevivalRitual>();
             yield return WaitUntil(() => ritual.IsPlaced, "Stage2 부활 의식 배치");
             Assert.AreEqual("Stage2RitualRoom", ritual.RoomName);
@@ -477,13 +484,23 @@ namespace GhostHunter.Tests.PlayMode
             Vector3[][] routes =
             {
                 new[] { new Vector3(1.4f, 0.03f, 12f), new Vector3(-1f, 0.03f, 12f) },
-                new[] { new Vector3(-10.3f, 0.03f, 0.7f), new Vector3(-10.3f, 0.03f, -1f) },
                 new[] { new Vector3(-5.2f, 0.03f, 2.7f), new Vector3(-6.7f, 0.03f, 2.7f) },
+                // 2026-11-16 원본 여닫이문을 상호작용 문으로 바꿨다 — 열린 상태로 시작하는 문틀을 지나간다.
+                new[] { new Vector3(-3.9f, 0.03f, 0.69f), new Vector3(-2.6f, 0.03f, 0.69f) },      // 1층 방
+                new[] { new Vector3(-0.69f, 0.03f, 15.3f), new Vector3(-0.69f, 0.03f, 16.8f) },     // 1층 화장실
+                new[] { new Vector3(-14.19f, 0.03f, 9.6f), new Vector3(-14.19f, 0.03f, 7.6f) },     // 안방
+                new[] { new Vector3(-14.47f, 0.03f, 3.8f), new Vector3(-14.47f, 0.03f, 2.2f) },     // 안방 욕실
+                new[] { new Vector3(-15.15f, 0.03f, 10.4f), new Vector3(-15.15f, 0.03f, 12.0f) },   // 의식 방(식당) 남쪽 문
+                // 계단으로 2층에 오르고, 2층에서 리프트 입구까지 간다.
+                new[] { new Vector3(-7.35f, 0.03f, 9.3f), new Vector3(-7.35f, 0f, 2.6f) },
+                new[] { new Vector3(-2f, 2.83f, 1f), new Vector3(0.02f, 0f, 1f) },
+                // 드레스룸: 원본 배치의 침실 옷장 2개가 미닫이문 앞을 막는다(stage2.md '확인 필요') — 마지막에 둔다.
+                new[] { new Vector3(-10.3f, 0.03f, 0.7f), new Vector3(-10.3f, 0.03f, -1f) },
             };
             foreach (Vector3[] route in routes)
             {
                 motor.Teleport(route[0], Quaternion.identity);
-                for (int step = 0; step < 120; step++)
+                for (int step = 0; step < 200; step++)
                 {
                     Vector3 delta = route[1] - player.transform.position;
                     delta.y = 0f;
@@ -494,6 +511,8 @@ namespace GhostHunter.Tests.PlayMode
                 Vector3 remaining = route[1] - player.transform.position;
                 remaining.y = 0f;
                 Assert.Less(remaining.magnitude, 0.13f, "Stage2 출입 통로 막힘 " + player.transform.position);
+                if (route[0].z > 9f && route[1].z < 3f)
+                    Assert.Greater(player.transform.position.y, 2.75f, "계단으로 2층 바닥에 올라선다");
             }
             motor.enabled = true;
         }

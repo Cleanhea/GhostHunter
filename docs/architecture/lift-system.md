@@ -10,7 +10,7 @@
 | `LiftController` | `Assets/Scripts/Gameplay/Lift/LiftController.cs` | 프리팹 루트. 서버가 버튼 입력을 받아 승강 발판을 정지 포인트로 움직이고, 막힘을 판정한다. 복제: 높이 `NetworkVariable<float>`·이동 중 `NetworkVariable<bool>` |
 | `LiftStopRules` | `…/Lift/LiftStopRules.cs` | **순수 계산** — 입력 방향의 가장 가까운 정지 포인트. EditMode `LiftStopRulesTests` |
 | `LiftMotion` | `…/Lift/LiftMotion.cs` | **순수 계산** — 한 프레임 이동량(가속·감속·정확한 도착). EditMode `LiftMotionTests` |
-| `LiftSettings` | `…/Lift/LiftSettings.cs`, `Assets/Settings/Gameplay/LiftSettings_Default.asset`(3m)·`LiftSettings_Tutorial.asset`(3.57m) | 층 높이·정지 포인트 수·속도·버튼 거리·막힘 여유 |
+| `LiftSettings` | `…/Lift/LiftSettings.cs`, `Assets/Settings/Gameplay/LiftSettings_Default.asset`(3m)·`LiftSettings_Tutorial.asset`(3.57m)·`LiftSettings_Stage2.asset`(2.56m) | 층 높이·정지 포인트 수·속도·버튼 거리·막힘 여유 |
 | `LiftButton` | `…/Lift/LiftButton.cs` | 버튼 한 개(상승/하강). 조준 대상·안내 문구·눌림 연출. 상태는 바꾸지 않는다 |
 | `LiftPlatform` | `…/Lift/LiftPlatform.cs` | 발판 표지 — 플레이어가 발밑에서 찾는다 |
 | `PlatformCarry` | `Assets/Scripts/Gameplay/Player/PlatformCarry.cs` | `PlayerMotor`가 쓰는 internal 클래스 — 발판 위 플레이어를 발판 변위만큼 옮긴다 |
@@ -154,6 +154,7 @@ Lift                      [Furniture 레이어] NetworkObject · Rigidbody(동�
 | 씬 | 인스턴스 | 위치 | 설정 | 맵 수정 |
 | --- | --- | --- | --- | --- |
 | Tutorial | `Lift_Balcony` | (−5.125, 0.03, 2.75), 회전 0 | `LiftSettings_Tutorial`(3.57m) | `Balcony_Railing` 비활성(`TutorialMap` 프리팹 인스턴스 오버라이드 `m_IsActive`), `Lift_BalconyRailPatch` 추가(`Rail_Left`·`Rail_Right`·`Rail_Post_A/B`, 충돌체는 한 덩어리씩) |
+| Stage2 | `Lift_Front` | (1.38, 0, 1.00), Y 90° | `LiftSettings_Stage2`(2.56m) | 새 2층 동쪽 벽의 리프트 입구(z 0~2m)·바깥 문턱 돌출 0.08m. 맨 위 발판 윗면 2.80m = 2층 바닥(2026-11-16, [stage2.md](../project/stage2.md)) |
 | Stage1 | `Lift_Front` | (61.67, 0, −13.22), Y 180° | `LiftSettings_Default`(3m) | `House_Prototype_PlanB/Floor_02/Structure/Outer_South`를 3조각(`Outer_South`·`_Right`·`_Lintel`)으로, `FamilyRoom/Wall_South`를 3조각(`Wall_South`·`_Right`·`_Lintel`)으로 나눠 x −7~−5(집 기준) 폭 2.0m·높이 2.5m 개구부, 개구부 안 `Window_South_Left_*` 5개 비활성. 새 메시 `S1Box_*` 6개 |
 
 배치 위치는 실제 콜라이더 질의(Unity batchmode)로 골랐다. Tutorial은 발코니 앞 기둥 `Column_03`(x −3.73~−3.22, z 1.10~1.63)과 모텔 바닥 슬래브(y 0.03)를 피해 z 2.75, y 0.03에 둔다.
@@ -161,4 +162,4 @@ Stage1은 1층 외벽 `Outer_South_A`와 앞마당 바닥(`FrontYard_TEMP`, 윗�
 
 ---
 
-최종 갱신: 2026-11-06 (신규 — 리프트 구현·Tutorial/Stage1 배치)
+최종 갱신: 2026-11-16 (Stage2 배치 — `LiftSettings_Stage2` 2.56m, 2층 리프트 입구 앞)
