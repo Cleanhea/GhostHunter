@@ -283,18 +283,21 @@ namespace GhostHunter.Gameplay.Ghost
         [Tooltip("어택 중 빨간 몸 조명 밝기.")]
         [SerializeField, Min(0f)] private float _attackLightIntensity = 1.2f;
 
-        [Header("Room lights in attack (§10.4 · 사용자 요청 2026-11-14)")]
-        [Tooltip("어택 동안 방 천장등을 빨갛게 깜빡인다 — 꺼 둔 등(Stage1 기본 꺼짐)도 켜서 깜빡이고, 어택이 끝나면 원래 켜짐 상태로 돌린다. 끄면 예전처럼 켜진 등만 빨갛게.")]
+        [Header("Room lights in attack (§10.4 · 사용자 요청 2026-11-14, 형광등 2026-11-16)")]
+        [Tooltip("어택 동안 방 천장등을 고장 난 형광등처럼 깜빡인다 — 꺼 둔 등(Stage1 기본 꺼짐)도 켜서 깜빡이고, 어택이 끝나면 원래 켜짐 상태·색으로 돌린다. 끄면 켜진 등만 형광등 색으로.")]
         [SerializeField] private bool _attackRoomLightFlicker = true;
 
-        [Tooltip("[TEMP] 깜빡임 단계 수(초당). 단계마다 켜질지 새로 정한다.")]
-        [SerializeField, Min(0.5f)] private float _attackFlickerStepsPerSecond = 9f;
+        [Tooltip("어택 중 천장등 색 온도(K). 6500K = 형광등 주광색(사용자 요청 2026-11-16 — 빨간 불 대신 일반 형광등).")]
+        [SerializeField, Range(1500f, 12000f)] private float _attackRoomLightTemperature = 6500f;
 
-        [Tooltip("[TEMP] 단계마다 켜질 확률. 낮을수록 어두운 시간이 길다.")]
-        [SerializeField, Range(0.05f, 1f)] private float _attackFlickerOnChance = 0.55f;
+        [Tooltip("[TEMP] 깜빡임 단계 수(초당). 단계마다 켜질지 새로 정한다. 높을수록 형광등이 '지직'거리듯 짧게 끊긴다.")]
+        [SerializeField, Min(0.5f)] private float _attackFlickerStepsPerSecond = 14f;
 
-        [Tooltip("[TEMP] 켜진 단계의 밝기 하한(기준 밝기 배율). 단계마다 이 값~1 사이.")]
-        [SerializeField, Range(0f, 1f)] private float _attackFlickerMinLevel = 0.5f;
+        [Tooltip("[TEMP] 단계마다 켜질 확률. 낮을수록 어두운 시간이 길다. 형광등은 대부분 켜져 있다가 잠깐씩 끊긴다.")]
+        [SerializeField, Range(0.05f, 1f)] private float _attackFlickerOnChance = 0.75f;
+
+        [Tooltip("[TEMP] 켜진 단계의 밝기 하한(기준 밝기 배율). 단계마다 이 값~1 사이. 형광등은 켜지면 거의 제 밝기다.")]
+        [SerializeField, Range(0f, 1f)] private float _attackFlickerMinLevel = 0.85f;
 
         [Header("Body clarity by viewer sanity ([TEMP] 사용자 요청 2026-09-30)")]
         [Tooltip("보는 사람 정신력이 최대일 때 귀신 본체의 불투명도(알파). 정신력이 낮을수록 아래 값 쪽으로 선명해진다.")]
@@ -430,6 +433,9 @@ namespace GhostHunter.Gameplay.Ghost
         public float WarningLightMax => _warningLightMax;
         public float AttackLightIntensity => _attackLightIntensity;
         public bool AttackRoomLightFlicker => _attackRoomLightFlicker;
+
+        /// <summary>어택 중 천장등 색 — 형광등 주광색(기본 6500K).</summary>
+        public Color AttackRoomLightColor => Mathf.CorrelatedColorTemperatureToRGB(Mathf.Clamp(_attackRoomLightTemperature, 1500f, 12000f));
         public float AttackFlickerStepsPerSecond => _attackFlickerStepsPerSecond;
         public float AttackFlickerOnChance => _attackFlickerOnChance;
         public float AttackFlickerMinLevel => _attackFlickerMinLevel;

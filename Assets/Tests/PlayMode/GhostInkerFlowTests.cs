@@ -19,7 +19,8 @@ namespace GhostHunter.Tests.PlayMode
     /// <summary>
     /// '명령(인커)' 귀신(project/ghost-inker.md)의 서버 흐름을 실제 컨트롤러로 확인한다 — 벽 글씨 쓰기·발견·뒤돌기 위반·닦기,
     /// 문틈 응시의 눈 맞춤·글씨 발견·문 잡기, 어택 시작 시 정리, 확률 발동과 횟수 제한. 서버 인커 틱(<c>ServerTickInker</c>)을
-    /// 직접 불러 시간을 진행한다. 인형·소리 연출은 귀신 몸 모델이 없어 덮지 않는다.
+    /// 직접 불러 시간을 진행한다. 인형은 큐브 몸으로 보임·숨김(쓰는 동안 숨김)과 갑툭튀 발광·거리만 본다 — 실제 모습은
+    /// <see cref="InkerPresentationRenderTests"/>.
     /// </summary>
     public sealed class GhostInkerFlowTests
     {
@@ -132,7 +133,7 @@ namespace GhostHunter.Tests.PlayMode
             Tick(4.1f);
             Assert.IsTrue(_ghost.TryGetInkerWriting(0, out writing));
             Assert.IsTrue(writing.Complete, "4초 뒤 다 썼다");
-            Assert.AreEqual(InkerStep.WallTurnHead, _ghost.InkerSequence.Step);
+            Assert.IsFalse(_ghost.InkerSequence.IsRunning, "다 쓰면 현상이 끝난다(목 돌리기·응시 없음, 2026-11-16)");
             Assert.AreEqual(before, player.Sanity, "현상 2 자체로는 정신력이 줄지 않는다");
 
             ForceCommand(InkerCommand.DontTurnAround);
@@ -385,7 +386,120 @@ namespace GhostHunter.Tests.PlayMode
             }
         }
 
+        [Test]
+        public void 벽_글씨는_귀신_모습_없이_글씨만_저절로_써지고_다_쓰면_끝난다()
+        {
+            // 사용자 요청 2026-11-16 — 귀신이 쓰고 돌아보는 모습 없이 허공이 쓰는 느낌.
+            SetBodyTemplate();
+            CreateWall();
+            SpawnPlayer(Vector3.zero, 0f, _network.LocalClientId);
+            StartPhenomenon(InkerPhenomenon.WallWriting);
+            Assert.AreEqual(InkerStep.WallWriting, _ghost.InkerSequence.Step);
+
+            TickVisual();
+            Assert.IsFalse(PuppetVisible(), "쓰는 동안 귀신 몸이 없다");
+            Assert.AreEqual(1, _ghost.InkerWritingCount, "글씨는 써진다");
+            Assert.IsNotNull(Get(_ghost, "_inkerLoopAudio") as AudioSource, "쓰는 소리는 난다");
+
+            Tick(2f);
+            TickVisual();
+            Assert.AreEqual(InkerStep.WallWriting, _ghost.InkerSequence.Step);
+            Assert.IsFalse(PuppetVisible(), "쓰는 중간에도 없다");
+
+            Tick(2.1f);
+            Assert.IsFalse(_ghost.InkerSequence.IsRunning, "다 쓰면 바로 끝난다");
+            Assert.IsTrue(_ghost.TryGetInkerWriting(0, out InkerWritingState writing));
+            Assert.IsTrue(writing.Complete, "명령 글씨로 남는다");
+            TickVisual();
+            Assert.IsFalse(PuppetVisible(), "다 쓴 뒤에도 귀신이 나타나 돌아보지 않는다");
+            Assert.IsNull(Get(_ghost, "_inkerLoopAudio") as AudioSource, "쓰는 소리가 멈춘다");
+        }
+
+        [Test]
+        public void 위반_갑툭튀_귀신은_스스로_빛나고_얼굴_앞에_불을_달며_벽에_묻히지_않는다()
+        {
+            // 사용자 요청 2026-11-16 — 어두운 집에서도 갑툭튀가 확실히 보여야 한다.
+            SetBodyTemplate();
+            CreateWall(); // 벽 앞면 z = 3.9
+            GameObject cameraObject = Create("InkerTestCamera");
+            cameraObject.tag = "MainCamera";
+            cameraObject.AddComponent<Camera>();
+            cameraObject.transform.SetPositionAndRotation(new Vector3(0f, 1.6f, 0f), Quaternion.identity);
+
+            Set(_ghost, "_inkerScareRemaining", 0.8f);
+            Invoke("TickInkerScare");
+            var scare = (InkerPuppetView)Get(_ghost, "_inkerScarePuppet");
+            Assert.IsNotNull(scare);
+            Assert.IsTrue(scare.IsGlowing, "갑툭튀 인형은 발광한다");
+            Assert.IsNotNull(scare.GlowLight, "얼굴 앞 점광원");
+            Assert.IsTrue(scare.GlowLight.enabled);
+            Assert.Greater(scare.GlowLight.intensity, 0f);
+            Assert.IsTrue(AnyRendererEnabled(scare));
+            foreach (Renderer renderer in scare.GetComponentsInChildren<Renderer>())
+            {
+                Material material = renderer.sharedMaterial;
+                if (material == null || !material.HasProperty("_EmissionColor"))
+                    continue;
+                Assert.IsTrue(material.IsKeywordEnabled("_EMISSION"), "발광 키워드가 켜진다(인형 전용 사본)");
+                var block = new MaterialPropertyBlock();
+                renderer.GetPropertyBlock(block);
+                Assert.Greater(block.GetColor("_EmissionColor").maxColorComponent, 1f, "HDR 발광");
+            }
+
+            Assert.AreEqual(_settings.JumpScareDistance, PlanarDistance(scare.transform.position, cameraObject.transform.position),
+                0.05f, "벽이 멀면 기본 거리");
+
+            // 벽 0.6m 앞에서 어기면 벽에 묻히지 않게 벽 앞(0.6 − 0.25)에 띄운다.
+            cameraObject.transform.position = new Vector3(0f, 1.6f, 3.3f);
+            Set(_ghost, "_inkerScareRemaining", 0.8f);
+            Invoke("TickInkerScare");
+            Assert.AreEqual(0.35f, PlanarDistance(scare.transform.position, cameraObject.transform.position), 0.05f,
+                "벽이 가까우면 그 앞");
+        }
+
         // ───────── 도우미 ─────────
+
+        /// <summary>인형이 복제할 귀신 몸 — 충돌체 없는 큐브(기본 머티리얼은 발광 키워드가 꺼져 있다).</summary>
+        private void SetBodyTemplate()
+        {
+            GameObject body = Create("InkerTestBody");
+            GameObject cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            Object.DestroyImmediate(cube.GetComponent<Collider>());
+            cube.transform.SetParent(body.transform, false);
+            cube.transform.localPosition = new Vector3(0f, 1f, 0f);
+            body.SetActive(false);
+            Set(_ghost, "_body", body);
+        }
+
+        private void TickVisual() => Invoke("TickInkerVisual");
+
+        private bool PuppetVisible()
+        {
+            var puppet = Get(_ghost, "_inkerPuppet") as InkerPuppetView;
+            return puppet != null && AnyRendererEnabled(puppet);
+        }
+
+        private void Invoke(string method)
+            => typeof(GhostPrototypeController).GetMethod(method, BindingFlags.Instance | BindingFlags.NonPublic)
+                .Invoke(_ghost, null);
+
+        private static bool AnyRendererEnabled(InkerPuppetView puppet)
+        {
+            foreach (Renderer renderer in puppet.GetComponentsInChildren<Renderer>(true))
+            {
+                if (renderer.enabled)
+                    return true;
+            }
+
+            return false;
+        }
+
+        private static float PlanarDistance(Vector3 a, Vector3 b)
+        {
+            a.y = 0f;
+            b.y = 0f;
+            return Vector3.Distance(a, b);
+        }
 
         private void StartPhenomenon(InkerPhenomenon kind)
         {

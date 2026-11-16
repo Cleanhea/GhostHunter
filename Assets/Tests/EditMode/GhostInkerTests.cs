@@ -89,27 +89,24 @@ namespace GhostHunter.Tests.EditMode
         }
 
         [Test]
-        public void 벽_글씨는_4초_쓰고_목을_돌린_뒤_3초_응시하고_1초에_사라진다()
+        public void 벽_글씨는_4초_동안_저절로_써지고_다_쓰면_바로_끝난다()
         {
+            // 2026-11-16 사용자 요청 — 귀신이 목을 돌려 응시하는 단계 없이 글씨만 써진다.
             var sequence = new GhostInkerSequence();
             sequence.StartWallWriting(InkerTimings.Original);
             Assert.AreEqual(InkerStep.WallWriting, sequence.Step);
 
             sequence.Tick(2f, false, false);
-            Assert.AreEqual(0.5f, sequence.WritingProgress, 1e-4f, "손가락 이동에 맞춰 차례로 나타난다");
+            Assert.AreEqual(0.5f, sequence.WritingProgress, 1e-4f, "차례로 나타난다");
+            Assert.IsTrue(sequence.IsRunning);
             Assert.IsTrue(sequence.Tick(2f, false, false));
-            Assert.AreEqual(InkerStep.WallTurnHead, sequence.Step);
+            Assert.AreEqual(InkerStep.Done, sequence.Step, "다 쓰면 끝난다");
+            Assert.IsFalse(sequence.IsRunning);
             Assert.AreEqual(1f, sequence.WritingProgress, "다 쓰면 명령 글씨로 활성화된다");
-            Assert.IsTrue(sequence.Tick(1f, false, false));
-            Assert.AreEqual(InkerStep.WallStare, sequence.Step);
-            Assert.IsTrue(sequence.Tick(3f, false, false));
-            Assert.AreEqual(InkerStep.WallVanish, sequence.Step);
-            Assert.IsTrue(sequence.Tick(1f, false, false));
-            Assert.AreEqual(InkerStep.Done, sequence.Step);
         }
 
         [Test]
-        public void 쓰는_중_2m_안으로_다가오면_즉시_완성하고_목을_돌린다()
+        public void 쓰는_중_2m_안으로_다가오면_즉시_완성한다()
         {
             var sequence = new GhostInkerSequence();
             sequence.StartWallWriting(InkerTimings.Original);
@@ -117,7 +114,7 @@ namespace GhostHunter.Tests.EditMode
             Assert.AreEqual(0.25f, sequence.WritingProgress, 1e-4f);
 
             Assert.IsTrue(sequence.Tick(0.01f, false, true));
-            Assert.AreEqual(InkerStep.WallTurnHead, sequence.Step);
+            Assert.AreEqual(InkerStep.Done, sequence.Step);
             Assert.IsTrue(sequence.Rushed);
             Assert.AreEqual(1f, sequence.WritingProgress);
         }
@@ -126,9 +123,9 @@ namespace GhostHunter.Tests.EditMode
         public void 긴_프레임은_남은_시간을_다음_단계로_넘기고_취소하면_멈춘다()
         {
             var sequence = new GhostInkerSequence();
-            sequence.StartWallWriting(InkerTimings.Original);
-            sequence.Tick(4.5f, false, false);
-            Assert.AreEqual(InkerStep.WallTurnHead, sequence.Step);
+            sequence.StartDoorPeek(InkerTimings.Original, false);
+            sequence.Tick(2.5f, false, false);
+            Assert.AreEqual(InkerStep.DoorLean, sequence.Step);
             Assert.AreEqual(0.5f, sequence.StepElapsed, 1e-4f);
 
             sequence.Cancel();
@@ -316,9 +313,6 @@ namespace GhostHunter.Tests.EditMode
             Assert.AreEqual(original.DoorSlam, timings.DoorSlam);
             Assert.AreEqual(original.DoorScratch, timings.DoorScratch);
             Assert.AreEqual(original.WallWrite, timings.WallWrite);
-            Assert.AreEqual(original.WallTurnHead, timings.WallTurnHead);
-            Assert.AreEqual(original.WallStare, timings.WallStare);
-            Assert.AreEqual(original.WallVanish, timings.WallVanish);
         }
 
         [Test]

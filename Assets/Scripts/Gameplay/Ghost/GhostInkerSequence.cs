@@ -23,7 +23,7 @@ namespace GhostHunter.Gameplay.Ghost
         public bool IsRunning => Kind != InkerPhenomenon.None && Step != InkerStep.None && Step != InkerStep.Done;
 
         /// <summary>
-        /// 글씨가 얼마나 써졌는가(0~1). 현상 1은 ⑥ 긁는 소리 동안, 현상 2는 ② 쓰기 동안 차오른다.
+        /// 글씨가 얼마나 써졌는가(0~1). 현상 1은 ⑥ 긁는 소리 동안, 현상 2는 쓰는 동안 차오른다.
         /// 1 이 되기 전에는 닦기·위반 판정을 하지 않는다.
         /// </summary>
         public float WritingProgress
@@ -39,8 +39,7 @@ namespace GhostHunter.Gameplay.Ghost
                     case InkerPhenomenon.WallWriting:
                         if (Step == InkerStep.WallWriting)
                             return Mathf.Clamp01(StepElapsed / Mathf.Max(0.01f, _timings.WallWrite));
-                        return Step is InkerStep.WallTurnHead or InkerStep.WallStare
-                            or InkerStep.WallVanish or InkerStep.Done ? 1f : 0f;
+                        return Step == InkerStep.Done ? 1f : 0f;
                     default:
                         return 0f;
                 }
@@ -71,7 +70,7 @@ namespace GhostHunter.Gameplay.Ghost
 
         /// <summary>
         /// 시간을 진행한다. <paramref name="eyeContact"/>: 이번 틱에 누군가와 눈이 마주쳤다(현상 1 ③에서만 본다).
-        /// <paramref name="playerClose"/>: 누군가 귀신 2m 안에 있다(현상 2 ②에서만 본다). 단계가 바뀌었으면 true.
+        /// <paramref name="playerClose"/>: 누군가 글씨 자리 2m 안에 있다(현상 2 쓰는 중에만 본다). 단계가 바뀌었으면 true.
         /// </summary>
         public bool Tick(float deltaTime, bool eyeContact, bool playerClose)
         {
@@ -106,19 +105,13 @@ namespace GhostHunter.Gameplay.Ghost
                 case InkerStep.WallWriting:
                     if (playerClose)
                     {
-                        // 작성 속도를 높여 즉시 완성하고 ④로(원문 §3-3-1).
+                        // 작성 속도를 높여 즉시 완성한다(원문 §3-3-1). 다 쓰면 현상이 끝난다(2026-11-16 — 목 돌리기·응시 없음).
                         Rushed = true;
-                        Enter(InkerStep.WallTurnHead);
+                        Enter(InkerStep.Done);
                         return true;
                     }
 
-                    return Advance(_timings.WallWrite, InkerStep.WallTurnHead);
-                case InkerStep.WallTurnHead:
-                    return Advance(_timings.WallTurnHead, InkerStep.WallStare);
-                case InkerStep.WallStare:
-                    return Advance(_timings.WallStare, InkerStep.WallVanish);
-                case InkerStep.WallVanish:
-                    return Advance(_timings.WallVanish, InkerStep.Done);
+                    return Advance(_timings.WallWrite, InkerStep.Done);
                 default:
                     return false;
             }

@@ -112,6 +112,11 @@ MonoBehaviour:
   _turnAroundWindowSeconds: 1
   _turnAroundDegrees: 135
   _jumpScareSeconds: 0.8
+  _jumpScareDistance: 0.7
+  _jumpScareEmission: {r: 2.6, g: 2.7, b: 3, a: 1}
+  _jumpScareLightColor: {r: 0.85, g: 0.92, b: 1, a: 1}
+  _jumpScareLightIntensity: 1.2
+  _jumpScareLightRange: 3
   _writingHeight: 0.32
   _writingMaxLineWidth: 2.4
   _writingMaterial: {fileID: 2100000, guid: 3424d8fa6a3e4084a05bd6623f5c10f9, type: 2}
@@ -142,9 +147,6 @@ MonoBehaviour:
   _wallWritingMinDistance: 2
   _wallWritingMaxDistance: 7
   _wallWriteSeconds: 4
-  _wallTurnHeadSeconds: 1
-  _wallStareSeconds: 3
-  _wallVanishSeconds: 1
   _wallRushDistance: 2
   _wallStandOffset: 0.5
   _wallWritingHeight: 1.45

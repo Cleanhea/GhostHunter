@@ -61,7 +61,7 @@ namespace GhostHunter.Gameplay.Ghost
         /// <summary>현상 1 — 문틈으로 지켜보는 귀신(문에 "I SEE YOU").</summary>
         DoorPeek = 1,
 
-        /// <summary>현상 2 — 귀신이 직접 벽에 명령 글씨를 쓰는 모습.</summary>
+        /// <summary>현상 2 — 벽에 명령 글씨가 저절로 써진다(2026-11-16 사용자 요청: 귀신 모습 없이 허공이 쓰는 느낌).</summary>
         WallWriting = 2,
     }
 
@@ -91,17 +91,11 @@ namespace GhostHunter.Gameplay.Ghost
         /// <summary>⑥ 문 바깥에서 긁는 소리, 글씨가 나타난다(2초).</summary>
         DoorScratch = 7,
 
-        /// <summary>①~② 벽을 향해 서서 손가락으로 글씨를 쓴다(4초). 2m 안으로 다가오면 즉시 완성.</summary>
+        /// <summary>
+        /// 벽에 글씨가 저절로 써진다(4초). 2m 안으로 다가오면 즉시 완성. 다 쓰면 현상이 끝난다 — 원문의 목 돌리기·응시·소멸
+        /// (옛 값 11~13)은 2026-11-16 사용자 요청으로 없앴다. 빈 값은 다시 쓰지 않는다.
+        /// </summary>
         WallWriting = 10,
-
-        /// <summary>④ 몸은 그대로, 목만 180° 돌아 플레이어를 본다(1초).</summary>
-        WallTurnHead = 11,
-
-        /// <summary>⑤ 3초 응시.</summary>
-        WallStare = 12,
-
-        /// <summary>⑤ 사라진다(1초).</summary>
-        WallVanish = 13,
 
         Done = 255,
     }
@@ -211,13 +205,13 @@ namespace GhostHunter.Gameplay.Ghost
         public InkerStep Step;
         public double StepStartTime;
 
-        /// <summary>인형이 서는 자리(바닥). 현상 1은 문 뒤 숨은 자리, 현상 2는 벽 앞.</summary>
+        /// <summary>현상 1: 인형이 서는 자리(문 뒤 숨은 자리). 현상 2: 글씨 앞 바닥 — 2m 접근·쓰는 소리·화면 연출의 기준점(인형 없음).</summary>
         public Vector3 PuppetPosition;
 
-        /// <summary>몸이 보는 방향(도). 현상 2는 벽 쪽.</summary>
+        /// <summary>몸이 보는 방향(도). 현상 1만 쓴다.</summary>
         public float BodyYaw;
 
-        /// <summary>얼굴이 볼 방향(도) — 대상 플레이어 쪽.</summary>
+        /// <summary>얼굴이 볼 방향(도) — 대상 플레이어 쪽. 현상 1만 쓴다.</summary>
         public float FaceYaw;
 
         /// <summary>현상 1: 숨은 자리 → 문틈으로 내민 자리 이동량(월드).</summary>
@@ -262,9 +256,6 @@ namespace GhostHunter.Gameplay.Ghost
         public float DoorSlam;
         public float DoorScratch;
         public float WallWrite;
-        public float WallTurnHead;
-        public float WallStare;
-        public float WallVanish;
 
         /// <summary>원문 진행표 값. 문을 미리 닫는 대기(강제 실행 전용)만 원문에 없다.</summary>
         public static InkerTimings Original => new()
@@ -277,9 +268,6 @@ namespace GhostHunter.Gameplay.Ghost
             DoorSlam = 0.5f,
             DoorScratch = 2f,
             WallWrite = 4f,
-            WallTurnHead = 1f,
-            WallStare = 3f,
-            WallVanish = 1f,
         };
     }
 

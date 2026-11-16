@@ -2288,6 +2288,7 @@ namespace GhostHunter.Gameplay.Ghost
             IReadOnlyList<GhostAmbientLight> lights = GhostAmbientLight.Registry;
             bool warningOn = Mathf.PingPong(Time.time * 2.4f, 1f) >= 0.5f;
             bool attackFlicker = _settings != null && _settings.AttackRoomLightFlicker;
+            Color attackColor = _settings != null ? _settings.AttackRoomLightColor : Color.white;
             float time = Time.time;
             for (int i = 0; i < lights.Count; i++)
             {
@@ -2304,10 +2305,11 @@ namespace GhostHunter.Gameplay.Ghost
                         light.intensity = warningOn ? ambient.BaseIntensity : 0f;
                         break;
                     case GhostPhase.Attack:
-                        light.color = Color.red;
+                        // 빨간 불 대신 일반 형광등 색(사용자 요청 2026-11-16).
+                        light.color = attackColor;
                         if (attackFlicker)
                         {
-                            // 어택 동안 천장등이 빨갛게 불규칙하게 깜빡인다(사용자 요청 2026-11-14) — 꺼 둔 천장등도 켠다.
+                            // 어택 동안 천장등이 고장 난 형광등처럼 불규칙하게 끊긴다(사용자 요청 2026-11-14) — 꺼 둔 천장등도 켠다.
                             ambient.ApplyEnabled(true);
                             light.intensity = ambient.BaseIntensity * GhostAmbientLight.FlickerLevel(time,
                                 ambient.FlickerSeed, _settings.AttackFlickerStepsPerSecond,

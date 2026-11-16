@@ -59,6 +59,13 @@ namespace GhostHunter.Tests.EditMode
                 Assert.IsTrue(settings.AttackRoomLightFlicker);
                 Assert.Greater(settings.AttackFlickerStepsPerSecond, 0f);
                 Assert.That(settings.AttackFlickerOnChance, Is.InRange(0.05f, 1f));
+
+                // 2026-11-16 사용자 요청 — 빨간 불 대신 일반 형광등(차가운 흰색), 켜져 있는 시간이 더 길다.
+                Color color = settings.AttackRoomLightColor;
+                Assert.Greater(color.b, color.r * 0.9f, $"빨갛지 않고 흰색·푸른 기({color})");
+                Assert.Greater(Mathf.Min(color.r, Mathf.Min(color.g, color.b)), 0.8f, $"채도가 낮은 흰빛({color})");
+                Assert.Greater(settings.AttackFlickerOnChance, 0.5f, "형광등은 대부분 켜져 있다가 잠깐씩 끊긴다");
+                Assert.Greater(settings.AttackFlickerMinLevel, 0.7f, "켜지면 거의 제 밝기");
             }
             finally
             {

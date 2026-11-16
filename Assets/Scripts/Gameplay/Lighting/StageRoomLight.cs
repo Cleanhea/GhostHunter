@@ -73,7 +73,7 @@ namespace GhostHunter.Gameplay.Lighting
             float factor = !light.enabled || _appliedIntensity <= 0f
                 ? 0f
                 : Mathf.Clamp01(light.intensity / _appliedIntensity);
-            // 귀신 어택의 붉은 조명도 패널 색에 반영한다.
+            // 귀신 어택의 형광등 색도 패널 색에 반영한다.
             Color tint = light.enabled ? light.color : _fixtureColor;
             if (Mathf.Approximately(factor, _lastFixtureFactor) && tint == _lastFixtureTint)
                 return;

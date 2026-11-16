@@ -2,7 +2,11 @@ using System.Collections;
 using System.IO;
 using GhostHunter.Gameplay.Ghost;
 using NUnit.Framework;
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 using UnityEngine;
+using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 using UnityEngine.TestTools;
 using Object = UnityEngine.Object;
@@ -150,6 +154,86 @@ namespace GhostHunter.Tests.PlayMode
             Assert.Less(shockLater, 0.15f, "충격은 금방 사라진다");
             Assert.Less(faded, 0.02f, "현상이 끝나면 분위기가 풀린다");
         }
+
+#if UNITY_EDITOR
+        [UnityTest]
+        public IEnumerator 갑툭튀_귀신은_불이_꺼진_방에서도_분위기_연출_아래_확실히_보인다()
+        {
+            // 사용자 요청 2026-11-16 — "어두운 상태에서는 하나도 안 보인다". 실제 귀신 몸(Ghost_Inker 의 Body)과 인커 설정 에셋으로,
+            // 조명·환경광이 없는 방에서 위반 순간과 같은 화면 연출(분위기 최대 + 충격)을 켠 채 렌더한다.
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Ghost/Ghost_Inker.prefab");
+            var settings = AssetDatabase.LoadAssetAtPath<GhostInkerSettings>(
+                "Assets/Settings/Gameplay/GhostPrototypeSettings_Inker.asset");
+            Assert.IsNotNull(prefab);
+            Assert.IsNotNull(settings);
+            Transform bodyTemplate = prefab.transform.Find("Body");
+            Assert.IsNotNull(bodyTemplate, "Ghost_Inker 에 Body 가 있다");
+
+            AmbientMode ambientMode = RenderSettings.ambientMode;
+            Color ambientLight = RenderSettings.ambientLight;
+            float ambientIntensity = RenderSettings.ambientIntensity;
+            Light[] sceneLights = Object.FindObjectsByType<Light>(FindObjectsSortMode.None);
+            foreach (Light light in sceneLights)
+                light.enabled = false;
+            RenderSettings.ambientMode = AmbientMode.Flat;
+            RenderSettings.ambientLight = Color.black;
+            RenderSettings.ambientIntensity = 0f;
+
+            GameObject wall = CreateWall(new Color(0.03f, 0.03f, 0.03f));
+            Camera camera = CreateCamera(new Vector3(0f, 1.6f, -2.2f), postProcessing: true);
+            camera.backgroundColor = Color.black;
+            const float faceHeight = 1.45f;
+            Vector3 position = camera.transform.position + Vector3.forward * settings.JumpScareDistance - Vector3.up * faceHeight;
+
+            InkerPuppetView plain = InkerPuppetView.Create(bodyTemplate.gameObject, "InkerScarePlain");
+            plain.MaxOpacity = 0.95f;
+            plain.Pose(position, 180f, 0f, 0f, 1f);
+            InkerAtmosphere atmosphere = InkerAtmosphere.Create();
+            atmosphere.SetTarget(1f, settings.AtmosphereStrength);
+            float waited = 0f;
+            while (atmosphere.AmbientWeight < 0.99f && waited < 3f)
+            {
+                waited += Time.deltaTime;
+                yield return null;
+            }
+
+            atmosphere.Shock(1f, settings.JumpScareSeconds + 0.4f);
+            yield return null;
+            Texture2D before = Capture(camera);
+            float plainCenter = Luminance(before, Width / 2 - 100, Height / 2 - 100, 200);
+            Dump("inker_scare_dark_before.png", before);
+
+            plain.EnableGlow(settings.JumpScareEmission, settings.JumpScareLightColor, settings.JumpScareLightIntensity,
+                settings.JumpScareLightRange, faceHeight);
+            plain.Pose(position, 180f, 0f, 0f, 1f);
+            atmosphere.Shock(1f, settings.JumpScareSeconds + 0.4f);
+            yield return null;
+            Texture2D after = Capture(camera);
+            float glowCenter = Luminance(after, Width / 2 - 100, Height / 2 - 100, 200);
+            Count(after, out _, out int error);
+            Dump("inker_scare_dark_after.png", after);
+
+            Object.Destroy(plain.gameObject);
+            Object.Destroy(atmosphere.gameObject);
+            Object.Destroy(wall);
+            Object.Destroy(camera.gameObject);
+            Object.Destroy(before);
+            Object.Destroy(after);
+            RenderSettings.ambientMode = ambientMode;
+            RenderSettings.ambientLight = ambientLight;
+            RenderSettings.ambientIntensity = ambientIntensity;
+            foreach (Light light in sceneLights)
+            {
+                if (light != null)
+                    light.enabled = true;
+            }
+
+            Assert.AreEqual(0, error, "셰이더 오류(분홍) 픽셀이 없어야 한다");
+            Assert.Greater(glowCenter, 0.2f, $"불이 꺼진 방·화면 연출 아래에서도 귀신이 밝게 보인다(화면 가운데 밝기 {plainCenter:0.000} → {glowCenter:0.000})");
+            Assert.Greater(glowCenter, plainCenter * 3f + 0.02f, $"발광 전보다 훨씬 밝다({plainCenter:0.000} → {glowCenter:0.000})");
+        }
+
+#endif
 
         // ───────── 도우미 ─────────
 

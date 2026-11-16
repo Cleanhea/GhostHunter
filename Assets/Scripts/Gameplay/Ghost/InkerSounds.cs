@@ -3,7 +3,7 @@ using UnityEngine;
 namespace GhostHunter.Gameplay.Ghost
 {
     /// <summary>
-    /// 인커 현상의 임시 합성음. 원문 첨부 음원(문 삐걱·긁는 소리·글씨 긁기·목 회전)이 저장소에 아직 없어
+    /// 인커 현상의 임시 합성음. 원문 첨부 음원(문 삐걱·긁는 소리·글씨 긁기)이 저장소에 아직 없어
     /// 경고 심장 박동음처럼 코드로 만든다(project/ghost-inker.md §7). 음원이 들어오면 이 클래스를 교체한다.
     /// 각 피어에서 로컬로 재생하며 오디오 서비스·믹서를 거치지 않는다.
     /// </summary>
@@ -15,7 +15,6 @@ namespace GhostHunter.Gameplay.Ghost
         private static AudioClip s_slam;
         private static AudioClip s_scratch;
         private static AudioClip s_write;
-        private static AudioClip s_neck;
         private static AudioClip s_scream;
 
         /// <summary>문이 천천히 열리는 삐걱 소리(2초).</summary>
@@ -32,9 +31,6 @@ namespace GhostHunter.Gameplay.Ghost
         /// (사용자 요청 2026-11-15 "피로 쓰이는 느낌").
         /// </summary>
         public static AudioClip Write => s_write ??= BuildWetSmear("InkerWrite", 2f);
-
-        /// <summary>목이 돌아가는 소리(뼈 꺾이는 딸깍임).</summary>
-        public static AudioClip Neck => s_neck ??= Build("InkerNeck", 1f, NeckSample);
 
         /// <summary>귀신이 화낼 때(갑툭튀) 비명.</summary>
         public static AudioClip Scream => s_scream ??= Build("InkerScream", 0.9f, ScreamSample);
@@ -183,21 +179,6 @@ namespace GhostHunter.Gameplay.Ghost
             // 밝기를 낮출수록 거친 저역 성분이 많다(원문: 피치 낮추면 좋겠다).
             float grit = Noise() * brightness + Mathf.Sin(2f * Mathf.PI * (300f * brightness) * t) * 0.2f;
             return grit * stroke * 0.45f;
-        }
-
-        private static float NeckSample(float t)
-        {
-            float clicks = 0f;
-            for (int i = 0; i < 7; i++)
-            {
-                float at = 0.08f + i * 0.12f + Mathf.Sin(i * 12.9898f) * 0.03f;
-                float dt = t - at;
-                if (dt >= 0f && dt < 0.03f)
-                    clicks += Noise() * Mathf.Exp(-dt * 200f);
-            }
-
-            float groan = Mathf.Sin(2f * Mathf.PI * (70f + t * 20f) * t) * 0.12f * Mathf.Sin(Mathf.PI * Mathf.Clamp01(t));
-            return clicks * 0.8f + groan;
         }
 
         private static float ScreamSample(float t)

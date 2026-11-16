@@ -147,13 +147,16 @@ GhostPrototypeSettings의 전체 토글과 5개 개별 토글은 F2 → 귀신 �
 정신력 0 관전자는 예외). 활동 중 본체 목격 −5는 보이지 않아도 판정이 그대로라 "안 보이는 목격"이 생긴다(G-17 대기).
 경고에는 `GhostAmbientLight`로 표시된 방 조명을
 5초간 점멸시키고, 각 피어의 귀신 `AudioSource`에서 임시 합성 심장 박동음을 반복한다.
-어택에는 방 조명을 빨간색으로 바꾸며 종료 후 원래 색·밝기로 복구한다.
+어택에는 방 조명을 형광등 주광색(2026-11-16 전에는 빨간색)으로 바꾸며 종료 후 원래 색·밝기로 복구한다.
 **어택 천장등 깜빡임(2026-11-14 사용자 요청 "어택 시작하면 천장 라이트 깜빡깜빡, 디폴트는 꺼져 있는 게 맞다").** 그전에는 Stage1 천장등이
 기본 꺼짐(`Light.enabled = false`)이라 경고 점멸·어택 빨간색이 밝기·색만 바꿔 **아무것도 보이지 않았다.** 이제 어택 동안 `GhostAmbientLight.FlickerLevel`
-(1/9초 단계마다 55% 확률로 켜짐, 켜지면 기준 밝기 × 0.5~1, 조명 위치로 정한 씨앗이라 방마다 박자가 다르다)로 빨갛게 깜빡이고, 꺼 둔 천장등도 켠다.
+(1/14초 단계마다 75% 확률로 켜짐, 켜지면 기준 밝기 × 0.85~1, 조명 위치로 정한 씨앗이라 방마다 박자가 다르다)로 고장 난 형광등처럼 끊기고, 꺼 둔 천장등도 켠다.
 어택이 끝나면 평소 켜짐 상태로 돌린다. 켜고 끄기는 **스테이지 조명 컨트롤러가 켜짐 상태를 알려 준 천장등**(`SetBase(밝기, 색, 켜짐)` → `StageManaged`)에만 한다 —
 `Tutorial_Lamp` 처럼 가구 풀(`RandomFurnitureItem`)이 켜고 끄는 조명은 숨은 가구를 밝히지 않도록 밝기만 바꾼다. 천장 패널 발광은 `StageRoomLight` 가 조명 밝기를 따라가므로 같이 깜빡인다.
-설정(`Room lights in attack` 헤더): 켜기/끄기 · 초당 단계 9 · 켜질 확률 0.55 · 밝기 하한 0.5 [TEMP]. 끄면 예전처럼 켜진 등만 빨갛게 바뀐다.
+설정(`Room lights in attack` 헤더): 켜기/끄기 · 색 온도 6500K · 초당 단계 14 · 켜질 확률 0.75 · 밝기 하한 0.85 [TEMP]. 끄면 켜진 등만 형광등 색으로 바뀐다.
+**2026-11-16 사용자 요청 "빨간색 불 깜빡이는 게 어색해, 일반 형광등으로".** 색을 `Color.red` 에서 `GhostPrototypeSettings.AttackRoomLightColor`(`_attackRoomLightTemperature` → `Mathf.CorrelatedColorTemperatureToRGB`)로,
+깜빡임 기본값을 9/s·0.55·0.5 에서 14/s·0.75·0.85 로 바꿨다(어둡게 오래 꺼지는 점멸 대신 대부분 켜져 있다가 짧게 '지직' 끊김). 에셋에 직렬화된 값이 없어 세 귀신 설정 모두 새 기본값을 쓴다.
+귀신 몸의 작은 상태 조명(`_stateLight`, 어택 중 붉은 점광원 반경 3m)은 깜빡이지 않아 그대로 뒀다.
 경고 5초 점멸은 그대로라 Stage1 처럼 천장등이 꺼진 방에서는 여전히 보이지 않는다.
 "원래 값"은
 `GhostAmbientLight.SetBase` 로 바뀔 수 있다 — Stage1 천장등 36개는 `StageLightingController`가
@@ -319,7 +322,7 @@ PlayMode `GhostDinoChargeFlowTests`(실제 컨트롤러·캐릭터 컨트롤러 
 | 구성 | 역할 |
 | --- | --- |
 | `GhostPrototypeController.Inker.cs` | 컨트롤러 `partial`. `ServerTick` 끝의 `ServerTickInker` 가 발동 판정·진행·발견·위반을, `Update` 의 `TickInkerVisual` 이 피어 연출을 맡는다. `ICommandWritingService`(대걸레 닦기)를 구현해 인커가 스폰된 동안 `Services` 에 등록한다 |
-| `GhostInkerSequence` | 현상 진행표 순수 상태 기계(문틈: 열림 2 → 내밀기 1 → 대기 ≤5 → [눈 맞춤] 기울이기 0.5 → 쾅 0.5 → 긁기 2 / 벽: 쓰기 4[2m 접근 시 즉시 완성] → 목 1 → 응시 3 → 소멸 1). 남은 시간을 다음 단계로 넘긴다 |
+| `GhostInkerSequence` | 현상 진행표 순수 상태 기계(문틈: 열림 2 → 내밀기 1 → 대기 ≤5 → [눈 맞춤] 기울이기 0.5 → 쾅 0.5 → 긁기 2 / 벽: 쓰기 4[2m 접근 시 즉시 완성] → 끝 — 목·응시·소멸 단계는 2026-11-16 사용자 요청으로 없앰). 남은 시간을 다음 단계로 넘긴다 |
 | `InkerTurnAroundDetector` | 1초 창 안 어느 표본과 비교해 몸 방향이 135° 이상 달라지면 뒤돈 것. 플레이어마다 하나, 매 서버 틱 복제된 몸 요를 넣는다 |
 | 복제 | `NetworkList<InkerWritingState>`(글씨: 명령·출처·문 앵커 ID·앵커 기준 위치/회전·폭/높이·쓰기 시작 서버 시각/시간·완성·닦기 남은/필요) + `NetworkVariable<InkerSequenceState>`(종류·단계·단계 시작 서버 시각·인형 자리·몸/얼굴 방향·문틈 이동량·문 ID). 단계가 바뀔 때만 쓴다. NetworkList 는 모든 귀신 프리팹이 `Awake` 에서 만든다(인커가 아니면 비어 있음) |
 | 발동 | 활동·자연 진정에서 `InkerCheckInterval`(10초)마다 두 현상 순서를 섞어 확률(20%/30%)·남은 횟수(3/2)를 본다. 후보 플레이어 = `CanChasePlayer` 통과 |
@@ -338,15 +341,22 @@ PlayMode `GhostDinoChargeFlowTests`(실제 컨트롤러·캐릭터 컨트롤러 
 | --- | --- |
 | `InkerStrokeFont` | 손글씨 **획** 글꼴(대문자·`'`·`.`·`!`·`?`, 글자 높이 = 1). 낱말 단위 줄바꿈 `Layout(text, wrapWidth)` 과 서버 크기 계산 `Size(text, letterHeight, maxWidth, …)` — 줄이 최대 폭을 넘으면 줄을 바꾸고 한 낱말도 넓으면 글자를 줄인다(문짝). 서버·피어가 같은 계산을 쓴다 |
 | `InkerBloodMesh` | 획을 손가락으로 긋듯 **진행도만큼** 리본 메시로 그린다: 획 시작에 고인 피(폭 1.4배), 압력 떨림, 끝으로 갈수록 가늘어지고 말라 갈라짐(정점 젖음 값), 날카로운 모서리에서 리본을 끊고 둥근 원판으로 잇기, 글자마다 회전 ±8°·크기·기준선 흔들림, 지금 쓰는 손끝 방울. 쓴 자리에서 **흘러내림**(획의 낮은 점·시작·끝, 글자당 ≤3, 길이는 지연 뒤 지수적으로 늘다 멈춤, 끝에 방울)과 **튄 방울**. 씨앗 = 글씨 Id → 모든 피어가 같은 모양. `IsSettled` 뒤로는 메시를 다시 짓지 않는다 |
-| `InkerWritingView` | `InkerBloodMesh` 를 `MeshRenderer` 로 그린다. 머티리얼은 `GhostInkerSettings.WritingMaterial`(`M_InkerBlood`), 없으면 `Shader.Find`. 닦기 진행을 `_Alpha`(1 → 0.22)·`_Smear`(갈색으로 번짐)로. `TryGetTipWorld` — 현상 2 인형 몸이 손끝을 따라 옆으로 옮겨 간다 |
+| `InkerWritingView` | `InkerBloodMesh` 를 `MeshRenderer` 로 그린다. 머티리얼은 `GhostInkerSettings.WritingMaterial`(`M_InkerBlood`), 없으면 `Shader.Find`. 닦기 진행을 `_Alpha`(1 → 0.22)·`_Smear`(갈색으로 번짐)로. `TryGetTipWorld` — 현상 2 쓰는 소리가 손끝을 따라 옮겨 간다(2026-11-16 전에는 인형 몸이 따라갔다) |
 | 셰이더 `GhostHunter/InkerBlood` | URP 투명·조명 없음(어두운 집에서도 읽혀야 한다). 획 가장자리 들쭉날쭉(노이즈 문턱), 얇게 묻은 자국, 마른 끝 붓결 끊김, 젖은 광택 줄, 원판은 가운데 반짝임. 정점색은 sRGB 로 받아 선형으로 바꾼다 |
-| `InkerAtmosphere` | 각 피어가 로컬로 만드는 **런타임 Volume 2개**(프로필 에셋 없음). 분위기(우선순위 60): 검붉은 비네트(심장 박동처럼 조임)·채도 −60·대비·노출 −0.4·약간 차가운 필터·필름 그레인·색수차. 충격(61): 렌즈 왜곡·강한 색수차·붉은 필터·노출 −0.6 — 지수적으로 사라진다. 세기 = 현상 단계별 값(`InkerStepMood`: 문 열림 0.35→0.6 … 눈 맞춤·쾅·응시 1) × 카메라~현상 거리(6m 이내 최대, 16m 밖 0). 충격: 고개 기울임(눈 맞춤) 0.45·문 쾅 0.85·목 꺾임 0.7·갑툭튀 1(위반자만). 늦게 들어온 피어는 지난 충격을 받지 않는다. Gameplay 어셈블리에 `Unity.RenderPipelines.Core/Universal.Runtime` 참조를 더했다 |
+| `InkerAtmosphere` | 각 피어가 로컬로 만드는 **런타임 Volume 2개**(프로필 에셋 없음). 분위기(우선순위 60): 검붉은 비네트(심장 박동처럼 조임)·채도 −60·대비·노출 −0.4·약간 차가운 필터·필름 그레인·색수차. 충격(61): 렌즈 왜곡·강한 색수차·붉은 필터·노출 −0.6 — 지수적으로 사라진다. 세기 = 현상 단계별 값(`InkerStepMood`: 문 열림 0.35→0.6 … 눈 맞춤·쾅 1, 벽 글씨 0.5→0.8) × 카메라~현상 거리(6m 이내 최대, 16m 밖 0). 충격: 고개 기울임(눈 맞춤) 0.45·문 쾅 0.85·갑툭튀 1(위반자만). 늦게 들어온 피어는 지난 충격을 받지 않는다. Gameplay 어셈블리에 `Unity.RenderPipelines.Core/Universal.Runtime` 참조를 더했다 |
 | 명령 2종 추가 | `DontOpenDoor`("DON'T OPEN THE DOOR")·`DontTouchFurniture`("DON'T TOUCH THE FURNITURE"). `PickWallCommand` 는 켜진 명령 중 고르게. 벽 글씨 한 줄 최대 2.4m(`WritingMaxLineWidth`) — 긴 명령은 2~3줄 |
 | 기타 | `InkerWritingState` 에 `LetterHeight`·`WrapWidth`(피어가 서버와 같은 줄바꿈으로 그린다). 글씨 쓰는 소리를 젖은 문지름(저역 잡음 + 획마다 질척임 + 방울)으로 교체. 목 꺾임은 7단으로 끊기며 돈다. `NetProtocolVersion` 12 → 13 |
+| 현상 2 귀신 모습 없앰 (2026-11-16) | 사용자 "귀신이 글 쓰고 나 보는 기믹 없애고 그냥 허공에 글만 쓰는 느낌으로". `GhostInkerSequence` 벽: `WallWriting` → `Done`(2m 접근이면 즉시 `Done`, `Rushed`). `InkerStep.WallTurnHead/WallStare/WallVanish`(11~13)·`InkerTimings` 세 값·설정 `_wallTurnHeadSeconds/_wallStareSeconds/_wallVanishSeconds`·목 꺾임 합성음·목 꺾임 충격 0.7 을 지웠다. 서버는 `Done` 에서 글씨를 완성(명령 활성화)하고 현상을 끝낸다. `TickInkerPuppet` 은 벽 현상이면 인형을 만들지 않고 쓰는 소리(`_inkerLoopAudio`)를 `InkerWritingView.TryGetTipWorld` 로 옮긴다. `InkerSequenceState.PuppetPosition`(글씨 앞 바닥)은 2m 접근·소리·화면 연출 기준점으로만 쓴다. 직렬화 형식(바이트 enum)은 그대로라 `NetProtocolVersion` 13 유지. 같은 날 먼저 넣은 "쓰는 동안만 몸 숨김"(`WallHideBodyWhileWriting`)은 이것으로 대체해 지웠다 |
+| 갑툭튀 발광 (2026-11-16) | 귀신 몸 재질 `M_Ghost`(URP Lit 반투명, 발광 0.025)를 그대로 쓴 갑툭튀 인형이 어두운 집에서 안 보이던 문제. `InkerPuppetView.EnableGlow` — 렌더러마다 `_EmissionColor` 를 MPB 로 HDR 값(`JumpScareEmission`, 몸 텍스처에 곱함)으로 덮고, 재질에 `_EMISSION` 키워드가 꺼져 있으면 인형 전용 사본(`renderer.materials`, 파괴 시 정리)에서 켠다. 턱 아래 앞쪽(얼굴 높이 −0.45m, 앞 0.35m)에 그림자 없는 점광원(`JumpScareLightColor/Intensity/Range`, 펄린 깜빡임 0.75~1.25배). 거리 `JumpScareDistance`(0.7m) — 카메라 정면 수평 레이(플레이어·귀신 레이어 제외)가 벽·가구에 닿으면 그 0.25m 앞(최소 0.3m)에 띄운다 |
 
 검증: EditMode 새 `InkerBloodWritingTests` 10건(모든 명령 획 존재·줄바꿈·문짝 축소·진행도별 메시·씨앗 일치·흘러내림이 늘다 멈춤·손끝 방향·뷰 쓰기 방향·명령 규칙·명령 고르기·단계별 분위기), PlayMode 새 `GhostInkerFlowTests` 3건(문 열지 마 위반·다른 행동 무시 / 가구 만지지 마 위반 / 보기 전 행동 무시)과
 `InkerPresentationRenderTests` 2건 — 그래픽이 켜진 PlayMode 에서 실제로 렌더해 피 글씨가 분홍 오류 없이 검붉게 보이는지·쓰는 중엔 일부만·닦으면 흐려지는지, 분위기가 모서리를 어둡게·채도를 빼고 충격이 금방 사라지는지 본다
 (`GH_INKER_RENDER_DIR` 를 주면 장면 PNG 저장). **미검증:** 실제 Stage1 조명·벽 재질 위에서의 모습, 다인에서 각 피어 분위기.
+
+**검증 (2026-11-16 — 현상 2 귀신 모습 없앰·갑툭튀 발광·어택 형광등, 검증 복제본).** 전체 EditMode **784/784**, PlayMode `GhostInkerFlowTests`·`InkerPresentationRenderTests`·`GhostAttackRulesFlowTests` **27/27**.
+새 시험: 벽 글씨는 인형 없이 써지고 다 쓰면 바로 끝남(쓰는 소리 시작·정지 포함), 갑툭튀 인형 발광 키워드·HDR 발광·점광원·벽 앞 거리(0.7m / 벽 0.6m 앞이면 0.35m),
+불·환경광을 끈 방에서 화면 연출을 켠 채 실제 `Ghost_Inker` 몸을 렌더 — 발광 전은 검은 화면, 발광 후 얼굴·눈이 또렷하다(화면 가운데 밝기 기준). 어택 천장등은 형광등 색으로 깜빡인다.
+렌더 PNG 저장(`GH_INKER_RENDER_DIR`)을 켜면 PNG 인코딩으로 프레임이 길어져 기존 "충격은 곧바로 세다" 단언이 실패할 수 있다(끄면 통과). **미검증:** 실제 Stage1 화면·다인.
 
 **스포너 귀신 종류 (같은 날).** `GhostPrototypeSpawner._ghostTypes`(`GhostTypeOption`: 이름·프리팹·`InRandomPool`)와 `_randomizeInitialType`. 비어 있으면 `_ghostPrefab` 하나.
 Stage1: 기본(랜덤)·인커(랜덤)·박치기(`Ghost_Tutorial`, Hub 전용). `IGhostDebug` 에 종류 목록·선택·`ReplaceGhostWithSelected`(기존 귀신 despawn → 고른 종류 spawn)·인커 강제 실행/지우기를 더했고 Hub 귀신 섹션에 버튼을 붙였다.

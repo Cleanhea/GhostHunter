@@ -77,7 +77,6 @@ namespace GhostHunter.Gameplay.Ghost
         private AudioSource _inkerLoopAudio;
         private InkerAtmosphere _inkerAtmosphere;
         private InkerStep _inkerAtmosphereStep;
-        private Vector3 _inkerPuppetSmoothed;
 
         private GhostInkerSettings InkerSettings => _settings as GhostInkerSettings;
 
@@ -324,17 +323,17 @@ namespace GhostHunter.Gameplay.Ghost
                 case InkerStep.DoorScratch:
                     _inkerRunWritingId = ServerAddDoorWriting(settings, timings.DoorScratch);
                     break;
-                case InkerStep.WallTurnHead:
-                    ServerCompleteWriting(_inkerRunWritingId);
-                    if (_inkerRun.Rushed)
-                        _inkerLastEvent = "벽 글씨 — 다가와서 즉시 완성";
-                    break;
                 case InkerStep.Done:
+                    // 다 쓴 글씨가 명령 글씨로 활성화된다. 현상 2는 다 쓰면 바로 끝난다(2026-11-16 — 목 돌리기·응시 없음).
+                    ServerCompleteWriting(_inkerRunWritingId);
                     if (_inkerRunBase.Kind == InkerPhenomenon.DoorPeek)
                     {
-                        ServerCompleteWriting(_inkerRunWritingId);
                         if (_inkerDoor != null)
                             _inkerDoor.ServerReleaseGhostHold();
+                    }
+                    else if (_inkerRun.Rushed)
+                    {
+                        _inkerLastEvent = "벽 글씨 — 다가와서 즉시 완성";
                     }
 
                     ServerFinishInkerRun();
@@ -641,16 +640,19 @@ namespace GhostHunter.Gameplay.Ghost
 
             if (bestPlayer == null)
             {
-                reason = "글씨를 쓸 벽이 없습니다(집 안 생존자 정면 2~7m 의 빈 벽, 귀신이 설 자리).";
+                reason = "글씨를 쓸 벽이 없습니다(집 안 생존자 정면 2~7m 의 빈 벽, 그 앞 빈 바닥).";
                 return false;
             }
 
-            ServerBeginWallWriting(settings, bestPlayer, bestPoint, bestNormal, bestFeet);
+            ServerBeginWallWriting(settings, bestPoint, bestNormal, bestFeet);
             return true;
         }
 
-        private void ServerBeginWallWriting(GhostInkerSettings settings, SanityNetworkState target,
-            Vector3 writingCenter, Vector3 normal, Vector3 feet)
+        /// <summary>
+        /// 현상 2 시작 — 글씨만 저절로 써진다(2026-11-16 사용자 요청: 귀신이 쓰고 돌아보는 모습 없이 허공이 쓰는 느낌).
+        /// <paramref name="feet"/>(글씨 앞 바닥)는 2m 접근·쓰는 소리·화면 연출의 기준점이다.
+        /// </summary>
+        private void ServerBeginWallWriting(GhostInkerSettings settings, Vector3 writingCenter, Vector3 normal, Vector3 feet)
         {
             InkerCommand command = settings.PickWallCommand(Random.value);
             string text = InkerCommandText.Of(command);
@@ -667,9 +669,6 @@ namespace GhostHunter.Gameplay.Ghost
             {
                 Kind = InkerPhenomenon.WallWriting,
                 PuppetPosition = feet,
-                BodyYaw = YawTowards(feet, feet - normal),
-                // 귀신의 고개는 발동 대상 플레이어를 향하도록 회전한다(원문 §3-3-1).
-                FaceYaw = YawTowards(feet, target.transform.position),
             };
             _inkerRun.StartWallWriting(timings);
             _inkerLastEvent = $"현상 2 시작 — '{text}'";
@@ -1189,7 +1188,7 @@ namespace GhostHunter.Gameplay.Ghost
 
         /// <summary>
         /// 화면 분위기: 현상이 진행 중이고 내 카메라가 현상 가까이 있을수록 진하게, 단계마다 세기를 바꾸고
-        /// 문이 쾅 닫힘·눈 맞춤(고개 기울임)·목 꺾임 순간에 충격을 준다. 각 피어의 로컬 연출이다.
+        /// 문이 쾅 닫힘·눈 맞춤(고개 기울임) 순간에 충격을 준다. 각 피어의 로컬 연출이다.
         /// </summary>
         private void TickInkerAtmosphere(GhostInkerSettings settings, double now)
         {
@@ -1212,7 +1211,6 @@ namespace GhostHunter.Gameplay.Ghost
                     {
                         InkerStep.DoorTilt => 0.45f,
                         InkerStep.DoorSlam => 0.85f,
-                        InkerStep.WallTurnHead => 0.7f,
                         _ => 0f,
                     };
                     // 늦게 들어온 피어는 지난 충격을 다시 받지 않는다.
@@ -1232,7 +1230,7 @@ namespace GhostHunter.Gameplay.Ghost
             EnsureInkerAtmosphere(settings).SetTarget(target, settings.AtmosphereEnabled ? settings.AtmosphereStrength : 0f);
         }
 
-        /// <summary>단계별 분위기 세기(0~1) — 다가올수록 조여 오고, 귀신과 눈이 마주치는 순간이 가장 진하다.</summary>
+        /// <summary>단계별 분위기 세기(0~1) — 다가올수록 조여 오고, 귀신과 눈이 마주치는 순간이 가장 진하다. 벽 글씨는 써질수록 진해진다.</summary>
         internal static float InkerStepMood(InkerStep step, float elapsed, InkerTimings timings)
         {
             static float Ramp(float from, float to, float t, float duration)
@@ -1248,9 +1246,6 @@ namespace GhostHunter.Gameplay.Ghost
                 InkerStep.DoorSlam => 1f,
                 InkerStep.DoorScratch => Ramp(0.8f, 0.45f, elapsed, timings.DoorScratch),
                 InkerStep.WallWriting => Ramp(0.5f, 0.8f, elapsed, timings.WallWrite),
-                InkerStep.WallTurnHead => 1f,
-                InkerStep.WallStare => 1f,
-                InkerStep.WallVanish => Ramp(0.9f, 0.3f, elapsed, timings.WallVanish),
                 _ => 0f,
             };
         }
@@ -1297,11 +1292,6 @@ namespace GhostHunter.Gameplay.Ghost
                 return;
             }
 
-            if (_inkerPuppet == null)
-                _inkerPuppet = InkerPuppetView.Create(_body, "InkerPuppet");
-            if (_inkerPuppet == null)
-                return;
-
             float t = Mathf.Max(0f, (float)(now - sequence.StepStartTime));
             if (sequence.Step != _inkerPlayedStep)
             {
@@ -1309,9 +1299,25 @@ namespace GhostHunter.Gameplay.Ghost
                 _inkerPlayedStep = sequence.Step;
             }
 
+            if (sequence.Kind == InkerPhenomenon.WallWriting)
+            {
+                // 현상 2는 귀신 모습이 없다 — 허공이 쓰듯 피 글씨만 저절로 써진다(사용자 요청 2026-11-16).
+                // 젖은 문지름 소리는 지금 써지는 손끝을 따라 옮겨 간다.
+                if (_inkerPuppet != null)
+                    _inkerPuppet.Hide();
+                if (_inkerLoopAudio != null && _inkerWritingViews.TryGetValue(sequence.WritingId, out InkerWritingView writing)
+                    && writing != null && writing.TryGetTipWorld(out Vector3 tip))
+                    _inkerLoopAudio.transform.position = tip;
+                return;
+            }
+
+            if (_inkerPuppet == null)
+                _inkerPuppet = InkerPuppetView.Create(_body, "InkerPuppet");
+            if (_inkerPuppet == null)
+                return;
+
             InkerTimings timings = settings.Timings;
             Vector3 lean = sequence.PuppetPosition + sequence.LeanOffset;
-            float headTurn = Mathf.DeltaAngle(sequence.BodyYaw, sequence.FaceYaw);
             switch (sequence.Step)
             {
                 case InkerStep.DoorLean:
@@ -1335,55 +1341,11 @@ namespace GhostHunter.Gameplay.Ghost
                     _inkerPuppet.Pose(lean - sequence.LeanOffset * f, sequence.FaceYaw, 0f, 0f, 1f - f);
                     break;
                 }
-                case InkerStep.WallWriting:
-                {
-                    // 손가락으로 쓰는 동안 몸이 피 글씨의 손끝을 따라 옆으로 옮겨 가고, 고개가 획마다 까딱인다.
-                    Vector3 right = Quaternion.Euler(0f, sequence.BodyYaw, 0f) * Vector3.right;
-                    Vector3 target = sequence.PuppetPosition + right * (Mathf.Sin(t * 2.4f) * 0.08f);
-                    if (_inkerWritingViews.TryGetValue(sequence.WritingId, out InkerWritingView writing)
-                        && writing != null && writing.TryGetTipWorld(out Vector3 tip))
-                    {
-                        float lateral = Mathf.Clamp(Vector3.Dot(tip - sequence.PuppetPosition, right), -1.1f, 1.1f);
-                        target = sequence.PuppetPosition + right * (lateral * 0.8f);
-                    }
-
-                    if (t < 0.05f || (_inkerPuppetSmoothed - sequence.PuppetPosition).sqrMagnitude > 4f)
-                        _inkerPuppetSmoothed = target;
-                    _inkerPuppetSmoothed = Vector3.Lerp(_inkerPuppetSmoothed, target, 1f - Mathf.Exp(-Time.deltaTime * 6f));
-                    _inkerPuppet.Pose(_inkerPuppetSmoothed, sequence.BodyYaw, Mathf.Sin(t * 5.3f) * 6f,
-                        Mathf.Sin(t * 9f) * 4f, 1f);
-                    break;
-                }
-                case InkerStep.WallTurnHead:
-                {
-                    // 목이 한 번에 돌지 않고 뚝뚝 끊기며 꺾인다.
-                    float f = Mathf.SmoothStep(0f, 1f, t / Mathf.Max(0.01f, timings.WallTurnHead));
-                    float stepped = Mathf.Floor(f * 7f) / 7f;
-                    float turn = Mathf.Lerp(stepped, f, 0.35f);
-                    _inkerPuppet.Pose(WallStand(sequence), sequence.BodyYaw, headTurn * turn, Mathf.Sin(t * 31f) * 3f * (1f - f), 1f);
-                    break;
-                }
-                case InkerStep.WallStare:
-                    _inkerPuppet.Pose(WallStand(sequence), sequence.BodyYaw, headTurn, 8f + Mathf.Sin(t * 1.7f) * 2f, 1f);
-                    break;
-                case InkerStep.WallVanish:
-                {
-                    float f = Mathf.Clamp01(t / Mathf.Max(0.01f, timings.WallVanish));
-                    _inkerPuppet.Pose(WallStand(sequence) + Vector3.down * (0.3f * f), sequence.BodyYaw, headTurn,
-                        8f, 1f - f);
-                    break;
-                }
                 default:
                     _inkerPuppet.Hide();
                     break;
             }
         }
-
-        /// <summary>현상 2 — 쓰기를 마친 자리(손끝을 따라 옮겨 간 자리). 그 쓰기를 못 본 피어는 원래 선 자리.</summary>
-        private Vector3 WallStand(in InkerSequenceState sequence)
-            => (_inkerPuppetSmoothed - sequence.PuppetPosition).sqrMagnitude <= 1.5f
-                ? _inkerPuppetSmoothed
-                : sequence.PuppetPosition;
 
         private void PlayInkerStepSound(InkerSequenceState sequence, float elapsed)
         {
@@ -1414,9 +1376,6 @@ namespace GhostHunter.Gameplay.Ghost
                 case InkerStep.WallWriting:
                     _inkerLoopAudio = InkerSounds.PlayAt(InkerSounds.Write, head, 0.8f, loop: true);
                     break;
-                case InkerStep.WallTurnHead:
-                    InkerSounds.PlayAt(InkerSounds.Neck, head, 1f);
-                    break;
             }
         }
 
@@ -1435,24 +1394,42 @@ namespace GhostHunter.Gameplay.Ghost
                 return;
             }
 
+            GhostInkerSettings settings = InkerSettings;
             if (_inkerScarePuppet == null)
             {
                 _inkerScarePuppet = InkerPuppetView.Create(_body, "InkerJumpScare");
                 if (_inkerScarePuppet == null)
                     return;
                 _inkerScarePuppet.MaxOpacity = 0.95f;
+                // 어두운 집에서도 보이게 몸을 스스로 빛나게 하고 얼굴 앞에 점광원을 단다(사용자 요청 2026-11-16).
+                if (settings != null)
+                    _inkerScarePuppet.EnableGlow(settings.JumpScareEmission, settings.JumpScareLightColor,
+                        settings.JumpScareLightIntensity, settings.JumpScareLightRange, InkerFaceHeight);
             }
 
-            // 귀신이 화낸다(갑툭튀, IK-6 임시 해석): 눈앞 0.7m 에 떨리는 얼굴을 띄운다.
+            // 귀신이 화낸다(갑툭튀, IK-6 임시 해석): 눈앞(기본 0.7m)에 떨리는 얼굴을 띄운다. 벽·가구가 더 가까우면 그 앞에 띄워
+            // 몸이 벽에 묻혀 안 보이는 일이 없게 한다.
             Transform view = viewCamera.transform;
             Vector3 flat = view.forward;
             flat.y = 0f;
             if (flat.sqrMagnitude < 1e-4f)
                 flat = view.up;
             flat.Normalize();
+            float distance = InkerJumpScareDistance(view.position, flat, settings != null ? settings.JumpScareDistance : 0.7f);
             Vector3 jitter = Random.insideUnitSphere * 0.03f;
-            Vector3 position = view.position + flat * 0.7f - Vector3.up * InkerFaceHeight + jitter;
+            Vector3 position = view.position + flat * distance - Vector3.up * InkerFaceHeight + jitter;
+            _inkerScarePuppet.SetGlowFlicker(0.75f + 0.5f * Mathf.PerlinNoise(Time.time * 17f, 0.37f));
             _inkerScarePuppet.Pose(position, Quaternion.LookRotation(-flat).eulerAngles.y, 0f, Random.Range(-8f, 8f), 1f);
+        }
+
+        /// <summary>갑툭튀 거리 — 눈앞 <paramref name="preferred"/>m, 그 사이에 벽·가구가 있으면 그 앞(최소 0.3m).</summary>
+        private float InkerJumpScareDistance(Vector3 eye, Vector3 direction, float preferred)
+        {
+            const float clearance = 0.25f;
+            int mask = GameLayers.NonGhostPrototypeRaycastMask & ~(GameLayers.Player >= 0 ? 1 << GameLayers.Player : 0);
+            if (Physics.Raycast(eye, direction, out RaycastHit hit, preferred + clearance, mask, QueryTriggerInteraction.Ignore))
+                return Mathf.Clamp(hit.distance - clearance, 0.3f, preferred);
+            return preferred;
         }
 
         private Camera ResolveInkerLocalCamera()

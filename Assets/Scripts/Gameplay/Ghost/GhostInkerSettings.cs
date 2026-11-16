@@ -37,6 +37,16 @@ namespace GhostHunter.Gameplay.Ghost
         [SerializeField, Range(60f, 180f)] private float _turnAroundDegrees = 135f;
         [Tooltip("[TEMP IK-6] 위반 시 귀신이 화내며(갑툭튀) 눈앞에 보이는 시간(초).")]
         [SerializeField, Min(0.1f)] private float _jumpScareSeconds = 0.8f;
+        [Tooltip("[TEMP IK-6] 갑툭튀 귀신을 띄우는 눈앞 거리(m). 벽·가구가 더 가까우면 그 앞에 띄운다.")]
+        [SerializeField, Range(0.3f, 1.5f)] private float _jumpScareDistance = 0.7f;
+        [Tooltip("갑툭튀 귀신 몸의 발광 색(HDR, 몸 텍스처에 곱한다) — 조명과 무관하게 어두운 집에서도 보이게 한다(사용자 요청 2026-11-16). 검정이면 발광 없음.")]
+        [SerializeField, ColorUsage(false, true)] private Color _jumpScareEmission = new(2.6f, 2.7f, 3f, 1f);
+        [Tooltip("갑툭튀 귀신 얼굴 앞(턱 아래)에 다는 점광원 색.")]
+        [SerializeField] private Color _jumpScareLightColor = new(0.85f, 0.92f, 1f, 1f);
+        [Tooltip("갑툭튀 점광원 세기. 0 이면 달지 않는다.")]
+        [SerializeField, Min(0f)] private float _jumpScareLightIntensity = 1.2f;
+        [Tooltip("갑툭튀 점광원 범위(m).")]
+        [SerializeField, Min(0.1f)] private float _jumpScareLightRange = 3f;
         [Tooltip("[TEMP] 글자(대문자) 높이(m). 폭은 문구 길이에 맞춘다.")]
         [SerializeField, Min(0.1f)] private float _writingHeight = 0.32f;
         [Tooltip("[TEMP] 벽 글씨 한 줄 최대 폭(m) — 넘으면 낱말 단위로 줄을 바꾼다(긴 명령은 두 줄).")]
@@ -89,7 +99,7 @@ namespace GhostHunter.Gameplay.Ghost
         [Tooltip("문 앞에서 'I SEE YOU' 글씨를 발견하면 깎는 개인 정신력. 원문 −3.")]
         [SerializeField, Range(0, 100)] private int _doorWritingSanityDecrease = 3;
 
-        [Header("현상 2 · 귀신이 직접 글씨를 쓰는 모습 (§5)")]
+        [Header("현상 2 · 벽에 저절로 써지는 글씨 (§5 — 2026-11-16 귀신 모습 없앰)")]
         [Tooltip("플레이어가 방(집 안)에 있을 때 판정마다 발생 확률. 원문 30%.")]
         [SerializeField, Range(0f, 1f)] private float _wallWritingChance = 0.3f;
         [Tooltip("[TEMP IK-10] 한 판(귀신 한 마리)에 최대 발생 횟수. 원문 '2번 이상 겪으면 재발동되지 않는다'.")]
@@ -97,17 +107,11 @@ namespace GhostHunter.Gameplay.Ghost
         [Tooltip("플레이어와 글씨 생성 지점 사이 거리(m). 원문 2~7m.")]
         [SerializeField, Min(0f)] private float _wallWritingMinDistance = 2f;
         [SerializeField, Min(0.5f)] private float _wallWritingMaxDistance = 7f;
-        [Tooltip("② 쓰는 시간(초). 원문 4초.")]
+        [Tooltip("쓰는 시간(초). 원문 4초. 다 쓰면 현상이 끝난다 — 원문의 목 돌리기·응시·소멸은 없앴다(사용자 요청 2026-11-16).")]
         [SerializeField, Min(0.1f)] private float _wallWriteSeconds = 4f;
-        [Tooltip("④ 목이 돌아가는 시간(초). 원문 1초.")]
-        [SerializeField, Min(0.05f)] private float _wallTurnHeadSeconds = 1f;
-        [Tooltip("⑤ 응시 시간(초). 원문 3초.")]
-        [SerializeField, Min(0f)] private float _wallStareSeconds = 3f;
-        [Tooltip("[TEMP IK-12] ⑤ 사라지는 시간(초). 원문 '3초간 응시한 뒤 사라진다 / 1초'를 응시 3초 + 소멸 1초로 읽었다.")]
-        [SerializeField, Min(0.05f)] private float _wallVanishSeconds = 1f;
-        [Tooltip("쓰는 중 플레이어가 귀신에게 이 거리(m) 안으로 오면 즉시 완성. 원문 2m.")]
+        [Tooltip("쓰는 중 플레이어가 글씨 자리(글씨 앞 바닥)에 이 거리(m) 안으로 오면 즉시 완성. 원문 2m(원문은 '귀신에게').")]
         [SerializeField, Min(0f)] private float _wallRushDistance = 2f;
-        [Tooltip("[TEMP IK-17] 지정 지점 대신 벽을 찾는다 — 귀신이 벽 앞 이 거리(m)에 선다.")]
+        [Tooltip("[TEMP IK-17] 지정 지점 대신 벽을 찾는다 — 벽 앞 이 거리(m)에 빈 바닥이 있어야 쓰고, 그 자리를 접근·소리·화면 연출 기준점으로 쓴다.")]
         [SerializeField, Min(0.2f)] private float _wallStandOffset = 0.5f;
         [Tooltip("[TEMP] 글씨 중심 높이(m, 바닥 기준).")]
         [SerializeField, Min(0.3f)] private float _wallWritingHeight = 1.45f;
@@ -120,6 +124,11 @@ namespace GhostHunter.Gameplay.Ghost
         public float TurnAroundWindowSeconds => _turnAroundWindowSeconds;
         public float TurnAroundDegrees => _turnAroundDegrees;
         public float JumpScareSeconds => _jumpScareSeconds;
+        public float JumpScareDistance => _jumpScareDistance;
+        public Color JumpScareEmission => _jumpScareEmission;
+        public Color JumpScareLightColor => _jumpScareLightColor;
+        public float JumpScareLightIntensity => _jumpScareLightIntensity;
+        public float JumpScareLightRange => _jumpScareLightRange;
         public float WritingHeight => _writingHeight;
         public float WritingMaxLineWidth => _writingMaxLineWidth;
         public Material WritingMaterial => _writingMaterial;
@@ -159,9 +168,6 @@ namespace GhostHunter.Gameplay.Ghost
             DoorSlam = _doorPeekSlamSeconds,
             DoorScratch = _doorPeekScratchSeconds,
             WallWrite = _wallWriteSeconds,
-            WallTurnHead = _wallTurnHeadSeconds,
-            WallStare = _wallStareSeconds,
-            WallVanish = _wallVanishSeconds,
         };
 
         /// <summary>현상 2가 고를 수 있는 명령 수.</summary>

@@ -212,13 +212,13 @@ namespace GhostHunter.Tests.EditMode
             Assert.AreEqual(0f, GhostPrototypeController.InkerStepMood(InkerStep.None, 0f, timings));
             Assert.AreEqual(0f, GhostPrototypeController.InkerStepMood(InkerStep.Done, 0f, timings));
             Assert.AreEqual(1f, GhostPrototypeController.InkerStepMood(InkerStep.DoorTilt, 0.1f, timings));
-            Assert.AreEqual(1f, GhostPrototypeController.InkerStepMood(InkerStep.WallStare, 1f, timings));
 
             float opening = GhostPrototypeController.InkerStepMood(InkerStep.DoorOpening, 0f, timings);
             float opened = GhostPrototypeController.InkerStepMood(InkerStep.DoorOpening, timings.DoorOpen, timings);
             Assert.Greater(opened, opening, "문이 열릴수록 조여 온다");
-            float vanishing = GhostPrototypeController.InkerStepMood(InkerStep.WallVanish, timings.WallVanish, timings);
-            Assert.Less(vanishing, 0.5f, "사라지면 풀린다");
+            float writing = GhostPrototypeController.InkerStepMood(InkerStep.WallWriting, 0f, timings);
+            float written = GhostPrototypeController.InkerStepMood(InkerStep.WallWriting, timings.WallWrite, timings);
+            Assert.Greater(written, writing, "벽 글씨는 써질수록 진해진다");
         }
 
         // ───────── 도우미 ─────────
