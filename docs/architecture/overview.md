@@ -164,7 +164,7 @@ additive로 얹었다 내린다 → [ADR-0004](decisions/ADR-0004-multi-scene-ad
 | `Bootstrap` | 최초 진입. 전역 서비스 등록 후 Title로 전환 | **빌드 인덱스 0. 언로드하지 않는다** |
 | `Title` | 타이틀/메뉴. 방 생성·방 코드 참가·설정·종료 | Additive (로컬) |
 | `Lobby` | 방 코드 표시·멤버 목록·준비·시작 | Additive (로컬) |
-| `InGameLobby` | 세션을 연 채 스테이지 사이에 머무는 방 — 상점·정산 이력·스테이지 출발([ADR-0018](decisions/ADR-0018-persistent-session-in-game-lobby.md)) | Additive — `NetworkManager.SceneManager` |
+| `InGameLobby` | 세션을 연 채 스테이지 사이에 머무는 방 — 상점·정산 이력·스테이지 출발([ADR-0018](decisions/ADR-0018-persistent-session-in-game-lobby.md)). 로우폴리 카지노 홀(20×14m, 캐셔 카운터 = 상점·출발 단말기) — [stage-system.md §1.1.1](../project/stage-system.md) | Additive — `NetworkManager.SceneManager` |
 | `Tutorial` | 첫 스테이지 원룸(202호)·청소/반출·귀신·튜토리얼 UI·앞마당 드릴카·정신력·종료 단말기. 정산 후 다음 출발은 Stage1([ADR-0021](decisions/ADR-0021-tutorial-first-stage.md)) | Additive — `NetworkManager.SceneManager` |
 | `Stage1` | 스테이지. B안 집·드릴카(모델 프리팹 `Prefabs/Map/DrillCar` — 실내 안전 구역·정신력 UI, 차체 오른쪽 옆 반출 구역 내장 배치)·같은 오른쪽 옆 가구 조립 영역. 귀신·청소·부활 의식 포함([ADR-0019](decisions/ADR-0019-stage1-scene-split.md)). ProtoTypeGame 에서 복사해 만들었다 | Additive — `NetworkManager.SceneManager` |
 | `Stage2` | Stage1 정산 뒤 출발하는 원본 OBJ 맵. 드릴카 실내 4인 스폰·가구 잡기/반출·청소·기본 귀신·부활·상태 HUD. [구성/검증](../project/stage2.md), [ADR-0025](decisions/ADR-0025-stage2-progression.md) | Additive — `NetworkManager.SceneManager` |

@@ -147,7 +147,8 @@ namespace GhostHunter.Tests.PlayMode
             for (int i = 0; i < 10; i++)
                 yield return null;
             Vector3 lobbyPosition = lobbyPlayer.transform.position;
-            Assert.That(Mathf.Abs(lobbyPosition.x) < 5f && Mathf.Abs(lobbyPosition.z) < 4f,
+            // 카지노 홀 20×14m(stage-system.md §1.1.1) 벽 안쪽.
+            Assert.That(Mathf.Abs(lobbyPosition.x) < 9.5f && Mathf.Abs(lobbyPosition.z) < 6.5f,
                 $"인게임 로비 방 안의 스폰 지점에 서야 한다 — {lobbyPosition}");
             Assert.IsTrue(stageFlow.CanControl, "호스트는 스테이지를 출발시킬 수 있다");
             ulong lobbyPlayerId = lobbyPlayer.NetworkObjectId;
